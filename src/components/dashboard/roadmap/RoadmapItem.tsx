@@ -64,6 +64,7 @@ interface RoadmapItemData {
 interface RoadmapItemProps {
   item: RoadmapItemData;
   children: RoadmapItemData[];
+  allChildrenByParent: Record<string, RoadmapItemData[]>;
   onToggleComplete: (id: string, isCompleted: boolean) => void;
   onEdit: (item: RoadmapItemData) => void;
   onDelete: (id: string) => void;
@@ -75,6 +76,7 @@ interface RoadmapItemProps {
 export const RoadmapItem = ({
   item,
   children,
+  allChildrenByParent,
   onToggleComplete,
   onEdit,
   onDelete,
@@ -269,11 +271,13 @@ export const RoadmapItem = ({
                     <RoadmapItem
                       key={child.id}
                       item={child}
-                      children={[]} // We only support 2 levels for now
+                      children={allChildrenByParent[child.id] || []}
+                      allChildrenByParent={allChildrenByParent}
                       onToggleComplete={onToggleComplete}
                       onEdit={onEdit}
                       onDelete={onDelete}
                       onAddChild={onAddChild}
+                      onReorderChildren={onReorderChildren}
                       depth={depth + 1}
                     />
                   ))}
