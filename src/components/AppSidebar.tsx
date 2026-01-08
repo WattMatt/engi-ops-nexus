@@ -126,6 +126,11 @@ const operationalModules = [
     icon: Map,
   },
   {
+    title: "Project Roadmap",
+    url: "/dashboard/roadmap",
+    icon: CheckSquare,
+  },
+  {
     title: "BOQ",
     url: "/dashboard/boqs",
     icon: FileSpreadsheet,

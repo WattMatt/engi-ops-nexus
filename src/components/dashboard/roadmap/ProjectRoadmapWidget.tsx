@@ -42,6 +42,8 @@ interface RoadmapItemData {
   link_url: string | null;
   link_label: string | null;
   comments: string | null;
+  due_date: string | null;
+  priority: string | null;
   created_at: string;
   updated_at: string;
 }
