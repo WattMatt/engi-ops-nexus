@@ -24,9 +24,9 @@ interface ParsedItem {
   quantity: number;
   supply_rate: number;
   install_rate: number;
-  amount: number; // Pre-calculated amount from Excel - use this as contract_amount
+  amount: number;
   is_prime_cost: boolean;
-  item_type: 'standard' | 'prime_cost' | 'percentage';
+  item_type: 'MEASURED' | 'PC' | 'PS'; // Database constraint values
 }
 
 interface ParsedSection {
@@ -237,15 +237,15 @@ export function FinalAccountExcelImport({
       }
       
       // Detect Prime Cost items - common patterns in BOQ
-      const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for|provisional\s*sum/i.test(description) 
+      const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for/i.test(description) 
         || unitRaw.toLowerCase() === 'sum' && /supply|delivery|cost|amount/i.test(description);
       
-      // Detect percentage-based items (P&A - Profit & Attendance)
-      const isPercentage = /profit\s*(and|&)?\s*attendance|p\s*&\s*a|markup|percentage/i.test(description)
-        || (unitRaw === '%' || /^\d+(\.\d+)?%$/.test(unitRaw));
+      // Detect Provisional Sum items
+      const isProvisionalSum = /provisional\s*sum|^ps\s/i.test(description);
       
-      const itemType: 'standard' | 'prime_cost' | 'percentage' = 
-        isPrimeCost ? 'prime_cost' : isPercentage ? 'percentage' : 'standard';
+      // Use database-valid item_type values: 'MEASURED', 'PC', 'PS'
+      const itemType: 'MEASURED' | 'PC' | 'PS' = 
+        isPrimeCost ? 'PC' : isProvisionalSum ? 'PS' : 'MEASURED';
       
       items.push({
         item_code: itemCode,
