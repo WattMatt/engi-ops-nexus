@@ -24,6 +24,7 @@ interface ParsedItem {
   quantity: number;
   supply_rate: number;
   install_rate: number;
+  amount: number; // Pre-calculated amount from Excel - use this as contract_amount
 }
 
 interface ParsedSection {
@@ -143,10 +144,10 @@ export function FinalAccountExcelImport({
       description: /desc|particular|item\s*description|work\s*description/i,
       quantity: /qty|quantity|qnty/i,
       unit: /^unit$|^uom$/i,
-      supplyRate: /supply|material/i,
-      installRate: /install|labour|labor/i,
+      supplyRate: /^supply$/i,
+      installRate: /^install$/i,
       rate: /^rate$|unit\s*rate|total\s*rate/i,
-      amount: /tender\s*price|amount|^total$|value|sum/i,
+      amount: /^amount$|tender\s*price|^total$/i,
       itemCode: /^no$|^item$|^code$|^ref$|item\s*no|item\s*code/i,
     };
 
@@ -189,6 +190,8 @@ export function FinalAccountExcelImport({
       const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
+      // Use the pre-calculated AMOUNT from Excel - this is critical for accuracy
+      const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
       
       if (!itemCode && !description) continue;
       
@@ -202,6 +205,7 @@ export function FinalAccountExcelImport({
         quantity,
         supply_rate: supplyRate,
         install_rate: installRate,
+        amount, // Use Excel's pre-calculated amount
       });
     }
     
@@ -367,11 +371,11 @@ export function FinalAccountExcelImport({
 
           if (sectionError) throw sectionError;
 
-          // Insert items
+          // Insert items - USE the pre-calculated amount from Excel for accuracy
           let sectionTotal = 0;
           const itemsToInsert = section.items.map((item, idx) => {
-            const totalRate = item.supply_rate + item.install_rate;
-            const contractAmount = item.quantity * totalRate;
+            // Use Excel's AMOUNT column directly - this is the actual tender price
+            const contractAmount = item.amount;
             sectionTotal += contractAmount;
             
             return {
@@ -383,7 +387,7 @@ export function FinalAccountExcelImport({
               final_quantity: 0,
               supply_rate: item.supply_rate,
               install_rate: item.install_rate,
-              contract_amount: contractAmount,
+              contract_amount: contractAmount, // Use Excel's pre-calculated amount
               final_amount: 0,
               display_order: idx + 1,
             };
