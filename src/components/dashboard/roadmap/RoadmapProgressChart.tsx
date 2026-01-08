@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { TrendingUp, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
@@ -13,8 +15,9 @@ interface RoadmapItemData {
   due_date?: string | null;
 }
 
-interface RoadmapProgressChartProps {
-  items: RoadmapItemData[];
+export interface RoadmapProgressChartProps {
+  projectId?: string;
+  items?: RoadmapItemData[];
 }
 
 const COLORS = {
@@ -27,7 +30,22 @@ const COLORS = {
   critical: "#dc2626",
 };
 
-export function RoadmapProgressChart({ items }: RoadmapProgressChartProps) {
+export function RoadmapProgressChart({ projectId, items: propItems }: RoadmapProgressChartProps) {
+  const { data: fetchedItems = [] } = useQuery({
+    queryKey: ["roadmap-items-chart", projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from("project_roadmap_items")
+        .select("id, title, phase, parent_id, is_completed, priority, due_date")
+        .eq("project_id", projectId);
+      if (error) throw error;
+      return data as RoadmapItemData[];
+    },
+    enabled: !!projectId && !propItems,
+  });
+
+  const items = propItems || fetchedItems;
   const stats = useMemo(() => {
     const completed = items.filter((i) => i.is_completed).length;
     const total = items.length;

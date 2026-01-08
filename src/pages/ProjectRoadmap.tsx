@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
 import { ProjectRoadmapWidget } from "@/components/dashboard/roadmap/ProjectRoadmapWidget";
+import { ShareRoadmapDialog } from "@/components/dashboard/roadmap/ShareRoadmapDialog";
+import { RoadmapProgressChart } from "@/components/dashboard/roadmap/RoadmapProgressChart";
+import { Button } from "@/components/ui/button";
+import { Share2, BarChart3 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 export default function ProjectRoadmap() {
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
     const storedProjectId = localStorage.getItem("selectedProjectId");
@@ -21,12 +31,36 @@ export default function ProjectRoadmap() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Project Roadmap</h1>
-        <p className="text-muted-foreground">
-          Track project milestones, phases, and deliverables
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Project Roadmap</h1>
+          <p className="text-muted-foreground">
+            Track project milestones, phases, and deliverables
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAnalytics(!showAnalytics)}
+          >
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Analytics
+          </Button>
+          <ShareRoadmapDialog projectId={projectId}>
+            <Button variant="outline" size="sm">
+              <Share2 className="h-4 w-4 mr-2" />
+              Share Roadmap
+            </Button>
+          </ShareRoadmapDialog>
+        </div>
       </div>
+
+      <Collapsible open={showAnalytics} onOpenChange={setShowAnalytics}>
+        <CollapsibleContent>
+          <RoadmapProgressChart projectId={projectId} />
+        </CollapsibleContent>
+      </Collapsible>
       
       <ProjectRoadmapWidget projectId={projectId} />
     </div>
