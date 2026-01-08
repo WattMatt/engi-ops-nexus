@@ -236,6 +236,26 @@ export function FinalAccountExcelImport({
         continue; // Don't add as item
       }
       
+      // Detect section header rows - these have a single letter code (A, B, C, etc.),
+      // a descriptive header, an amount (section total), but no unit, quantity, or rates
+      // These should NOT be imported as items - they're section summaries
+      const isSectionHeader = (
+        /^[A-Z]$/i.test(itemCode) && // Single letter item code
+        amount > 0 && // Has an amount (section total)
+        !unitRaw && // No unit specified
+        quantity === 0 && // No quantity
+        supplyRate === 0 && // No supply rate
+        installRate === 0 // No install rate
+      );
+      
+      if (isSectionHeader) {
+        // This is a section header row with its subtotal - skip it
+        if (amount > boqStatedTotal) {
+          boqStatedTotal = amount;
+        }
+        continue;
+      }
+      
       // Detect Prime Cost items - common patterns in BOQ
       const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for/i.test(description) 
         || unitRaw.toLowerCase() === 'sum' && /supply|delivery|cost|amount/i.test(description);
@@ -298,9 +318,12 @@ export function FinalAccountExcelImport({
       const skipPatterns = [
         /^main\s*summary$/i,
         /^summary$/i,
+        /mall\s*summary$/i,  // Skip "Mall Summary" sheets
+        /bill\s*summary$/i,  // Skip bill summary sheets
         /notes/i,
         /qualifications/i,
         /cover/i,
+        /^index$/i,          // Skip index sheets
       ];
 
       for (const sheetName of workbook.SheetNames) {
