@@ -9249,6 +9249,41 @@ export type Database = {
           },
         ]
       }
+      roadmap_item_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          roadmap_item_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          roadmap_item_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          roadmap_item_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_item_comments_roadmap_item_id_fkey"
+            columns: ["roadmap_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_roadmap_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       running_recovery_settings: {
         Row: {
           created_at: string
