@@ -24,6 +24,8 @@ interface ParsedItem {
   quantity: number;
   supply_rate: number;
   install_rate: number;
+  total_rate: number; // Combined rate from Excel (used when supply/install not separated)
+  total_amount: number; // The actual amount from Excel
 }
 
 interface ParsedSection {
@@ -191,6 +193,8 @@ export function BOQExcelImportDialog({
       const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
+      const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : 0;
+      const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
       
       // Skip empty rows
       if (!itemCode && !description) continue;
@@ -202,7 +206,6 @@ export function BOQExcelImportDialog({
       // Detect section header rows - these have a single letter code (A, B, C, etc.),
       // a descriptive header, an amount but no unit, quantity, or rates
       // These should NOT be imported as items - they're section summaries
-      const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
       const isSectionHeader = (
         /^[A-Z]$/i.test(itemCode) && // Single letter item code
         amount > 0 && // Has an amount (section total)
@@ -217,6 +220,14 @@ export function BOQExcelImportDialog({
         continue;
       }
       
+      // Calculate total amount: prefer Excel amount, otherwise compute from rates
+      let finalTotalAmount = amount;
+      if (finalTotalAmount === 0 && quantity > 0) {
+        // Compute from rates if amount not provided
+        const effectiveRate = (supplyRate + installRate) || totalRate;
+        finalTotalAmount = quantity * effectiveRate;
+      }
+      
       items.push({
         item_code: itemCode,
         description,
@@ -224,6 +235,8 @@ export function BOQExcelImportDialog({
         quantity,
         supply_rate: supplyRate,
         install_rate: installRate,
+        total_rate: totalRate,
+        total_amount: finalTotalAmount,
       });
     }
     
@@ -431,6 +444,8 @@ export function BOQExcelImportDialog({
             quantity: item.quantity,
             supply_rate: item.supply_rate,
             install_rate: item.install_rate,
+            total_rate: item.total_rate || (item.supply_rate + item.install_rate),
+            total_amount: item.total_amount,
             display_order: idx + 1,
           }));
 
