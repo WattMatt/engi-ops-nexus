@@ -8546,12 +8546,14 @@ export type Database = {
           completed_by: string | null
           created_at: string
           description: string | null
+          due_date: string | null
           id: string
           is_completed: boolean | null
           link_label: string | null
           link_url: string | null
           parent_id: string | null
           phase: string | null
+          priority: string | null
           project_id: string
           sort_order: number | null
           title: string
@@ -8563,12 +8565,14 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           description?: string | null
+          due_date?: string | null
           id?: string
           is_completed?: boolean | null
           link_label?: string | null
           link_url?: string | null
           parent_id?: string | null
           phase?: string | null
+          priority?: string | null
           project_id: string
           sort_order?: number | null
           title: string
@@ -8580,12 +8584,14 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           description?: string | null
+          due_date?: string | null
           id?: string
           is_completed?: boolean | null
           link_label?: string | null
           link_url?: string | null
           parent_id?: string | null
           phase?: string | null
+          priority?: string | null
           project_id?: string
           sort_order?: number | null
           title?: string
@@ -9280,6 +9286,62 @@ export type Database = {
             columns: ["roadmap_item_id"]
             isOneToOne: false
             referencedRelation: "project_roadmap_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_share_tokens: {
+        Row: {
+          access_count: number | null
+          access_token: string
+          accessed_at: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          message: string | null
+          permissions: string[]
+          project_id: string
+          reviewer_email: string
+          reviewer_name: string
+          status: string
+        }
+        Insert: {
+          access_count?: number | null
+          access_token?: string
+          accessed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          message?: string | null
+          permissions?: string[]
+          project_id: string
+          reviewer_email: string
+          reviewer_name: string
+          status?: string
+        }
+        Update: {
+          access_count?: number | null
+          access_token?: string
+          accessed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          message?: string | null
+          permissions?: string[]
+          project_id?: string
+          reviewer_email?: string
+          reviewer_name?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_share_tokens_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
