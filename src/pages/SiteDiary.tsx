@@ -21,6 +21,11 @@ import { EnhancedTasksManager } from "@/components/site-diary/task-views/Enhance
 import { MeetingMinutes } from "@/components/site-diary/MeetingMinutes";
 import { TasksGanttChart } from "@/components/site-diary/TasksGanttChart";
 import { RemindersPanel } from "@/components/site-diary/RemindersPanel";
+import { MondayBoardView } from "@/components/site-diary/board/MondayBoardView";
+import { TeamDashboard } from "@/components/site-diary/dashboard/TeamDashboard";
+import { ProjectOverview } from "@/components/site-diary/overview/ProjectOverview";
+import { TaskDetailsModal } from "@/components/site-diary/task-views/TaskDetailsModal";
+import { LayoutDashboard, Users } from "lucide-react";
 
 interface SubEntry {
   id: string;
@@ -729,15 +734,23 @@ const SiteDiary = () => {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="entries" className="w-full">
-        <TabsList>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="flex-wrap h-auto gap-1">
+          <TabsTrigger value="overview">
+            <LayoutDashboard className="h-4 w-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="board">
+            <ListTodo className="h-4 w-4 mr-2" />
+            Board
+          </TabsTrigger>
           <TabsTrigger value="entries">
             <Calendar className="h-4 w-4 mr-2" />
             Diary Entries
           </TabsTrigger>
-          <TabsTrigger value="tasks">
-            <ListTodo className="h-4 w-4 mr-2" />
-            All Tasks
+          <TabsTrigger value="team">
+            <Users className="h-4 w-4 mr-2" />
+            Team
           </TabsTrigger>
           <TabsTrigger value="timeline">
             <GanttChart className="h-4 w-4 mr-2" />
@@ -748,6 +761,18 @@ const SiteDiary = () => {
             Reminders
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview" className="mt-6">
+          {projectId && <ProjectOverview projectId={projectId} />}
+        </TabsContent>
+
+        <TabsContent value="board" className="mt-6">
+          {projectId && <MondayBoardView projectId={projectId} onTaskClick={() => {}} onCreateTask={() => {}} />}
+        </TabsContent>
+
+        <TabsContent value="team" className="mt-6">
+          {projectId && <TeamDashboard projectId={projectId} />}
+        </TabsContent>
 
         <TabsContent value="entries" className="mt-6 space-y-6">
           {/* Statistics Dashboard */}
