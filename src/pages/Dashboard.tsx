@@ -22,6 +22,7 @@ import { BeneficialOccupationWidget } from "@/components/dashboard/BeneficialOcc
 import { BulkServicesWidget } from "@/components/dashboard/BulkServicesWidget";
 import { ProjectCompletionCard } from "@/components/dashboard/ProjectCompletionCard";
 import { IssuesIncompleteWidget } from "@/components/dashboard/IssuesIncompleteWidget";
+import { ProjectRoadmapWidget } from "@/components/dashboard/roadmap/ProjectRoadmapWidget";
 
 
 const Dashboard = () => {
@@ -181,6 +182,13 @@ const Dashboard = () => {
       {projectId && (
         <div>
           <IssuesIncompleteWidget projectId={projectId} />
+        </div>
+      )}
+
+      {/* Project Roadmap Widget */}
+      {projectId && (
+        <div>
+          <ProjectRoadmapWidget projectId={projectId} />
         </div>
       )}
 
