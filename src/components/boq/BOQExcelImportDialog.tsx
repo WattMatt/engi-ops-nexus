@@ -25,7 +25,7 @@ interface ParsedItem {
   supply_rate: number;
   install_rate: number;
   direct_amount: number; // For Sum items that have an amount but no rates
-  item_type: 'quantity' | 'sum' | 'percentage' | 'prime_cost';
+  item_type: 'quantity' | 'prime_cost' | 'percentage' | 'sub_header';
   prime_cost_amount?: number;
 }
 
@@ -286,10 +286,9 @@ export function BOQExcelImportDialog({
       const isPercentage = unitLower === '%' || /^allow\s*profit|add\s*profit|^%$/i.test(description) || 
         (String(row[currentColMap.quantity] || "").includes('%'));
       
-      let itemType: 'quantity' | 'sum' | 'percentage' | 'prime_cost' = 'quantity';
-      if (isPrimeCost || isProvisionalSum) itemType = 'prime_cost';
+      let itemType: 'quantity' | 'prime_cost' | 'percentage' | 'sub_header' = 'quantity';
+      if (isPrimeCost || isProvisionalSum || isSum) itemType = 'prime_cost'; // Sum items map to prime_cost
       else if (isPercentage) itemType = 'percentage';
-      else if (isSum) itemType = 'sum';
       
       // Calculate final values to make generated total_amount work correctly
       // Generated formula: quantity * (supply_rate + install_rate)
@@ -320,7 +319,7 @@ export function BOQExcelImportDialog({
       
       // For Sum/PC items with only amount (no rates), use quantity=1, install_rate=amount
       // This ensures the generated total_amount = 1 * (0 + amount) = amount
-      if ((itemType === 'sum' || itemType === 'prime_cost') && amount > 0 && finalSupplyRate === 0 && finalInstallRate === 0) {
+      if (itemType === 'prime_cost' && amount > 0 && finalSupplyRate === 0 && finalInstallRate === 0) {
         finalQuantity = 1;
         finalInstallRate = amount;
       }
