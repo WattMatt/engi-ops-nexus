@@ -436,7 +436,7 @@ export function BOQExcelImportDialog({
           if (sectionError) throw sectionError;
 
           // Insert items in batches
-          // Note: total_rate is a computed column, so we don't insert it directly
+          // Note: total_rate and total_amount are generated columns, computed from rates/quantity
           const itemsToInsert = section.items.map((item, idx) => ({
             section_id: newSection.id,
             item_code: item.item_code,
@@ -445,7 +445,6 @@ export function BOQExcelImportDialog({
             quantity: item.quantity,
             supply_rate: item.supply_rate,
             install_rate: item.install_rate,
-            total_amount: item.total_amount,
             display_order: idx + 1,
           }));
 
