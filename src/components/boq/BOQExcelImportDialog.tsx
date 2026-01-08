@@ -287,19 +287,23 @@ export function BOQExcelImportDialog({
         (String(row[currentColMap.quantity] || "").includes('%'));
       
       let itemType: 'quantity' | 'prime_cost' | 'percentage' | 'sub_header' = 'quantity';
-      if (isPrimeCost || isProvisionalSum || isSum) itemType = 'prime_cost'; // Sum items map to prime_cost
+      if (isPrimeCost || isProvisionalSum || isSum) itemType = 'prime_cost';
       else if (isPercentage) itemType = 'percentage';
       
-      // Calculate final values to make generated total_amount work correctly
-      // Generated formula: quantity * (supply_rate + install_rate)
+      // Store the actual values from Excel
+      // Since total_amount is now a regular column (not generated), we store the exact Excel amount
       let finalQuantity = quantity;
       let finalSupplyRate = supplyRate;
       let finalInstallRate = installRate;
+      let finalAmount = amount; // This is the key - use actual Excel amount!
       
       // Handle single rate column (when supply/install not split)
       if (singleRate > 0 && supplyRate === 0 && installRate === 0) {
-        // Put single rate into install_rate for calculation
         finalInstallRate = singleRate;
+        // If we have quantity and rate but no amount, calculate it
+        if (finalAmount === 0 && finalQuantity > 0) {
+          finalAmount = finalQuantity * singleRate;
+        }
       }
       
       // For percentage items, parse the percentage value
@@ -307,32 +311,7 @@ export function BOQExcelImportDialog({
         const qtyStr = String(row[currentColMap.quantity] || "");
         const percentMatch = qtyStr.match(/([\d.]+)\s*%?/);
         if (percentMatch) {
-          // Store percentage as quantity (e.g., 10% -> 10), install_rate as multiplier
           finalQuantity = parseFloat(percentMatch[1]) || 0;
-        }
-        // Amount is already in the amount column, set up for generated column
-        if (amount > 0 && finalQuantity === 0) {
-          finalQuantity = 1;
-          finalInstallRate = amount;
-        }
-      }
-      
-      // For Sum/PC items with only amount (no rates), use quantity=1, install_rate=amount
-      // This ensures the generated total_amount = 1 * (0 + amount) = amount
-      if (itemType === 'prime_cost' && amount > 0 && finalSupplyRate === 0 && finalInstallRate === 0) {
-        finalQuantity = 1;
-        finalInstallRate = amount;
-      }
-      
-      // If we have an amount but quantity*rates doesn't match, correct it
-      // This handles cases where Excel has pre-calculated amounts
-      if (amount > 0 && finalQuantity > 0 && (finalSupplyRate > 0 || finalInstallRate > 0)) {
-        const calculatedAmount = finalQuantity * (finalSupplyRate + finalInstallRate);
-        // Allow 1% tolerance for rounding differences
-        if (Math.abs(calculatedAmount - amount) > amount * 0.01 && calculatedAmount !== amount) {
-          // Amount doesn't match calculation - trust the Excel amount
-          // This can happen with rounding or when Excel uses different formulas
-          console.log(`[BOQ Import] Amount mismatch for "${itemCode}": calculated=${calculatedAmount}, excel=${amount}`);
         }
       }
       
@@ -343,9 +322,9 @@ export function BOQExcelImportDialog({
         quantity: finalQuantity,
         supply_rate: finalSupplyRate,
         install_rate: finalInstallRate,
-        direct_amount: amount,
+        direct_amount: finalAmount, // Use the actual Excel amount directly
         item_type: itemType,
-        prime_cost_amount: (isPrimeCost || isProvisionalSum) ? amount : undefined,
+        prime_cost_amount: (isPrimeCost || isProvisionalSum) ? finalAmount : undefined,
       });
     }
     
@@ -507,8 +486,7 @@ export function BOQExcelImportDialog({
           if (sectionError) throw sectionError;
 
           // Insert items in batches
-          // Note: total_rate and total_amount are generated columns based on quantity * (supply_rate + install_rate)
-          // For Sum items, we set quantity=1 and put the amount in install_rate so the generated formula works
+          // Now that total_amount is a regular column, we can store the actual Excel amount directly
           const itemsToInsert = section.items.map((item, idx) => ({
             section_id: newSection.id,
             item_code: item.item_code,
@@ -517,6 +495,7 @@ export function BOQExcelImportDialog({
             quantity: item.quantity,
             supply_rate: item.supply_rate,
             install_rate: item.install_rate,
+            total_amount: item.direct_amount, // Use actual Excel amount - no more calculation mismatches!
             item_type: item.item_type,
             prime_cost_amount: item.prime_cost_amount || null,
             display_order: idx + 1,
