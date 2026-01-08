@@ -151,6 +151,10 @@ export function BOQExcelImportDialog({
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  /**
+   * Parse sheet - EXACTLY like Final Account import
+   * This is the PROVEN working logic - no custom modifications!
+   */
   const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string): { section: ParsedSection; billNumber: number; billName: string } | null => {
     const parsed = parseSectionFromSheetName(sheetName);
     
@@ -204,7 +208,6 @@ export function BOQExcelImportDialog({
       if (testMap.description !== undefined) {
         headerRowIdx = i;
         colMap = testMap;
-        console.log(`[BOQ Import] Found header row at index ${i} in sheet "${sheetName}":`, colMap);
         break;
       }
     }
@@ -214,32 +217,16 @@ export function BOQExcelImportDialog({
     const items: ParsedItem[] = [];
     let boqStatedTotal = 0;
     
-    // Track current column mapping - it can change mid-sheet!
-    let currentColMap = { ...colMap };
-    
     for (let i = headerRowIdx + 1; i < allRows.length; i++) {
       const row = allRows[i];
+      const description = colMap.description !== undefined ? String(row[colMap.description] || "").trim() : "";
       
-      // Check if this row is a new header row (column layout change)
-      // Some sheets switch from SUPPLY/INSTALL to RATE column mid-way
-      const testMap = findColumnsInRow(row);
-      if (testMap.description !== undefined && Object.keys(testMap).length >= 3) {
-        // This looks like a new header row - update column mapping
-        currentColMap = testMap;
-        console.log(`[BOQ Import] Column layout changed at row ${i}:`, currentColMap);
-        continue;
-      }
-      
-      const description = currentColMap.description !== undefined ? String(row[currentColMap.description] || "").trim() : "";
-      
-      let itemCode = currentColMap.itemCode !== undefined ? String(row[currentColMap.itemCode] || "").trim() : "";
-      const unitRaw = currentColMap.unit !== undefined ? String(row[currentColMap.unit] || "").trim() : "";
-      const quantity = currentColMap.quantity !== undefined ? parseNumber(row[currentColMap.quantity]) : 0;
-      const supplyRate = currentColMap.supplyRate !== undefined ? parseNumber(row[currentColMap.supplyRate]) : 0;
-      const installRate = currentColMap.installRate !== undefined ? parseNumber(row[currentColMap.installRate]) : 0;
-      const amount = currentColMap.amount !== undefined ? parseNumber(row[currentColMap.amount]) : 0;
-      // Check for single "rate" column (some sheets use this instead of supply/install split)
-      const singleRate = currentColMap.rate !== undefined ? parseNumber(row[currentColMap.rate]) : 0;
+      let itemCode = colMap.itemCode !== undefined ? String(row[colMap.itemCode] || "").trim() : "";
+      const unitRaw = colMap.unit !== undefined ? String(row[colMap.unit] || "").trim() : "";
+      const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
+      const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
+      const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
+      const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
       
       if (!itemCode && !description) continue;
       
@@ -250,18 +237,17 @@ export function BOQExcelImportDialog({
         if (amount > 0 && amount > boqStatedTotal) {
           boqStatedTotal = amount;
         }
-        continue;
+        continue; // Don't add as item
       }
       
-      // Detect section header rows - skip them
+      // Detect section header rows - skip them (same as Final Account)
       const isSectionHeader = (
         /^[A-Z]$/i.test(itemCode) &&
         amount > 0 &&
         !unitRaw &&
         quantity === 0 &&
         supplyRate === 0 &&
-        installRate === 0 &&
-        singleRate === 0
+        installRate === 0
       );
       
       if (isSectionHeader) {
@@ -271,66 +257,29 @@ export function BOQExcelImportDialog({
         continue;
       }
       
-      // Skip "RATE ONLY" items - they have no quantity and are just for reference rates
-      if (/rate\s*only/i.test(String(row[currentColMap.quantity] || ""))) {
-        continue;
-      }
+      // Detect Prime Cost and Provisional Sum items (same as Final Account)
+      const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for/i.test(description) 
+        || unitRaw.toLowerCase() === 'sum' && /supply|delivery|cost|amount/i.test(description);
+      const isProvisionalSum = /provisional\s*sum|^ps\s/i.test(description);
       
-      // Determine item type based on unit and values
-      const unitLower = unitRaw.toLowerCase();
-      const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for/i.test(description);
-      const isProvisionalSum = /provisional\s*(sum|amount)/i.test(description);
-      const isSum = unitLower === 'sum' || (
-        quantity === 0 && supplyRate === 0 && installRate === 0 && singleRate === 0 && amount > 0
-      );
-      const isPercentage = unitLower === '%' || /^allow\s*profit|add\s*profit|^%$/i.test(description) || 
-        (String(row[currentColMap.quantity] || "").includes('%'));
-      
+      // Map to BOQ item types (quantity is default, prime_cost for PC/PS/Sum items)
       let itemType: 'quantity' | 'prime_cost' | 'percentage' | 'sub_header' = 'quantity';
-      if (isPrimeCost || isProvisionalSum || isSum) itemType = 'prime_cost';
-      else if (isPercentage) itemType = 'percentage';
-      
-      // Store the actual values from Excel
-      // Since total_amount is now a regular column (not generated), we store the exact Excel amount
-      let finalQuantity = quantity;
-      let finalSupplyRate = supplyRate;
-      let finalInstallRate = installRate;
-      let finalAmount = amount; // This is the key - use actual Excel amount!
-      
-      // Handle single rate column (when supply/install not split)
-      if (singleRate > 0 && supplyRate === 0 && installRate === 0) {
-        finalInstallRate = singleRate;
-        // If we have quantity and rate but no amount, calculate it
-        if (finalAmount === 0 && finalQuantity > 0) {
-          finalAmount = finalQuantity * singleRate;
-        }
-      }
-      
-      // For percentage items, parse the percentage value
-      if (itemType === 'percentage') {
-        const qtyStr = String(row[currentColMap.quantity] || "");
-        const percentMatch = qtyStr.match(/([\d.]+)\s*%?/);
-        if (percentMatch) {
-          finalQuantity = parseFloat(percentMatch[1]) || 0;
-        }
-      }
+      if (isPrimeCost || isProvisionalSum) itemType = 'prime_cost';
       
       items.push({
         item_code: itemCode,
         description,
         unit: unitRaw || 'No.',
-        quantity: finalQuantity,
-        supply_rate: finalSupplyRate,
-        install_rate: finalInstallRate,
-        direct_amount: finalAmount, // Use the actual Excel amount directly
+        quantity,
+        supply_rate: supplyRate,
+        install_rate: installRate,
+        direct_amount: amount, // EXACT value from Excel - no modifications!
         item_type: itemType,
-        prime_cost_amount: (isPrimeCost || isProvisionalSum) ? finalAmount : undefined,
+        prime_cost_amount: (isPrimeCost || isProvisionalSum) ? amount : undefined,
       });
     }
     
     if (items.length === 0) return null;
-    
-    console.log(`[BOQ Import] Sheet "${sheetName}" -> Bill ${parsed.billNumber} "${parsed.billName}", Section "${parsed.sectionCode}: ${parsed.sectionName}" with ${items.length} items`);
     
     return { 
       section: {
