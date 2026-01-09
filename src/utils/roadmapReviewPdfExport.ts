@@ -8,12 +8,26 @@ import {
   getDueDateStatus 
 } from "./roadmapReviewCalculations";
 import { CHART_QUALITY_CANVAS_OPTIONS, addHighQualityImage } from "./pdfQualitySettings";
-
-interface PDFGenerationOptions {
-  includeCharts?: boolean;
-  includeAnalytics?: boolean;
-  includeDetailedProjects?: boolean;
-}
+import { 
+  PDF_BRAND_COLORS, 
+  PDF_LAYOUT, 
+  PDF_TYPOGRAPHY,
+  RoadmapPDFExportOptions,
+  getContentDimensions,
+  getHealthColor,
+  getRiskColor
+} from "./roadmapReviewPdfStyles";
+import { 
+  addPageHeader, 
+  addAllPageFooters, 
+  drawCard, 
+  drawBadge,
+  checkPageBreak,
+  drawProgressBar as drawEnhancedProgressBar 
+} from "./roadmapReviewPdfSections/pageDecorations";
+import { generateTableOfContents, buildTocEntries } from "./roadmapReviewPdfSections/tableOfContents";
+import { drawCompactMeetingNotes } from "./roadmapReviewPdfSections/meetingNotes";
+import { generateSummaryMinutesPage } from "./roadmapReviewPdfSections/summaryMinutes";
 
 /**
  * Captures a chart element by ID and returns as canvas
@@ -53,7 +67,7 @@ export function drawHealthGauge(
   doc.circle(centerX, centerY, radius, "F");
   
   // Colored arc based on score
-  const color = score >= 80 ? [34, 197, 94] : score >= 60 ? [234, 179, 8] : score >= 40 ? [249, 115, 22] : [239, 68, 68];
+  const color = getHealthColor(score);
   doc.setFillColor(color[0], color[1], color[2]);
   
   // Draw score circle
@@ -155,27 +169,21 @@ export function drawMetricCard(
   height: number,
   color?: number[]
 ): void {
-  // Card background
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(x, y, width, height, 3, 3, "F");
-  
-  // Border
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(x, y, width, height, 3, 3, "S");
+  // Card background with shadow
+  drawCard(doc, x, y, width, height, { shadow: true });
   
   // Value
   if (color) {
     doc.setTextColor(color[0], color[1], color[2]);
   } else {
-    doc.setTextColor(30, 58, 138);
+    doc.setTextColor(...PDF_BRAND_COLORS.primary);
   }
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text(String(value), x + width / 2, y + height / 2, { align: "center" });
   
   // Title
-  doc.setTextColor(100, 100, 100);
+  doc.setTextColor(...PDF_BRAND_COLORS.gray);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.text(title, x + width / 2, y + height - 4, { align: "center" });
@@ -198,7 +206,7 @@ export function addChartToPDF(
   if (title) {
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(30, 58, 138);
+    doc.setTextColor(...PDF_BRAND_COLORS.primary);
     doc.text(title, x, currentY);
     currentY += 6;
   }
@@ -214,7 +222,7 @@ export function addChartToPDF(
   }
   
   // Add border
-  doc.setDrawColor(226, 232, 240);
+  doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
   doc.setLineWidth(0.3);
   doc.roundedRect(x - 1, currentY - 1, chartWidth + 2, chartHeight + 2, 2, 2, "S");
   
@@ -225,22 +233,41 @@ export function addChartToPDF(
 }
 
 /**
- * Generates the cover page
+ * Generates the enhanced branded cover page
  */
 function generateCoverPage(
   doc: jsPDF,
-  metrics: PortfolioMetrics
+  metrics: PortfolioMetrics,
+  companyLogo?: string | null,
+  companyName?: string
 ): void {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
   // Header background
-  doc.setFillColor(30, 58, 138);
+  doc.setFillColor(...PDF_BRAND_COLORS.primary);
   doc.rect(0, 0, pageWidth, pageHeight * 0.42, "F");
   
   // Accent stripe
-  doc.setFillColor(59, 130, 246);
+  doc.setFillColor(...PDF_BRAND_COLORS.primaryLight);
   doc.rect(0, pageHeight * 0.40, pageWidth, 8, "F");
+  
+  // Company logo or name at top
+  if (companyLogo) {
+    try {
+      doc.addImage(companyLogo, 'PNG', 15, 15, 40, 15);
+    } catch {
+      doc.setTextColor(...PDF_BRAND_COLORS.white);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(companyName || 'Roadmap Review', 15, 25);
+    }
+  } else if (companyName) {
+    doc.setTextColor(...PDF_BRAND_COLORS.white);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(companyName, 15, 25);
+  }
   
   // Title
   doc.setTextColor(255, 255, 255);
@@ -255,7 +282,7 @@ function generateCoverPage(
   doc.text("Portfolio Progress & Team Overview", pageWidth / 2, 90, { align: "center" });
   
   // Portfolio Health Section
-  doc.setTextColor(30, 58, 138);
+  doc.setTextColor(...PDF_BRAND_COLORS.primary);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("PORTFOLIO HEALTH SCORE", pageWidth / 2, pageHeight * 0.50, { align: "center" });
@@ -271,10 +298,10 @@ function generateCoverPage(
   const startX = (pageWidth - (boxWidth * 4 + boxSpacing * 3)) / 2;
   
   const statsBoxes = [
-    { value: metrics.totalProjects, label: "Projects", color: [30, 58, 138] },
-    { value: `${metrics.averageProgress}%`, label: "Avg Progress", color: metrics.averageProgress >= 60 ? [34, 197, 94] : [234, 179, 8] },
-    { value: metrics.projectsAtRisk + metrics.projectsCritical, label: "At Risk", color: [239, 68, 68] },
-    { value: metrics.totalOverdueItems, label: "Overdue", color: metrics.totalOverdueItems > 5 ? [239, 68, 68] : [34, 197, 94] },
+    { value: metrics.totalProjects, label: "Projects", color: PDF_BRAND_COLORS.primary },
+    { value: `${metrics.averageProgress}%`, label: "Avg Progress", color: metrics.averageProgress >= 60 ? PDF_BRAND_COLORS.success : PDF_BRAND_COLORS.warning },
+    { value: metrics.projectsAtRisk + metrics.projectsCritical, label: "At Risk", color: PDF_BRAND_COLORS.danger },
+    { value: metrics.totalOverdueItems, label: "Overdue", color: metrics.totalOverdueItems > 5 ? PDF_BRAND_COLORS.danger : PDF_BRAND_COLORS.success },
   ];
   
   statsBoxes.forEach((box, idx) => {
@@ -283,15 +310,15 @@ function generateCoverPage(
   });
   
   // Generation date
-  doc.setTextColor(100, 100, 100);
+  doc.setTextColor(...PDF_BRAND_COLORS.gray);
   doc.setFontSize(10);
   doc.text(`Generated: ${format(new Date(), "PPPP 'at' p")}`, pageWidth / 2, pageHeight - 32, { align: "center" });
   
   // Footer
-  doc.setDrawColor(200, 200, 200);
+  doc.setDrawColor(...PDF_BRAND_COLORS.gray);
   doc.line(40, pageHeight - 20, pageWidth - 40, pageHeight - 20);
   doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
+  doc.setTextColor(...PDF_BRAND_COLORS.gray);
   doc.text("Confidential - For Internal Use Only", pageWidth / 2, pageHeight - 12, { align: "center" });
 }
 
@@ -300,21 +327,26 @@ function generateCoverPage(
  */
 function generateExecutiveSummaryPage(
   doc: jsPDF,
-  metrics: PortfolioMetrics
+  metrics: PortfolioMetrics,
+  companyLogo?: string | null,
+  companyName?: string
 ): void {
   doc.addPage();
+  addPageHeader(doc, 'Executive Summary', companyLogo, companyName);
+  
+  const { startX, startY } = getContentDimensions();
   const pageWidth = doc.internal.pageSize.getWidth();
-  let yPos = 20;
+  let yPos = startY + 5;
   
   // Header
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 58, 138);
-  doc.text("Executive Summary", 14, yPos);
+  doc.setTextColor(...PDF_BRAND_COLORS.primary);
+  doc.text("Executive Summary", startX, yPos);
   
-  doc.setDrawColor(30, 58, 138);
+  doc.setDrawColor(...PDF_BRAND_COLORS.primary);
   doc.setLineWidth(0.5);
-  doc.line(14, yPos + 3, 80, yPos + 3);
+  doc.line(startX, yPos + 3, 80, yPos + 3);
   yPos += 18;
   
   // Summary metrics table
@@ -332,10 +364,10 @@ function generateExecutiveSummaryPage(
       ["Team Members", String(metrics.totalTeamMembers), "-"],
     ],
     theme: "striped",
-    headStyles: { fillColor: [30, 58, 138], fontSize: 10, fontStyle: 'bold' },
+    headStyles: { fillColor: PDF_BRAND_COLORS.primary as any, fontSize: 10, fontStyle: 'bold' },
     bodyStyles: { fontSize: 9 },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    margin: { left: 14, right: 14 },
+    alternateRowStyles: { fillColor: PDF_BRAND_COLORS.lightGray as any },
+    margin: { left: startX, right: PDF_LAYOUT.margins.right },
     columnStyles: {
       0: { cellWidth: 50 },
       1: { cellWidth: 40, halign: 'center' },
@@ -349,8 +381,8 @@ function generateExecutiveSummaryPage(
   if (metrics.priorityBreakdown.length > 0) {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(30, 58, 138);
-    doc.text("Priority Distribution", 14, yPos);
+    doc.setTextColor(...PDF_BRAND_COLORS.primary);
+    doc.text("Priority Distribution", startX, yPos);
     yPos += 8;
     
     autoTable(doc, {
@@ -362,9 +394,9 @@ function generateExecutiveSummaryPage(
         return [p.priority.charAt(0).toUpperCase() + p.priority.slice(1), String(p.count), `${pct}%`];
       }),
       theme: "striped",
-      headStyles: { fillColor: [30, 58, 138], fontSize: 9 },
+      headStyles: { fillColor: PDF_BRAND_COLORS.primary as any, fontSize: 9 },
       bodyStyles: { fontSize: 9 },
-      margin: { left: 14, right: 14 },
+      margin: { left: startX, right: PDF_LAYOUT.margins.right },
       tableWidth: 120,
     });
   }
@@ -375,44 +407,47 @@ function generateExecutiveSummaryPage(
  */
 async function generateAnalyticsPage(
   doc: jsPDF,
-  chartCanvases: Map<string, HTMLCanvasElement>
+  chartCanvases: Map<string, HTMLCanvasElement>,
+  companyLogo?: string | null,
+  companyName?: string
 ): Promise<void> {
   doc.addPage();
-  const pageWidth = doc.internal.pageSize.getWidth();
+  addPageHeader(doc, 'Portfolio Analytics', companyLogo, companyName);
+  
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 14;
-  let yPos = 20;
+  const { startX, startY, width: contentWidth } = getContentDimensions();
+  let yPos = startY + 5;
   
   // Header
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 58, 138);
-  doc.text("Portfolio Analytics", margin, yPos);
+  doc.setTextColor(...PDF_BRAND_COLORS.primary);
+  doc.text("Portfolio Analytics", startX, yPos);
   
-  doc.setDrawColor(30, 58, 138);
+  doc.setDrawColor(...PDF_BRAND_COLORS.primary);
   doc.setLineWidth(0.5);
-  doc.line(margin, yPos + 3, 75, yPos + 3);
+  doc.line(startX, yPos + 3, 75, yPos + 3);
   yPos += 15;
   
-  const contentWidth = pageWidth - 2 * margin;
   const maxChartHeight = 70;
   
   // Project Comparison Chart
   const comparisonChart = chartCanvases.get('project-comparison-chart');
   if (comparisonChart) {
-    yPos = addChartToPDF(doc, comparisonChart, margin, yPos, contentWidth, maxChartHeight, "Project Progress Comparison");
+    yPos = addChartToPDF(doc, comparisonChart, startX, yPos, contentWidth, maxChartHeight, "Project Progress Comparison");
   }
   
   // Check page break
   if (yPos > pageHeight - 100) {
     doc.addPage();
-    yPos = 20;
+    addPageHeader(doc, 'Portfolio Analytics', companyLogo, companyName);
+    yPos = startY + 5;
   }
   
   // Priority Heat Map
   const heatMapChart = chartCanvases.get('priority-heat-map');
   if (heatMapChart) {
-    yPos = addChartToPDF(doc, heatMapChart, margin, yPos, contentWidth * 0.48, maxChartHeight, "Priority Heat Map");
+    yPos = addChartToPDF(doc, heatMapChart, startX, yPos, contentWidth * 0.48, maxChartHeight, "Priority Heat Map");
   }
   
   // Team Workload Chart (side by side if space)
@@ -420,117 +455,116 @@ async function generateAnalyticsPage(
   if (workloadChart) {
     if (yPos > pageHeight - 100) {
       doc.addPage();
-      yPos = 20;
+      addPageHeader(doc, 'Portfolio Analytics', companyLogo, companyName);
+      yPos = startY + 5;
     }
-    yPos = addChartToPDF(doc, workloadChart, margin, yPos, contentWidth, maxChartHeight, "Team Workload Distribution");
+    yPos = addChartToPDF(doc, workloadChart, startX, yPos, contentWidth, maxChartHeight, "Team Workload Distribution");
   }
 }
 
 /**
- * Generates individual project detail pages
+ * Generates individual project detail pages with meeting notes
  */
 function generateProjectPages(
   doc: jsPDF,
-  projects: EnhancedProjectSummary[]
+  projects: EnhancedProjectSummary[],
+  includeMeetingNotes: boolean = true,
+  companyLogo?: string | null,
+  companyName?: string
 ): void {
   doc.addPage();
+  addPageHeader(doc, 'Project Details', companyLogo, companyName);
+  
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 14;
-  let yPos = 20;
+  const { startX, startY, width: contentWidth } = getContentDimensions();
+  let yPos = startY + 5;
   
   // Section header
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 58, 138);
-  doc.text("Project Details", margin, yPos);
+  doc.setTextColor(...PDF_BRAND_COLORS.primary);
+  doc.text("Project Details", startX, yPos);
   
-  doc.setDrawColor(30, 58, 138);
+  doc.setDrawColor(...PDF_BRAND_COLORS.primary);
   doc.setLineWidth(0.5);
-  doc.line(margin, yPos + 3, 65, yPos + 3);
+  doc.line(startX, yPos + 3, 65, yPos + 3);
   yPos += 15;
   
   for (const project of projects) {
+    // Calculate required space (project details + optional meeting notes)
+    const requiredSpace = includeMeetingNotes ? 150 : 80;
+    
     // Check if we need a new page
-    if (yPos > pageHeight - 80) {
-      doc.addPage();
-      yPos = 20;
-    }
+    yPos = checkPageBreak(doc, yPos, requiredSpace, 'Project Details', companyLogo, companyName);
     
     // Project header card
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(margin, yPos - 4, pageWidth - 2 * margin, 18, 3, 3, "F");
+    drawCard(doc, startX, yPos - 4, contentWidth, 18, { shadow: true });
     
     // Project name
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(30, 58, 138);
-    doc.text(project.projectName, margin + 4, yPos + 4);
+    doc.setTextColor(...PDF_BRAND_COLORS.primary);
+    doc.text(project.projectName, startX + 4, yPos + 4);
     
     // Health badge
-    const badgeColor = project.healthScore >= 70 ? [34, 197, 94] : project.healthScore >= 50 ? [234, 179, 8] : [239, 68, 68];
-    doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
-    doc.roundedRect(pageWidth - margin - 22, yPos - 2, 18, 10, 2, 2, "F");
+    const healthColor = getHealthColor(project.healthScore);
+    doc.setFillColor(healthColor[0], healthColor[1], healthColor[2]);
+    doc.roundedRect(pageWidth - PDF_LAYOUT.margins.right - 22, yPos - 2, 18, 10, 2, 2, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.text(`${project.healthScore}%`, pageWidth - margin - 13, yPos + 4, { align: "center" });
+    doc.text(`${project.healthScore}%`, pageWidth - PDF_LAYOUT.margins.right - 13, yPos + 4, { align: "center" });
     
     // Risk badge
-    const riskColors: Record<string, number[]> = {
-      low: [34, 197, 94],
-      medium: [234, 179, 8],
-      high: [249, 115, 22],
-      critical: [239, 68, 68],
-    };
-    const riskColor = riskColors[project.riskLevel] || [156, 163, 175];
+    const riskColor = getRiskColor(project.riskLevel);
     doc.setFillColor(riskColor[0], riskColor[1], riskColor[2]);
-    doc.roundedRect(pageWidth - margin - 45, yPos - 2, 20, 10, 2, 2, "F");
+    doc.roundedRect(pageWidth - PDF_LAYOUT.margins.right - 45, yPos - 2, 20, 10, 2, 2, "F");
     doc.setTextColor(255, 255, 255);
-    doc.text(project.riskLevel.toUpperCase(), pageWidth - margin - 35, yPos + 4, { align: "center" });
+    doc.text(project.riskLevel.toUpperCase(), pageWidth - PDF_LAYOUT.margins.right - 35, yPos + 4, { align: "center" });
     
     yPos += 14;
     
     // Location
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 100, 100);
+    doc.setTextColor(...PDF_BRAND_COLORS.gray);
     const location = [project.city, project.province].filter(Boolean).join(", ") || "No location specified";
-    doc.text(`Location: ${location}`, margin + 4, yPos);
+    doc.text(`Location: ${location}`, startX + 4, yPos);
     yPos += 6;
     
     // Progress bar
-    doc.setTextColor(60, 60, 60);
+    doc.setTextColor(...PDF_BRAND_COLORS.darkGray);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.text("Progress:", margin + 4, yPos);
-    drawProgressBar(doc, project.progress, margin + 28, yPos - 3, 60, 5);
-    doc.text(`(${project.completedItems}/${project.totalItems} items)`, margin + 100, yPos);
+    doc.text("Progress:", startX + 4, yPos);
+    drawProgressBar(doc, project.progress, startX + 28, yPos - 3, 60, 5);
+    doc.text(`(${project.completedItems}/${project.totalItems} items)`, startX + 100, yPos);
     yPos += 8;
     
     // Metrics row
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     const metricsText = `Velocity: ${project.velocityLast7Days}/week | Overdue: ${project.overdueCount} | Due Soon: ${project.dueSoonCount}`;
-    doc.text(metricsText, margin + 4, yPos);
+    doc.text(metricsText, startX + 4, yPos);
     yPos += 6;
     
     // Priority distribution bar
     if (project.priorityDistribution.length > 0) {
       doc.setFont("helvetica", "bold");
-      doc.text("Priority:", margin + 4, yPos);
-      drawPriorityBar(doc, project.priorityDistribution, margin + 28, yPos - 3, 60, 4);
+      doc.text("Priority:", startX + 4, yPos);
+      drawPriorityBar(doc, project.priorityDistribution, startX + 28, yPos - 3, 60, 4);
       yPos += 6;
     }
     
     // Team members (compact)
     if (project.teamMembers.length > 0) {
       doc.setFont("helvetica", "bold");
-      doc.text("Team:", margin + 4, yPos);
+      doc.text("Team:", startX + 4, yPos);
       doc.setFont("helvetica", "normal");
       const teamText = project.teamMembers.slice(0, 4).map(m => m.name).join(", ");
       const suffix = project.teamMembers.length > 4 ? ` +${project.teamMembers.length - 4} more` : "";
-      doc.text(teamText + suffix, margin + 20, yPos);
+      doc.text(teamText + suffix, startX + 20, yPos);
       yPos += 6;
     }
     
@@ -548,38 +582,26 @@ function generateProjectPages(
             getDueDateStatus(item.dueDate) === "soon" ? "Due Soon" : "On Track",
         ]),
         theme: "plain",
-        headStyles: { fillColor: [241, 245, 249], textColor: [30, 58, 138], fontSize: 7, fontStyle: 'bold' },
+        headStyles: { fillColor: PDF_BRAND_COLORS.lightGray as any, textColor: PDF_BRAND_COLORS.primary as any, fontSize: 7, fontStyle: 'bold' },
         bodyStyles: { fontSize: 7 },
-        margin: { left: margin + 2, right: margin },
-        tableWidth: pageWidth - 2 * margin - 4,
+        margin: { left: startX + 2, right: PDF_LAYOUT.margins.right },
+        tableWidth: contentWidth - 4,
         styles: { cellPadding: 1.5 },
       });
       yPos = (doc as any).lastAutoTable.finalY + 4;
     }
     
+    // Add meeting notes section for this project
+    if (includeMeetingNotes) {
+      yPos += 4;
+      yPos = drawCompactMeetingNotes(doc, startX, yPos, contentWidth);
+    }
+    
     // Separator
-    doc.setDrawColor(226, 232, 240);
+    doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
     doc.setLineWidth(0.3);
-    doc.line(margin, yPos, pageWidth - margin, yPos);
+    doc.line(startX, yPos, pageWidth - PDF_LAYOUT.margins.right, yPos);
     yPos += 8;
-  }
-}
-
-/**
- * Adds page numbers to all pages
- */
-function addPageNumbers(doc: jsPDF): void {
-  const totalPages = doc.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(128, 128, 128);
-    doc.text(
-      `Page ${i} of ${totalPages}`,
-      doc.internal.pageSize.getWidth() / 2,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: "center" }
-    );
   }
 }
 
@@ -589,13 +611,22 @@ function addPageNumbers(doc: jsPDF): void {
 export async function generateEnhancedRoadmapPDF(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
-  options: PDFGenerationOptions = {}
+  options: Partial<RoadmapPDFExportOptions> = {}
 ): Promise<jsPDF> {
-  const {
-    includeCharts = true,
-    includeAnalytics = true,
-    includeDetailedProjects = true,
-  } = options;
+  // Merge with defaults
+  const config: RoadmapPDFExportOptions = {
+    includeCharts: options.includeCharts ?? true,
+    includeAnalytics: options.includeAnalytics ?? true,
+    includeDetailedProjects: options.includeDetailedProjects ?? true,
+    includeMeetingNotes: options.includeMeetingNotes ?? true,
+    includeSummaryMinutes: options.includeSummaryMinutes ?? true,
+    includeTableOfContents: options.includeTableOfContents ?? true,
+    includeCoverPage: options.includeCoverPage ?? true,
+    companyLogo: options.companyLogo ?? null,
+    companyName: options.companyName ?? 'Roadmap Review',
+    confidentialNotice: options.confidentialNotice ?? true,
+    reportType: options.reportType ?? 'meeting-review',
+  };
   
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -604,14 +635,30 @@ export async function generateEnhancedRoadmapPDF(
     compress: true,
   });
   
+  const generationDate = format(new Date(), "PPPP");
+  
   // 1. Cover Page
-  generateCoverPage(doc, metrics);
+  if (config.includeCoverPage) {
+    generateCoverPage(doc, metrics, config.companyLogo, config.companyName);
+  }
   
-  // 2. Executive Summary
-  generateExecutiveSummaryPage(doc, metrics);
+  // 2. Table of Contents (for meeting-review type)
+  if (config.includeTableOfContents && config.reportType === 'meeting-review') {
+    const tocEntries = buildTocEntries(projects.length, {
+      includeCoverPage: config.includeCoverPage,
+      includeTableOfContents: true,
+      includeAnalytics: config.includeAnalytics,
+      includeDetailedProjects: config.includeDetailedProjects,
+      includeSummaryMinutes: config.includeSummaryMinutes,
+    });
+    generateTableOfContents(doc, tocEntries, config.companyLogo, config.companyName);
+  }
   
-  // 3. Analytics with Charts (if requested)
-  if (includeAnalytics && includeCharts) {
+  // 3. Executive Summary
+  generateExecutiveSummaryPage(doc, metrics, config.companyLogo, config.companyName);
+  
+  // 4. Analytics with Charts (if requested)
+  if (config.includeAnalytics && config.includeCharts) {
     const chartIds = ['project-comparison-chart', 'priority-heat-map', 'team-workload-chart'];
     const chartCanvases = new Map<string, HTMLCanvasElement>();
     
@@ -624,17 +671,33 @@ export async function generateEnhancedRoadmapPDF(
     }
     
     if (chartCanvases.size > 0) {
-      await generateAnalyticsPage(doc, chartCanvases);
+      await generateAnalyticsPage(doc, chartCanvases, config.companyLogo, config.companyName);
     }
   }
   
-  // 4. Project Details
-  if (includeDetailedProjects && projects.length > 0) {
-    generateProjectPages(doc, projects);
+  // 5. Project Details with Meeting Notes
+  if (config.includeDetailedProjects && projects.length > 0) {
+    generateProjectPages(
+      doc, 
+      projects, 
+      config.includeMeetingNotes && config.reportType === 'meeting-review',
+      config.companyLogo,
+      config.companyName
+    );
   }
   
-  // 5. Add page numbers
-  addPageNumbers(doc);
+  // 6. Summary Minutes Page (for meeting-review type)
+  if (config.includeSummaryMinutes && config.reportType === 'meeting-review') {
+    generateSummaryMinutesPage(doc, {
+      companyLogo: config.companyLogo,
+      companyName: config.companyName,
+      generationDate,
+      projectCount: projects.length,
+    });
+  }
+  
+  // 7. Add branded footers to all pages
+  addAllPageFooters(doc, generationDate, 1, config.confidentialNotice);
   
   return doc;
 }
