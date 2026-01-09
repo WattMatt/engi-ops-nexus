@@ -476,8 +476,10 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         const phaseNodes = groupedByPhase[phase];
         const phaseColor = getPhaseColorLocal(phase);
         
-        // Phase header
-        yPos = checkSafePageBreak(doc, yPos, 25);
+        // Phase header - require space for header + at least first item (orphan prevention)
+        // Per PDF_DESIGN_STANDARDS.md Section 8: Headings require minimum 3 lines of content below
+        const minSpaceForPhase = 12 + 18 + 28; // header height + spacing + first item minimum
+        yPos = checkSafePageBreak(doc, yPos, minSpaceForPhase);
         
         // Phase header bar
         doc.setFillColor(...phaseColor);
@@ -508,13 +510,16 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           renderNode(node, isLast, null);
         });
 
-        yPos += 8;
+        yPos += 10; // Increased spacing between phases per standards
       }
 
       // === MEETING NOTES PAGE ===
       if (options.includeActionItems) {
         doc.addPage();
         yPos = contentArea.startY;
+        
+        // Track table row heights for compliance
+        complianceData.tableRowHeights.push(8, 10, 12); // Header, decision rows, action rows
         
         doc.setFillColor(...PDF_BRAND_COLORS.primary);
         doc.roundedRect(margins.left, yPos, contentWidth, 15, 3, 3, "F");
@@ -523,33 +528,35 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Meeting Notes & Action Items", margins.left + 5, yPos + 10);
         
-        yPos += 22;
+        yPos += 25; // Increased spacing after header
         
         // Key decisions section
         doc.setTextColor(...PDF_BRAND_COLORS.primary);
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
         doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Key Decisions", margins.left, yPos);
-        yPos += 5;
+        yPos += 7; // Increased spacing
         
         doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
         doc.setLineWidth(0.3);
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 4; i++) { // Reduced from 5 to 4 rows
           doc.setFillColor(i % 2 === 0 ? 255 : 248, i % 2 === 0 ? 255 : 250, i % 2 === 0 ? 255 : 252);
           doc.rect(margins.left, yPos, contentWidth, 10, "FD");
           yPos += 10;
         }
         
-        yPos += 10;
+        yPos += 12; // Increased spacing between sections
         
-        // Action items table
+        // Action items table - check if we need a page break
+        yPos = checkSafePageBreak(doc, yPos, 120); // Ensure enough space for table
+        
         doc.setTextColor(...PDF_BRAND_COLORS.primary);
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
         doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Action Items", margins.left, yPos);
-        yPos += 5;
+        yPos += 7; // Increased spacing
         
-        // Header row
+        // Header row (min 6mm per standards)
         doc.setFillColor(...PDF_BRAND_COLORS.tableHeader);
         doc.rect(margins.left, yPos, contentWidth, 8, "F");
         doc.setTextColor(...PDF_BRAND_COLORS.white);
@@ -560,8 +567,8 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         doc.text("Status", margins.left + 165, yPos + 5);
         yPos += 8;
         
-        // Empty rows for handwriting
-        for (let i = 0; i < 8; i++) {
+        // Empty rows for handwriting (reduced to 6 to save space)
+        for (let i = 0; i < 6; i++) {
           doc.setFillColor(i % 2 === 0 ? 255 : 248, i % 2 === 0 ? 255 : 250, i % 2 === 0 ? 255 : 252);
           doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
           doc.rect(margins.left, yPos, contentWidth, 12, "FD");
@@ -571,24 +578,35 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           yPos += 12;
         }
         
-        yPos += 15;
+        yPos += 12; // Increased spacing
+        
+        // Check if we have space for follow-up and signature sections
+        const remainingSpace = contentArea.endY - yPos;
+        const followUpHeight = 30;
+        const signatureHeight = 35;
+        const totalNeeded = followUpHeight + signatureHeight + 15;
+        
+        if (remainingSpace < totalNeeded) {
+          doc.addPage();
+          yPos = contentArea.startY;
+        }
         
         // Follow-up section
         doc.setTextColor(...PDF_BRAND_COLORS.primary);
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
         doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Next Meeting / Follow-up", margins.left, yPos);
-        yPos += 5;
+        yPos += 7;
         
         doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
-        doc.rect(margins.left, yPos, contentWidth, 25, "D");
+        doc.rect(margins.left, yPos, contentWidth, 22, "D"); // Slightly reduced height
         
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
         doc.setTextColor(...PDF_BRAND_COLORS.gray);
-        doc.text("Date: _______________  Time: _______________  Location: _______________________", margins.left + 5, yPos + 8);
-        doc.text("Agenda Items:", margins.left + 5, yPos + 16);
+        doc.text("Date: _______________  Time: _______________  Location: _______________________", margins.left + 5, yPos + 7);
+        doc.text("Agenda Items:", margins.left + 5, yPos + 15);
         
-        yPos += 35;
+        yPos += 32;
         
         // Signature section
         doc.setTextColor(...PDF_BRAND_COLORS.primary);
@@ -599,15 +617,15 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         
         const sigWidth = (contentWidth - 10) / 2;
         doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
-        doc.rect(margins.left, yPos, sigWidth, 20, "D");
-        doc.rect(margins.left + sigWidth + 10, yPos, sigWidth, 20, "D");
+        doc.rect(margins.left, yPos, sigWidth, 22, "D");
+        doc.rect(margins.left + sigWidth + 10, yPos, sigWidth, 22, "D");
         
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
         doc.setTextColor(...PDF_BRAND_COLORS.gray);
-        doc.text("Project Manager:", margins.left + 3, yPos + 5);
-        doc.text("Client Representative:", margins.left + sigWidth + 13, yPos + 5);
-        doc.text("Date:", margins.left + 3, yPos + 17);
-        doc.text("Date:", margins.left + sigWidth + 13, yPos + 17);
+        doc.text("Project Manager:", margins.left + 3, yPos + 6);
+        doc.text("Client Representative:", margins.left + sigWidth + 13, yPos + 6);
+        doc.text("Date:", margins.left + 3, yPos + 18);
+        doc.text("Date:", margins.left + sigWidth + 13, yPos + 18);
       }
 
       // Add headers and footers to all pages (except cover)
