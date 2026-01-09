@@ -5,35 +5,36 @@
  * IMPORTANT: These values MUST match PDF_DESIGN_STANDARDS.md
  */
 
-// Brand color palette (RGB format for jsPDF) - Per PDF_DESIGN_STANDARDS.md Section 10
+// Brand color palette (RGB format for jsPDF) - Professional Engineering Style
+// Muted, professional colors replacing vibrant accents
 export const PDF_BRAND_COLORS = {
-  // Primary brand colors - Per standards
-  primary: [79, 70, 229] as [number, number, number],       // Headers, accents (indigo)
-  primaryLight: [99, 102, 241] as [number, number, number], // Lighter accent
-  primaryDark: [55, 48, 163] as [number, number, number],   // Darker shade
+  // Primary brand colors - Professional slate/charcoal tones
+  primary: [51, 65, 85] as [number, number, number],        // Slate-700 - Headers, accents
+  primaryLight: [71, 85, 105] as [number, number, number],  // Slate-600 - Lighter accent
+  primaryDark: [30, 41, 59] as [number, number, number],    // Slate-800 - Darker shade
   
-  // Status colors - Per standards
-  success: [34, 197, 94] as [number, number, number],       // Positive status
-  warning: [234, 179, 8] as [number, number, number],       // Caution items
-  danger: [239, 68, 68] as [number, number, number],        // Critical/negative
+  // Status colors - Muted professional tones
+  success: [22, 101, 52] as [number, number, number],       // Green-800 - Subdued positive
+  warning: [146, 64, 14] as [number, number, number],       // Amber-800 - Subdued caution  
+  danger: [153, 27, 27] as [number, number, number],        // Red-800 - Subdued critical
   
-  // Neutral colors - Per standards
+  // Neutral colors - Engineering gray palette
   white: [255, 255, 255] as [number, number, number],
-  lightGray: [248, 250, 252] as [number, number, number],   // Background (2% tint)
-  gray: [148, 163, 184] as [number, number, number],        // Backgrounds, dividers (Secondary)
-  darkGray: [100, 116, 139] as [number, number, number],    // Subtext, borders (Secondary)
-  text: [15, 23, 42] as [number, number, number],           // Primary text
+  lightGray: [248, 250, 252] as [number, number, number],   // Slate-50 - Background
+  gray: [148, 163, 184] as [number, number, number],        // Slate-400 - Dividers
+  darkGray: [71, 85, 105] as [number, number, number],      // Slate-600 - Subtext
+  text: [15, 23, 42] as [number, number, number],           // Slate-900 - Primary text
   
-  // Table colors
-  tableHeader: [79, 70, 229] as [number, number, number],   // Primary color
-  tableAltRow: [241, 245, 249] as [number, number, number], // 5% neutral tint
-  tableBorder: [226, 232, 240] as [number, number, number], // Subtle border
+  // Table colors - Professional muted styling
+  tableHeader: [51, 65, 85] as [number, number, number],    // Slate-700
+  tableAltRow: [248, 250, 252] as [number, number, number], // Slate-50
+  tableBorder: [203, 213, 225] as [number, number, number], // Slate-300
   
-  // Risk level colors
-  riskCritical: [220, 38, 38] as [number, number, number],
-  riskHigh: [249, 115, 22] as [number, number, number],
-  riskMedium: [234, 179, 8] as [number, number, number],
-  riskLow: [34, 197, 94] as [number, number, number],
+  // Priority/Risk colors - Muted engineering palette
+  riskCritical: [127, 29, 29] as [number, number, number],  // Red-900
+  riskHigh: [124, 45, 18] as [number, number, number],      // Orange-900
+  riskMedium: [113, 63, 18] as [number, number, number],    // Amber-900
+  riskLow: [20, 83, 45] as [number, number, number],        // Green-900
 };
 
 

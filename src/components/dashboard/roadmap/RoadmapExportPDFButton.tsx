@@ -80,16 +80,16 @@ interface RoadmapNode {
   level: number;
 }
 
-// Phase colors for visual flow - Using brand colors from standards
+// Phase colors - Professional engineering palette (muted slate tones)
 const PHASE_COLORS: { [key: string]: [number, number, number] } = {
-  "Planning & Preparation": PDF_BRAND_COLORS.primary,      // Indigo - primary
-  "Budget & Assessment": PDF_BRAND_COLORS.success,         // Green - positive
-  "Tender & Procurement": PDF_BRAND_COLORS.warning,        // Amber - caution
-  "Construction": PDF_BRAND_COLORS.danger,                 // Red - action needed
-  "Documentation": PDF_BRAND_COLORS.primaryLight,          // Light indigo
-  "Commissioning": [139, 92, 246],                         // Purple
-  "Handover": [6, 182, 212],                               // Teal
-  default: PDF_BRAND_COLORS.gray,
+  "Planning & Preparation": [51, 65, 85],    // Slate-700
+  "Budget & Assessment": [71, 85, 105],      // Slate-600
+  "Tender & Procurement": [100, 116, 139],   // Slate-500
+  "Construction": [55, 65, 81],              // Gray-700
+  "Documentation": [75, 85, 99],             // Gray-600
+  "Commissioning": [82, 82, 91],             // Zinc-600
+  "Handover": [63, 63, 70],                  // Zinc-700
+  default: [148, 163, 184],                  // Slate-400
 };
 
 // Build hierarchical tree from flat items
@@ -378,10 +378,11 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           drawConnectionNode(doc, branchX, yPos + itemHeight / 2, 1.5, PDF_BRAND_COLORS.gray);
         }
 
-        // Card background colors
-        const cardBg = isCompleted ? [220, 252, 231] : 
-          dueStatus === "overdue" ? [254, 226, 226] :
-          dueStatus === "soon" ? [254, 243, 199] : [255, 255, 255];
+        // Card background colors - subtle professional tints
+        const cardBg = isCompleted ? [240, 253, 244] :    // Very subtle green tint
+          dueStatus === "overdue" ? [254, 242, 242] :     // Very subtle red tint
+          dueStatus === "soon" ? [254, 252, 232] :        // Very subtle yellow tint
+          [255, 255, 255];                                // White
         
         const cardBorder = isParent ? phaseColor : PDF_BRAND_COLORS.tableBorder;
 
