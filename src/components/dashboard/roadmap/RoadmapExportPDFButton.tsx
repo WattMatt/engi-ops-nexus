@@ -80,16 +80,16 @@ interface RoadmapNode {
   level: number;
 }
 
-// Phase colors - Professional engineering palette (muted slate tones)
+// Phase colors - Vibrant professional palette
 const PHASE_COLORS: { [key: string]: [number, number, number] } = {
-  "Planning & Preparation": [51, 65, 85],    // Slate-700
-  "Budget & Assessment": [71, 85, 105],      // Slate-600
-  "Tender & Procurement": [100, 116, 139],   // Slate-500
-  "Construction": [55, 65, 81],              // Gray-700
-  "Documentation": [75, 85, 99],             // Gray-600
-  "Commissioning": [82, 82, 91],             // Zinc-600
-  "Handover": [63, 63, 70],                  // Zinc-700
-  default: [148, 163, 184],                  // Slate-400
+  "Planning & Preparation": [59, 130, 246],   // Blue-500
+  "Budget & Assessment": [34, 197, 94],       // Green-500
+  "Tender & Procurement": [168, 85, 247],     // Purple-500
+  "Construction": [249, 115, 22],             // Orange-500
+  "Documentation": [14, 165, 233],            // Sky-500
+  "Commissioning": [236, 72, 153],            // Pink-500
+  "Handover": [20, 184, 166],                 // Teal-500
+  default: [99, 102, 241],                    // Indigo-500
 };
 
 // Build hierarchical tree from flat items
@@ -336,17 +336,17 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       
       // Engineering color palette
       const LIST_COLORS: Record<string, [number, number, number]> = {
-        phaseHeader: [51, 65, 85],       // Slate-700
-        phaseHeaderBg: [241, 245, 249],  // Slate-100
+        phaseHeader: [30, 58, 138],      // Blue-900
+        phaseHeaderBg: [239, 246, 255],  // Blue-50
         rowBg: [255, 255, 255],          // White
         rowAltBg: [248, 250, 252],       // Slate-50
-        completedBg: [240, 253, 244],    // Green-50
-        text: [30, 41, 59],              // Slate-800
-        subText: [100, 116, 139],        // Slate-500
-        border: [203, 213, 225],         // Slate-300
-        completed: [22, 101, 52],        // Green-800
-        overdue: [153, 27, 27],          // Red-800
-        pending: [146, 64, 14],          // Amber-800
+        completedBg: [220, 252, 231],    // Green-100
+        text: [15, 23, 42],              // Slate-900
+        subText: [71, 85, 105],          // Slate-600
+        border: [191, 219, 254],         // Blue-200
+        completed: [22, 163, 74],        // Green-600
+        overdue: [220, 38, 38],          // Red-600
+        pending: [234, 179, 8],          // Yellow-500
       };
 
       // Table layout
