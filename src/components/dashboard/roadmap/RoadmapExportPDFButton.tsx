@@ -12,7 +12,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Download, Loader2, FileText } from "lucide-react";
+import { Eye, Loader2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { format } from "date-fns";
@@ -40,6 +40,13 @@ import {
   drawConnectionNode,
   getPhaseColor,
 } from "@/utils/pdfStandardsHelper";
+import { PDFPreviewBeforeExport } from "@/components/cost-reports/pdf-export/components/PDFPreviewBeforeExport";
+import { 
+  checkPDFCompliance, 
+  createComplianceTracker,
+  ComplianceReport,
+  ComplianceTrackingData
+} from "@/utils/pdfComplianceChecker";
 
 interface RoadmapExportPDFButtonProps {
   projectId: string;
@@ -137,6 +144,13 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
     includeMeetingHeader: true,
     includeCoverPage: true,
   });
+  
+  // Preview mode state
+  const [showPreview, setShowPreview] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [complianceReport, setComplianceReport] = useState<ComplianceReport | null>(null);
 
   // Fetch project and roadmap data
   const { data: projectData } = useQuery({
@@ -173,6 +187,21 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
     }
 
     setIsExporting(true);
+    
+    // Initialize compliance tracker
+    const complianceData = createComplianceTracker();
+    complianceData.hasCoverPage = options.includeCoverPage;
+    complianceData.margins = {
+      top: STANDARD_MARGINS.top,
+      bottom: STANDARD_MARGINS.bottom,
+      left: STANDARD_MARGINS.left,
+      right: STANDARD_MARGINS.right
+    };
+    complianceData.headerHeight = 18;
+    complianceData.footerHeight = 15;
+    complianceData.hasPageNumbers = true;
+    complianceData.cardPadding = 4;
+    complianceData.colorsUsed.set('primary', PDF_BRAND_COLORS.primary);
 
     try {
       const doc = initializePDF({ orientation: 'portrait' });
@@ -202,6 +231,14 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       const progress = items.length > 0 
         ? Math.round((completedItems.length / items.length) * 100) 
         : 0;
+        
+      // Track font sizes used
+      complianceData.fontSizesUsed.add(PDF_TYPOGRAPHY.sizes.h1);
+      complianceData.fontSizesUsed.add(PDF_TYPOGRAPHY.sizes.h2);
+      complianceData.fontSizesUsed.add(PDF_TYPOGRAPHY.sizes.h3);
+      complianceData.fontSizesUsed.add(PDF_TYPOGRAPHY.sizes.body);
+      complianceData.fontSizesUsed.add(PDF_TYPOGRAPHY.sizes.small);
+      complianceData.fontSizesUsed.add(PDF_TYPOGRAPHY.sizes.tiny);
 
       // === COVER PAGE ===
       if (options.includeCoverPage) {
@@ -581,18 +618,59 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         options.includeCoverPage ? 2 : 1
       );
 
-      // Save the PDF
+      // Generate blob for preview instead of saving directly
       const fileName = `${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_Roadmap_${format(new Date(), "yyyy-MM-dd")}.pdf`;
-      doc.save(fileName);
-
-      toast.success("PDF exported successfully");
+      const blob = doc.output('blob');
+      
+      // Run compliance check
+      const report = checkPDFCompliance(complianceData, fileName);
+      
+      // Set preview state
+      setPdfBlob(blob);
+      setPdfFileName(fileName);
+      setComplianceReport(report);
       setShowDialog(false);
+      setShowPreview(true);
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Failed to generate PDF");
     } finally {
       setIsExporting(false);
     }
+  };
+  
+  // Handle confirmed export
+  const handleConfirmExport = async () => {
+    if (!pdfBlob || !pdfFileName) return;
+    
+    setIsSaving(true);
+    try {
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = pdfFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("PDF exported successfully");
+      setShowPreview(false);
+      setPdfBlob(null);
+      setComplianceReport(null);
+    } catch (error) {
+      toast.error("Failed to download PDF");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  // Handle cancel
+  const handleCancelExport = () => {
+    setPdfBlob(null);
+    setPdfFileName("");
+    setComplianceReport(null);
+    setShowDialog(true);
   };
 
   return (
@@ -686,18 +764,30 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
               {isExporting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
+                  Generating Preview...
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export PDF
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview PDF
                 </>
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* PDF Preview Dialog */}
+      <PDFPreviewBeforeExport
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        pdfBlob={pdfBlob}
+        fileName={pdfFileName}
+        onConfirm={handleConfirmExport}
+        onCancel={handleCancelExport}
+        isSaving={isSaving}
+        complianceReport={complianceReport || undefined}
+      />
     </>
   );
 }

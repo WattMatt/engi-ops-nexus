@@ -1,10 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, X, ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
+import { Download, X, ChevronLeft, ChevronRight, Check, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { ComplianceReport } from "@/utils/pdfComplianceChecker";
+import { ComplianceScoreBadge } from "@/components/pdf/ComplianceScoreBadge";
+import { ComplianceChecklist } from "@/components/pdf/ComplianceChecklist";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -17,6 +21,7 @@ interface PDFPreviewBeforeExportProps {
   onConfirm: () => Promise<void>;
   onCancel: () => void;
   isSaving?: boolean;
+  complianceReport?: ComplianceReport;
 }
 
 export function PDFPreviewBeforeExport({
@@ -27,10 +32,12 @@ export function PDFPreviewBeforeExport({
   onConfirm,
   onCancel,
   isSaving = false,
+  complianceReport,
 }: PDFPreviewBeforeExportProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [complianceOpen, setComplianceOpen] = useState(false);
 
   // Create and clean up blob URL when blob changes
   useEffect(() => {
@@ -89,11 +96,14 @@ export function PDFPreviewBeforeExport({
       <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span>Preview: {fileName}</span>
-              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="truncate max-w-[300px]">Preview: {fileName}</span>
+              <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full font-medium">
                 Not saved yet
               </span>
+              {complianceReport && (
+                <ComplianceScoreBadge score={complianceReport.overallScore} />
+              )}
             </div>
             <Button
               variant="ghost"
@@ -106,6 +116,36 @@ export function PDFPreviewBeforeExport({
             </Button>
           </DialogTitle>
         </DialogHeader>
+
+        {/* Compliance Panel */}
+        {complianceReport && (
+          <Collapsible open={complianceOpen} onOpenChange={setComplianceOpen}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full justify-between px-3 py-2 h-auto"
+              >
+                <span className="flex items-center gap-2 text-sm">
+                  <span className="font-medium">Standards Compliance</span>
+                  <span className="text-muted-foreground">
+                    ({complianceReport.passedCount}/{complianceReport.results.length} passed)
+                  </span>
+                </span>
+                {complianceOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="max-h-48 overflow-y-auto border rounded-md p-2 mb-2">
+                <ComplianceChecklist results={complianceReport.results} />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
 
         <div className="flex-1 overflow-auto rounded-lg border bg-muted flex flex-col items-center p-4 min-h-0">
           {pdfUrl ? (
