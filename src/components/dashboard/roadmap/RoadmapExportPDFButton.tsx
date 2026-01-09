@@ -406,17 +406,24 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           doc.text(item.title, titleX, yPos + rowHeight / 2 + 1);
         }
         
-        // Dates on the right
-        const dateSection = pageWidth - margins.right - 60;
+        // Dates on the right (matching UI with Start/End labels)
+        const dateEndX = pageWidth - margins.right - 5;
+        const dateStartX = dateEndX - 35;
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
         doc.setTextColor(...UI_COLORS.subText);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
         
-        if (item.start_date) {
-          doc.text(`Start: ${format(new Date(item.start_date), "dd MMM")}`, dateSection, yPos + rowHeight / 2 + 0.5);
-        }
-        if (item.due_date) {
-          doc.text(`End: ${format(new Date(item.due_date), "dd MMM")}`, dateSection + 30, yPos + rowHeight / 2 + 0.5);
-        }
+        // Start date
+        const startDateText = item.start_date 
+          ? format(new Date(item.start_date), "dd MMM") 
+          : "-";
+        doc.text(`Start: ${startDateText}`, dateStartX, yPos + rowHeight / 2 + 0.5);
+        
+        // End date  
+        const endDateText = item.due_date 
+          ? format(new Date(item.due_date), "dd MMM") 
+          : "-";
+        doc.text(`End: ${endDateText}`, dateEndX, yPos + rowHeight / 2 + 0.5, { align: "right" });
         
         yPos += rowHeight;
         
