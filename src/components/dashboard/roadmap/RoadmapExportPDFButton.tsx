@@ -331,163 +331,233 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       
       yPos += 20;
 
-      // === MERMAID-STYLE FLOW DIAGRAM ===
-      // Professional engineering flowchart with vertical timeline and connected nodes
-      const timelineX = margins.left + 12; // Center line for nodes
-      const nodeRadius = 5;
-      const nodeCardGap = 8;
-      const cardStartX = margins.left + 25; // Card starts after node
-      const cardWidth = contentWidth - 30;
-      const itemSpacing = 6;
-
-      // Engineering color palette - muted professional tones
+      // === MERMAID-STYLE FLOWCHART ===
+      // Professional engineering flowchart with boxes, arrows and hierarchical structure
+      
+      // Engineering color palette
       const FLOW_COLORS: Record<string, [number, number, number]> = {
-        timeline: [100, 116, 139],      // Slate-500 for main line
-        node: [71, 85, 105],            // Slate-600 for nodes
-        nodeCompleted: [22, 101, 52],   // Green-800 for completed
-        connector: [148, 163, 184],     // Slate-400 for connectors
-        cardBorder: [203, 213, 225],    // Slate-300 for card borders
-        cardBg: [248, 250, 252],        // Slate-50 for card background
-        text: [30, 41, 59],             // Slate-800 for text
-        subText: [100, 116, 139],       // Slate-500 for subtext
+        boxBorder: [71, 85, 105],        // Slate-600
+        boxBg: [255, 255, 255],          // White
+        boxBgCompleted: [240, 253, 244], // Green-50
+        arrow: [100, 116, 139],          // Slate-500
+        text: [30, 41, 59],              // Slate-800
+        subText: [100, 116, 139],        // Slate-500
+        phaseBox: [241, 245, 249],       // Slate-100
+        phaseBorder: [51, 65, 85],       // Slate-700
       };
 
-      // Flatten all items for simple vertical flow
-      const flattenPhaseItems = (nodes: RoadmapNode[]): { item: RoadmapItem; phase: string }[] => {
-        const result: { item: RoadmapItem; phase: string }[] = [];
-        const addNodes = (nodeList: RoadmapNode[], phase: string) => {
-          nodeList.forEach(node => {
-            result.push({ item: node.item, phase: node.item.phase || phase });
-            if (node.children.length > 0) {
-              addNodes(node.children, node.item.phase || phase);
-            }
-          });
-        };
-        for (const phase of phases) {
-          addNodes(groupedByPhase[phase], phase);
-        }
-        return result;
-      };
+      // Layout constants
+      const boxWidth = 50;
+      const boxHeight = 14;
+      const boxRadius = 2;
+      const arrowHeadSize = 2;
+      const verticalGap = 18;
+      const horizontalGap = 8;
+      const centerX = pageWidth / 2;
 
-      const allItems = flattenPhaseItems(tree);
-      
-      // Draw title for flow diagram section
-      doc.setFillColor(...PDF_BRAND_COLORS.primary);
-      doc.roundedRect(margins.left, yPos, contentWidth, 10, 2, 2, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
-      doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
-      doc.text("Project Workflow", margins.left + 5, yPos + 7);
-      
-      const totalCompleted = allItems.filter(i => i.item.is_completed).length;
-      doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
-      doc.text(`${totalCompleted}/${allItems.length} completed (${Math.round(totalCompleted / allItems.length * 100)}%)`, 
-        pageWidth - margins.right - 5, yPos + 7, { align: "right" });
-      
-      yPos += 18;
-      
-      // Track start position for timeline
-      const flowStartY = yPos;
-      
-      // Render each item as a flow node
-      allItems.forEach((itemData, index) => {
-        const { item, phase } = itemData;
-        const isLast = index === allItems.length - 1;
-        const isCompleted = item.is_completed;
-        const dueStatus = getDueDateStatus(item.due_date);
+      // Helper: Draw arrow
+      const drawArrow = (fromX: number, fromY: number, toX: number, toY: number, label?: string) => {
+        doc.setDrawColor(...FLOW_COLORS.arrow);
+        doc.setLineWidth(0.6);
+        doc.line(fromX, fromY, toX, toY);
         
-        // Calculate card height based on content
-        const hasDescription = item.description && item.description.length > 0;
-        const cardHeight = hasDescription ? 22 : 16;
+        // Arrow head
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        const x1 = toX - arrowHeadSize * Math.cos(angle - Math.PI / 6);
+        const y1 = toY - arrowHeadSize * Math.sin(angle - Math.PI / 6);
+        const x2 = toX - arrowHeadSize * Math.cos(angle + Math.PI / 6);
+        const y2 = toY - arrowHeadSize * Math.sin(angle + Math.PI / 6);
+        doc.setFillColor(...FLOW_COLORS.arrow);
+        doc.triangle(toX, toY, x1, y1, x2, y2, "F");
         
-        // Check for page break
-        yPos = checkSafePageBreak(doc, yPos, cardHeight + itemSpacing + 10);
-        
-        // Draw vertical timeline line (before this node to next)
-        if (!isLast) {
-          doc.setDrawColor(...FLOW_COLORS.timeline);
-          doc.setLineWidth(1.2);
-          doc.line(timelineX, yPos + nodeRadius, timelineX, yPos + cardHeight + itemSpacing);
-        }
-        
-        // Draw horizontal connector from node to card
-        doc.setDrawColor(...FLOW_COLORS.connector);
-        doc.setLineWidth(0.8);
-        doc.line(timelineX + nodeRadius, yPos + cardHeight / 2, cardStartX, yPos + cardHeight / 2);
-        
-        // Draw node circle
-        const nodeColor = isCompleted ? FLOW_COLORS.nodeCompleted : FLOW_COLORS.node;
-        doc.setFillColor(...nodeColor);
-        doc.setDrawColor(...nodeColor);
-        doc.circle(timelineX, yPos + cardHeight / 2, nodeRadius, "FD");
-        
-        // Draw checkmark or number inside node
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(7);
-        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "bold");
-        if (isCompleted) {
-          doc.text("✓", timelineX, yPos + cardHeight / 2 + 0.8, { align: "center" });
-        } else {
-          doc.text(String(index + 1), timelineX, yPos + cardHeight / 2 + 0.8, { align: "center" });
-        }
-        
-        // Draw card
-        const cardBorderColor: [number, number, number] = isCompleted ? FLOW_COLORS.nodeCompleted : 
-          dueStatus === "overdue" ? [153, 27, 27] : // Red-800
-          dueStatus === "soon" ? [146, 64, 14] : // Amber-800
-          FLOW_COLORS.cardBorder;
-        
-        doc.setFillColor(...FLOW_COLORS.cardBg);
-        doc.setDrawColor(...cardBorderColor);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(cardStartX, yPos, cardWidth, cardHeight, 3, 3, "FD");
-        
-        // Left accent bar
-        doc.setFillColor(...nodeColor);
-        doc.roundedRect(cardStartX, yPos, 3, cardHeight, 1.5, 1.5, "F");
-        
-        // Item title
-        doc.setTextColor(...FLOW_COLORS.text);
-        doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
-        doc.setFont(PDF_TYPOGRAPHY.fonts.body, isCompleted ? "normal" : "bold");
-        
-        let title = item.title;
-        const maxTitleWidth = cardWidth - 60;
-        while (doc.getTextWidth(title) > maxTitleWidth && title.length > 10) {
-          title = title.substring(0, title.length - 4) + "...";
-        }
-        
-        const titleY = hasDescription ? yPos + 7 : yPos + cardHeight / 2 + 1;
-        doc.text(title, cardStartX + 8, titleY);
-        
-        // Phase label (subtle)
-        doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
-        doc.setTextColor(...FLOW_COLORS.subText);
-        doc.text(phase, cardStartX + cardWidth - 5, titleY, { align: "right" });
-        
-        // Description if present
-        if (hasDescription) {
-          doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+        // Label on arrow
+        if (label) {
+          const midX = (fromX + toX) / 2;
+          const midY = (fromY + toY) / 2;
+          doc.setFontSize(6);
           doc.setTextColor(...FLOW_COLORS.subText);
-          let desc = item.description!;
-          if (desc.length > 80) desc = desc.substring(0, 77) + "...";
-          doc.text(desc, cardStartX + 8, yPos + 14);
+          doc.setFont(PDF_TYPOGRAPHY.fonts.body, "italic");
+          doc.text(label, midX + 2, midY - 1);
+        }
+      };
+
+      // Helper: Draw flowchart box
+      const drawFlowBox = (x: number, y: number, width: number, height: number, text: string, isCompleted: boolean = false, isPhase: boolean = false) => {
+        const bgColor = isPhase ? FLOW_COLORS.phaseBox : (isCompleted ? FLOW_COLORS.boxBgCompleted : FLOW_COLORS.boxBg);
+        const borderColor = isPhase ? FLOW_COLORS.phaseBorder : FLOW_COLORS.boxBorder;
+        
+        doc.setFillColor(...bgColor);
+        doc.setDrawColor(...borderColor);
+        doc.setLineWidth(isPhase ? 0.8 : 0.5);
+        doc.roundedRect(x, y, width, height, boxRadius, boxRadius, "FD");
+        
+        // Completion indicator
+        if (isCompleted && !isPhase) {
+          doc.setFillColor(22, 101, 52);
+          doc.circle(x + 4, y + height / 2, 1.5, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(4);
+          doc.text("✓", x + 4, y + height / 2 + 0.5, { align: "center" });
         }
         
-        // Due date on right side
-        if (item.due_date) {
-          const dateColor: [number, number, number] = dueStatus === "overdue" ? [153, 27, 27] : 
-            dueStatus === "soon" ? [146, 64, 14] : FLOW_COLORS.subText;
-          doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
-          doc.setTextColor(...dateColor);
-          const dateStr = format(new Date(item.due_date), "MMM d");
-          doc.text(dateStr, cardStartX + cardWidth - 5, yPos + cardHeight - 4, { align: "right" });
+        // Text - centered
+        doc.setTextColor(...FLOW_COLORS.text);
+        doc.setFontSize(isPhase ? 8 : 7);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, isPhase ? "bold" : "normal");
+        
+        // Truncate text to fit
+        let displayText = text;
+        const maxWidth = width - (isCompleted ? 10 : 6);
+        while (doc.getTextWidth(displayText) > maxWidth && displayText.length > 5) {
+          displayText = displayText.substring(0, displayText.length - 4) + "...";
         }
         
-        yPos += cardHeight + itemSpacing;
-      });
+        doc.text(displayText, x + width / 2, y + height / 2 + 1.5, { align: "center" });
+        
+        return { centerX: x + width / 2, bottomY: y + height, topY: y };
+      };
+
+      // Group items by phase preserving hierarchy
+      interface FlowNode {
+        id: string;
+        title: string;
+        isCompleted: boolean;
+        children: FlowNode[];
+        phase: string;
+      }
+
+      const buildFlowNodes = (nodes: RoadmapNode[]): FlowNode[] => {
+        return nodes.map(n => ({
+          id: n.item.id,
+          title: n.item.title,
+          isCompleted: n.item.is_completed || false,
+          phase: n.item.phase || "Uncategorized",
+          children: buildFlowNodes(n.children)
+        }));
+      };
+
+      // Render flowchart for each phase
+      let previousPhaseBottom = yPos;
+
+      for (const phase of phases) {
+        const phaseNodes = groupedByPhase[phase];
+        const flowNodes = buildFlowNodes(phaseNodes);
+        
+        // Calculate space needed
+        const flatCount = flowNodes.reduce((acc, n) => acc + 1 + n.children.length, 0);
+        const estimatedHeight = 20 + flatCount * (boxHeight + 8);
+        yPos = checkSafePageBreak(doc, yPos, Math.min(estimatedHeight, 80));
+        
+        // Phase header box
+        const phaseBoxWidth = 70;
+        const phaseBoxX = centerX - phaseBoxWidth / 2;
+        const phaseResult = drawFlowBox(phaseBoxX, yPos, phaseBoxWidth, 12, phase, false, true);
+        
+        // Arrow from previous phase
+        if (previousPhaseBottom < yPos - 5) {
+          drawArrow(centerX, previousPhaseBottom + 2, centerX, yPos - 1);
+        }
+        
+        yPos += 18;
+        
+        // Render items in this phase
+        const itemCount = flowNodes.length;
+        
+        if (itemCount === 1) {
+          // Single item - center it
+          const item = flowNodes[0];
+          const itemX = centerX - boxWidth / 2;
+          drawArrow(centerX, yPos - 6, centerX, yPos - 1);
+          const result = drawFlowBox(itemX, yPos, boxWidth, boxHeight, item.title, item.isCompleted);
+          
+          // Render children if any
+          if (item.children.length > 0) {
+            yPos += boxHeight + 8;
+            const childrenWidth = item.children.length * (boxWidth + horizontalGap) - horizontalGap;
+            const startChildX = centerX - childrenWidth / 2;
+            
+            // Arrow down to children
+            drawArrow(centerX, yPos - 8, centerX, yPos - 1);
+            
+            // Horizontal line connecting children
+            if (item.children.length > 1) {
+              doc.setDrawColor(...FLOW_COLORS.arrow);
+              doc.setLineWidth(0.5);
+              doc.line(startChildX + boxWidth / 2, yPos - 1, startChildX + childrenWidth - boxWidth / 2, yPos - 1);
+            }
+            
+            item.children.forEach((child, idx) => {
+              const childX = startChildX + idx * (boxWidth + horizontalGap);
+              // Vertical connector to each child
+              doc.line(childX + boxWidth / 2, yPos - 1, childX + boxWidth / 2, yPos);
+              drawFlowBox(childX, yPos, boxWidth, boxHeight, child.title, child.isCompleted);
+            });
+            yPos += boxHeight;
+          } else {
+            yPos += boxHeight;
+          }
+        } else if (itemCount > 1) {
+          // Multiple items - arrange horizontally with center connector
+          const totalWidth = Math.min(itemCount * (boxWidth + horizontalGap) - horizontalGap, contentWidth - 10);
+          const adjustedBoxWidth = Math.min(boxWidth, (totalWidth - (itemCount - 1) * horizontalGap) / itemCount);
+          const startX = centerX - totalWidth / 2;
+          
+          // Arrow and horizontal connector
+          drawArrow(centerX, yPos - 6, centerX, yPos - 1);
+          doc.setDrawColor(...FLOW_COLORS.arrow);
+          doc.setLineWidth(0.5);
+          doc.line(startX + adjustedBoxWidth / 2, yPos - 1, startX + totalWidth - adjustedBoxWidth / 2, yPos - 1);
+          
+          flowNodes.forEach((item, idx) => {
+            const itemX = startX + idx * (adjustedBoxWidth + horizontalGap);
+            // Vertical connector
+            doc.line(itemX + adjustedBoxWidth / 2, yPos - 1, itemX + adjustedBoxWidth / 2, yPos);
+            drawFlowBox(itemX, yPos, adjustedBoxWidth, boxHeight, item.title, item.isCompleted);
+          });
+          
+          yPos += boxHeight;
+          
+          // Render children for items that have them
+          const itemsWithChildren = flowNodes.filter(n => n.children.length > 0);
+          if (itemsWithChildren.length > 0) {
+            yPos += 10;
+            
+            itemsWithChildren.forEach((item, parentIdx) => {
+              if (item.children.length > 0) {
+                const parentX = startX + flowNodes.indexOf(item) * (adjustedBoxWidth + horizontalGap);
+                const parentCenterX = parentX + adjustedBoxWidth / 2;
+                
+                // Children row
+                const childrenWidth = Math.min(item.children.length * (40 + 4) - 4, 120);
+                const startChildX = parentCenterX - childrenWidth / 2;
+                const childBoxWidth = Math.min(40, (childrenWidth - (item.children.length - 1) * 4) / item.children.length);
+                
+                // Arrow down
+                drawArrow(parentCenterX, yPos - 10, parentCenterX, yPos - 1);
+                
+                // Horizontal connector
+                if (item.children.length > 1) {
+                  doc.setDrawColor(...FLOW_COLORS.arrow);
+                  doc.line(startChildX + childBoxWidth / 2, yPos - 1, startChildX + childrenWidth - childBoxWidth / 2, yPos - 1);
+                }
+                
+                item.children.forEach((child, idx) => {
+                  const childX = startChildX + idx * (childBoxWidth + 4);
+                  doc.line(childX + childBoxWidth / 2, yPos - 1, childX + childBoxWidth / 2, yPos);
+                  drawFlowBox(childX, yPos, childBoxWidth, 10, child.title, child.isCompleted);
+                });
+              }
+            });
+            
+            yPos += 12;
+          }
+        }
+        
+        previousPhaseBottom = yPos;
+        yPos += 12;
+      }
       
-      yPos += 10;
+      yPos += 5;
 
       // === MEETING NOTES PAGE ===
       if (options.includeActionItems) {
