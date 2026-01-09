@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2, FileText, Link2, CircuitBoard, Package, Cable, FileSpreadsheet } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2, FileText, Link2, CircuitBoard, Package, Cable, FileSpreadsheet, ChevronDown, ChevronRight } from 'lucide-react';
 import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES, ScaleInfo } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
-
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 interface ToolButtonProps {
   icon: React.ElementType<LucideProps>;
   label: string;
@@ -111,6 +111,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
   hasProjectId
 }) => {
   const [activeMarkupTab, setActiveMarkupTab] = useState<MarkupToolCategory>('general');
+  const [isFileActionsOpen, setIsFileActionsOpen] = useState(true);
+  const [isAdvancedActionsOpen, setIsAdvancedActionsOpen] = useState(false);
   
   const isPlacementToolActive = purposeConfig && (Object.values(purposeConfig.equipmentToToolMap).includes(activeTool) || activeTool === Tool.TOOL_PV_ARRAY);
 
@@ -165,66 +167,70 @@ const Toolbar: React.FC<ToolbarProps> = ({
         )}
       </div>
 
-      <div className="space-y-2 flex-shrink-0">
-        <label htmlFor="pdf-upload" className="flex items-center w-full text-left p-2.5 rounded-md transition-colors duration-200 hover:bg-primary hover:text-primary-foreground bg-muted text-foreground cursor-pointer">
-            <FolderOpen className="h-5 w-5 mr-3 flex-shrink-0" />
-            <span className="flex-grow text-sm font-semibold">Load PDF File</span>
-        </label>
-        <input id="pdf-upload" type="file" className="hidden" onChange={onFileChange} accept=".pdf" />
-        
-        {/* Save Button - Always visible when PDF is loaded */}
-        {isPdfLoaded && (
-          <GlobalToolButton 
-            icon={Save} 
-            label="Save to Cloud" 
-            onClick={onSaveToCloud} 
-            disabled={!user}
-          />
-        )}
-        
-        <hr className="border-border" />
-        
-        {/* Load Designs Button */}
-        <GlobalToolButton icon={FolderOpen} label="My Saved Designs" onClick={onLoadFromCloud} disabled={!user} />
-        
-        <hr className="border-border" />
+      {/* File Actions - Collapsible */}
+      <Collapsible open={isFileActionsOpen} onOpenChange={setIsFileActionsOpen} className="flex-shrink-0">
+        <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-md hover:bg-accent text-foreground text-xs font-semibold uppercase tracking-wider">
+          <span>File Actions</span>
+          {isFileActionsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-1 mt-1">
+          <label htmlFor="pdf-upload" className="flex items-center w-full text-left p-2.5 rounded-md transition-colors duration-200 hover:bg-primary hover:text-primary-foreground bg-muted text-foreground cursor-pointer">
+              <FolderOpen className="h-5 w-5 mr-3 flex-shrink-0" />
+              <span className="flex-grow text-sm font-semibold">Load PDF File</span>
+          </label>
+          <input id="pdf-upload" type="file" className="hidden" onChange={onFileChange} accept=".pdf" />
+          
+          {isPdfLoaded && (
+            <GlobalToolButton 
+              icon={Save} 
+              label="Save to Cloud" 
+              onClick={onSaveToCloud} 
+              disabled={!user}
+            />
+          )}
+          
+          <GlobalToolButton icon={FolderOpen} label="My Saved Designs" onClick={onLoadFromCloud} disabled={!user} />
+          <GlobalToolButton icon={Printer} label="Export as PDF" onClick={onPrint} disabled={!isPdfLoaded} />
+        </CollapsibleContent>
+      </Collapsible>
 
-        <GlobalToolButton icon={Printer} label="Export as PDF" onClick={onPrint} disabled={!isPdfLoaded} />
-        
-        {/* Saved Reports Button */}
-        <GlobalToolButton icon={FileText} label="Saved Reports" onClick={onOpenSavedReports} disabled={!user} />
-        
-        {/* Link to Final Account Button */}
-        {onLinkToFinalAccount && (
-          <GlobalToolButton 
-            icon={Link2} 
-            label="Link to Final Account" 
-            onClick={onLinkToFinalAccount} 
-            disabled={!hasDesignId || !hasProjectId || !isPdfLoaded} 
-          />
-        )}
-        
-        {/* Circuit Schedule with AI Scan */}
-        {onOpenCircuitSchedule && (
-          <GlobalToolButton 
-            icon={CircuitBoard} 
-            label="AI Circuit Scan" 
-            onClick={onOpenCircuitSchedule} 
-            disabled={!hasDesignId || !hasProjectId || !isPdfLoaded} 
-          />
-        )}
-        
-        {/* Drawing Sheet View */}
-        {onOpenDrawingSheet && (
-          <GlobalToolButton 
-            icon={FileSpreadsheet} 
-            label="Drawing Sheet View" 
-            onClick={onOpenDrawingSheet} 
-            disabled={!isPdfLoaded} 
-          />
-        )}
-        
-      </div>
+      {/* Advanced Actions - Collapsible */}
+      <Collapsible open={isAdvancedActionsOpen} onOpenChange={setIsAdvancedActionsOpen} className="flex-shrink-0">
+        <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-md hover:bg-accent text-foreground text-xs font-semibold uppercase tracking-wider">
+          <span>Advanced</span>
+          {isAdvancedActionsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-1 mt-1">
+          <GlobalToolButton icon={FileText} label="Saved Reports" onClick={onOpenSavedReports} disabled={!user} />
+          
+          {onLinkToFinalAccount && (
+            <GlobalToolButton 
+              icon={Link2} 
+              label="Link to Final Account" 
+              onClick={onLinkToFinalAccount} 
+              disabled={!hasDesignId || !hasProjectId || !isPdfLoaded} 
+            />
+          )}
+          
+          {onOpenCircuitSchedule && (
+            <GlobalToolButton 
+              icon={CircuitBoard} 
+              label="AI Circuit Scan" 
+              onClick={onOpenCircuitSchedule} 
+              disabled={!hasDesignId || !hasProjectId || !isPdfLoaded} 
+            />
+          )}
+          
+          {onOpenDrawingSheet && (
+            <GlobalToolButton 
+              icon={FileSpreadsheet} 
+              label="Drawing Sheet View" 
+              onClick={onOpenDrawingSheet} 
+              disabled={!isPdfLoaded} 
+            />
+          )}
+        </CollapsibleContent>
+      </Collapsible>
       
       {isPdfLoaded && purposeConfig && (
         <div className="flex-grow flex flex-col min-h-0">
