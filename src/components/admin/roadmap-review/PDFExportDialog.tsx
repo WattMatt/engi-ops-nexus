@@ -191,6 +191,21 @@ export function PDFExportDialog({
                       Summary Minutes Page
                     </Label>
                   </div>
+                  <div className="flex items-center space-x-2 col-span-2">
+                    <Checkbox 
+                      id="fullRoadmap"
+                      checked={options.includeFullRoadmapItems}
+                      onCheckedChange={(checked) => updateOption('includeFullRoadmapItems', !!checked)}
+                    />
+                    <div>
+                      <Label htmlFor="fullRoadmap" className="text-sm cursor-pointer">
+                        Full Roadmap Items
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Add detailed roadmap page per project with all items
+                      </p>
+                    </div>
+                  </div>
                 </>
               )}
             </div>

@@ -154,6 +154,7 @@ export interface RoadmapPDFExportOptions {
   includeSummaryMinutes: boolean;
   includeTableOfContents: boolean;
   includeCoverPage: boolean;
+  includeFullRoadmapItems: boolean;
   companyLogo?: string | null;
   companyName?: string;
   confidentialNotice?: boolean;
@@ -169,6 +170,7 @@ export const DEFAULT_EXPORT_OPTIONS: RoadmapPDFExportOptions = {
   includeSummaryMinutes: true,
   includeTableOfContents: true,
   includeCoverPage: true,
+  includeFullRoadmapItems: false,
   companyLogo: null,
   companyName: 'Roadmap Review',
   confidentialNotice: true,

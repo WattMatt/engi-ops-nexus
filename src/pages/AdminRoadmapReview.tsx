@@ -208,11 +208,13 @@ export default function AdminRoadmapReview() {
           includeSummaryMinutes: options?.includeSummaryMinutes ?? true,
           includeTableOfContents: options?.includeTableOfContents ?? true,
           includeCoverPage: options?.includeCoverPage ?? true,
+          includeFullRoadmapItems: options?.includeFullRoadmapItems ?? false,
           companyLogo: options?.companyLogo,
           companyName: options?.companyName,
           confidentialNotice: options?.confidentialNotice ?? true,
           reportType: options?.reportType ?? 'meeting-review',
-        }
+        },
+        queryData?.allRoadmapItems // Pass roadmap items for full roadmap pages
       );
 
       // Hide the printable charts container
