@@ -188,17 +188,108 @@ export default function AdminRoadmapReview() {
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       
-      // Title
-      doc.setFontSize(20);
+      // ============= COVER PAGE =============
+      // Background gradient effect (using rectangles)
+      doc.setFillColor(30, 58, 138); // Primary blue
+      doc.rect(0, 0, pageWidth, pageHeight * 0.45, "F");
+      
+      // Decorative accent bar
+      doc.setFillColor(59, 130, 246); // Lighter blue accent
+      doc.rect(0, pageHeight * 0.43, pageWidth, 8, "F");
+      
+      // Main title
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(36);
       doc.setFont("helvetica", "bold");
-      doc.text("Roadmap Review Report", pageWidth / 2, 20, { align: "center" });
+      doc.text("ROADMAP", pageWidth / 2, 70, { align: "center" });
+      doc.text("REVIEW REPORT", pageWidth / 2, 88, { align: "center" });
       
+      // Subtitle
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "normal");
+      doc.text("Portfolio Progress & Team Overview", pageWidth / 2, 105, { align: "center" });
+      
+      // Stats summary on cover
+      doc.setTextColor(30, 58, 138);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("EXECUTIVE SUMMARY", pageWidth / 2, pageHeight * 0.55, { align: "center" });
+      
+      // Summary stats boxes
+      const boxY = pageHeight * 0.60;
+      const boxWidth = 50;
+      const boxHeight = 35;
+      const boxSpacing = 10;
+      const startX = (pageWidth - (boxWidth * 3 + boxSpacing * 2)) / 2;
+      
+      // Box 1 - Total Projects
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(startX, boxY, boxWidth, boxHeight, 3, 3, "F");
+      doc.setTextColor(30, 58, 138);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(summaries.length), startX + boxWidth / 2, boxY + 18, { align: "center" });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("Total Projects", startX + boxWidth / 2, boxY + 28, { align: "center" });
+      
+      // Box 2 - Average Progress
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(startX + boxWidth + boxSpacing, boxY, boxWidth, boxHeight, 3, 3, "F");
+      doc.setTextColor(30, 58, 138);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      const avgProgress = summaries.length > 0 
+        ? Math.round(summaries.reduce((acc, s) => acc + s.progress, 0) / summaries.length)
+        : 0;
+      doc.text(`${avgProgress}%`, startX + boxWidth + boxSpacing + boxWidth / 2, boxY + 18, { align: "center" });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("Avg. Progress", startX + boxWidth + boxSpacing + boxWidth / 2, boxY + 28, { align: "center" });
+      
+      // Box 3 - Overdue Items
+      const overdueCount = summaries.filter((s) =>
+        s.upcomingItems.some((item) => getDueDateStatus(item.dueDate) === "overdue")
+      ).length;
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(startX + (boxWidth + boxSpacing) * 2, boxY, boxWidth, boxHeight, 3, 3, "F");
+      doc.setTextColor(overdueCount > 0 ? 220 : 30, overdueCount > 0 ? 38 : 58, overdueCount > 0 ? 38 : 138);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(overdueCount), startX + (boxWidth + boxSpacing) * 2 + boxWidth / 2, boxY + 18, { align: "center" });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("With Overdue", startX + (boxWidth + boxSpacing) * 2 + boxWidth / 2, boxY + 28, { align: "center" });
+      
+      // Generation date and footer
+      doc.setTextColor(100, 100, 100);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Generated: ${format(new Date(), "PPP 'at' p")}`, pageWidth / 2, 28, { align: "center" });
+      doc.text(`Report Generated: ${format(new Date(), "PPPP")}`, pageWidth / 2, pageHeight - 40, { align: "center" });
+      doc.text(format(new Date(), "'at' p"), pageWidth / 2, pageHeight - 32, { align: "center" });
       
-      let yPos = 40;
+      // Footer line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(40, pageHeight - 20, pageWidth - 40, pageHeight - 20);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text("Confidential - For Internal Use Only", pageWidth / 2, pageHeight - 12, { align: "center" });
+      
+      // ============= CONTENT PAGES =============
+      doc.addPage();
+      let yPos = 20;
+      
+      // Content header
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 58, 138);
+      doc.text("Project Details", 14, yPos);
+      yPos += 12;
 
       for (const summary of summaries) {
         // Check if we need a new page
