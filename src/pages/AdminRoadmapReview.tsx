@@ -168,7 +168,7 @@ export default function AdminRoadmapReview() {
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
-      // Generate the enhanced PDF with chart captures
+      // Generate the enhanced PDF with ALL options from export dialog
       const doc = await generateEnhancedRoadmapPDF(
         enhancedSummaries,
         portfolioMetrics,
@@ -176,6 +176,14 @@ export default function AdminRoadmapReview() {
           includeCharts: options?.includeCharts ?? true,
           includeAnalytics: options?.includeAnalytics ?? true,
           includeDetailedProjects: options?.includeDetailedProjects ?? true,
+          includeMeetingNotes: options?.includeMeetingNotes ?? true,
+          includeSummaryMinutes: options?.includeSummaryMinutes ?? true,
+          includeTableOfContents: options?.includeTableOfContents ?? true,
+          includeCoverPage: options?.includeCoverPage ?? true,
+          companyLogo: options?.companyLogo,
+          companyName: options?.companyName,
+          confidentialNotice: options?.confidentialNotice ?? true,
+          reportType: options?.reportType ?? 'meeting-review',
         }
       );
 
