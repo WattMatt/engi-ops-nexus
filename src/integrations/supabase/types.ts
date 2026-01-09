@@ -8695,8 +8695,10 @@ export type Database = {
           electrical_contractor: string | null
           electrical_standard: string | null
           id: string
+          latitude: number | null
           load_category: string | null
           logo_url: string | null
+          longitude: number | null
           metering_requirements: string | null
           name: string
           practical_completion_date: string | null
@@ -8731,8 +8733,10 @@ export type Database = {
           electrical_contractor?: string | null
           electrical_standard?: string | null
           id?: string
+          latitude?: number | null
           load_category?: string | null
           logo_url?: string | null
+          longitude?: number | null
           metering_requirements?: string | null
           name: string
           practical_completion_date?: string | null
@@ -8767,8 +8771,10 @@ export type Database = {
           electrical_contractor?: string | null
           electrical_standard?: string | null
           id?: string
+          latitude?: number | null
           load_category?: string | null
           logo_url?: string | null
+          longitude?: number | null
           metering_requirements?: string | null
           name?: string
           practical_completion_date?: string | null
