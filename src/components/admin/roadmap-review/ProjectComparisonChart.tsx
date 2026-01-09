@@ -40,8 +40,8 @@ export function ProjectComparisonChart({ projects }: ProjectComparisonChartProps
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card id="project-comparison-chart">
+      <CardHeader className="pb-2">
         <CardTitle className="text-lg font-semibold">Project Progress Comparison</CardTitle>
       </CardHeader>
       <CardContent>
