@@ -353,6 +353,7 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
                                 item={item}
                                 children={childrenByParent[item.id] || []}
                                 allChildrenByParent={childrenByParent}
+                                projectId={projectId}
                                 onToggleComplete={(id, isCompleted) => 
                                   toggleComplete.mutate({ id, isCompleted })
                                 }

@@ -22,6 +22,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -50,11 +51,14 @@ import {
   MessagesSquare,
   Calendar,
   AlertTriangle,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoadmapItemDiscussion } from "./RoadmapItemDiscussion";
 import { useRoadmapComments } from "@/hooks/useRoadmapComments";
 import { format, isPast, isToday } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface RoadmapItemData {
   id: string;
@@ -80,6 +84,7 @@ interface RoadmapItemProps {
   item: RoadmapItemData;
   children: RoadmapItemData[];
   allChildrenByParent: Record<string, RoadmapItemData[]>;
+  projectId: string;
   onToggleComplete: (id: string, isCompleted: boolean) => void;
   onEdit: (item: RoadmapItemData) => void;
   onDelete: (id: string) => void;
@@ -99,6 +104,7 @@ export const RoadmapItem = ({
   item,
   children,
   allChildrenByParent,
+  projectId,
   onToggleComplete,
   onEdit,
   onDelete,
@@ -108,10 +114,47 @@ export const RoadmapItem = ({
 }: RoadmapItemProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const [discussionOpen, setDiscussionOpen] = useState(false);
+  const [isNotifying, setIsNotifying] = useState(false);
   const hasChildren = children.length > 0;
   
   const { comments: itemComments } = useRoadmapComments(item.id);
   const commentCount = itemComments?.length || 0;
+
+  const handleNotifyTeam = async () => {
+    if (!item.due_date) {
+      toast.error("Please set a due date first before notifying the team");
+      return;
+    }
+    
+    setIsNotifying(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user?.id)
+        .single();
+      
+      const { error } = await supabase.functions.invoke("send-roadmap-due-date-notification", {
+        body: {
+          itemId: item.id,
+          itemTitle: item.title,
+          dueDate: item.due_date,
+          priority: item.priority,
+          projectId: projectId,
+          senderName: profile?.full_name || user?.email || "Team Member",
+        },
+      });
+
+      if (error) throw error;
+      toast.success("Due date reminder sent to team members");
+    } catch (error: any) {
+      console.error("Error sending notification:", error);
+      toast.error("Failed to send notification");
+    } finally {
+      setIsNotifying(false);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -316,6 +359,13 @@ export const RoadmapItem = ({
               <Plus className="h-4 w-4 mr-2" />
               Add Sub-item
             </DropdownMenuItem>
+            {item.due_date && !item.is_completed && (
+              <DropdownMenuItem onClick={handleNotifyTeam} disabled={isNotifying}>
+                <Bell className="h-4 w-4 mr-2" />
+                {isNotifying ? "Sending..." : "Notify Team of Due Date"}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => onDelete(item.id)}
               className="text-destructive focus:text-destructive"
@@ -346,6 +396,7 @@ export const RoadmapItem = ({
                       item={child}
                       children={allChildrenByParent[child.id] || []}
                       allChildrenByParent={allChildrenByParent}
+                      projectId={projectId}
                       onToggleComplete={onToggleComplete}
                       onEdit={onEdit}
                       onDelete={onDelete}
