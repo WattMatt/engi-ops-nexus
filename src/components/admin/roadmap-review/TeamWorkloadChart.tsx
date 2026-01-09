@@ -64,7 +64,7 @@ export function TeamWorkloadChart({ projects }: TeamWorkloadChartProps) {
   }
 
   return (
-    <Card>
+    <Card id="team-workload-chart">
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Team Workload Distribution</CardTitle>
       </CardHeader>
