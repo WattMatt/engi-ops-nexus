@@ -15,6 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -49,18 +50,21 @@ import {
   ExternalLink,
   GripVertical,
   MessagesSquare,
-  Calendar,
   AlertTriangle,
   Bell,
+  PlayCircle,
+  Flag,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoadmapItemDiscussion } from "./RoadmapItemDiscussion";
 import { useRoadmapComments } from "@/hooks/useRoadmapComments";
-import { format, isPast, isToday } from "date-fns";
+import { isPast, isToday, differenceInDays, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { InlineDatePicker } from "./InlineDatePicker";
 
-interface RoadmapItemData {
+export interface RoadmapItemData {
   id: string;
   project_id: string;
   title: string;
@@ -74,6 +78,7 @@ interface RoadmapItemData {
   link_url: string | null;
   link_label: string | null;
   comments: string | null;
+  start_date: string | null;
   due_date: string | null;
   priority: string | null;
   created_at: string;
@@ -90,7 +95,9 @@ interface RoadmapItemProps {
   onDelete: (id: string) => void;
   onAddChild: (parentId: string) => void;
   onReorderChildren?: (updates: { id: string; sort_order: number }[]) => void;
+  onDateChange?: (id: string, field: "start_date" | "due_date", value: string | null) => void;
   depth?: number;
+  showDateColumns?: boolean;
 }
 
 const priorityConfig = {
@@ -110,8 +117,11 @@ export const RoadmapItem = ({
   onDelete,
   onAddChild,
   onReorderChildren,
+  onDateChange,
   depth = 0,
+  showDateColumns = false,
 }: RoadmapItemProps) => {
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(true);
   const [discussionOpen, setDiscussionOpen] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
@@ -119,6 +129,22 @@ export const RoadmapItem = ({
   
   const { comments: itemComments } = useRoadmapComments(item.id);
   const commentCount = itemComments?.length || 0;
+
+  // Local date change handler if no parent handler provided
+  const handleDateChange = async (field: "start_date" | "due_date", value: string | null) => {
+    if (onDateChange) {
+      onDateChange(item.id, field, value);
+    } else {
+      // Fallback direct update
+      const { error } = await supabase
+        .from("project_roadmap_items")
+        .update({ [field]: value })
+        .eq("id", item.id);
+      if (!error) {
+        queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
+      }
+    }
+  };
 
   const handleNotifyTeam = async () => {
     if (!item.due_date) {
@@ -269,8 +295,8 @@ export const RoadmapItem = ({
               </Badge>
             )}
             
-            {/* Due date badge */}
-            {item.due_date && !item.is_completed && (
+            {/* Due date badge - only show if NOT showing date columns */}
+            {!showDateColumns && item.due_date && !item.is_completed && (
               <Badge 
                 variant="outline" 
                 className={cn(
@@ -340,6 +366,27 @@ export const RoadmapItem = ({
           )}
         </div>
 
+        {/* Inline date columns for quick editing */}
+        {showDateColumns && (
+          <div className="flex items-center gap-1 shrink-0">
+            <InlineDatePicker
+              value={item.start_date}
+              onChange={(date) => handleDateChange("start_date", date)}
+              placeholder="Start"
+              disabled={item.is_completed}
+            />
+            <span className="text-muted-foreground text-xs">→</span>
+            <InlineDatePicker
+              value={item.due_date}
+              onChange={(date) => handleDateChange("due_date", date)}
+              placeholder="End"
+              disabled={item.is_completed}
+              isOverdue={isOverdue}
+              isDueSoon={isDueToday}
+            />
+          </div>
+        )}
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -402,6 +449,8 @@ export const RoadmapItem = ({
                       onDelete={onDelete}
                       onAddChild={onAddChild}
                       onReorderChildren={onReorderChildren}
+                      onDateChange={onDateChange}
+                      showDateColumns={showDateColumns}
                       depth={depth + 1}
                     />
                   ))}
