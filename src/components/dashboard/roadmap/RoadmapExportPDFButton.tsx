@@ -332,219 +332,203 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       
       yPos += 20;
 
-      // === STRUCTURED LIST FORMAT ===
-      // Professional engineering list with phases, items, and dates
+      // === WYSIWYG LIST FORMAT (Matching UI exactly) ===
       
-      // Engineering color palette
-      const LIST_COLORS: Record<string, [number, number, number]> = {
+      // Colors matching the UI
+      const UI_COLORS: Record<string, [number, number, number]> = {
         phaseHeader: [30, 58, 138],      // Blue-900
         phaseHeaderBg: [239, 246, 255],  // Blue-50
         rowBg: [255, 255, 255],          // White
-        rowAltBg: [248, 250, 252],       // Slate-50
-        completedBg: [220, 252, 231],    // Green-100
         text: [15, 23, 42],              // Slate-900
-        subText: [71, 85, 105],          // Slate-600
-        border: [191, 219, 254],         // Blue-200
+        subText: [100, 116, 139],        // Slate-500
+        border: [226, 232, 240],         // Slate-200
+        checkbox: [203, 213, 225],       // Slate-300
+        checkboxChecked: [59, 130, 246], // Blue-500
+        strikethrough: [148, 163, 184],  // Slate-400
+        notesBg: [254, 243, 199],        // Amber-100
+        notesText: [146, 64, 14],        // Amber-800
         completed: [22, 163, 74],        // Green-600
-        overdue: [220, 38, 38],          // Red-600
-        pending: [234, 179, 8],          // Yellow-500
       };
 
-      // Table layout
-      const tableStartX = margins.left;
-      const tableWidth = contentWidth;
-      const colWidths = {
-        status: 8,
-        title: tableWidth - 68,
-        startDate: 30,
-        endDate: 30,
-      };
-      const rowHeight = 10;
-      const phaseRowHeight = 12;
-
-      // Helper: Draw table header
-      const drawTableHeader = () => {
-        doc.setFillColor(...LIST_COLORS.phaseHeader);
-        doc.rect(tableStartX, yPos, tableWidth, 8, "F");
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(7);
-        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "bold");
-        
-        let colX = tableStartX + 2;
-        doc.text("", colX, yPos + 5.5); // Status column (icon only)
-        colX += colWidths.status;
-        doc.text("Task", colX, yPos + 5.5);
-        colX = tableStartX + tableWidth - colWidths.startDate - colWidths.endDate;
-        doc.text("Start", colX, yPos + 5.5);
-        colX += colWidths.startDate;
-        doc.text("End", colX, yPos + 5.5);
-        
-        yPos += 10;
+      const baseIndent = 10;
+      const indentPerLevel = 12;
+      const rowHeight = 8;
+      const noteRowHeight = 10;
+      
+      // Helper: Draw checkbox
+      const drawCheckbox = (x: number, y: number, checked: boolean) => {
+        const size = 4;
+        if (checked) {
+          doc.setFillColor(...UI_COLORS.checkboxChecked);
+          doc.roundedRect(x, y - size/2, size, size, 0.5, 0.5, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(5);
+          doc.text("✓", x + size/2, y + 1, { align: "center" });
+        } else {
+          doc.setDrawColor(...UI_COLORS.checkbox);
+          doc.setLineWidth(0.4);
+          doc.roundedRect(x, y - size/2, size, size, 0.5, 0.5, "S");
+        }
       };
 
-      // Draw main header
-      doc.setFillColor(...LIST_COLORS.phaseHeader);
-      doc.roundedRect(margins.left, yPos, contentWidth, 12, 2, 2, "F");
+      // Helper: Render item with proper indentation
+      const renderItem = (node: RoadmapNode, level: number) => {
+        const item = node.item;
+        const hasNote = item.comments && item.comments.trim().length > 0;
+        const totalHeight = rowHeight + (hasNote ? noteRowHeight : 0);
+        
+        // Check for page break
+        if (yPos + totalHeight > contentArea.endY) {
+          doc.addPage();
+          yPos = contentArea.startY;
+        }
+        
+        const indent = baseIndent + (level * indentPerLevel);
+        const isCompleted = item.is_completed;
+        
+        // Checkbox
+        drawCheckbox(margins.left + indent, yPos + rowHeight / 2, !!isCompleted);
+        
+        // Title (with strikethrough if completed)
+        const titleX = margins.left + indent + 7;
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
+        
+        if (isCompleted) {
+          doc.setTextColor(...UI_COLORS.strikethrough);
+          doc.text(item.title, titleX, yPos + rowHeight / 2 + 1);
+          // Draw strikethrough line
+          const textWidth = doc.getTextWidth(item.title);
+          doc.setDrawColor(...UI_COLORS.strikethrough);
+          doc.setLineWidth(0.3);
+          doc.line(titleX, yPos + rowHeight / 2 + 0.5, titleX + textWidth, yPos + rowHeight / 2 + 0.5);
+        } else {
+          doc.setTextColor(...UI_COLORS.text);
+          doc.text(item.title, titleX, yPos + rowHeight / 2 + 1);
+        }
+        
+        // Dates on the right
+        const dateSection = pageWidth - margins.right - 60;
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+        doc.setTextColor(...UI_COLORS.subText);
+        
+        if (item.start_date) {
+          doc.text(`Start: ${format(new Date(item.start_date), "dd MMM")}`, dateSection, yPos + rowHeight / 2 + 0.5);
+        }
+        if (item.due_date) {
+          doc.text(`End: ${format(new Date(item.due_date), "dd MMM")}`, dateSection + 30, yPos + rowHeight / 2 + 0.5);
+        }
+        
+        yPos += rowHeight;
+        
+        // Render note box if present (matching UI's yellow highlight)
+        if (hasNote) {
+          const noteIndent = margins.left + indent + 7;
+          const noteWidth = pageWidth - margins.right - noteIndent - 5;
+          
+          // Yellow background box
+          doc.setFillColor(...UI_COLORS.notesBg);
+          doc.roundedRect(noteIndent, yPos, noteWidth, noteRowHeight - 2, 1, 1, "F");
+          
+          // Note text
+          doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+          doc.setTextColor(...UI_COLORS.notesText);
+          doc.setFont(PDF_TYPOGRAPHY.fonts.body, "italic");
+          
+          let noteText = item.comments!.trim();
+          const maxNoteWidth = noteWidth - 6;
+          while (doc.getTextWidth(noteText) > maxNoteWidth && noteText.length > 20) {
+            noteText = noteText.substring(0, noteText.length - 4) + "...";
+          }
+          
+          doc.text(noteText, noteIndent + 3, yPos + noteRowHeight / 2 + 0.5);
+          doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
+          
+          yPos += noteRowHeight;
+        }
+        
+        // Render children with increased indent
+        node.children.forEach(child => renderItem(child, level + 1));
+      };
+
+      // Draw main header (matching UI)
+      doc.setFillColor(...UI_COLORS.phaseHeader);
+      doc.roundedRect(margins.left, yPos, contentWidth, 14, 2, 2, "F");
+      
+      // Progress bar background
+      const progressBarWidth = contentWidth * 0.4;
+      const progressBarX = margins.left + 5;
+      doc.setFillColor(255, 255, 255, 0.3);
+      doc.roundedRect(progressBarX, yPos + 9, progressBarWidth, 3, 1, 1, "F");
+      
+      // Progress bar fill
+      const totalItems = items.length;
+      const completedCount = items.filter(i => i.is_completed).length;
+      const progressPct = totalItems > 0 ? completedCount / totalItems : 0;
+      doc.setFillColor(...UI_COLORS.completed);
+      doc.roundedRect(progressBarX, yPos + 9, progressBarWidth * progressPct, 3, 1, 1, "F");
+      
+      // Title and stats
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
       doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
-      doc.text("Project Roadmap", margins.left + 5, yPos + 8);
+      doc.text("Project Roadmap", margins.left + 5, yPos + 7);
       
-      // Progress stats on right
-      const totalItems = items.length;
-      const completedCount = items.filter(i => i.is_completed).length;
-      const progressPct = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
       doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
-      doc.text(`${completedCount}/${totalItems} completed (${progressPct}%)`, 
-        pageWidth - margins.right - 5, yPos + 8, { align: "right" });
+      doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
+      doc.text(`${completedCount}/${totalItems} completed (${Math.round(progressPct * 100)}%)`, 
+        pageWidth - margins.right - 5, yPos + 7, { align: "right" });
       
-      yPos += 18;
-      
-      // Draw table header
-      drawTableHeader();
+      yPos += 20;
 
       // Render each phase
       for (const phase of phases) {
         const phaseNodes = groupedByPhase[phase];
         
-        // Flatten items for this phase
-        const flattenNodes = (nodes: RoadmapNode[]): RoadmapItem[] => {
-          const result: RoadmapItem[] = [];
-          nodes.forEach(node => {
-            result.push(node.item);
-            if (node.children.length > 0) {
-              result.push(...flattenNodes(node.children));
-            }
-          });
-          return result;
+        // Flatten to count items
+        const countItems = (nodes: RoadmapNode[]): number => {
+          return nodes.reduce((sum, n) => sum + 1 + countItems(n.children), 0);
+        };
+        const countCompleted = (nodes: RoadmapNode[]): number => {
+          return nodes.reduce((sum, n) => (n.item.is_completed ? 1 : 0) + countCompleted(n.children), 0);
         };
         
-        const phaseItems = flattenNodes(phaseNodes);
-        const phaseCompleted = phaseItems.filter(i => i.is_completed).length;
+        const phaseTotal = countItems(phaseNodes);
+        const phaseCompleted = countCompleted(phaseNodes);
         
-        // Check for page break (need space for phase header + at least 2 items)
-        yPos = checkSafePageBreak(doc, yPos, phaseRowHeight + rowHeight * 2 + 10);
+        // Check for page break
+        if (yPos + 20 > contentArea.endY) {
+          doc.addPage();
+          yPos = contentArea.startY;
+        }
         
-        // Phase header row
-        doc.setFillColor(...LIST_COLORS.phaseHeaderBg);
-        doc.setDrawColor(...LIST_COLORS.border);
+        // Phase header (collapsible style like UI)
+        doc.setFillColor(...UI_COLORS.phaseHeaderBg);
+        doc.setDrawColor(...UI_COLORS.border);
         doc.setLineWidth(0.3);
-        doc.rect(tableStartX, yPos, tableWidth, phaseRowHeight, "FD");
+        doc.roundedRect(margins.left, yPos, contentWidth, 10, 2, 2, "FD");
         
-        // Phase accent bar
-        doc.setFillColor(...LIST_COLORS.phaseHeader);
-        doc.rect(tableStartX, yPos, 3, phaseRowHeight, "F");
+        // Collapse icon (chevron)
+        doc.setTextColor(...UI_COLORS.phaseHeader);
+        doc.setFontSize(8);
+        doc.text("▼", margins.left + 5, yPos + 6.5);
         
-        doc.setTextColor(...LIST_COLORS.phaseHeader);
+        // Phase name
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
         doc.setFont(PDF_TYPOGRAPHY.fonts.body, "bold");
-        doc.text(phase, tableStartX + 6, yPos + 8);
+        doc.text(phase, margins.left + 12, yPos + 7);
         
-        // Phase progress
+        // Phase count
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
-        doc.setTextColor(...LIST_COLORS.subText);
-        doc.text(`${phaseCompleted}/${phaseItems.length}`, 
-          tableStartX + tableWidth - 5, yPos + 8, { align: "right" });
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
+        doc.setTextColor(...UI_COLORS.subText);
+        doc.text(`(${phaseCompleted}/${phaseTotal})`, margins.left + 12 + doc.getTextWidth(phase) + 3, yPos + 7);
         
-        yPos += phaseRowHeight;
+        yPos += 14;
         
         // Render items in this phase
-        phaseItems.forEach((item, idx) => {
-          const hasComments = item.comments && item.comments.trim().length > 0;
-          const itemHeight = hasComments ? rowHeight + 6 : rowHeight;
-          
-          // Check for page break
-          if (yPos + itemHeight > contentArea.endY) {
-            doc.addPage();
-            yPos = contentArea.startY;
-            drawTableHeader();
-          }
-          
-          const isCompleted = item.is_completed;
-          const dueStatus = getDueDateStatus(item.due_date);
-          const isAlt = idx % 2 === 1;
-          
-          // Row background
-          const rowBg = isCompleted ? LIST_COLORS.completedBg : 
-            (isAlt ? LIST_COLORS.rowAltBg : LIST_COLORS.rowBg);
-          doc.setFillColor(...rowBg);
-          doc.setDrawColor(...LIST_COLORS.border);
-          doc.setLineWidth(0.2);
-          doc.rect(tableStartX, yPos, tableWidth, itemHeight, "FD");
-          
-          let colX = tableStartX + 3;
-          
-          // Status indicator
-          const statusColor = isCompleted ? LIST_COLORS.completed : 
-            dueStatus === "overdue" ? LIST_COLORS.overdue :
-            dueStatus === "soon" ? LIST_COLORS.pending : LIST_COLORS.subText;
-          doc.setFillColor(...statusColor);
-          doc.circle(colX + 2, yPos + rowHeight / 2, 2, "F");
-          
-          // Checkmark if completed
-          if (isCompleted) {
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(5);
-            doc.text("✓", colX + 2, yPos + rowHeight / 2 + 0.8, { align: "center" });
-          }
-          
-          colX += colWidths.status;
-          
-          // Title
-          doc.setTextColor(...LIST_COLORS.text);
-          doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
-          doc.setFont(PDF_TYPOGRAPHY.fonts.body, isCompleted ? "normal" : "normal");
-          
-          let title = item.title;
-          const maxTitleWidth = colWidths.title - 5;
-          while (doc.getTextWidth(title) > maxTitleWidth && title.length > 10) {
-            title = title.substring(0, title.length - 4) + "...";
-          }
-          doc.text(title, colX, yPos + rowHeight / 2 + 1.5);
-          
-          // Start date
-          colX = tableStartX + tableWidth - colWidths.startDate - colWidths.endDate;
-          doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
-          doc.setTextColor(...LIST_COLORS.subText);
-          if (item.start_date) {
-            doc.text(format(new Date(item.start_date), "dd MMM"), colX, yPos + rowHeight / 2 + 1);
-          } else {
-            doc.text("-", colX + 8, yPos + rowHeight / 2 + 1);
-          }
-          
-          // End/Due date
-          colX += colWidths.startDate;
-          if (item.due_date) {
-            const dateColor: [number, number, number] = dueStatus === "overdue" ? LIST_COLORS.overdue : 
-              dueStatus === "soon" ? LIST_COLORS.pending : LIST_COLORS.subText;
-            doc.setTextColor(...dateColor);
-            doc.text(format(new Date(item.due_date), "dd MMM"), colX, yPos + rowHeight / 2 + 1);
-          } else {
-            doc.setTextColor(...LIST_COLORS.subText);
-            doc.text("-", colX + 8, yPos + rowHeight / 2 + 1);
-          }
-          
-          // Comments row (if present)
-          if (hasComments) {
-            doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
-            doc.setTextColor(...LIST_COLORS.subText);
-            doc.setFont(PDF_TYPOGRAPHY.fonts.body, "italic");
-            
-            // Truncate comments if too long
-            let commentText = `💬 ${item.comments!.trim()}`;
-            const maxCommentWidth = tableWidth - colWidths.status - 10;
-            while (doc.getTextWidth(commentText) > maxCommentWidth && commentText.length > 20) {
-              commentText = commentText.substring(0, commentText.length - 4) + "...";
-            }
-            
-            doc.text(commentText, tableStartX + colWidths.status + 3, yPos + rowHeight + 4);
-          }
-          
-          yPos += itemHeight;
-        });
+        phaseNodes.forEach(node => renderItem(node, 0));
         
-        yPos += 4; // Gap between phases
+        yPos += 6; // Gap between phases
       }
       
       yPos += 10;
