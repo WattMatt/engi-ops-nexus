@@ -17,6 +17,20 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { getDueDateStatus } from "@/utils/roadmapReviewCalculations";
+import { 
+  initializePDF, 
+  addPageNumbers, 
+  STANDARD_MARGINS,
+  checkPageBreak 
+} from "@/utils/pdfExportBase";
+import { generateCoverPage } from "@/utils/pdfCoverPageSimple";
+import { 
+  PDF_BRAND_COLORS, 
+  PDF_TYPOGRAPHY, 
+  PDF_LAYOUT,
+  getPriorityColor,
+  getHealthColor 
+} from "@/utils/roadmapReviewPdfStyles";
 
 interface RoadmapExportPDFButtonProps {
   projectId: string;
@@ -27,6 +41,7 @@ interface ExportOptions {
   includePending: boolean;
   includeActionItems: boolean;
   includeMeetingHeader: boolean;
+  includeCoverPage: boolean;
 }
 
 interface RoadmapItem {
@@ -41,32 +56,15 @@ interface RoadmapItem {
   parent_id?: string | null;
 }
 
-// PDF styling constants
-const PDF_COLORS = {
-  primary: [30, 58, 138] as [number, number, number],
-  primaryLight: [59, 130, 246] as [number, number, number],
-  success: [34, 197, 94] as [number, number, number],
-  successLight: [187, 247, 208] as [number, number, number],
-  warning: [245, 158, 11] as [number, number, number],
-  warningLight: [254, 243, 199] as [number, number, number],
-  danger: [239, 68, 68] as [number, number, number],
-  dangerLight: [254, 226, 226] as [number, number, number],
-  gray: [100, 116, 139] as [number, number, number],
-  lightGray: [248, 250, 252] as [number, number, number],
-  mediumGray: [226, 232, 240] as [number, number, number],
-  white: [255, 255, 255] as [number, number, number],
-  black: [15, 23, 42] as [number, number, number],
-};
-
 // Phase colors for visual flow
 const PHASE_COLORS: { [key: string]: [number, number, number] } = {
-  "Planning & Preparation": [59, 130, 246],
-  "Budget & Assessment": [34, 197, 94],
-  "Tender & Procurement": [245, 158, 11],
-  "Construction": [239, 68, 68],
+  "Planning & Preparation": PDF_BRAND_COLORS.primaryLight,
+  "Budget & Assessment": PDF_BRAND_COLORS.success,
+  "Tender & Procurement": PDF_BRAND_COLORS.warning,
+  "Construction": PDF_BRAND_COLORS.danger,
   "Commissioning": [139, 92, 246],
   "Handover": [6, 182, 212],
-  default: [100, 116, 139],
+  default: PDF_BRAND_COLORS.gray,
 };
 
 export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProps) {
@@ -77,6 +75,7 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
     includePending: true,
     includeActionItems: true,
     includeMeetingHeader: true,
+    includeCoverPage: true,
   });
 
   // Fetch project and roadmap data
@@ -116,18 +115,15 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
     setIsExporting(true);
 
     try {
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
+      // Use standardized PDF initialization
+      const doc = initializePDF({ orientation: 'portrait' });
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margins = { top: 15, bottom: 20, left: 15, right: 15 };
+      const margins = PDF_LAYOUT.margins;
       const contentWidth = pageWidth - margins.left - margins.right;
 
-      const { project, items, members, company } = projectData;
+      const { project, items, company } = projectData;
       
       // Filter items based on options
       const pendingItems = items.filter((item) => !item.is_completed);
@@ -150,22 +146,35 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         ? Math.round((completedItems.length / items.length) * 100) 
         : 0;
 
-      // === COVER PAGE WITH MEETING HEADER ===
+      // === COVER PAGE ===
+      if (options.includeCoverPage) {
+        await generateCoverPage(doc, {
+          project_name: project.name,
+          client_name: project.client_name || '',
+          report_title: 'Project Roadmap Review',
+          report_date: format(new Date(), 'MMMM d, yyyy'),
+          revision: '1.0',
+          subtitle: 'Flow Diagram & Meeting Notes',
+          project_id: projectId,
+        });
+        doc.addPage();
+      }
+
       let yPos = margins.top;
 
+      // === MEETING HEADER ===
       if (options.includeMeetingHeader) {
-        // Meeting header box
-        doc.setFillColor(...PDF_COLORS.lightGray);
+        doc.setFillColor(...PDF_BRAND_COLORS.lightGray);
         doc.roundedRect(margins.left, yPos, contentWidth, 35, 3, 3, "F");
         
-        doc.setTextColor(...PDF_COLORS.black);
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...PDF_BRAND_COLORS.text);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h1);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Project Roadmap Review Meeting", margins.left + 5, yPos + 10);
         
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(...PDF_COLORS.gray);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
+        doc.setTextColor(...PDF_BRAND_COLORS.darkGray);
         doc.text(`Date: ${format(new Date(), "PPPP")}`, margins.left + 5, yPos + 18);
         
         // Editable fields
@@ -175,55 +184,55 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         yPos += 42;
       }
 
-      // Project header
-      doc.setFillColor(...PDF_COLORS.primary);
+      // === PROJECT HEADER ===
+      doc.setFillColor(...PDF_BRAND_COLORS.primary);
       doc.roundedRect(margins.left, yPos, contentWidth, 25, 3, 3, "F");
       
-      doc.setTextColor(...PDF_COLORS.white);
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...PDF_BRAND_COLORS.white);
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.h1);
+      doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
       const projectName = project.name.length > 40 
         ? project.name.substring(0, 37) + "..." 
         : project.name;
       doc.text(projectName, margins.left + 5, yPos + 10);
       
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
+      doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
       doc.text("Project Roadmap Flow Diagram", margins.left + 5, yPos + 18);
 
       // Progress circle
       const circleX = pageWidth - margins.right - 15;
       const circleY = yPos + 12.5;
-      const progressColor = progress >= 70 ? PDF_COLORS.success : 
-        progress >= 40 ? PDF_COLORS.warning : PDF_COLORS.danger;
+      const progressColor = getHealthColor(progress);
       doc.setFillColor(...progressColor);
       doc.circle(circleX, circleY, 10, "F");
-      doc.setTextColor(...PDF_COLORS.white);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...PDF_BRAND_COLORS.white);
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+      doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
       doc.text(`${progress}%`, circleX, circleY + 1, { align: "center" });
       
       yPos += 32;
 
-      // Quick stats row
+      // === QUICK STATS ROW ===
       const statsBoxWidth = contentWidth / 4 - 3;
+      const overdueCount = pendingItems.filter(i => getDueDateStatus(i.due_date) === "overdue").length;
       const stats = [
-        { label: "Total", value: items.length, color: PDF_COLORS.primary },
-        { label: "Pending", value: pendingItems.length, color: PDF_COLORS.warning },
-        { label: "Completed", value: completedItems.length, color: PDF_COLORS.success },
-        { label: "Overdue", value: pendingItems.filter(i => getDueDateStatus(i.due_date) === "overdue").length, color: PDF_COLORS.danger },
+        { label: "Total", value: items.length, color: PDF_BRAND_COLORS.primary },
+        { label: "Pending", value: pendingItems.length, color: PDF_BRAND_COLORS.warning },
+        { label: "Completed", value: completedItems.length, color: PDF_BRAND_COLORS.success },
+        { label: "Overdue", value: overdueCount, color: PDF_BRAND_COLORS.danger },
       ];
       
       stats.forEach((stat, i) => {
         const boxX = margins.left + i * (statsBoxWidth + 4);
         doc.setFillColor(...stat.color);
         doc.roundedRect(boxX, yPos, statsBoxWidth, 12, 2, 2, "F");
-        doc.setTextColor(...PDF_COLORS.white);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...PDF_BRAND_COLORS.white);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
         doc.text(stat.label, boxX + 3, yPos + 4);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text(String(stat.value), boxX + statsBoxWidth - 4, yPos + 9, { align: "right" });
       });
       
@@ -251,21 +260,21 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         doc.circle(timelineX, yPos + 5, 4, "F");
         
         // Timeline line
-        doc.setDrawColor(...PDF_COLORS.mediumGray);
+        doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
         doc.setLineWidth(1);
         doc.line(timelineX, yPos + 10, timelineX, yPos + phaseHeaderHeight + (phaseItems.length * itemHeight) + 5);
         
         // Phase title bar
         doc.setFillColor(...phaseColor);
         doc.roundedRect(margins.left + 12, yPos, cardWidth - 10, phaseHeaderHeight, 2, 2, "F");
-        doc.setTextColor(...PDF_COLORS.white);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...PDF_BRAND_COLORS.white);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text(phase, margins.left + 16, yPos + 9);
         
         // Phase progress
         const phaseCompleted = phaseItems.filter(i => i.is_completed).length;
-        doc.setFontSize(8);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
         doc.text(`${phaseCompleted}/${phaseItems.length}`, pageWidth - margins.right - 8, yPos + 9, { align: "right" });
         
         yPos += phaseHeaderHeight + 3;
@@ -275,34 +284,34 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           const dueStatus = getDueDateStatus(item.due_date);
           const isCompleted = item.is_completed;
           
-          // Item card
-          const cardBg = isCompleted ? PDF_COLORS.successLight : 
-            dueStatus === "overdue" ? PDF_COLORS.dangerLight :
-            dueStatus === "soon" ? PDF_COLORS.warningLight : PDF_COLORS.white;
+          // Item card background colors
+          const cardBg = isCompleted ? [187, 247, 208] as [number, number, number] : 
+            dueStatus === "overdue" ? [254, 226, 226] as [number, number, number] :
+            dueStatus === "soon" ? [254, 243, 199] as [number, number, number] : PDF_BRAND_COLORS.white;
           
           doc.setFillColor(...cardBg);
-          doc.setDrawColor(...PDF_COLORS.mediumGray);
+          doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
           doc.setLineWidth(0.3);
           doc.roundedRect(margins.left + 12, yPos, cardWidth - 10, itemHeight - 2, 2, 2, "FD");
           
           // Status indicator
-          const statusColor = isCompleted ? PDF_COLORS.success : 
-            dueStatus === "overdue" ? PDF_COLORS.danger :
-            dueStatus === "soon" ? PDF_COLORS.warning : PDF_COLORS.gray;
+          const statusColor = isCompleted ? PDF_BRAND_COLORS.success : 
+            dueStatus === "overdue" ? PDF_BRAND_COLORS.danger :
+            dueStatus === "soon" ? PDF_BRAND_COLORS.warning : PDF_BRAND_COLORS.gray;
           doc.setFillColor(...statusColor);
           doc.circle(margins.left + 18, yPos + (itemHeight - 2) / 2, 2.5, "F");
           
-          // Checkmark or empty
-          doc.setTextColor(...PDF_COLORS.white);
-          doc.setFontSize(6);
+          // Checkmark if completed
+          doc.setTextColor(...PDF_BRAND_COLORS.white);
+          doc.setFontSize(PDF_TYPOGRAPHY.sizes.caption);
           if (isCompleted) {
             doc.text("✓", margins.left + 18, yPos + (itemHeight - 2) / 2 + 0.5, { align: "center" });
           }
           
           // Item title
-          doc.setTextColor(...PDF_COLORS.black);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", isCompleted ? "normal" : "bold");
+          doc.setTextColor(...PDF_BRAND_COLORS.text);
+          doc.setFontSize(PDF_TYPOGRAPHY.sizes.body - 1);
+          doc.setFont(PDF_TYPOGRAPHY.fonts.body, isCompleted ? "normal" : "bold");
           const title = item.title.length > 40 ? item.title.substring(0, 37) + "..." : item.title;
           doc.text(title, margins.left + 25, yPos + 6);
           
@@ -311,8 +320,8 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           const hasDueDate = item.due_date;
           
           if (hasStartDate || hasDueDate) {
-            doc.setFontSize(7);
-            doc.setFont("helvetica", "normal");
+            doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+            doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
             doc.setTextColor(...statusColor);
             
             let dateStr = "";
@@ -328,31 +337,30 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           
           // Priority badge
           if (item.priority && item.priority !== "normal") {
-            const priorityColor = item.priority === "high" ? PDF_COLORS.danger : 
-              item.priority === "urgent" ? PDF_COLORS.danger : PDF_COLORS.warning;
+            const priorityColor = getPriorityColor(item.priority);
             doc.setFillColor(...priorityColor);
             const priorityX = pageWidth - margins.right - 30;
             doc.roundedRect(priorityX, yPos + 2, 18, 6, 1, 1, "F");
-            doc.setTextColor(...PDF_COLORS.white);
-            doc.setFontSize(6);
+            doc.setTextColor(...PDF_BRAND_COLORS.white);
+            doc.setFontSize(PDF_TYPOGRAPHY.sizes.caption);
             doc.text(item.priority.toUpperCase(), priorityX + 9, yPos + 6, { align: "center" });
           }
           
           // Comment line (for handwriting during meeting)
           if (options.includeActionItems) {
-            doc.setDrawColor(...PDF_COLORS.mediumGray);
+            doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
             doc.setLineWidth(0.2);
             const lineY = yPos + 16;
             doc.line(margins.left + 25, lineY, pageWidth - margins.right - 15, lineY);
-            doc.setFontSize(5);
-            doc.setTextColor(...PDF_COLORS.gray);
+            doc.setFontSize(PDF_TYPOGRAPHY.sizes.caption - 1);
+            doc.setTextColor(...PDF_BRAND_COLORS.gray);
             doc.text("Action/Comment:", margins.left + 25, lineY - 1);
           }
           
           yPos += itemHeight;
         }
         
-        yPos += 8;
+        yPos += PDF_LAYOUT.spacing.element * 2;
       }
 
       // === MEETING NOTES PAGE ===
@@ -360,23 +368,23 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         doc.addPage();
         yPos = margins.top;
         
-        doc.setFillColor(...PDF_COLORS.primary);
+        doc.setFillColor(...PDF_BRAND_COLORS.primary);
         doc.roundedRect(margins.left, yPos, contentWidth, 15, 3, 3, "F");
-        doc.setTextColor(...PDF_COLORS.white);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...PDF_BRAND_COLORS.white);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h2);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Meeting Notes & Action Items", margins.left + 5, yPos + 10);
         
         yPos += 22;
         
         // Key decisions section
-        doc.setTextColor(...PDF_COLORS.primary);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...PDF_BRAND_COLORS.primary);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Key Decisions", margins.left, yPos);
         yPos += 5;
         
-        doc.setDrawColor(...PDF_COLORS.mediumGray);
+        doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
         doc.setLineWidth(0.3);
         for (let i = 0; i < 5; i++) {
           doc.setFillColor(i % 2 === 0 ? 255 : 248, i % 2 === 0 ? 255 : 250, i % 2 === 0 ? 255 : 252);
@@ -387,17 +395,17 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         yPos += 10;
         
         // Action items table
-        doc.setTextColor(...PDF_COLORS.primary);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...PDF_BRAND_COLORS.primary);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Action Items", margins.left, yPos);
         yPos += 5;
         
         // Header row
-        doc.setFillColor(...PDF_COLORS.primary);
+        doc.setFillColor(...PDF_BRAND_COLORS.tableHeader);
         doc.rect(margins.left, yPos, contentWidth, 8, "F");
-        doc.setTextColor(...PDF_COLORS.white);
-        doc.setFontSize(8);
+        doc.setTextColor(...PDF_BRAND_COLORS.white);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
         doc.text("Action", margins.left + 3, yPos + 5);
         doc.text("Owner", margins.left + 100, yPos + 5);
         doc.text("Due Date", margins.left + 135, yPos + 5);
@@ -407,7 +415,7 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         // Empty rows for handwriting
         for (let i = 0; i < 8; i++) {
           doc.setFillColor(i % 2 === 0 ? 255 : 248, i % 2 === 0 ? 255 : 250, i % 2 === 0 ? 255 : 252);
-          doc.setDrawColor(...PDF_COLORS.mediumGray);
+          doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
           doc.rect(margins.left, yPos, contentWidth, 12, "FD");
           // Vertical lines for columns
           doc.line(margins.left + 97, yPos, margins.left + 97, yPos + 12);
@@ -419,76 +427,54 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         yPos += 15;
         
         // Follow-up section
-        doc.setTextColor(...PDF_COLORS.primary);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...PDF_BRAND_COLORS.primary);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Next Meeting / Follow-up", margins.left, yPos);
         yPos += 5;
         
-        doc.setDrawColor(...PDF_COLORS.mediumGray);
+        doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
         doc.rect(margins.left, yPos, contentWidth, 25, "D");
         
-        doc.setFontSize(8);
-        doc.setTextColor(...PDF_COLORS.gray);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
+        doc.setTextColor(...PDF_BRAND_COLORS.gray);
         doc.text("Date: _______________  Time: _______________  Location: _______________________", margins.left + 5, yPos + 8);
         doc.text("Agenda Items:", margins.left + 5, yPos + 16);
         
         yPos += 35;
         
         // Signature section
-        doc.setTextColor(...PDF_COLORS.primary);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...PDF_BRAND_COLORS.primary);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
         doc.text("Approval / Sign-off", margins.left, yPos);
         yPos += 8;
         
         const sigWidth = (contentWidth - 10) / 2;
-        doc.setDrawColor(...PDF_COLORS.mediumGray);
+        doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
         doc.rect(margins.left, yPos, sigWidth, 20, "D");
         doc.rect(margins.left + sigWidth + 10, yPos, sigWidth, 20, "D");
         
-        doc.setFontSize(7);
-        doc.setTextColor(...PDF_COLORS.gray);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+        doc.setTextColor(...PDF_BRAND_COLORS.gray);
         doc.text("Project Manager:", margins.left + 3, yPos + 5);
         doc.text("Client Representative:", margins.left + sigWidth + 13, yPos + 5);
         doc.text("Date:", margins.left + 3, yPos + 17);
         doc.text("Date:", margins.left + sigWidth + 13, yPos + 17);
       }
 
-      // Add page numbers
-      const totalPages = doc.internal.pages.length - 1;
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(...PDF_COLORS.gray);
-        doc.text(
-          `Page ${i} of ${totalPages}`,
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: "center" }
-        );
-        doc.text(
-          `${project.name} - Roadmap Review`,
-          margins.left,
-          pageHeight - 10
-        );
-        doc.text(
-          format(new Date(), "yyyy-MM-dd"),
-          pageWidth - margins.right,
-          pageHeight - 10,
-          { align: "right" }
-        );
-      }
+      // Add page numbers (skip cover page if included)
+      addPageNumbers(doc, options.includeCoverPage ? 2 : 1);
 
       // Save the PDF
-      const filename = `${project.name.replace(/[^a-z0-9]/gi, "_")}_Roadmap_${format(new Date(), "yyyy-MM-dd")}.pdf`;
-      doc.save(filename);
-      
-      toast.success("Roadmap PDF exported successfully!");
+      const fileName = `${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_Roadmap_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+      doc.save(fileName);
+
+      toast.success("PDF exported successfully");
       setShowDialog(false);
     } catch (error) {
       console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF. Please try again.");
+      toast.error("Failed to generate PDF");
     } finally {
       setIsExporting(false);
     }
@@ -496,23 +482,25 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setShowDialog(true)}>
-        <Download className="h-4 w-4 mr-2" />
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setShowDialog(true)}
+        className="gap-2"
+      >
+        <FileText className="h-4 w-4" />
         Export PDF
       </Button>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Export Roadmap Review PDF
-            </DialogTitle>
+            <DialogTitle>Export Roadmap PDF</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
-              Generate a flow diagram PDF for your project review meeting.
+              Generate a flow diagram PDF for project review meetings with editable fields for notes and action items.
             </p>
 
             <Separator />
@@ -520,71 +508,74 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="meetingHeader"
+                  id="includeCoverPage"
+                  checked={options.includeCoverPage}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({ ...prev, includeCoverPage: checked === true }))
+                  }
+                />
+                <Label htmlFor="includeCoverPage">Include cover page</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includeMeetingHeader"
                   checked={options.includeMeetingHeader}
                   onCheckedChange={(checked) =>
-                    setOptions((prev) => ({ ...prev, includeMeetingHeader: !!checked }))
+                    setOptions((prev) => ({ ...prev, includeMeetingHeader: checked === true }))
                   }
                 />
-                <Label htmlFor="meetingHeader" className="cursor-pointer">
-                  Meeting Header (date, attendees)
-                </Label>
+                <Label htmlFor="includeMeetingHeader">Include meeting header</Label>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="pending"
+                  id="includePending"
                   checked={options.includePending}
                   onCheckedChange={(checked) =>
-                    setOptions((prev) => ({ ...prev, includePending: !!checked }))
+                    setOptions((prev) => ({ ...prev, includePending: checked === true }))
                   }
                 />
-                <Label htmlFor="pending" className="cursor-pointer">
-                  Pending Items
-                </Label>
+                <Label htmlFor="includePending">Include pending items</Label>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="completed"
+                  id="includeCompleted"
                   checked={options.includeCompleted}
                   onCheckedChange={(checked) =>
-                    setOptions((prev) => ({ ...prev, includeCompleted: !!checked }))
+                    setOptions((prev) => ({ ...prev, includeCompleted: checked === true }))
                   }
                 />
-                <Label htmlFor="completed" className="cursor-pointer">
-                  Completed Items
-                </Label>
+                <Label htmlFor="includeCompleted">Include completed items</Label>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="actionItems"
+                  id="includeActionItems"
                   checked={options.includeActionItems}
                   onCheckedChange={(checked) =>
-                    setOptions((prev) => ({ ...prev, includeActionItems: !!checked }))
+                    setOptions((prev) => ({ ...prev, includeActionItems: checked === true }))
                   }
                 />
-                <Label htmlFor="actionItems" className="cursor-pointer">
-                  Action Items & Notes Page
-                </Label>
+                <Label htmlFor="includeActionItems">Include action items & notes page</Label>
               </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)} disabled={isExporting}>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={generateFlowDiagramPDF} disabled={isExporting || !projectData}>
+            <Button onClick={generateFlowDiagramPDF} disabled={isExporting}>
               {isExporting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Generating...
                 </>
               ) : (
                 <>
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="mr-2 h-4 w-4" />
                   Export PDF
                 </>
               )}
