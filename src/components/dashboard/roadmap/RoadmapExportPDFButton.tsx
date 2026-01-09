@@ -19,9 +19,7 @@ import { format } from "date-fns";
 import { getDueDateStatus } from "@/utils/roadmapReviewCalculations";
 import { 
   initializePDF, 
-  addPageNumbers, 
-  STANDARD_MARGINS,
-  checkPageBreak 
+  STANDARD_MARGINS as BASE_MARGINS,
 } from "@/utils/pdfExportBase";
 import { generateCoverPage } from "@/utils/pdfCoverPageSimple";
 import { 
@@ -31,6 +29,17 @@ import {
   getPriorityColor,
   getHealthColor 
 } from "@/utils/roadmapReviewPdfStyles";
+import {
+  STANDARD_MARGINS,
+  getContentArea,
+  CARD_STYLE,
+  addAllHeadersAndFooters,
+  checkSafePageBreak,
+  drawStyledCard,
+  drawConnectionLine,
+  drawConnectionNode,
+  getPhaseColor,
+} from "@/utils/pdfStandardsHelper";
 
 interface RoadmapExportPDFButtonProps {
   projectId: string;
@@ -54,6 +63,14 @@ interface RoadmapItem {
   is_completed?: boolean;
   description?: string;
   parent_id?: string | null;
+  sort_order?: number;
+}
+
+// Hierarchical node structure
+interface RoadmapNode {
+  item: RoadmapItem;
+  children: RoadmapNode[];
+  level: number;
 }
 
 // Phase colors for visual flow
@@ -66,6 +83,48 @@ const PHASE_COLORS: { [key: string]: [number, number, number] } = {
   "Handover": [6, 182, 212],
   default: PDF_BRAND_COLORS.gray,
 };
+
+// Build hierarchical tree from flat items
+function buildItemTree(items: RoadmapItem[]): RoadmapNode[] {
+  const itemMap = new Map<string, RoadmapNode>();
+  const rootNodes: RoadmapNode[] = [];
+
+  // First pass: create nodes for all items
+  items.forEach((item) => {
+    itemMap.set(item.id, { item, children: [], level: 0 });
+  });
+
+  // Second pass: build parent-child relationships
+  items.forEach((item) => {
+    const node = itemMap.get(item.id)!;
+    if (item.parent_id && itemMap.has(item.parent_id)) {
+      const parentNode = itemMap.get(item.parent_id)!;
+      node.level = parentNode.level + 1;
+      parentNode.children.push(node);
+    } else {
+      rootNodes.push(node);
+    }
+  });
+
+  // Sort children by sort_order
+  const sortChildren = (nodes: RoadmapNode[]) => {
+    nodes.sort((a, b) => (a.item.sort_order || 0) - (b.item.sort_order || 0));
+    nodes.forEach((node) => sortChildren(node.children));
+  };
+  sortChildren(rootNodes);
+
+  return rootNodes;
+}
+
+// Group root nodes by phase
+function groupByPhase(nodes: RoadmapNode[]): Record<string, RoadmapNode[]> {
+  return nodes.reduce((acc, node) => {
+    const phase = node.item.phase || "Uncategorized";
+    if (!acc[phase]) acc[phase] = [];
+    acc[phase].push(node);
+    return acc;
+  }, {} as Record<string, RoadmapNode[]>);
+}
 
 export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
@@ -102,7 +161,7 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
     enabled: showDialog,
   });
 
-  const getPhaseColor = (phase: string): [number, number, number] => {
+  const getPhaseColorLocal = (phase: string): [number, number, number] => {
     return PHASE_COLORS[phase] || PHASE_COLORS.default;
   };
 
@@ -115,33 +174,30 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
     setIsExporting(true);
 
     try {
-      // Use standardized PDF initialization
       const doc = initializePDF({ orientation: 'portrait' });
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margins = PDF_LAYOUT.margins;
       const contentWidth = pageWidth - margins.left - margins.right;
+      const contentArea = getContentArea();
 
       const { project, items, company } = projectData;
       
       // Filter items based on options
-      const pendingItems = items.filter((item) => !item.is_completed);
-      const completedItems = items.filter((item) => item.is_completed);
-      const displayItems = [
-        ...(options.includePending ? pendingItems : []),
-        ...(options.includeCompleted ? completedItems : []),
-      ];
+      const filteredItems = items.filter((item) => {
+        if (item.is_completed && !options.includeCompleted) return false;
+        if (!item.is_completed && !options.includePending) return false;
+        return true;
+      });
 
-      // Group items by phase
-      const groupedByPhase = displayItems.reduce((acc, item) => {
-        const phase = item.phase || "Uncategorized";
-        if (!acc[phase]) acc[phase] = [];
-        acc[phase].push(item);
-        return acc;
-      }, {} as Record<string, RoadmapItem[]>);
-
+      // Build hierarchical tree
+      const tree = buildItemTree(filteredItems);
+      const groupedByPhase = groupByPhase(tree);
       const phases = Object.keys(groupedByPhase);
+      
+      const completedItems = items.filter((item) => item.is_completed);
+      const pendingItems = items.filter((item) => !item.is_completed);
       const progress = items.length > 0 
         ? Math.round((completedItems.length / items.length) * 100) 
         : 0;
@@ -160,7 +216,7 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         doc.addPage();
       }
 
-      let yPos = margins.top;
+      let yPos = contentArea.startY;
 
       // === MEETING HEADER ===
       if (options.includeMeetingHeader) {
@@ -177,7 +233,6 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         doc.setTextColor(...PDF_BRAND_COLORS.darkGray);
         doc.text(`Date: ${format(new Date(), "PPPP")}`, margins.left + 5, yPos + 18);
         
-        // Editable fields
         doc.text("Attendees: _______________________________________", margins.left + 5, yPos + 26);
         doc.text("Chairperson: ____________________", pageWidth - margins.right - 60, yPos + 26);
         
@@ -238,135 +293,190 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       
       yPos += 20;
 
-      // === FLOW DIAGRAM - PHASES ===
-      const cardWidth = contentWidth - 10;
-      const itemHeight = 22;
-      const phaseHeaderHeight = 14;
-      const timelineX = margins.left + 5;
+      // === HIERARCHICAL FLOW DIAGRAM ===
+      const timelineX = margins.left + 8;
+      const cardStartX = margins.left + 15;
+      const cardWidth = contentWidth - 18;
+      const parentItemHeight = 24;
+      const childItemHeight = 20;
+      const indentPerLevel = 12;
 
-      for (const phase of phases) {
-        const phaseItems = groupedByPhase[phase];
-        const phaseColor = getPhaseColor(phase);
-        
-        // Check if we need a new page
-        const requiredHeight = phaseHeaderHeight + (phaseItems.length * itemHeight) + 15;
-        if (yPos + requiredHeight > pageHeight - margins.bottom) {
-          doc.addPage();
-          yPos = margins.top;
+      // Helper function to render an item with its children
+      const renderNode = (node: RoadmapNode, isLast: boolean, parentEndY: number | null) => {
+        const item = node.item;
+        const isParent = node.children.length > 0;
+        const level = node.level;
+        const indent = level * indentPerLevel;
+        const itemHeight = isParent ? parentItemHeight : childItemHeight;
+        const cardX = cardStartX + indent;
+        const nodeCardWidth = cardWidth - indent;
+
+        // Check for page break
+        const requiredHeight = itemHeight + (isParent ? node.children.length * (childItemHeight + 4) : 0) + 10;
+        yPos = checkSafePageBreak(doc, yPos, requiredHeight);
+
+        const dueStatus = getDueDateStatus(item.due_date);
+        const isCompleted = item.is_completed;
+        const phaseColor = getPhaseColorLocal(item.phase || "");
+
+        // Draw vertical timeline line
+        if (level === 0) {
+          doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
+          doc.setLineWidth(0.8);
+          const lineEndY = yPos + itemHeight + (isParent ? (node.children.length * (childItemHeight + 4)) : 0) + (isLast ? 0 : 4);
+          doc.line(timelineX, yPos, timelineX, lineEndY);
         }
 
-        // Phase header with timeline node
-        doc.setFillColor(...phaseColor);
-        doc.circle(timelineX, yPos + 5, 4, "F");
+        // Draw connection from timeline to card
+        if (level === 0) {
+          // Main timeline node
+          drawConnectionNode(doc, timelineX, yPos + itemHeight / 2, 3, phaseColor);
+          drawConnectionLine(doc, timelineX + 3, yPos + itemHeight / 2, cardX, yPos + itemHeight / 2, { color: phaseColor });
+        } else {
+          // Child branch line
+          const branchX = cardStartX + (level - 1) * indentPerLevel + 6;
+          drawConnectionLine(doc, branchX, parentEndY || yPos, branchX, yPos + itemHeight / 2, { color: PDF_BRAND_COLORS.gray, dashed: true });
+          drawConnectionLine(doc, branchX, yPos + itemHeight / 2, cardX, yPos + itemHeight / 2, { color: PDF_BRAND_COLORS.gray });
+          drawConnectionNode(doc, branchX, yPos + itemHeight / 2, 1.5, PDF_BRAND_COLORS.gray);
+        }
+
+        // Card background colors
+        const cardBg = isCompleted ? [220, 252, 231] : 
+          dueStatus === "overdue" ? [254, 226, 226] :
+          dueStatus === "soon" ? [254, 243, 199] : [255, 255, 255];
         
-        // Timeline line
-        doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
-        doc.setLineWidth(1);
-        doc.line(timelineX, yPos + 10, timelineX, yPos + phaseHeaderHeight + (phaseItems.length * itemHeight) + 5);
+        const cardBorder = isParent ? phaseColor : PDF_BRAND_COLORS.tableBorder;
+
+        // Draw card
+        drawStyledCard(doc, cardX, yPos, nodeCardWidth, itemHeight, {
+          fillColor: cardBg,
+          borderColor: cardBorder,
+          indicatorColor: isParent ? phaseColor : undefined,
+        });
+
+        // Status indicator circle
+        const statusColor = isCompleted ? PDF_BRAND_COLORS.success : 
+          dueStatus === "overdue" ? PDF_BRAND_COLORS.danger :
+          dueStatus === "soon" ? PDF_BRAND_COLORS.warning : PDF_BRAND_COLORS.gray;
+        doc.setFillColor(...statusColor);
+        doc.circle(cardX + (isParent ? 8 : 6), yPos + itemHeight / 2, isParent ? 3 : 2, "F");
+
+        // Checkmark if completed
+        if (isCompleted) {
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(isParent ? 7 : 5);
+          doc.text("✓", cardX + (isParent ? 8 : 6), yPos + itemHeight / 2 + 0.5, { align: "center" });
+        }
+
+        // Item title
+        doc.setTextColor(...PDF_BRAND_COLORS.text);
+        doc.setFontSize(isParent ? PDF_TYPOGRAPHY.sizes.body : PDF_TYPOGRAPHY.sizes.body - 1);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, isParent ? "bold" : "normal");
+        const maxTitleWidth = nodeCardWidth - (isParent ? 50 : 40);
+        let title = item.title;
+        while (doc.getTextWidth(title) > maxTitleWidth && title.length > 10) {
+          title = title.substring(0, title.length - 4) + "...";
+        }
+        doc.text(title, cardX + (isParent ? 14 : 12), yPos + (itemHeight / 2) - 1);
+
+        // Date range
+        const hasStartDate = item.start_date;
+        const hasDueDate = item.due_date;
+        if (hasStartDate || hasDueDate) {
+          doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+          doc.setTextColor(...statusColor);
+          let dateStr = "";
+          if (hasStartDate && hasDueDate) {
+            dateStr = `${format(new Date(item.start_date!), "MMM d")} → ${format(new Date(item.due_date!), "MMM d")}`;
+          } else if (hasDueDate) {
+            dateStr = `Due: ${format(new Date(item.due_date!), "MMM d")}`;
+          } else if (hasStartDate) {
+            dateStr = `Start: ${format(new Date(item.start_date!), "MMM d")}`;
+          }
+          doc.text(dateStr, cardX + (isParent ? 14 : 12), yPos + (itemHeight / 2) + 5);
+        }
+
+        // Priority badge
+        if (item.priority && item.priority !== "normal") {
+          const priorityColor = getPriorityColor(item.priority);
+          doc.setFillColor(...priorityColor);
+          const priorityX = cardX + nodeCardWidth - 20;
+          doc.roundedRect(priorityX, yPos + 3, 16, 5, 1, 1, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(5);
+          doc.text(item.priority.toUpperCase(), priorityX + 8, yPos + 6.5, { align: "center" });
+        }
+
+        // Action line for notes
+        if (options.includeActionItems && isParent) {
+          doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
+          doc.setLineWidth(0.2);
+          const lineY = yPos + itemHeight - 3;
+          doc.line(cardX + 14, lineY, cardX + nodeCardWidth - 8, lineY);
+          doc.setFontSize(5);
+          doc.setTextColor(...PDF_BRAND_COLORS.gray);
+          doc.text("Action:", cardX + 14, lineY - 1);
+        }
+
+        const currentCardEndY = yPos + itemHeight;
+        yPos += itemHeight + 3;
+
+        // Render children
+        node.children.forEach((child, idx) => {
+          const isLastChild = idx === node.children.length - 1;
+          renderNode(child, isLastChild, currentCardEndY);
+        });
+
+        // Extra spacing after parent nodes
+        if (isParent && level === 0) {
+          yPos += 5;
+        }
+      };
+
+      // Render each phase
+      for (const phase of phases) {
+        const phaseNodes = groupedByPhase[phase];
+        const phaseColor = getPhaseColorLocal(phase);
         
-        // Phase title bar
+        // Phase header
+        yPos = checkSafePageBreak(doc, yPos, 25);
+        
+        // Phase header bar
         doc.setFillColor(...phaseColor);
-        doc.roundedRect(margins.left + 12, yPos, cardWidth - 10, phaseHeaderHeight, 2, 2, "F");
-        doc.setTextColor(...PDF_BRAND_COLORS.white);
+        doc.roundedRect(margins.left, yPos, contentWidth, 12, 2, 2, "F");
+        doc.setTextColor(255, 255, 255);
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
         doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
-        doc.text(phase, margins.left + 16, yPos + 9);
+        doc.text(phase, margins.left + 5, yPos + 8);
         
-        // Phase progress
+        // Phase progress count
+        const flattenNodes = (nodes: RoadmapNode[]): RoadmapItem[] => {
+          return nodes.reduce((acc: RoadmapItem[], node) => {
+            acc.push(node.item);
+            acc.push(...flattenNodes(node.children));
+            return acc;
+          }, []);
+        };
+        const phaseItems = flattenNodes(phaseNodes);
         const phaseCompleted = phaseItems.filter(i => i.is_completed).length;
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
-        doc.text(`${phaseCompleted}/${phaseItems.length}`, pageWidth - margins.right - 8, yPos + 9, { align: "right" });
+        doc.text(`${phaseCompleted}/${phaseItems.length}`, pageWidth - margins.right - 5, yPos + 8, { align: "right" });
         
-        yPos += phaseHeaderHeight + 3;
+        yPos += 18;
 
-        // Items within phase
-        for (const item of phaseItems) {
-          const dueStatus = getDueDateStatus(item.due_date);
-          const isCompleted = item.is_completed;
-          
-          // Item card background colors
-          const cardBg = isCompleted ? [187, 247, 208] as [number, number, number] : 
-            dueStatus === "overdue" ? [254, 226, 226] as [number, number, number] :
-            dueStatus === "soon" ? [254, 243, 199] as [number, number, number] : PDF_BRAND_COLORS.white;
-          
-          doc.setFillColor(...cardBg);
-          doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
-          doc.setLineWidth(0.3);
-          doc.roundedRect(margins.left + 12, yPos, cardWidth - 10, itemHeight - 2, 2, 2, "FD");
-          
-          // Status indicator
-          const statusColor = isCompleted ? PDF_BRAND_COLORS.success : 
-            dueStatus === "overdue" ? PDF_BRAND_COLORS.danger :
-            dueStatus === "soon" ? PDF_BRAND_COLORS.warning : PDF_BRAND_COLORS.gray;
-          doc.setFillColor(...statusColor);
-          doc.circle(margins.left + 18, yPos + (itemHeight - 2) / 2, 2.5, "F");
-          
-          // Checkmark if completed
-          doc.setTextColor(...PDF_BRAND_COLORS.white);
-          doc.setFontSize(PDF_TYPOGRAPHY.sizes.caption);
-          if (isCompleted) {
-            doc.text("✓", margins.left + 18, yPos + (itemHeight - 2) / 2 + 0.5, { align: "center" });
-          }
-          
-          // Item title
-          doc.setTextColor(...PDF_BRAND_COLORS.text);
-          doc.setFontSize(PDF_TYPOGRAPHY.sizes.body - 1);
-          doc.setFont(PDF_TYPOGRAPHY.fonts.body, isCompleted ? "normal" : "bold");
-          const title = item.title.length > 40 ? item.title.substring(0, 37) + "..." : item.title;
-          doc.text(title, margins.left + 25, yPos + 6);
-          
-          // Date range display (start_date → due_date)
-          const hasStartDate = item.start_date;
-          const hasDueDate = item.due_date;
-          
-          if (hasStartDate || hasDueDate) {
-            doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
-            doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
-            doc.setTextColor(...statusColor);
-            
-            let dateStr = "";
-            if (hasStartDate && hasDueDate) {
-              dateStr = `${format(new Date(item.start_date!), "MMM d")} → ${format(new Date(item.due_date!), "MMM d, yyyy")}`;
-            } else if (hasDueDate) {
-              dateStr = `Due: ${format(new Date(item.due_date!), "MMM d, yyyy")}`;
-            } else if (hasStartDate) {
-              dateStr = `Start: ${format(new Date(item.start_date!), "MMM d, yyyy")}`;
-            }
-            doc.text(dateStr, margins.left + 25, yPos + 12);
-          }
-          
-          // Priority badge
-          if (item.priority && item.priority !== "normal") {
-            const priorityColor = getPriorityColor(item.priority);
-            doc.setFillColor(...priorityColor);
-            const priorityX = pageWidth - margins.right - 30;
-            doc.roundedRect(priorityX, yPos + 2, 18, 6, 1, 1, "F");
-            doc.setTextColor(...PDF_BRAND_COLORS.white);
-            doc.setFontSize(PDF_TYPOGRAPHY.sizes.caption);
-            doc.text(item.priority.toUpperCase(), priorityX + 9, yPos + 6, { align: "center" });
-          }
-          
-          // Comment line (for handwriting during meeting)
-          if (options.includeActionItems) {
-            doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
-            doc.setLineWidth(0.2);
-            const lineY = yPos + 16;
-            doc.line(margins.left + 25, lineY, pageWidth - margins.right - 15, lineY);
-            doc.setFontSize(PDF_TYPOGRAPHY.sizes.caption - 1);
-            doc.setTextColor(...PDF_BRAND_COLORS.gray);
-            doc.text("Action/Comment:", margins.left + 25, lineY - 1);
-          }
-          
-          yPos += itemHeight;
-        }
-        
-        yPos += PDF_LAYOUT.spacing.element * 2;
+        // Render nodes in this phase
+        phaseNodes.forEach((node, idx) => {
+          const isLast = idx === phaseNodes.length - 1;
+          renderNode(node, isLast, null);
+        });
+
+        yPos += 8;
       }
 
       // === MEETING NOTES PAGE ===
       if (options.includeActionItems) {
         doc.addPage();
-        yPos = margins.top;
+        yPos = contentArea.startY;
         
         doc.setFillColor(...PDF_BRAND_COLORS.primary);
         doc.roundedRect(margins.left, yPos, contentWidth, 15, 3, 3, "F");
@@ -417,7 +527,6 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           doc.setFillColor(i % 2 === 0 ? 255 : 248, i % 2 === 0 ? 255 : 250, i % 2 === 0 ? 255 : 252);
           doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
           doc.rect(margins.left, yPos, contentWidth, 12, "FD");
-          // Vertical lines for columns
           doc.line(margins.left + 97, yPos, margins.left + 97, yPos + 12);
           doc.line(margins.left + 132, yPos, margins.left + 132, yPos + 12);
           doc.line(margins.left + 162, yPos, margins.left + 162, yPos + 12);
@@ -463,8 +572,13 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         doc.text("Date:", margins.left + sigWidth + 13, yPos + 17);
       }
 
-      // Add page numbers (skip cover page if included)
-      addPageNumbers(doc, options.includeCoverPage ? 2 : 1);
+      // Add headers and footers to all pages (except cover)
+      await addAllHeadersAndFooters(
+        doc, 
+        "Project Roadmap Review", 
+        project.name,
+        options.includeCoverPage ? 2 : 1
+      );
 
       // Save the PDF
       const fileName = `${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_Roadmap_${format(new Date(), "yyyy-MM-dd")}.pdf`;
@@ -500,7 +614,7 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
 
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
-              Generate a flow diagram PDF for project review meetings with editable fields for notes and action items.
+              Generate a hierarchical flow diagram PDF for project review meetings with editable fields for notes and action items.
             </p>
 
             <Separator />
