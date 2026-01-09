@@ -45,6 +45,11 @@ const mainModules = [
     icon: LayoutDashboard,
   },
   {
+    title: "Project Roadmap",
+    url: "/dashboard/roadmap",
+    icon: CheckSquare,
+  },
+  {
     title: "Cost Reports",
     url: "/dashboard/cost-reports",
     icon: PieChart,
@@ -124,11 +129,6 @@ const operationalModules = [
     title: "Floor Plan Markup",
     url: "/dashboard/floor-plan",
     icon: Map,
-  },
-  {
-    title: "Project Roadmap",
-    url: "/dashboard/roadmap",
-    icon: CheckSquare,
   },
   {
     title: "BOQ",
