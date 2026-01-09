@@ -148,7 +148,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   }, [purposeConfig, allPurposeTools]);
 
   return (
-    <aside className="w-72 h-full bg-card p-4 flex flex-col space-y-4 overflow-y-auto shadow-lg border-r border-border flex-shrink-0">
+    <aside className="w-72 h-full max-h-full bg-card p-4 flex flex-col space-y-4 overflow-hidden shadow-lg border-r border-border flex-shrink-0">
       <div>
         <h1 className="text-xl font-bold text-foreground mb-2">Floor Plan Markup</h1>
         <p className="text-sm text-muted-foreground h-5">{purposeConfig?.label || ''}</p>
@@ -165,7 +165,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 flex-shrink-0">
         <label htmlFor="pdf-upload" className="flex items-center w-full text-left p-2.5 rounded-md transition-colors duration-200 hover:bg-primary hover:text-primary-foreground bg-muted text-foreground cursor-pointer">
             <FolderOpen className="h-5 w-5 mr-3 flex-shrink-0" />
             <span className="flex-grow text-sm font-semibold">Load PDF File</span>
@@ -251,7 +251,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             })}
           </nav>
 
-          <div className="space-y-1 flex-grow overflow-y-auto pr-1 min-h-0 max-h-[calc(100vh-400px)]">
+          <div className="space-y-1 flex-1 overflow-y-auto pr-1 min-h-0">
             {activeMarkupTab === 'general' && (
               <>
                 <MarkupToolButton icon={Undo2} label="Undo (Ctrl+Z)" isActive={false} onClick={onUndo} disabled={!canUndo} />
