@@ -69,6 +69,7 @@ interface RoadmapItem {
   due_date?: string;
   is_completed?: boolean;
   description?: string;
+  comments?: string;
   parent_id?: string | null;
   sort_order?: number;
 }
@@ -450,8 +451,11 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         
         // Render items in this phase
         phaseItems.forEach((item, idx) => {
+          const hasComments = item.comments && item.comments.trim().length > 0;
+          const itemHeight = hasComments ? rowHeight + 6 : rowHeight;
+          
           // Check for page break
-          if (yPos + rowHeight > contentArea.endY) {
+          if (yPos + itemHeight > contentArea.endY) {
             doc.addPage();
             yPos = contentArea.startY;
             drawTableHeader();
@@ -467,7 +471,7 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           doc.setFillColor(...rowBg);
           doc.setDrawColor(...LIST_COLORS.border);
           doc.setLineWidth(0.2);
-          doc.rect(tableStartX, yPos, tableWidth, rowHeight, "FD");
+          doc.rect(tableStartX, yPos, tableWidth, itemHeight, "FD");
           
           let colX = tableStartX + 3;
           
@@ -521,7 +525,23 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
             doc.text("-", colX + 8, yPos + rowHeight / 2 + 1);
           }
           
-          yPos += rowHeight;
+          // Comments row (if present)
+          if (hasComments) {
+            doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+            doc.setTextColor(...LIST_COLORS.subText);
+            doc.setFont(PDF_TYPOGRAPHY.fonts.body, "italic");
+            
+            // Truncate comments if too long
+            let commentText = `💬 ${item.comments!.trim()}`;
+            const maxCommentWidth = tableWidth - colWidths.status - 10;
+            while (doc.getTextWidth(commentText) > maxCommentWidth && commentText.length > 20) {
+              commentText = commentText.substring(0, commentText.length - 4) + "...";
+            }
+            
+            doc.text(commentText, tableStartX + colWidths.status + 3, yPos + rowHeight + 4);
+          }
+          
+          yPos += itemHeight;
         });
         
         yPos += 4; // Gap between phases
