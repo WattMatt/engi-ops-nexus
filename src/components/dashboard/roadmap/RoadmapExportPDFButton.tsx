@@ -331,188 +331,163 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       
       yPos += 20;
 
-      // === HIERARCHICAL FLOW DIAGRAM ===
-      const timelineX = margins.left + 8;
-      const cardStartX = margins.left + 15;
-      const cardWidth = contentWidth - 18;
-      const parentItemHeight = 24;
-      const childItemHeight = 20;
-      const indentPerLevel = 12;
+      // === MERMAID-STYLE FLOW DIAGRAM ===
+      // Professional engineering flowchart with vertical timeline and connected nodes
+      const timelineX = margins.left + 12; // Center line for nodes
+      const nodeRadius = 5;
+      const nodeCardGap = 8;
+      const cardStartX = margins.left + 25; // Card starts after node
+      const cardWidth = contentWidth - 30;
+      const itemSpacing = 6;
 
-      // Helper function to render an item with its children
-      const renderNode = (node: RoadmapNode, isLast: boolean, parentEndY: number | null) => {
-        const item = node.item;
-        const isParent = node.children.length > 0;
-        const level = node.level;
-        const indent = level * indentPerLevel;
-        const itemHeight = isParent ? parentItemHeight : childItemHeight;
-        const cardX = cardStartX + indent;
-        const nodeCardWidth = cardWidth - indent;
+      // Engineering color palette - muted professional tones
+      const FLOW_COLORS: Record<string, [number, number, number]> = {
+        timeline: [100, 116, 139],      // Slate-500 for main line
+        node: [71, 85, 105],            // Slate-600 for nodes
+        nodeCompleted: [22, 101, 52],   // Green-800 for completed
+        connector: [148, 163, 184],     // Slate-400 for connectors
+        cardBorder: [203, 213, 225],    // Slate-300 for card borders
+        cardBg: [248, 250, 252],        // Slate-50 for card background
+        text: [30, 41, 59],             // Slate-800 for text
+        subText: [100, 116, 139],       // Slate-500 for subtext
+      };
 
-        // Check for page break
-        const requiredHeight = itemHeight + (isParent ? node.children.length * (childItemHeight + 4) : 0) + 10;
-        yPos = checkSafePageBreak(doc, yPos, requiredHeight);
+      // Flatten all items for simple vertical flow
+      const flattenPhaseItems = (nodes: RoadmapNode[]): { item: RoadmapItem; phase: string }[] => {
+        const result: { item: RoadmapItem; phase: string }[] = [];
+        const addNodes = (nodeList: RoadmapNode[], phase: string) => {
+          nodeList.forEach(node => {
+            result.push({ item: node.item, phase: node.item.phase || phase });
+            if (node.children.length > 0) {
+              addNodes(node.children, node.item.phase || phase);
+            }
+          });
+        };
+        for (const phase of phases) {
+          addNodes(groupedByPhase[phase], phase);
+        }
+        return result;
+      };
 
-        const dueStatus = getDueDateStatus(item.due_date);
+      const allItems = flattenPhaseItems(tree);
+      
+      // Draw title for flow diagram section
+      doc.setFillColor(...PDF_BRAND_COLORS.primary);
+      doc.roundedRect(margins.left, yPos, contentWidth, 10, 2, 2, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
+      doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
+      doc.text("Project Workflow", margins.left + 5, yPos + 7);
+      
+      const totalCompleted = allItems.filter(i => i.item.is_completed).length;
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
+      doc.text(`${totalCompleted}/${allItems.length} completed (${Math.round(totalCompleted / allItems.length * 100)}%)`, 
+        pageWidth - margins.right - 5, yPos + 7, { align: "right" });
+      
+      yPos += 18;
+      
+      // Track start position for timeline
+      const flowStartY = yPos;
+      
+      // Render each item as a flow node
+      allItems.forEach((itemData, index) => {
+        const { item, phase } = itemData;
+        const isLast = index === allItems.length - 1;
         const isCompleted = item.is_completed;
-        const phaseColor = getPhaseColorLocal(item.phase || "");
-
-        // Draw vertical timeline line
-        if (level === 0) {
-          doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
-          doc.setLineWidth(0.8);
-          const lineEndY = yPos + itemHeight + (isParent ? (node.children.length * (childItemHeight + 4)) : 0) + (isLast ? 0 : 4);
-          doc.line(timelineX, yPos, timelineX, lineEndY);
-        }
-
-        // Draw connection from timeline to card
-        if (level === 0) {
-          // Main timeline node
-          drawConnectionNode(doc, timelineX, yPos + itemHeight / 2, 3, phaseColor);
-          drawConnectionLine(doc, timelineX + 3, yPos + itemHeight / 2, cardX, yPos + itemHeight / 2, { color: phaseColor });
-        } else {
-          // Child branch line
-          const branchX = cardStartX + (level - 1) * indentPerLevel + 6;
-          drawConnectionLine(doc, branchX, parentEndY || yPos, branchX, yPos + itemHeight / 2, { color: PDF_BRAND_COLORS.gray, dashed: true });
-          drawConnectionLine(doc, branchX, yPos + itemHeight / 2, cardX, yPos + itemHeight / 2, { color: PDF_BRAND_COLORS.gray });
-          drawConnectionNode(doc, branchX, yPos + itemHeight / 2, 1.5, PDF_BRAND_COLORS.gray);
-        }
-
-        // Card background colors - subtle professional tints
-        const cardBg = isCompleted ? [240, 253, 244] :    // Very subtle green tint
-          dueStatus === "overdue" ? [254, 242, 242] :     // Very subtle red tint
-          dueStatus === "soon" ? [254, 252, 232] :        // Very subtle yellow tint
-          [255, 255, 255];                                // White
+        const dueStatus = getDueDateStatus(item.due_date);
         
-        const cardBorder = isParent ? phaseColor : PDF_BRAND_COLORS.tableBorder;
-
-        // Draw card
-        drawStyledCard(doc, cardX, yPos, nodeCardWidth, itemHeight, {
-          fillColor: cardBg,
-          borderColor: cardBorder,
-          indicatorColor: isParent ? phaseColor : undefined,
-        });
-
-        // Status indicator circle
-        const statusColor = isCompleted ? PDF_BRAND_COLORS.success : 
-          dueStatus === "overdue" ? PDF_BRAND_COLORS.danger :
-          dueStatus === "soon" ? PDF_BRAND_COLORS.warning : PDF_BRAND_COLORS.gray;
-        doc.setFillColor(...statusColor);
-        doc.circle(cardX + (isParent ? 8 : 6), yPos + itemHeight / 2, isParent ? 3 : 2, "F");
-
-        // Checkmark if completed
-        if (isCompleted) {
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(isParent ? 7 : 5);
-          doc.text("✓", cardX + (isParent ? 8 : 6), yPos + itemHeight / 2 + 0.5, { align: "center" });
+        // Calculate card height based on content
+        const hasDescription = item.description && item.description.length > 0;
+        const cardHeight = hasDescription ? 22 : 16;
+        
+        // Check for page break
+        yPos = checkSafePageBreak(doc, yPos, cardHeight + itemSpacing + 10);
+        
+        // Draw vertical timeline line (before this node to next)
+        if (!isLast) {
+          doc.setDrawColor(...FLOW_COLORS.timeline);
+          doc.setLineWidth(1.2);
+          doc.line(timelineX, yPos + nodeRadius, timelineX, yPos + cardHeight + itemSpacing);
         }
-
+        
+        // Draw horizontal connector from node to card
+        doc.setDrawColor(...FLOW_COLORS.connector);
+        doc.setLineWidth(0.8);
+        doc.line(timelineX + nodeRadius, yPos + cardHeight / 2, cardStartX, yPos + cardHeight / 2);
+        
+        // Draw node circle
+        const nodeColor = isCompleted ? FLOW_COLORS.nodeCompleted : FLOW_COLORS.node;
+        doc.setFillColor(...nodeColor);
+        doc.setDrawColor(...nodeColor);
+        doc.circle(timelineX, yPos + cardHeight / 2, nodeRadius, "FD");
+        
+        // Draw checkmark or number inside node
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "bold");
+        if (isCompleted) {
+          doc.text("✓", timelineX, yPos + cardHeight / 2 + 0.8, { align: "center" });
+        } else {
+          doc.text(String(index + 1), timelineX, yPos + cardHeight / 2 + 0.8, { align: "center" });
+        }
+        
+        // Draw card
+        const cardBorderColor: [number, number, number] = isCompleted ? FLOW_COLORS.nodeCompleted : 
+          dueStatus === "overdue" ? [153, 27, 27] : // Red-800
+          dueStatus === "soon" ? [146, 64, 14] : // Amber-800
+          FLOW_COLORS.cardBorder;
+        
+        doc.setFillColor(...FLOW_COLORS.cardBg);
+        doc.setDrawColor(...cardBorderColor);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(cardStartX, yPos, cardWidth, cardHeight, 3, 3, "FD");
+        
+        // Left accent bar
+        doc.setFillColor(...nodeColor);
+        doc.roundedRect(cardStartX, yPos, 3, cardHeight, 1.5, 1.5, "F");
+        
         // Item title
-        doc.setTextColor(...PDF_BRAND_COLORS.text);
-        doc.setFontSize(isParent ? PDF_TYPOGRAPHY.sizes.body : PDF_TYPOGRAPHY.sizes.body - 1);
-        doc.setFont(PDF_TYPOGRAPHY.fonts.body, isParent ? "bold" : "normal");
-        const maxTitleWidth = nodeCardWidth - (isParent ? 50 : 40);
+        doc.setTextColor(...FLOW_COLORS.text);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, isCompleted ? "normal" : "bold");
+        
         let title = item.title;
+        const maxTitleWidth = cardWidth - 60;
         while (doc.getTextWidth(title) > maxTitleWidth && title.length > 10) {
           title = title.substring(0, title.length - 4) + "...";
         }
-        doc.text(title, cardX + (isParent ? 14 : 12), yPos + (itemHeight / 2) - 1);
-
-        // Date range
-        const hasStartDate = item.start_date;
-        const hasDueDate = item.due_date;
-        if (hasStartDate || hasDueDate) {
+        
+        const titleY = hasDescription ? yPos + 7 : yPos + cardHeight / 2 + 1;
+        doc.text(title, cardStartX + 8, titleY);
+        
+        // Phase label (subtle)
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+        doc.setTextColor(...FLOW_COLORS.subText);
+        doc.text(phase, cardStartX + cardWidth - 5, titleY, { align: "right" });
+        
+        // Description if present
+        if (hasDescription) {
           doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
-          doc.setTextColor(...statusColor);
-          let dateStr = "";
-          if (hasStartDate && hasDueDate) {
-            dateStr = `${format(new Date(item.start_date!), "MMM d")} → ${format(new Date(item.due_date!), "MMM d")}`;
-          } else if (hasDueDate) {
-            dateStr = `Due: ${format(new Date(item.due_date!), "MMM d")}`;
-          } else if (hasStartDate) {
-            dateStr = `Start: ${format(new Date(item.start_date!), "MMM d")}`;
-          }
-          doc.text(dateStr, cardX + (isParent ? 14 : 12), yPos + (itemHeight / 2) + 5);
+          doc.setTextColor(...FLOW_COLORS.subText);
+          let desc = item.description!;
+          if (desc.length > 80) desc = desc.substring(0, 77) + "...";
+          doc.text(desc, cardStartX + 8, yPos + 14);
         }
-
-        // Priority badge
-        if (item.priority && item.priority !== "normal") {
-          const priorityColor = getPriorityColor(item.priority);
-          doc.setFillColor(...priorityColor);
-          const priorityX = cardX + nodeCardWidth - 20;
-          doc.roundedRect(priorityX, yPos + 3, 16, 5, 1, 1, "F");
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(5);
-          doc.text(item.priority.toUpperCase(), priorityX + 8, yPos + 6.5, { align: "center" });
+        
+        // Due date on right side
+        if (item.due_date) {
+          const dateColor: [number, number, number] = dueStatus === "overdue" ? [153, 27, 27] : 
+            dueStatus === "soon" ? [146, 64, 14] : FLOW_COLORS.subText;
+          doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+          doc.setTextColor(...dateColor);
+          const dateStr = format(new Date(item.due_date), "MMM d");
+          doc.text(dateStr, cardStartX + cardWidth - 5, yPos + cardHeight - 4, { align: "right" });
         }
-
-        // Action line for notes
-        if (options.includeActionItems && isParent) {
-          doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
-          doc.setLineWidth(0.2);
-          const lineY = yPos + itemHeight - 3;
-          doc.line(cardX + 14, lineY, cardX + nodeCardWidth - 8, lineY);
-          doc.setFontSize(5);
-          doc.setTextColor(...PDF_BRAND_COLORS.gray);
-          doc.text("Action:", cardX + 14, lineY - 1);
-        }
-
-        const currentCardEndY = yPos + itemHeight;
-        yPos += itemHeight + 3;
-
-        // Render children
-        node.children.forEach((child, idx) => {
-          const isLastChild = idx === node.children.length - 1;
-          renderNode(child, isLastChild, currentCardEndY);
-        });
-
-        // Extra spacing after parent nodes
-        if (isParent && level === 0) {
-          yPos += 5;
-        }
-      };
-
-      // Render each phase
-      for (const phase of phases) {
-        const phaseNodes = groupedByPhase[phase];
-        const phaseColor = getPhaseColorLocal(phase);
         
-        // Phase header - require space for header + at least first item (orphan prevention)
-        // Per PDF_DESIGN_STANDARDS.md Section 8: Headings require minimum 3 lines of content below
-        const minSpaceForPhase = 12 + 18 + 28; // header height + spacing + first item minimum
-        yPos = checkSafePageBreak(doc, yPos, minSpaceForPhase);
-        
-        // Phase header bar
-        doc.setFillColor(...phaseColor);
-        doc.roundedRect(margins.left, yPos, contentWidth, 12, 2, 2, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
-        doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
-        doc.text(phase, margins.left + 5, yPos + 8);
-        
-        // Phase progress count
-        const flattenNodes = (nodes: RoadmapNode[]): RoadmapItem[] => {
-          return nodes.reduce((acc: RoadmapItem[], node) => {
-            acc.push(node.item);
-            acc.push(...flattenNodes(node.children));
-            return acc;
-          }, []);
-        };
-        const phaseItems = flattenNodes(phaseNodes);
-        const phaseCompleted = phaseItems.filter(i => i.is_completed).length;
-        doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
-        doc.text(`${phaseCompleted}/${phaseItems.length}`, pageWidth - margins.right - 5, yPos + 8, { align: "right" });
-        
-        yPos += 18;
-
-        // Render nodes in this phase
-        phaseNodes.forEach((node, idx) => {
-          const isLast = idx === phaseNodes.length - 1;
-          renderNode(node, isLast, null);
-        });
-
-        yPos += 10; // Increased spacing between phases per standards
-      }
+        yPos += cardHeight + itemSpacing;
+      });
+      
+      yPos += 10;
 
       // === MEETING NOTES PAGE ===
       if (options.includeActionItems) {
