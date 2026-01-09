@@ -41,6 +41,7 @@ import LightingReport from "./pages/LightingReport";
 import ProjectOutline from "./pages/ProjectOutline";
 import AITools from "./pages/AITools";
 import AdminAIReview from "./pages/AdminAIReview";
+import AdminRoadmapReview from "./pages/AdminRoadmapReview";
 import BulkServices from "./pages/BulkServices";
 import MasterLibrary from "./pages/MasterLibrary";
 import ProjectRoadmap from "./pages/ProjectRoadmap";
@@ -102,6 +103,7 @@ const App = () => (
             <Route path="users" element={<UserManagement />} />
             <Route path="backup" element={<BackupManagement />} />
             <Route path="ai-review" element={<AdminAIReview />} />
+            <Route path="roadmap-review" element={<AdminRoadmapReview />} />
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
             <Route path="settings" element={<Settings />} />
