@@ -251,7 +251,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             })}
           </nav>
 
-          <div className="space-y-1 flex-grow overflow-y-auto pr-1">
+          <div className="space-y-1 flex-grow overflow-y-auto pr-1 min-h-0 max-h-[calc(100vh-400px)]">
             {activeMarkupTab === 'general' && (
               <>
                 <MarkupToolButton icon={Undo2} label="Undo (Ctrl+Z)" isActive={false} onClick={onUndo} disabled={!canUndo} />
