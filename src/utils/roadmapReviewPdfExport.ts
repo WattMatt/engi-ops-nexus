@@ -767,7 +767,8 @@ function generateProjectPages(
 export async function generateEnhancedRoadmapPDF(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
-  options: Partial<RoadmapPDFExportOptions> = {}
+  options: Partial<RoadmapPDFExportOptions> = {},
+  allRoadmapItems?: any[]
 ): Promise<jsPDF> {
   // Merge with defaults
   const config: RoadmapPDFExportOptions = {
@@ -778,6 +779,7 @@ export async function generateEnhancedRoadmapPDF(
     includeSummaryMinutes: options.includeSummaryMinutes ?? true,
     includeTableOfContents: options.includeTableOfContents ?? true,
     includeCoverPage: options.includeCoverPage ?? true,
+    includeFullRoadmapItems: options.includeFullRoadmapItems ?? false,
     companyLogo: options.companyLogo ?? null,
     companyName: options.companyName ?? 'Roadmap Review',
     confidentialNotice: options.confidentialNotice ?? true,
@@ -854,6 +856,21 @@ export async function generateEnhancedRoadmapPDF(
       config.companyName,
       projectCharts.size > 0 ? projectCharts : undefined
     );
+  }
+  
+  // 5.5 Full Roadmap Items Pages (optional - for meeting reviews)
+  if (config.includeFullRoadmapItems && config.reportType === 'meeting-review' && allRoadmapItems) {
+    const { generateFullRoadmapPage } = await import('./roadmapReviewPdfSections/fullRoadmapPage');
+    
+    for (const project of projects) {
+      generateFullRoadmapPage(
+        doc,
+        project,
+        allRoadmapItems,
+        config.companyLogo,
+        config.companyName
+      );
+    }
   }
   
   // 6. Summary Minutes Page (for meeting-review type)
