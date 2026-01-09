@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin, X, Navigation } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, MapPin, X, Navigation, Map, Satellite, Building2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface Project {
   id: string;
@@ -25,12 +27,12 @@ interface ProjectsMapProps {
   onLocationUpdate?: (projectId: string, lat: number, lng: number) => void;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  active: "#22c55e",
-  completed: "#3b82f6",
-  on_hold: "#f59e0b",
-  cancelled: "#ef4444",
-  planning: "#8b5cf6",
+const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+  active: { color: "#10b981", label: "Active" },
+  completed: { color: "#3b82f6", label: "Completed" },
+  on_hold: { color: "#f59e0b", label: "On Hold" },
+  cancelled: { color: "#ef4444", label: "Cancelled" },
+  planning: { color: "#8b5cf6", label: "Planning" },
 };
 
 export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: ProjectsMapProps) => {
@@ -134,70 +136,156 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
     // Add markers for projects with coordinates
     projects.forEach(project => {
       if (project.latitude && project.longitude) {
-        const color = STATUS_COLORS[project.status] || "#6b7280";
+        const config = STATUS_CONFIG[project.status] || { color: "#6b7280", label: project.status };
         
-        // Create custom marker element
+        // Create custom marker element with improved styling
         const el = document.createElement("div");
         el.className = "project-marker";
         el.innerHTML = `
-          <div style="
-            width: 32px;
-            height: 32px;
-            background: ${color};
-            border: 3px solid white;
-            border-radius: 50%;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+          <div class="marker-container" style="
+            position: relative;
+            width: 40px;
+            height: 48px;
             cursor: pointer;
-            transition: transform 0.2s;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.25));
+            transition: all 0.2s ease;
           ">
-            <span style="color: white; font-size: 12px; font-weight: bold;">
-              ${project.project_number.slice(-2)}
-            </span>
+            <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+              <path d="M20 0C8.954 0 0 8.954 0 20c0 14.667 20 28 20 28s20-13.333 20-28C40 8.954 31.046 0 20 0z" fill="${config.color}"/>
+              <circle cx="20" cy="18" r="12" fill="white" fill-opacity="0.95"/>
+            </svg>
+            <span style="
+              position: absolute;
+              top: 10px;
+              left: 50%;
+              transform: translateX(-50%);
+              font-size: 11px;
+              font-weight: 700;
+              color: ${config.color};
+              font-family: system-ui, -apple-system, sans-serif;
+              letter-spacing: -0.5px;
+            ">${project.project_number.slice(-3)}</span>
           </div>
         `;
-        el.style.cursor = "pointer";
 
         el.addEventListener("mouseenter", () => {
-          el.querySelector("div")!.style.transform = "scale(1.2)";
+          const container = el.querySelector(".marker-container") as HTMLElement;
+          if (container) {
+            container.style.transform = "translateY(-4px) scale(1.1)";
+          }
         });
         el.addEventListener("mouseleave", () => {
-          el.querySelector("div")!.style.transform = "scale(1)";
+          const container = el.querySelector(".marker-container") as HTMLElement;
+          if (container) {
+            container.style.transform = "translateY(0) scale(1)";
+          }
         });
 
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-          <div style="padding: 8px 12px; min-width: 180px;">
-            <strong style="font-size: 14px;">${project.name}</strong><br/>
-            <span style="color: #666; font-size: 12px;">${project.project_number}</span><br/>
-            ${project.city ? `<span style="color: #888; font-size: 11px;">${project.city}${project.province ? `, ${project.province}` : ''}</span><br/>` : ''}
-            <span style="
-              display: inline-block;
-              margin-top: 6px;
-              padding: 2px 8px;
-              background: ${color}20;
-              color: ${color};
-              border-radius: 4px;
-              font-size: 11px;
-              font-weight: 500;
-              text-transform: capitalize;
-            ">${project.status.replace('_', ' ')}</span>
-            <button 
-              onclick="window.selectProject('${project.id}')"
-              style="
-                display: block;
-                width: 100%;
-                margin-top: 8px;
-                padding: 6px 12px;
-                background: hsl(var(--primary));
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 12px;
-              "
-            >Open Project</button>
+        const popup = new mapboxgl.Popup({ 
+          offset: [0, -40],
+          closeButton: false,
+          className: 'project-popup'
+        }).setHTML(`
+          <div style="
+            padding: 16px;
+            min-width: 220px;
+            font-family: system-ui, -apple-system, sans-serif;
+          ">
+            <div style="
+              display: flex;
+              align-items: flex-start;
+              gap: 12px;
+              margin-bottom: 12px;
+            ">
+              <div style="
+                width: 40px;
+                height: 40px;
+                background: ${config.color}15;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+              ">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${config.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 21h18"/>
+                  <path d="M5 21V7l8-4v18"/>
+                  <path d="M19 21V11l-6-4"/>
+                  <path d="M9 9v.01"/>
+                  <path d="M9 12v.01"/>
+                  <path d="M9 15v.01"/>
+                  <path d="M9 18v.01"/>
+                </svg>
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <h3 style="
+                  font-size: 14px;
+                  font-weight: 600;
+                  color: #1f2937;
+                  margin: 0 0 2px 0;
+                  line-height: 1.3;
+                ">${project.name}</h3>
+                <p style="
+                  font-size: 12px;
+                  color: #6b7280;
+                  margin: 0;
+                ">${project.project_number}</p>
+              </div>
+            </div>
+            ${project.city ? `
+              <div style="
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-bottom: 12px;
+                padding: 8px 10px;
+                background: #f9fafb;
+                border-radius: 6px;
+              ">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                <span style="font-size: 12px; color: #4b5563;">${project.city}${project.province ? `, ${project.province}` : ''}</span>
+              </div>
+            ` : ''}
+            <div style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 12px;
+            ">
+              <span style="
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 10px;
+                background: ${config.color}15;
+                color: ${config.color};
+                border-radius: 20px;
+                font-size: 11px;
+                font-weight: 600;
+              ">
+                <span style="width: 6px; height: 6px; background: ${config.color}; border-radius: 50%;"></span>
+                ${config.label}
+              </span>
+              <button 
+                onclick="window.selectProject('${project.id}')"
+                style="
+                  padding: 8px 14px;
+                  background: hsl(222.2 47.4% 11.2%);
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 12px;
+                  font-weight: 500;
+                  transition: all 0.15s ease;
+                "
+                onmouseover="this.style.opacity='0.9'"
+                onmouseout="this.style.opacity='1'"
+              >Open Project</button>
+            </div>
           </div>
         `);
 
@@ -222,108 +310,162 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
 
   // Get projects without location
   const projectsWithoutLocation = projects.filter(p => !p.latitude || !p.longitude);
+  const projectsWithLocation = projects.filter(p => p.latitude && p.longitude);
 
   if (loading) {
     return (
-      <Card className="h-[500px] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <Card className="h-[600px] flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading map...</p>
+        </div>
       </Card>
     );
   }
 
   if (!mapboxToken) {
     return (
-      <Card className="h-[500px] flex items-center justify-center">
-        <p className="text-muted-foreground">Unable to load map</p>
+      <Card className="h-[600px] flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-3">
+          <Map className="h-10 w-10 text-muted-foreground/50" />
+          <p className="text-muted-foreground">Unable to load map</p>
+        </div>
       </Card>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Map style toggle */}
-        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-          <Button
-            variant={mapStyle === 'streets' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setMapStyle('streets')}
-          >
-            Streets
-          </Button>
-          <Button
-            variant={mapStyle === 'satellite' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setMapStyle('satellite')}
-          >
-            Satellite
-          </Button>
+      {/* Header controls */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {/* Map style toggle */}
+          <div className="inline-flex items-center rounded-lg border bg-background p-1 shadow-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMapStyle('streets')}
+              className={cn(
+                "gap-2 rounded-md px-3",
+                mapStyle === 'streets' && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+              )}
+            >
+              <Map className="h-4 w-4" />
+              Streets
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMapStyle('satellite')}
+              className={cn(
+                "gap-2 rounded-md px-3",
+                mapStyle === 'satellite' && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+              )}
+            >
+              <Satellite className="h-4 w-4" />
+              Satellite
+            </Button>
+          </div>
+
+          {/* Stats badge */}
+          <Badge variant="secondary" className="gap-1.5 py-1.5 px-3">
+            <Building2 className="h-3.5 w-3.5" />
+            {projectsWithLocation.length} of {projects.length} mapped
+          </Badge>
         </div>
 
         {/* Status legend */}
-        <div className="flex flex-wrap items-center gap-2 ml-auto">
-          {Object.entries(STATUS_COLORS).map(([status, color]) => (
-            <div key={status} className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-3">
+        {Object.entries(STATUS_CONFIG).map(([status, config]) => (
+            <div key={status} className="flex items-center gap-2">
               <div 
-                className="w-3 h-3 rounded-full" 
-                style={{ backgroundColor: color }}
+                className="w-2.5 h-2.5 rounded-full shadow-sm" 
+                style={{ backgroundColor: config.color, boxShadow: `0 0 0 2px ${config.color}30` }}
               />
-              <span className="text-xs text-muted-foreground capitalize">
-                {status.replace('_', ' ')}
+              <span className="text-xs font-medium text-muted-foreground">
+                {config.label}
               </span>
             </div>
           ))}
         </div>
       </div>
 
-      <Card className="relative overflow-hidden">
+      {/* Map container */}
+      <Card className="relative overflow-hidden border-2 shadow-lg">
         <div 
           ref={mapContainer} 
-          className="h-[500px] w-full"
+          className="h-[600px] w-full"
           style={{ cursor: placingPin ? 'crosshair' : 'grab' }}
         />
 
         {/* Pin placement mode indicator */}
         {placingPin && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-10">
-            <MapPin className="h-4 w-4" />
-            <span className="text-sm font-medium">Click on the map to place pin</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-primary-foreground/20"
-              onClick={() => setPlacingPin(null)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+            <div className="bg-primary text-primary-foreground px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+              <div className="w-8 h-8 bg-primary-foreground/20 rounded-full flex items-center justify-center">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <div className="pr-2">
+                <p className="text-sm font-semibold">Place Project Pin</p>
+                <p className="text-xs opacity-80">Click anywhere on the map</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-primary-foreground/20 rounded-full"
+                onClick={() => setPlacingPin(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </Card>
 
       {/* Projects without location */}
       {projectsWithoutLocation.length > 0 && (
-        <Card className="p-4">
-          <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-            <Navigation className="h-4 w-4 text-muted-foreground" />
-            Projects without location ({projectsWithoutLocation.length})
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {projectsWithoutLocation.map(project => (
-              <Button
-                key={project.id}
-                variant={placingPin === project.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPlacingPin(placingPin === project.id ? null : project.id)}
-                className="gap-2"
-              >
-                <MapPin className="h-3 w-3" />
-                {project.project_number} - {project.name}
-              </Button>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Click a project button, then click on the map to set its location
-          </p>
+        <Card className="border-dashed">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Navigation className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <span>Unmapped Projects</span>
+                <Badge variant="secondary" className="ml-2">{projectsWithoutLocation.length}</Badge>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-wrap gap-2">
+              {projectsWithoutLocation.map(project => {
+                const config = STATUS_CONFIG[project.status] || { color: "#6b7280", label: project.status };
+                return (
+                  <Button
+                    key={project.id}
+                    variant={placingPin === project.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPlacingPin(placingPin === project.id ? null : project.id)}
+                    className={cn(
+                      "gap-2 transition-all",
+                      placingPin === project.id && "ring-2 ring-offset-2"
+                    )}
+                    style={{
+                      borderColor: placingPin !== project.id ? `${config.color}40` : undefined,
+                    }}
+                  >
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span className="font-medium">{project.project_number}</span>
+                    <span className="text-muted-foreground font-normal">- {project.name}</span>
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary" />
+              Click a project, then click on the map to set its location
+            </p>
+          </CardContent>
         </Card>
       )}
     </div>
