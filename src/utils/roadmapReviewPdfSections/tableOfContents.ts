@@ -96,7 +96,8 @@ export const buildTocEntries = (
     includeAnalytics: boolean;
     includeDetailedProjects: boolean;
     includeSummaryMinutes: boolean;
-  }
+  },
+  projectNames?: string[]
 ): TocEntry[] => {
   const entries: TocEntry[] = [];
   let currentPage = 1;
@@ -116,31 +117,50 @@ export const buildTocEntries = (
   entries.push({ title: 'Executive Summary', page: currentPage, level: 1 });
   currentPage++;
   
-  // Analytics section
+  // Analytics section - each chart gets its own page now
   if (options.includeAnalytics) {
     entries.push({ title: 'Portfolio Analytics', page: currentPage, level: 1 });
     entries.push({ title: 'Project Comparison Chart', page: currentPage, level: 2 });
+    currentPage++;
     entries.push({ title: 'Priority Heat Map', page: currentPage, level: 2 });
     entries.push({ title: 'Team Workload Distribution', page: currentPage, level: 2 });
     currentPage++;
   }
   
-  // Project details
+  // Project details with actual project names
   if (options.includeDetailedProjects) {
     entries.push({ title: 'Project Details', page: currentPage, level: 1 });
     
-    // Estimate ~2 projects per page
-    const projectPages = Math.ceil(projectCount / 2);
-    for (let i = 0; i < Math.min(projectCount, 10); i++) {
+    // Each project gets its own entry with real name
+    const maxProjectsInToc = 15; // Limit to prevent TOC overflow
+    const projectsToShow = Math.min(projectCount, maxProjectsInToc);
+    
+    for (let i = 0; i < projectsToShow; i++) {
+      // Use actual project name or fallback to numbered
+      let projectName = projectNames?.[i] || `Project ${i + 1}`;
+      
+      // Truncate long names for TOC
+      if (projectName.length > 35) {
+        projectName = projectName.substring(0, 32) + '...';
+      }
+      
       entries.push({ 
-        title: `Project ${i + 1}`, 
+        title: projectName, 
         page: currentPage + Math.floor(i / 2), 
         level: 2 
       });
     }
-    if (projectCount > 10) {
-      entries.push({ title: '... and more', page: currentPage + 4, level: 2 });
+    
+    if (projectCount > maxProjectsInToc) {
+      entries.push({ 
+        title: `... and ${projectCount - maxProjectsInToc} more projects`, 
+        page: currentPage + Math.floor(maxProjectsInToc / 2), 
+        level: 2 
+      });
     }
+    
+    // Estimate ~2 projects per page
+    const projectPages = Math.ceil(projectCount / 2);
     currentPage += projectPages;
   }
   
