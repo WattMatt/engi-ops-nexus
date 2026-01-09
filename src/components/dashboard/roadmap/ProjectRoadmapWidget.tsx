@@ -42,6 +42,7 @@ interface RoadmapItemData {
   link_url: string | null;
   link_label: string | null;
   comments: string | null;
+  start_date: string | null;
   due_date: string | null;
   priority: string | null;
   created_at: string;
@@ -171,6 +172,19 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
           .eq("id", update.id);
         if (error) throw error;
       }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
+    },
+  });
+
+  const updateDate = useMutation({
+    mutationFn: async ({ id, field, value }: { id: string; field: "start_date" | "due_date"; value: string | null }) => {
+      const { error } = await supabase
+        .from("project_roadmap_items")
+        .update({ [field]: value })
+        .eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
@@ -361,6 +375,8 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
                                 onDelete={(id) => deleteItem.mutate(id)}
                                 onAddChild={(parentId) => handleAddItem(parentId)}
                                 onReorderChildren={(updates) => reorderItems.mutate(updates)}
+                                onDateChange={(id, field, value) => updateDate.mutate({ id, field, value })}
+                                showDateColumns
                               />
                             ))}
                           </div>
