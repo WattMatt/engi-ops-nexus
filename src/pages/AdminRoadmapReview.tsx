@@ -24,6 +24,7 @@ import { ProjectComparisonChart } from "@/components/admin/roadmap-review/Projec
 import { PriorityHeatMap } from "@/components/admin/roadmap-review/PriorityHeatMap";
 import { EnhancedProjectCard } from "@/components/admin/roadmap-review/EnhancedProjectCard";
 import { TeamWorkloadChart } from "@/components/admin/roadmap-review/TeamWorkloadChart";
+import { PDFExportDialog } from "@/components/admin/roadmap-review/PDFExportDialog";
 
 // Import calculation utilities
 import { 
@@ -38,10 +39,12 @@ import {
   generateEnhancedRoadmapPDF, 
   downloadPDF 
 } from "@/utils/roadmapReviewPdfExport";
+import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
 
 export default function AdminRoadmapReview() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const { data: queryData, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["admin-roadmap-review-enhanced"],
@@ -148,7 +151,7 @@ export default function AdminRoadmapReview() {
     return calculatePortfolioMetrics(enhancedSummaries);
   }, [enhancedSummaries]);
 
-  const generatePDFReport = useCallback(async () => {
+  const generatePDFReport = useCallback(async (options?: RoadmapPDFExportOptions) => {
     if (enhancedSummaries.length === 0) {
       toast.error("No project data available to export");
       return;
@@ -170,9 +173,9 @@ export default function AdminRoadmapReview() {
         enhancedSummaries,
         portfolioMetrics,
         {
-          includeCharts: true,
-          includeAnalytics: true,
-          includeDetailedProjects: true,
+          includeCharts: options?.includeCharts ?? true,
+          includeAnalytics: options?.includeAnalytics ?? true,
+          includeDetailedProjects: options?.includeDetailedProjects ?? true,
         }
       );
 
@@ -226,7 +229,7 @@ export default function AdminRoadmapReview() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button onClick={generatePDFReport} disabled={isGeneratingPDF}>
+          <Button onClick={() => setShowExportDialog(true)} disabled={isGeneratingPDF}>
             {isGeneratingPDF ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
@@ -236,6 +239,14 @@ export default function AdminRoadmapReview() {
           </Button>
         </div>
       </div>
+
+      {/* PDF Export Dialog */}
+      <PDFExportDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        onExport={generatePDFReport}
+        isExporting={isGeneratingPDF}
+      />
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
