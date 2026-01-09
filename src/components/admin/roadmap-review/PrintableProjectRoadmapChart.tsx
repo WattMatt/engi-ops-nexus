@@ -8,14 +8,15 @@ interface PrintableProjectRoadmapChartProps {
   projectIndex: number;
 }
 
+// Professional engineering color palette - muted, professional tones
 const COLORS = {
-  completed: "#22c55e",
-  pending: "#94a3b8",
-  overdue: "#ef4444",
-  low: "#3b82f6",
-  medium: "#f59e0b",
-  high: "#f97316",
-  critical: "#dc2626",
+  completed: "#166534",   // Green-800 - Subdued success
+  pending: "#64748b",     // Slate-500 - Neutral gray
+  overdue: "#991b1b",     // Red-800 - Subdued danger
+  low: "#475569",         // Slate-600 - Base priority
+  medium: "#78716c",      // Stone-500 - Medium priority
+  high: "#7c2d12",        // Orange-900 - High priority (muted)
+  critical: "#7f1d1d",    // Red-900 - Critical (muted)
 };
 
 /**
@@ -75,8 +76,9 @@ export function PrintableProjectRoadmapChart({
           <span 
             className="text-xs font-bold px-2 py-1 rounded"
             style={{ 
-              backgroundColor: project.healthScore >= 70 ? '#dcfce7' : project.healthScore >= 40 ? '#fef3c7' : '#fee2e2',
-              color: project.healthScore >= 70 ? '#166534' : project.healthScore >= 40 ? '#92400e' : '#991b1b',
+              backgroundColor: project.healthScore >= 70 ? '#f0fdf4' : project.healthScore >= 40 ? '#fefce8' : '#fef2f2',
+              color: project.healthScore >= 70 ? '#166534' : project.healthScore >= 40 ? '#854d0e' : '#991b1b',
+              border: `1px solid ${project.healthScore >= 70 ? '#bbf7d0' : project.healthScore >= 40 ? '#fef08a' : '#fecaca'}`,
             }}
           >
             {project.healthScore}%
@@ -152,12 +154,13 @@ export function PrintableProjectRoadmapChart({
                     >
                       {item.title}
                     </span>
-                    {/* Due date */}
+                    {/* Due date - professional muted styling */}
                     <span 
                       className="text-[10px] flex-shrink-0 px-1.5 py-0.5 rounded"
                       style={{
-                        backgroundColor: isOverdue ? '#fee2e2' : isDueSoon ? '#fef3c7' : '#f1f5f9',
-                        color: isOverdue ? '#991b1b' : isDueSoon ? '#92400e' : '#64748b',
+                        backgroundColor: isOverdue ? '#fef2f2' : isDueSoon ? '#fefce8' : '#f8fafc',
+                        color: isOverdue ? '#991b1b' : isDueSoon ? '#854d0e' : '#475569',
+                        border: `1px solid ${isOverdue ? '#fecaca' : isDueSoon ? '#fef08a' : '#e2e8f0'}`,
                       }}
                     >
                       {item.dueDate ? format(new Date(item.dueDate), 'MMM d') : 'No date'}
@@ -170,16 +173,16 @@ export function PrintableProjectRoadmapChart({
             <div className="text-gray-400 text-xs italic">No upcoming tasks</div>
           )}
           
-          {/* Summary stats */}
-          <div className="mt-3 pt-2 border-t border-gray-100 flex gap-3 text-[10px]">
-            <span className="text-green-600">
+          {/* Summary stats - professional muted colors */}
+          <div className="mt-3 pt-2 border-t border-slate-200 flex gap-3 text-[10px]">
+            <span className="text-green-800">
               ✓ {stats.completed} done
             </span>
-            <span className="text-gray-500">
+            <span className="text-slate-500">
               ○ {stats.pending} pending
             </span>
             {stats.overdue > 0 && (
-              <span className="text-red-600">
+              <span className="text-red-800">
                 ! {stats.overdue} overdue
               </span>
             )}

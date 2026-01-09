@@ -312,19 +312,19 @@ export const drawConnectionNode = (
 };
 
 /**
- * Get phase color from brand colors - Per PDF_DESIGN_STANDARDS.md Section 10
+ * Get phase color - Professional engineering palette (muted slate tones)
  */
 export const getPhaseColor = (phase: string): number[] => {
   const phaseColors: Record<string, number[]> = {
-    "Planning & Preparation": PDF_BRAND_COLORS.primary,
-    "Budget & Assessment": PDF_BRAND_COLORS.success,
-    "Tender & Procurement": PDF_BRAND_COLORS.warning,
-    "Design Phase": [138, 43, 226], // Purple
-    "Construction": PDF_BRAND_COLORS.danger,
-    "Documentation": PDF_BRAND_COLORS.primaryLight,
-    "Commissioning": [0, 128, 128], // Teal
-    "Handover": PDF_BRAND_COLORS.success,
+    "Planning & Preparation": [51, 65, 85],    // Slate-700
+    "Budget & Assessment": [71, 85, 105],      // Slate-600
+    "Tender & Procurement": [100, 116, 139],   // Slate-500
+    "Design Phase": [82, 82, 91],              // Zinc-600
+    "Construction": [55, 65, 81],              // Gray-700
+    "Documentation": [75, 85, 99],             // Gray-600
+    "Commissioning": [63, 63, 70],             // Zinc-700
+    "Handover": [45, 55, 72],                  // Slate-800
   };
 
-  return phaseColors[phase] || PDF_BRAND_COLORS.primary;
+  return phaseColors[phase] || [51, 65, 85];   // Default: Slate-700
 };
