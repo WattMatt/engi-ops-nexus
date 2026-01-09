@@ -30,25 +30,35 @@ export const addPageHeader = (
   doc.rect(0, header.height, pageWidth, 2, 'F');
   
   // Logo or company name - maintain clear space
-  const logoY = (header.height - header.logoHeight) / 2;
-  let textStartX = margins.left;
-  
   if (companyLogo) {
     try {
-      // Calculate proportional logo dimensions maintaining aspect ratio
-      const maxLogoWidth = header.logoMaxWidth;
-      const maxLogoHeight = header.logoHeight;
+      // Create temp image to get actual dimensions for aspect ratio calculation
+      const img = new Image();
+      img.src = companyLogo;
       
-      // Add logo with proper positioning and clear space
-      doc.addImage(
-        companyLogo, 
-        'PNG', 
-        margins.left + header.clearSpace, 
-        logoY, 
-        maxLogoWidth, 
-        maxLogoHeight
-      );
-      textStartX = margins.left + maxLogoWidth + header.clearSpace * 2;
+      // Calculate proportional dimensions maintaining aspect ratio
+      const maxWidth = header.logoMaxWidth;
+      const maxHeight = header.logoHeight;
+      
+      // Get natural aspect ratio (default to 2:1 if unknown)
+      const aspectRatio = img.naturalWidth && img.naturalHeight 
+        ? img.naturalWidth / img.naturalHeight 
+        : 2;
+      
+      let logoWidth = maxWidth;
+      let logoHeight = logoWidth / aspectRatio;
+      
+      // Scale down if height exceeds max
+      if (logoHeight > maxHeight) {
+        logoHeight = maxHeight;
+        logoWidth = logoHeight * aspectRatio;
+      }
+      
+      // Center vertically in header
+      const logoY = (header.height - logoHeight) / 2;
+      const logoX = margins.left + header.clearSpace;
+      
+      doc.addImage(companyLogo, 'PNG', logoX, logoY, logoWidth, logoHeight);
     } catch {
       // Fallback to text if logo fails
       doc.setTextColor(...PDF_BRAND_COLORS.white);

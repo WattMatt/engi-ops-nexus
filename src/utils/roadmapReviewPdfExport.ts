@@ -263,15 +263,33 @@ function generateCoverPage(
   doc.setFillColor(...PDF_BRAND_COLORS.primaryLight);
   doc.rect(0, headerHeight - 6, pageWidth, 6, "F");
   
-  // Company logo with proper sizing and clear space
-  const logoMaxWidth = 45;
-  const logoMaxHeight = 18;
+  // Company logo with proper sizing and aspect ratio preservation
+  const logoMaxWidth = 50;
+  const logoMaxHeight = 20;
   const logoX = margins.left;
   const logoY = 15;
   
   if (companyLogo) {
     try {
-      doc.addImage(companyLogo, 'PNG', logoX, logoY, logoMaxWidth, logoMaxHeight);
+      // Create temp image to calculate aspect ratio
+      const img = new Image();
+      img.src = companyLogo;
+      
+      // Calculate proportional dimensions
+      const aspectRatio = img.naturalWidth && img.naturalHeight 
+        ? img.naturalWidth / img.naturalHeight 
+        : 2; // Default 2:1 aspect ratio
+      
+      let logoWidth = logoMaxWidth;
+      let logoHeight = logoWidth / aspectRatio;
+      
+      // Scale down if height exceeds max
+      if (logoHeight > logoMaxHeight) {
+        logoHeight = logoMaxHeight;
+        logoWidth = logoHeight * aspectRatio;
+      }
+      
+      doc.addImage(companyLogo, 'PNG', logoX, logoY, logoWidth, logoHeight);
     } catch {
       // Fallback to company name
       doc.setTextColor(...PDF_BRAND_COLORS.white);
