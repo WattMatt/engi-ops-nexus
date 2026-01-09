@@ -533,7 +533,7 @@ async function generateAnalyticsPage(
 }
 
 /**
- * Generates individual project detail pages with meeting notes
+ * Generates individual project detail pages with meeting notes and roadmap snapshots
  * Implements proper page breaks and prevents orphaned content
  */
 function generateProjectPages(
@@ -541,7 +541,8 @@ function generateProjectPages(
   projects: EnhancedProjectSummary[],
   includeMeetingNotes: boolean = true,
   companyLogo?: string | null,
-  companyName?: string
+  companyName?: string,
+  projectCharts?: Map<number, HTMLCanvasElement>
 ): void {
   doc.addPage();
   addPageHeader(doc, 'Project Details', companyLogo, companyName);
@@ -561,12 +562,16 @@ function generateProjectPages(
   doc.line(startX, yPos + 3, startX + 45, yPos + 3);
   yPos += PDF_LAYOUT.spacing.section;
   
-  for (const project of projects) {
+  for (let projectIndex = 0; projectIndex < projects.length; projectIndex++) {
+    const project = projects[projectIndex];
+    const projectChart = projectCharts?.get(projectIndex);
+    
     // Calculate required space for this project block
     const baseHeight = 70; // Minimum project card height
+    const chartHeight = projectChart ? 58 : 0; // Height for roadmap snapshot
     const meetingNotesHeight = includeMeetingNotes ? 55 : 0;
     const upcomingItemsHeight = project.upcomingItems.length > 0 ? Math.min(project.upcomingItems.length, 5) * 8 + 15 : 0;
-    const requiredSpace = baseHeight + meetingNotesHeight + upcomingItemsHeight;
+    const requiredSpace = baseHeight + chartHeight + meetingNotesHeight + upcomingItemsHeight;
     
     // Check if we need a new page - ensure full project block stays together
     yPos = checkPageBreak(doc, yPos, requiredSpace, 'Project Details', companyLogo, companyName);
@@ -692,6 +697,55 @@ function generateProjectPages(
       yPos = (doc as any).lastAutoTable.finalY + 3;
     }
     
+    // Add roadmap snapshot chart for this project
+    if (projectChart) {
+      // Check if we need a new page for the chart
+      const chartDisplayHeight = 52;
+      yPos = checkPageBreak(doc, yPos, chartDisplayHeight + 10, 'Project Details', companyLogo, companyName);
+      
+      yPos += 3;
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...PDF_BRAND_COLORS.primary);
+      doc.text("Roadmap Snapshot", startX + 5, yPos);
+      yPos += 4;
+      
+      // Calculate chart dimensions maintaining aspect ratio
+      const chartNaturalWidth = projectChart.width;
+      const chartNaturalHeight = projectChart.height;
+      const aspectRatio = chartNaturalWidth / chartNaturalHeight;
+      
+      // Scale to fit within content width, with max height
+      let chartWidth = contentWidth - 10;
+      let chartHeight = chartWidth / aspectRatio;
+      
+      if (chartHeight > chartDisplayHeight) {
+        chartHeight = chartDisplayHeight;
+        chartWidth = chartHeight * aspectRatio;
+      }
+      
+      // Center the chart
+      const chartX = startX + 5 + (contentWidth - 10 - chartWidth) / 2;
+      
+      // Add chart with border
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.rect(chartX - 1, yPos - 1, chartWidth + 2, chartHeight + 2);
+      
+      addHighQualityImage(
+        doc,
+        projectChart,
+        chartX,
+        yPos,
+        chartWidth,
+        chartHeight,
+        'PNG',
+        0.92
+      );
+      
+      yPos += chartHeight + 5;
+    }
+    
     // Add meeting notes section for this project
     if (includeMeetingNotes) {
       yPos += 2;
@@ -780,14 +834,25 @@ export async function generateEnhancedRoadmapPDF(
     }
   }
   
-  // 5. Project Details with Meeting Notes
+  // 5. Project Details with Meeting Notes and Roadmap Snapshots
   if (config.includeDetailedProjects && projects.length > 0) {
+    // Capture individual project roadmap charts
+    const projectCharts = new Map<number, HTMLCanvasElement>();
+    
+    for (let i = 0; i < projects.length; i++) {
+      const chartCanvas = await captureChartById(`project-roadmap-chart-${i}`);
+      if (chartCanvas) {
+        projectCharts.set(i, chartCanvas);
+      }
+    }
+    
     generateProjectPages(
       doc, 
       projects, 
       config.includeMeetingNotes && config.reportType === 'meeting-review',
       config.companyLogo,
-      config.companyName
+      config.companyName,
+      projectCharts.size > 0 ? projectCharts : undefined
     );
   }
   
