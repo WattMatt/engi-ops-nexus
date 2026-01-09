@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Folder, LogOut, Users, Settings, Library, Sparkles } from "lucide-react";
+import { Folder, LogOut, Users, Settings, Library, Sparkles, Map, LayoutGrid } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -11,6 +11,7 @@ import { CreateProjectDialog } from "@/components/CreateProjectDialog";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { ProjectFilters } from "@/components/projects/ProjectFilters";
 import { ProjectSkeleton } from "@/components/projects/ProjectSkeleton";
+import { ProjectsMap } from "@/components/projects/ProjectsMap";
 import { cn } from "@/lib/utils";
 
 interface Project {
@@ -21,6 +22,10 @@ interface Project {
   status: string;
   project_logo_url: string | null;
   client_logo_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  city: string | null;
+  province: string | null;
 }
 
 const ProjectSelect = () => {
@@ -30,7 +35,7 @@ const ProjectSelect = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const { isAdmin, loading: roleLoading } = useUserRole();
   const isAdminRoute = location.pathname.startsWith('/admin');
 
@@ -42,7 +47,7 @@ const ProjectSelect = () => {
     try {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, name, description, status, project_logo_url, client_logo_url")
+        .select("id, project_number, name, description, status, project_logo_url, client_logo_url, latitude, longitude, city, province")
         .order("project_number", { ascending: true });
 
       if (error) throw error;
@@ -52,6 +57,12 @@ const ProjectSelect = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLocationUpdate = (projectId: string, lat: number, lng: number) => {
+    setProjects(prev => prev.map(p => 
+      p.id === projectId ? { ...p, latitude: lat, longitude: lng } : p
+    ));
   };
 
   const filteredProjects = useMemo(() => {
@@ -163,18 +174,46 @@ const ProjectSelect = () => {
           </Card>
         ) : (
           <>
-            <ProjectFilters
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              statusFilter={statusFilter}
-              onStatusChange={setStatusFilter}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              totalCount={projects.length}
-              filteredCount={filteredProjects.length}
-            />
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <ProjectFilters
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
+                viewMode={viewMode === "map" ? "grid" : viewMode}
+                onViewModeChange={(mode) => setViewMode(mode as "grid" | "list" | "map")}
+                totalCount={projects.length}
+                filteredCount={filteredProjects.length}
+              />
+              
+              {/* Map View Toggle */}
+              <Button
+                variant={viewMode === "map" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode(viewMode === "map" ? "grid" : "map")}
+                className="gap-2 shrink-0"
+              >
+                {viewMode === "map" ? (
+                  <>
+                    <LayoutGrid className="h-4 w-4" />
+                    Cards View
+                  </>
+                ) : (
+                  <>
+                    <Map className="h-4 w-4" />
+                    Map View
+                  </>
+                )}
+              </Button>
+            </div>
             
-            {filteredProjects.length === 0 ? (
+            {viewMode === "map" ? (
+              <ProjectsMap 
+                projects={filteredProjects}
+                onProjectSelect={handleProjectSelect}
+                onLocationUpdate={handleLocationUpdate}
+              />
+            ) : filteredProjects.length === 0 ? (
               <Card className="text-center py-12 animate-fade-in">
                 <CardContent className="flex flex-col items-center">
                   <div className="p-3 rounded-full bg-muted mb-3">
