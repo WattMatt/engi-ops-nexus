@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ProjectRoadmapWidget } from "@/components/dashboard/roadmap/ProjectRoadmapWidget";
 import { ShareRoadmapDialog } from "@/components/dashboard/roadmap/ShareRoadmapDialog";
 import { RoadmapProgressChart } from "@/components/dashboard/roadmap/RoadmapProgressChart";
+import { RoadmapExportPDFButton } from "@/components/dashboard/roadmap/RoadmapExportPDFButton";
 import { Button } from "@/components/ui/button";
 import { Share2, BarChart3 } from "lucide-react";
 import {
@@ -47,6 +48,7 @@ export default function ProjectRoadmap() {
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </Button>
+          <RoadmapExportPDFButton projectId={projectId} />
           <ShareRoadmapDialog projectId={projectId}>
             <Button variant="outline" size="sm">
               <Share2 className="h-4 w-4 mr-2" />
