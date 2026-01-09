@@ -73,14 +73,15 @@ interface RoadmapNode {
   level: number;
 }
 
-// Phase colors for visual flow
+// Phase colors for visual flow - Using brand colors from standards
 const PHASE_COLORS: { [key: string]: [number, number, number] } = {
-  "Planning & Preparation": PDF_BRAND_COLORS.primaryLight,
-  "Budget & Assessment": PDF_BRAND_COLORS.success,
-  "Tender & Procurement": PDF_BRAND_COLORS.warning,
-  "Construction": PDF_BRAND_COLORS.danger,
-  "Commissioning": [139, 92, 246],
-  "Handover": [6, 182, 212],
+  "Planning & Preparation": PDF_BRAND_COLORS.primary,      // Indigo - primary
+  "Budget & Assessment": PDF_BRAND_COLORS.success,         // Green - positive
+  "Tender & Procurement": PDF_BRAND_COLORS.warning,        // Amber - caution
+  "Construction": PDF_BRAND_COLORS.danger,                 // Red - action needed
+  "Documentation": PDF_BRAND_COLORS.primaryLight,          // Light indigo
+  "Commissioning": [139, 92, 246],                         // Purple
+  "Handover": [6, 182, 212],                               // Teal
   default: PDF_BRAND_COLORS.gray,
 };
 
