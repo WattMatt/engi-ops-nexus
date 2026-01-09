@@ -1,59 +1,46 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   FileText, 
   Download, 
-  Calendar, 
-  Users, 
-  MapPin,
   RefreshCw,
-  ChevronDown,
-  ChevronRight 
+  LayoutDashboard,
+  BarChart3,
+  List
 } from "lucide-react";
-import { format, isAfter, isBefore, addDays } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-interface ProjectRoadmapSummary {
-  projectId: string;
-  projectName: string;
-  city: string | null;
-  province: string | null;
-  status: string;
-  totalItems: number;
-  completedItems: number;
-  progress: number;
-  teamMembers: { id: string; name: string; email: string; role: string }[];
-  upcomingItems: {
-    id: string;
-    title: string;
-    dueDate: string | null;
-    priority: string | null;
-    isCompleted: boolean;
-  }[];
-}
+// Import new components
+import { PortfolioHealthGauge } from "@/components/admin/roadmap-review/PortfolioHealthGauge";
+import { ExecutiveSummaryCards } from "@/components/admin/roadmap-review/ExecutiveSummaryCards";
+import { ProjectComparisonChart } from "@/components/admin/roadmap-review/ProjectComparisonChart";
+import { PriorityHeatMap } from "@/components/admin/roadmap-review/PriorityHeatMap";
+import { EnhancedProjectCard } from "@/components/admin/roadmap-review/EnhancedProjectCard";
+import { TeamWorkloadChart } from "@/components/admin/roadmap-review/TeamWorkloadChart";
+
+// Import calculation utilities
+import { 
+  ProjectRoadmapSummary,
+  EnhancedProjectSummary,
+  enhanceProjectSummary,
+  calculatePortfolioMetrics,
+  getDueDateStatus
+} from "@/utils/roadmapReviewCalculations";
 
 export default function AdminRoadmapReview() {
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [activeTab, setActiveTab] = useState("dashboard");
 
-  const { data: summaries = [], isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["admin-roadmap-review"],
+  const { data: queryData, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["admin-roadmap-review-enhanced"],
     queryFn: async () => {
       // Fetch all projects
       const { data: projects, error: projectsError } = await supabase
@@ -101,7 +88,7 @@ export default function AdminRoadmapReview() {
 
         // Get upcoming items with due dates (next 5)
         const upcomingItems = projectItems
-          .filter((item) => item.due_date && !item.is_completed)
+          .filter((item) => !item.is_completed)
           .sort((a, b) => {
             if (!a.due_date) return 1;
             if (!b.due_date) return -1;
@@ -140,48 +127,22 @@ export default function AdminRoadmapReview() {
         };
       });
 
-      return summaries;
+      return { summaries, allRoadmapItems };
     },
   });
 
-  const toggleProject = (projectId: string) => {
-    setExpandedProjects((prev) => {
-      const next = new Set(prev);
-      if (next.has(projectId)) {
-        next.delete(projectId);
-      } else {
-        next.add(projectId);
-      }
-      return next;
-    });
-  };
+  // Enhance summaries with calculated metrics
+  const enhancedSummaries: EnhancedProjectSummary[] = useMemo(() => {
+    if (!queryData?.summaries) return [];
+    return queryData.summaries.map((summary) => 
+      enhanceProjectSummary(summary, queryData.allRoadmapItems || [])
+    );
+  }, [queryData]);
 
-  const getPriorityColor = (priority: string | null) => {
-    switch (priority) {
-      case "high":
-        return "bg-destructive text-destructive-foreground";
-      case "medium":
-        return "bg-amber-500 text-white";
-      case "low":
-        return "bg-muted text-muted-foreground";
-      default:
-        return "bg-secondary text-secondary-foreground";
-    }
-  };
-
-  const getDueDateStatus = (dueDate: string | null) => {
-    if (!dueDate) return null;
-    const date = new Date(dueDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (isBefore(date, today)) {
-      return "overdue";
-    } else if (isBefore(date, addDays(today, 7))) {
-      return "soon";
-    }
-    return "ok";
-  };
+  // Calculate portfolio metrics
+  const portfolioMetrics = useMemo(() => {
+    return calculatePortfolioMetrics(enhancedSummaries);
+  }, [enhancedSummaries]);
 
   const generatePDFReport = async () => {
     setIsGeneratingPDF(true);
@@ -191,131 +152,150 @@ export default function AdminRoadmapReview() {
       const pageHeight = doc.internal.pageSize.getHeight();
       
       // ============= COVER PAGE =============
-      // Background gradient effect (using rectangles)
-      doc.setFillColor(30, 58, 138); // Primary blue
+      doc.setFillColor(30, 58, 138);
       doc.rect(0, 0, pageWidth, pageHeight * 0.45, "F");
       
-      // Decorative accent bar
-      doc.setFillColor(59, 130, 246); // Lighter blue accent
+      doc.setFillColor(59, 130, 246);
       doc.rect(0, pageHeight * 0.43, pageWidth, 8, "F");
       
-      // Main title
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(36);
       doc.setFont("helvetica", "bold");
-      doc.text("ROADMAP", pageWidth / 2, 70, { align: "center" });
-      doc.text("REVIEW REPORT", pageWidth / 2, 88, { align: "center" });
+      doc.text("ROADMAP", pageWidth / 2, 60, { align: "center" });
+      doc.text("REVIEW REPORT", pageWidth / 2, 78, { align: "center" });
       
-      // Subtitle
       doc.setFontSize(14);
       doc.setFont("helvetica", "normal");
-      doc.text("Portfolio Progress & Team Overview", pageWidth / 2, 105, { align: "center" });
+      doc.text("Portfolio Progress & Team Overview", pageWidth / 2, 95, { align: "center" });
       
-      // Stats summary on cover
+      // Portfolio Health Score
       doc.setTextColor(30, 58, 138);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("EXECUTIVE SUMMARY", pageWidth / 2, pageHeight * 0.55, { align: "center" });
+      doc.text("PORTFOLIO HEALTH SCORE", pageWidth / 2, pageHeight * 0.52, { align: "center" });
+      
+      // Large health score circle
+      const healthScore = portfolioMetrics.totalHealthScore;
+      const healthColor = healthScore >= 80 ? [34, 197, 94] : healthScore >= 60 ? [234, 179, 8] : healthScore >= 40 ? [249, 115, 22] : [239, 68, 68];
+      doc.setFillColor(healthColor[0], healthColor[1], healthColor[2]);
+      doc.circle(pageWidth / 2, pageHeight * 0.62, 20, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${healthScore}%`, pageWidth / 2, pageHeight * 0.63 + 2, { align: "center" });
       
       // Summary stats boxes
-      const boxY = pageHeight * 0.60;
-      const boxWidth = 50;
-      const boxHeight = 35;
-      const boxSpacing = 10;
-      const startX = (pageWidth - (boxWidth * 3 + boxSpacing * 2)) / 2;
+      const boxY = pageHeight * 0.72;
+      const boxWidth = 40;
+      const boxHeight = 30;
+      const boxSpacing = 8;
+      const startX = (pageWidth - (boxWidth * 4 + boxSpacing * 3)) / 2;
       
-      // Box 1 - Total Projects
-      doc.setFillColor(241, 245, 249);
-      doc.roundedRect(startX, boxY, boxWidth, boxHeight, 3, 3, "F");
-      doc.setTextColor(30, 58, 138);
-      doc.setFontSize(24);
-      doc.setFont("helvetica", "bold");
-      doc.text(String(summaries.length), startX + boxWidth / 2, boxY + 18, { align: "center" });
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 100, 100);
-      doc.text("Total Projects", startX + boxWidth / 2, boxY + 28, { align: "center" });
+      const statsBoxes = [
+        { value: portfolioMetrics.totalProjects, label: "Projects" },
+        { value: `${portfolioMetrics.averageProgress}%`, label: "Avg Progress" },
+        { value: portfolioMetrics.projectsAtRisk + portfolioMetrics.projectsCritical, label: "At Risk" },
+        { value: portfolioMetrics.totalOverdueItems, label: "Overdue" },
+      ];
       
-      // Box 2 - Average Progress
-      doc.setFillColor(241, 245, 249);
-      doc.roundedRect(startX + boxWidth + boxSpacing, boxY, boxWidth, boxHeight, 3, 3, "F");
-      doc.setTextColor(30, 58, 138);
-      doc.setFontSize(24);
-      doc.setFont("helvetica", "bold");
-      const avgProgress = summaries.length > 0 
-        ? Math.round(summaries.reduce((acc, s) => acc + s.progress, 0) / summaries.length)
-        : 0;
-      doc.text(`${avgProgress}%`, startX + boxWidth + boxSpacing + boxWidth / 2, boxY + 18, { align: "center" });
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 100, 100);
-      doc.text("Avg. Progress", startX + boxWidth + boxSpacing + boxWidth / 2, boxY + 28, { align: "center" });
+      statsBoxes.forEach((box, idx) => {
+        const x = startX + (boxWidth + boxSpacing) * idx;
+        doc.setFillColor(241, 245, 249);
+        doc.roundedRect(x, boxY, boxWidth, boxHeight, 3, 3, "F");
+        doc.setTextColor(30, 58, 138);
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.text(String(box.value), x + boxWidth / 2, boxY + 14, { align: "center" });
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text(box.label, x + boxWidth / 2, boxY + 23, { align: "center" });
+      });
       
-      // Box 3 - Overdue Items
-      const overdueCount = summaries.filter((s) =>
-        s.upcomingItems.some((item) => getDueDateStatus(item.dueDate) === "overdue")
-      ).length;
-      doc.setFillColor(241, 245, 249);
-      doc.roundedRect(startX + (boxWidth + boxSpacing) * 2, boxY, boxWidth, boxHeight, 3, 3, "F");
-      doc.setTextColor(overdueCount > 0 ? 220 : 30, overdueCount > 0 ? 38 : 58, overdueCount > 0 ? 38 : 138);
-      doc.setFontSize(24);
-      doc.setFont("helvetica", "bold");
-      doc.text(String(overdueCount), startX + (boxWidth + boxSpacing) * 2 + boxWidth / 2, boxY + 18, { align: "center" });
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 100, 100);
-      doc.text("With Overdue", startX + (boxWidth + boxSpacing) * 2 + boxWidth / 2, boxY + 28, { align: "center" });
-      
-      // Generation date and footer
+      // Generation date
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Report Generated: ${format(new Date(), "PPPP")}`, pageWidth / 2, pageHeight - 40, { align: "center" });
-      doc.text(format(new Date(), "'at' p"), pageWidth / 2, pageHeight - 32, { align: "center" });
+      doc.text(`Generated: ${format(new Date(), "PPPP 'at' p")}`, pageWidth / 2, pageHeight - 35, { align: "center" });
       
-      // Footer line
       doc.setDrawColor(200, 200, 200);
       doc.line(40, pageHeight - 20, pageWidth - 40, pageHeight - 20);
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
       doc.text("Confidential - For Internal Use Only", pageWidth / 2, pageHeight - 12, { align: "center" });
       
-      // ============= CONTENT PAGES =============
+      // ============= EXECUTIVE SUMMARY PAGE =============
       doc.addPage();
       let yPos = 20;
       
-      // Content header
-      doc.setFontSize(16);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 58, 138);
+      doc.text("Executive Summary", 14, yPos);
+      yPos += 15;
+      
+      // Summary table
+      autoTable(doc, {
+        startY: yPos,
+        head: [["Metric", "Value", "Status"]],
+        body: [
+          ["Total Projects", String(portfolioMetrics.totalProjects), "Active"],
+          ["Average Progress", `${portfolioMetrics.averageProgress}%`, portfolioMetrics.averageProgress >= 50 ? "On Track" : "Behind"],
+          ["Portfolio Health", `${portfolioMetrics.totalHealthScore}%`, healthScore >= 70 ? "Healthy" : healthScore >= 50 ? "Moderate" : "Needs Attention"],
+          ["Projects at Risk", String(portfolioMetrics.projectsAtRisk + portfolioMetrics.projectsCritical), portfolioMetrics.projectsCritical > 0 ? "Critical" : "Manageable"],
+          ["Overdue Items", String(portfolioMetrics.totalOverdueItems), portfolioMetrics.totalOverdueItems > 5 ? "High" : "Low"],
+          ["Team Members", String(portfolioMetrics.totalTeamMembers), "-"],
+        ],
+        theme: "striped",
+        headStyles: { fillColor: [30, 58, 138], fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+      
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+      
+      // ============= PROJECT DETAILS PAGES =============
+      doc.addPage();
+      yPos = 20;
+      
+      doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(30, 58, 138);
       doc.text("Project Details", 14, yPos);
-      yPos += 12;
+      yPos += 15;
 
-      for (const summary of summaries) {
-        // Check if we need a new page
+      for (const summary of enhancedSummaries) {
         if (yPos > 240) {
           doc.addPage();
           yPos = 20;
         }
 
-        // Project header
+        // Project header with health indicator
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 58, 138);
         doc.text(summary.projectName, 14, yPos);
+        
+        // Health badge
+        const badgeColor = summary.healthScore >= 70 ? [34, 197, 94] : summary.healthScore >= 50 ? [234, 179, 8] : [239, 68, 68];
+        doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
+        doc.roundedRect(pageWidth - 40, yPos - 5, 25, 8, 2, 2, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.text(`${summary.healthScore}%`, pageWidth - 27.5, yPos, { align: "center" });
+        
         yPos += 6;
 
-        // Location
+        // Location and risk
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 100, 100);
         const location = [summary.city, summary.province].filter(Boolean).join(", ") || "No location";
-        doc.text(`Location: ${location}`, 14, yPos);
+        doc.text(`Location: ${location} | Risk: ${summary.riskLevel.toUpperCase()}`, 14, yPos);
         yPos += 5;
 
         // Progress
         doc.setTextColor(0, 0, 0);
-        doc.text(`Progress: ${summary.progress}% (${summary.completedItems}/${summary.totalItems} items completed)`, 14, yPos);
+        doc.text(`Progress: ${summary.progress}% (${summary.completedItems}/${summary.totalItems} items) | Velocity: ${summary.velocityLast7Days} items/week`, 14, yPos);
         yPos += 8;
 
         // Team Members
@@ -326,7 +306,7 @@ export default function AdminRoadmapReview() {
         
         if (summary.teamMembers.length > 0) {
           summary.teamMembers.forEach((member) => {
-            doc.text(`• ${member.name} (${member.role}) - ${member.email}`, 18, yPos);
+            doc.text(`• ${member.name} (${member.role})`, 18, yPos);
             yPos += 4;
           });
         } else {
@@ -343,11 +323,12 @@ export default function AdminRoadmapReview() {
 
           autoTable(doc, {
             startY: yPos,
-            head: [["Task", "Due Date", "Priority"]],
+            head: [["Task", "Due Date", "Priority", "Status"]],
             body: summary.upcomingItems.map((item) => [
-              item.title,
+              item.title.substring(0, 40) + (item.title.length > 40 ? "..." : ""),
               item.dueDate ? format(new Date(item.dueDate), "MMM d, yyyy") : "No date",
               item.priority || "Normal",
+              getDueDateStatus(item.dueDate) === "overdue" ? "OVERDUE" : getDueDateStatus(item.dueDate) === "soon" ? "Due Soon" : "On Track",
             ]),
             theme: "striped",
             headStyles: { fillColor: [30, 58, 138], fontSize: 8 },
@@ -357,13 +338,9 @@ export default function AdminRoadmapReview() {
           });
 
           yPos = (doc as any).lastAutoTable.finalY + 10;
-        } else {
-          doc.setFont("helvetica", "italic");
-          doc.text("No upcoming scheduled items", 14, yPos);
-          yPos += 10;
         }
 
-        // Separator line
+        // Separator
         doc.setDrawColor(200, 200, 200);
         doc.line(14, yPos, pageWidth - 14, yPos);
         yPos += 10;
@@ -379,7 +356,7 @@ export default function AdminRoadmapReview() {
       }
 
       doc.save(`Roadmap_Review_Report_${format(new Date(), "yyyy-MM-dd")}.pdf`);
-      toast.success("Report generated successfully!");
+      toast.success("Enhanced report generated successfully!");
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Failed to generate report");
@@ -390,23 +367,19 @@ export default function AdminRoadmapReview() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-6">
         <Skeleton className="h-10 w-64" />
+        <div className="grid gap-4 md:grid-cols-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+        </div>
         <Skeleton className="h-[400px]" />
       </div>
     );
   }
 
-  const totalProjects = summaries.length;
-  const averageProgress = summaries.length > 0 
-    ? Math.round(summaries.reduce((acc, s) => acc + s.progress, 0) / summaries.length)
-    : 0;
-  const projectsWithOverdue = summaries.filter((s) =>
-    s.upcomingItems.some((item) => getDueDateStatus(item.dueDate) === "overdue")
-  ).length;
-
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -414,7 +387,7 @@ export default function AdminRoadmapReview() {
             Roadmap Review Report
           </h1>
           <p className="text-muted-foreground">
-            Overview of all project roadmaps and team progress
+            Portfolio health, progress analytics, and team insights
           </p>
         </div>
         <div className="flex gap-2">
@@ -433,184 +406,65 @@ export default function AdminRoadmapReview() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalProjects}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Average Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{averageProgress}%</div>
-            <Progress value={averageProgress} className="mt-2" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Projects with Overdue Items
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{projectsWithOverdue}</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Tabs Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Analytics
+          </TabsTrigger>
+          <TabsTrigger value="projects" className="flex items-center gap-2">
+            <List className="h-4 w-4" />
+            Projects
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Projects List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Project Roadmaps</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {summaries.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              No projects found
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {summaries.map((summary) => {
-                const isExpanded = expandedProjects.has(summary.projectId);
-                return (
-                  <div
-                    key={summary.projectId}
-                    className="border rounded-lg overflow-hidden"
-                  >
-                    <button
-                      onClick={() => toggleProject(summary.projectId)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-4">
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                        <div>
-                          <span className="font-medium">{summary.projectName}</span>
-                          {(summary.city || summary.province) && (
-                            <span className="text-sm text-muted-foreground ml-2">
-                              <MapPin className="h-3 w-3 inline mr-1" />
-                              {[summary.city, summary.province].filter(Boolean).join(", ")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{summary.teamMembers.length}</span>
-                        </div>
-                        <div className="flex items-center gap-2 min-w-[120px]">
-                          <Progress value={summary.progress} className="w-16 h-2" />
-                          <span className="text-sm font-medium">{summary.progress}%</span>
-                        </div>
-                        <Badge variant={summary.status === "active" ? "default" : "secondary"}>
-                          {summary.status}
-                        </Badge>
-                      </div>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="p-4 border-t space-y-4">
-                        {/* Team Members */}
-                        <div>
-                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            Team Members
-                          </h4>
-                          {summary.teamMembers.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {summary.teamMembers.map((member) => (
-                                <Badge
-                                  key={member.id}
-                                  variant="outline"
-                                  className="py-1"
-                                >
-                                  {member.name} ({member.role})
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">
-                              No team members assigned
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Upcoming Items */}
-                        <div>
-                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            Next 5 Scheduled Items
-                          </h4>
-                          {summary.upcomingItems.length > 0 ? (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Task</TableHead>
-                                  <TableHead>Due Date</TableHead>
-                                  <TableHead>Priority</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {summary.upcomingItems.map((item) => {
-                                  const dueDateStatus = getDueDateStatus(item.dueDate);
-                                  return (
-                                    <TableRow key={item.id}>
-                                      <TableCell>{item.title}</TableCell>
-                                      <TableCell>
-                                        <span
-                                          className={
-                                            dueDateStatus === "overdue"
-                                              ? "text-destructive font-medium"
-                                              : dueDateStatus === "soon"
-                                              ? "text-amber-600 font-medium"
-                                              : ""
-                                          }
-                                        >
-                                          {item.dueDate
-                                            ? format(new Date(item.dueDate), "MMM d, yyyy")
-                                            : "No date"}
-                                          {dueDateStatus === "overdue" && " (Overdue)"}
-                                        </span>
-                                      </TableCell>
-                                      <TableCell>
-                                        <Badge className={getPriorityColor(item.priority)}>
-                                          {item.priority || "Normal"}
-                                        </Badge>
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </Table>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">
-                              No upcoming scheduled items
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+        {/* Dashboard Tab */}
+        <TabsContent value="dashboard" className="space-y-6">
+          {/* Health Gauge and Summary Cards */}
+          <div className="grid gap-6 lg:grid-cols-4">
+            <PortfolioHealthGauge score={portfolioMetrics.totalHealthScore} />
+            <div className="lg:col-span-3">
+              <ExecutiveSummaryCards metrics={portfolioMetrics} />
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+
+          {/* Project Comparison Chart */}
+          <ProjectComparisonChart projects={enhancedSummaries} />
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <PriorityHeatMap projects={enhancedSummaries} />
+            <TeamWorkloadChart projects={enhancedSummaries} />
+          </div>
+        </TabsContent>
+
+        {/* Projects Tab */}
+        <TabsContent value="projects" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>All Project Roadmaps</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {enhancedSummaries.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No projects found
+                </p>
+              ) : (
+                enhancedSummaries.map((project) => (
+                  <EnhancedProjectCard key={project.projectId} project={project} />
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
