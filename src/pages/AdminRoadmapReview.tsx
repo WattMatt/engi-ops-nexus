@@ -25,6 +25,7 @@ import { PriorityHeatMap } from "@/components/admin/roadmap-review/PriorityHeatM
 import { EnhancedProjectCard } from "@/components/admin/roadmap-review/EnhancedProjectCard";
 import { TeamWorkloadChart } from "@/components/admin/roadmap-review/TeamWorkloadChart";
 import { PDFExportDialog } from "@/components/admin/roadmap-review/PDFExportDialog";
+import { PrintableChartContainer } from "@/components/admin/roadmap-review/PrintableChartContainer";
 
 // Import calculation utilities
 import { 
@@ -151,6 +152,9 @@ export default function AdminRoadmapReview() {
     return calculatePortfolioMetrics(enhancedSummaries);
   }, [enhancedSummaries]);
 
+  // State for printable charts container
+  const [showPrintableCharts, setShowPrintableCharts] = useState(false);
+
   const generatePDFReport = useCallback(async (options?: RoadmapPDFExportOptions) => {
     if (enhancedSummaries.length === 0) {
       toast.error("No project data available to export");
@@ -161,12 +165,36 @@ export default function AdminRoadmapReview() {
     toast.info("Preparing charts for PDF export...", { duration: 2000 });
 
     try {
-      // Wait for charts to be visible (switch to analytics tab briefly if needed)
-      const currentTab = activeTab;
-      if (currentTab !== "analytics") {
-        setActiveTab("analytics");
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
+      // Mount the printable charts container to render all charts off-screen
+      setShowPrintableCharts(true);
+      
+      // Wait for charts to render in the hidden container
+      await new Promise<void>((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 20;
+        
+        const checkReady = () => {
+          attempts++;
+          // Check if all chart elements exist in DOM
+          const chart1 = document.getElementById('project-comparison-chart');
+          const chart2 = document.getElementById('priority-heat-map');
+          const chart3 = document.getElementById('team-workload-chart');
+          
+          if (chart1 && chart2 && chart3) {
+            // Additional wait for recharts to finish rendering animations
+            setTimeout(resolve, 800);
+          } else if (attempts < maxAttempts) {
+            setTimeout(checkReady, 200);
+          } else {
+            // Timeout fallback
+            console.warn('Chart render timeout - proceeding anyway');
+            resolve();
+          }
+        };
+        
+        // Start checking after initial mount
+        setTimeout(checkReady, 300);
+      });
 
       // Generate the enhanced PDF with ALL options from export dialog
       const doc = await generateEnhancedRoadmapPDF(
@@ -187,21 +215,20 @@ export default function AdminRoadmapReview() {
         }
       );
 
-      // Restore original tab
-      if (currentTab !== "analytics") {
-        setActiveTab(currentTab);
-      }
+      // Hide the printable charts container
+      setShowPrintableCharts(false);
 
       // Download the PDF
       downloadPDF(doc);
       toast.success("Enhanced PDF report generated successfully!");
     } catch (error) {
       console.error("Error generating PDF:", error);
+      setShowPrintableCharts(false);
       toast.error("Failed to generate report. Please try again.");
     } finally {
       setIsGeneratingPDF(false);
     }
-  }, [enhancedSummaries, portfolioMetrics, activeTab]);
+  }, [enhancedSummaries, portfolioMetrics]);
 
   if (isLoading) {
     return (
@@ -255,6 +282,11 @@ export default function AdminRoadmapReview() {
         onExport={generatePDFReport}
         isExporting={isGeneratingPDF}
       />
+
+      {/* Hidden Printable Charts Container - renders all charts for PDF capture */}
+      {showPrintableCharts && (
+        <PrintableChartContainer projects={enhancedSummaries} />
+      )}
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
