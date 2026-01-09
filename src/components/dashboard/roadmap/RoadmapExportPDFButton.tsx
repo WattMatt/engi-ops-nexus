@@ -34,6 +34,7 @@ interface RoadmapItem {
   title: string;
   phase?: string;
   priority?: string;
+  start_date?: string;
   due_date?: string;
   is_completed?: boolean;
   description?: string;
@@ -302,15 +303,26 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
           doc.setTextColor(...PDF_COLORS.black);
           doc.setFontSize(9);
           doc.setFont("helvetica", isCompleted ? "normal" : "bold");
-          const title = item.title.length > 45 ? item.title.substring(0, 42) + "..." : item.title;
+          const title = item.title.length > 40 ? item.title.substring(0, 37) + "..." : item.title;
           doc.text(title, margins.left + 25, yPos + 6);
           
-          // Due date
-          if (item.due_date) {
+          // Date range display (start_date → due_date)
+          const hasStartDate = item.start_date;
+          const hasDueDate = item.due_date;
+          
+          if (hasStartDate || hasDueDate) {
             doc.setFontSize(7);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(...statusColor);
-            const dateStr = format(new Date(item.due_date), "MMM d, yyyy");
+            
+            let dateStr = "";
+            if (hasStartDate && hasDueDate) {
+              dateStr = `${format(new Date(item.start_date!), "MMM d")} → ${format(new Date(item.due_date!), "MMM d, yyyy")}`;
+            } else if (hasDueDate) {
+              dateStr = `Due: ${format(new Date(item.due_date!), "MMM d, yyyy")}`;
+            } else if (hasStartDate) {
+              dateStr = `Start: ${format(new Date(item.start_date!), "MMM d, yyyy")}`;
+            }
             doc.text(dateStr, margins.left + 25, yPos + 12);
           }
           
