@@ -403,7 +403,7 @@ function generateExecutiveSummaryPage(
 }
 
 /**
- * Generates the analytics page with captured charts
+ * Generates the analytics page with captured charts - each chart on its own page for clarity
  */
 async function generateAnalyticsPage(
   doc: jsPDF,
@@ -411,54 +411,60 @@ async function generateAnalyticsPage(
   companyLogo?: string | null,
   companyName?: string
 ): Promise<void> {
-  doc.addPage();
-  addPageHeader(doc, 'Portfolio Analytics', companyLogo, companyName);
-  
   const pageHeight = doc.internal.pageSize.getHeight();
-  const { startX, startY, width: contentWidth } = getContentDimensions();
-  let yPos = startY + 5;
+  const { startX, startY, width: contentWidth, endY } = getContentDimensions();
+  const availableHeight = endY - startY - 30; // Leave room for headers/titles
   
-  // Header
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...PDF_BRAND_COLORS.primary);
-  doc.text("Portfolio Analytics", startX, yPos);
-  
-  doc.setDrawColor(...PDF_BRAND_COLORS.primary);
-  doc.setLineWidth(0.5);
-  doc.line(startX, yPos + 3, 75, yPos + 3);
-  yPos += 15;
-  
-  const maxChartHeight = 70;
-  
-  // Project Comparison Chart
+  // --- PAGE 1: Project Comparison Chart ---
   const comparisonChart = chartCanvases.get('project-comparison-chart');
   if (comparisonChart) {
-    yPos = addChartToPDF(doc, comparisonChart, startX, yPos, contentWidth, maxChartHeight, "Project Progress Comparison");
-  }
-  
-  // Check page break
-  if (yPos > pageHeight - 100) {
     doc.addPage();
     addPageHeader(doc, 'Portfolio Analytics', companyLogo, companyName);
-    yPos = startY + 5;
+    
+    let yPos = startY + 5;
+    
+    // Section header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...PDF_BRAND_COLORS.primary);
+    doc.text("Portfolio Analytics", startX, yPos);
+    
+    doc.setDrawColor(...PDF_BRAND_COLORS.primary);
+    doc.setLineWidth(0.5);
+    doc.line(startX, yPos + 3, 75, yPos + 3);
+    yPos += 15;
+    
+    // Add chart at full width with generous height
+    yPos = addChartToPDF(doc, comparisonChart, startX, yPos, contentWidth, availableHeight - 20, "Project Progress Comparison");
   }
   
-  // Priority Heat Map
+  // --- PAGE 2: Priority Heat Map ---
   const heatMapChart = chartCanvases.get('priority-heat-map');
   if (heatMapChart) {
-    yPos = addChartToPDF(doc, heatMapChart, startX, yPos, contentWidth * 0.48, maxChartHeight, "Priority Heat Map");
-  }
-  
-  // Team Workload Chart (side by side if space)
-  const workloadChart = chartCanvases.get('team-workload-chart');
-  if (workloadChart) {
-    if (yPos > pageHeight - 100) {
+    doc.addPage();
+    addPageHeader(doc, 'Portfolio Analytics', companyLogo, companyName);
+    
+    let yPos = startY + 5;
+    
+    // Add chart at full width
+    yPos = addChartToPDF(doc, heatMapChart, startX, yPos, contentWidth, availableHeight * 0.45, "Priority Heat Map");
+    
+    // --- Add Team Workload on same page if it fits ---
+    const workloadChart = chartCanvases.get('team-workload-chart');
+    if (workloadChart) {
+      yPos += 5;
+      yPos = addChartToPDF(doc, workloadChart, startX, yPos, contentWidth, availableHeight * 0.45, "Team Workload Distribution");
+    }
+  } else {
+    // If no heat map, still add workload chart
+    const workloadChart = chartCanvases.get('team-workload-chart');
+    if (workloadChart) {
       doc.addPage();
       addPageHeader(doc, 'Portfolio Analytics', companyLogo, companyName);
-      yPos = startY + 5;
+      
+      let yPos = startY + 5;
+      yPos = addChartToPDF(doc, workloadChart, startX, yPos, contentWidth, availableHeight - 20, "Team Workload Distribution");
     }
-    yPos = addChartToPDF(doc, workloadChart, startX, yPos, contentWidth, maxChartHeight, "Team Workload Distribution");
   }
 }
 
