@@ -1,5 +1,6 @@
 /**
  * PDF Page Decorations - Headers, Footers, and Branding Elements
+ * Implements consistent margins, alignment, and brand compliance
  */
 import jsPDF from "jspdf";
 import { 
@@ -10,7 +11,7 @@ import {
 } from "../roadmapReviewPdfStyles";
 
 /**
- * Add branded header to a page
+ * Add branded header to a page with proper logo sizing and alignment
  */
 export const addPageHeader = (
   doc: jsPDF,
@@ -20,42 +21,58 @@ export const addPageHeader = (
 ): void => {
   const { margins, pageWidth, header } = PDF_LAYOUT;
   
-  // Header background band
+  // Header background band with gradient effect
   doc.setFillColor(...PDF_BRAND_COLORS.primary);
-  doc.rect(0, 0, pageWidth, header.height + 5, 'F');
+  doc.rect(0, 0, pageWidth, header.height + 2, 'F');
   
-  // Gradient effect (lighter strip)
+  // Subtle accent stripe at bottom of header
   doc.setFillColor(...PDF_BRAND_COLORS.primaryLight);
-  doc.rect(0, header.height + 2, pageWidth, 3, 'F');
+  doc.rect(0, header.height, pageWidth, 2, 'F');
   
-  // Company name or logo placeholder
-  doc.setTextColor(...PDF_BRAND_COLORS.white);
-  doc.setFont(PDF_TYPOGRAPHY.fonts.heading, 'bold');
-  doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
+  // Logo or company name - maintain clear space
+  const logoY = (header.height - header.logoHeight) / 2;
+  let textStartX = margins.left;
   
-  let textX = margins.left;
-  
-  // If logo provided, add it
   if (companyLogo) {
     try {
-      doc.addImage(companyLogo, 'PNG', margins.left, 4, header.logoMaxWidth, header.logoHeight);
-      textX = margins.left + header.logoMaxWidth + 5;
+      // Calculate proportional logo dimensions maintaining aspect ratio
+      const maxLogoWidth = header.logoMaxWidth;
+      const maxLogoHeight = header.logoHeight;
+      
+      // Add logo with proper positioning and clear space
+      doc.addImage(
+        companyLogo, 
+        'PNG', 
+        margins.left + header.clearSpace, 
+        logoY, 
+        maxLogoWidth, 
+        maxLogoHeight
+      );
+      textStartX = margins.left + maxLogoWidth + header.clearSpace * 2;
     } catch {
       // Fallback to text if logo fails
-      doc.text(companyName || 'Roadmap Review', margins.left, 12);
+      doc.setTextColor(...PDF_BRAND_COLORS.white);
+      doc.setFont(PDF_TYPOGRAPHY.fonts.heading, 'bold');
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+      doc.text(companyName || 'Roadmap Review', margins.left + header.clearSpace, header.height / 2 + 3);
     }
   } else {
-    doc.text(companyName || 'Roadmap Review', margins.left, 12);
+    // Company name text
+    doc.setTextColor(...PDF_BRAND_COLORS.white);
+    doc.setFont(PDF_TYPOGRAPHY.fonts.heading, 'bold');
+    doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+    doc.text(companyName || 'Roadmap Review', margins.left + header.clearSpace, header.height / 2 + 3);
   }
   
-  // Section title on the right
+  // Section title on the right - aligned with margin
   doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
   doc.setFont(PDF_TYPOGRAPHY.fonts.body, 'normal');
-  doc.text(sectionTitle, pageWidth - margins.right, 12, { align: 'right' });
+  doc.setTextColor(...PDF_BRAND_COLORS.white);
+  doc.text(sectionTitle, pageWidth - margins.right - 2, header.height / 2 + 3, { align: 'right' });
 };
 
 /**
- * Add page footer with page numbers and date
+ * Add page footer with consistent placement and proper spacing
  */
 export const addPageFooter = (
   doc: jsPDF,
@@ -65,29 +82,32 @@ export const addPageFooter = (
   confidential: boolean = true
 ): void => {
   const { margins, pageWidth, pageHeight, footer } = PDF_LAYOUT;
-  const footerY = pageHeight - footer.height;
+  const footerY = pageHeight - footer.height - margins.bottom / 2;
   
   // Footer separator line
-  doc.setDrawColor(...PDF_BRAND_COLORS.gray);
-  doc.setLineWidth(0.3);
+  doc.setDrawColor(...PDF_BRAND_COLORS.tableBorder);
+  doc.setLineWidth(0.4);
   doc.line(margins.left, footerY, pageWidth - margins.right, footerY);
   
-  // Left: Confidential notice
+  const textY = footerY + footer.padding;
+  
+  // Left: Confidential notice (italic, gray)
   if (confidential) {
     doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
     doc.setTextColor(...PDF_BRAND_COLORS.gray);
     doc.setFont(PDF_TYPOGRAPHY.fonts.body, 'italic');
-    doc.text('CONFIDENTIAL - For Internal Use Only', margins.left, footerY + 6);
+    doc.text('CONFIDENTIAL - For Internal Use Only', margins.left, textY);
   }
   
   // Center: Generation date
   doc.setFont(PDF_TYPOGRAPHY.fonts.body, 'normal');
   doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
-  doc.text(`Generated: ${generationDate}`, pageWidth / 2, footerY + 6, { align: 'center' });
+  doc.setTextColor(...PDF_BRAND_COLORS.gray);
+  doc.text(`Generated: ${generationDate}`, pageWidth / 2, textY, { align: 'center' });
   
-  // Right: Page number
+  // Right: Page number with proper formatting
   doc.setFont(PDF_TYPOGRAPHY.fonts.body, 'normal');
-  doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - margins.right, footerY + 6, { align: 'right' });
+  doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - margins.right, textY, { align: 'right' });
 };
 
 /**
@@ -141,7 +161,7 @@ export const addSectionDivider = (
 };
 
 /**
- * Draw a card container with shadow effect
+ * Draw a card container with shadow effect - ensures no edge cropping
  */
 export const drawCard = (
   doc: jsPDF,
@@ -165,21 +185,25 @@ export const drawCard = (
     shadow = true,
   } = options || {};
   
-  // Shadow effect
+  // Ensure card doesn't extend beyond page margins
+  const { startX, width: contentWidth } = getContentDimensions();
+  const safeWidth = Math.min(width, contentWidth - (x - startX));
+  
+  // Shadow effect - offset to create depth without cropping
   if (shadow) {
-    doc.setFillColor(220, 220, 220);
-    doc.roundedRect(x + 1, y + 1, width, height, radius, radius, 'F');
+    doc.setFillColor(230, 230, 230);
+    doc.roundedRect(x + 0.8, y + 0.8, safeWidth, height, radius, radius, 'F');
   }
   
-  // Main card
+  // Main card background
   doc.setFillColor(...fillColor);
-  doc.roundedRect(x, y, width, height, radius, radius, 'F');
+  doc.roundedRect(x, y, safeWidth, height, radius, radius, 'F');
   
   // Border
   if (borderWidth > 0) {
     doc.setDrawColor(...borderColor);
     doc.setLineWidth(borderWidth);
-    doc.roundedRect(x, y, width, height, radius, radius, 'S');
+    doc.roundedRect(x, y, safeWidth, height, radius, radius, 'S');
   }
 };
 
@@ -260,6 +284,7 @@ export const drawProgressBar = (
 
 /**
  * Check if content fits on current page, add new page if needed
+ * Includes buffer for safe zone and prevents orphaned headings
  */
 export const checkPageBreak = (
   doc: jsPDF,
@@ -269,14 +294,42 @@ export const checkPageBreak = (
   companyLogo?: string | null,
   companyName?: string
 ): number => {
-  const { endY } = getContentDimensions();
+  const { endY, startY } = getContentDimensions();
   
-  if (currentY + requiredSpace > endY) {
+  // Add safety buffer to prevent edge cropping
+  const safetyBuffer = PDF_LAYOUT.spacing.section;
+  
+  if (currentY + requiredSpace + safetyBuffer > endY) {
     doc.addPage();
     if (sectionTitle) {
       addPageHeader(doc, sectionTitle, companyLogo, companyName);
     }
-    return PDF_LAYOUT.margins.top + PDF_LAYOUT.header.height + 5;
+    return startY;
+  }
+  
+  return currentY;
+};
+
+/**
+ * Ensure minimum space remains on page, otherwise start new page
+ * Useful for preventing widows and orphans
+ */
+export const ensureMinimumSpace = (
+  doc: jsPDF,
+  currentY: number,
+  minimumSpace: number,
+  sectionTitle?: string,
+  companyLogo?: string | null,
+  companyName?: string
+): number => {
+  const { endY, startY } = getContentDimensions();
+  
+  if (endY - currentY < minimumSpace) {
+    doc.addPage();
+    if (sectionTitle) {
+      addPageHeader(doc, sectionTitle, companyLogo, companyName);
+    }
+    return startY;
   }
   
   return currentY;
