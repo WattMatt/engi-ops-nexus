@@ -1,31 +1,33 @@
 /**
  * Centralized PDF styling constants for Roadmap Review Reports
  * Provides consistent branding, colors, typography, and layout spacing
+ * 
+ * IMPORTANT: These values MUST match PDF_DESIGN_STANDARDS.md
  */
 
-// Brand color palette (RGB format for jsPDF)
+// Brand color palette (RGB format for jsPDF) - Per PDF_DESIGN_STANDARDS.md Section 10
 export const PDF_BRAND_COLORS = {
-  // Primary brand colors
-  primary: [30, 58, 138] as [number, number, number],      // Deep blue
-  primaryLight: [59, 130, 246] as [number, number, number], // Accent blue
-  primaryDark: [17, 24, 39] as [number, number, number],    // Near black
+  // Primary brand colors - Per standards
+  primary: [79, 70, 229] as [number, number, number],       // Headers, accents (indigo)
+  primaryLight: [99, 102, 241] as [number, number, number], // Lighter accent
+  primaryDark: [55, 48, 163] as [number, number, number],   // Darker shade
   
-  // Status colors
-  success: [34, 197, 94] as [number, number, number],       // Green
-  warning: [245, 158, 11] as [number, number, number],      // Amber
-  danger: [239, 68, 68] as [number, number, number],        // Red
+  // Status colors - Per standards
+  success: [34, 197, 94] as [number, number, number],       // Positive status
+  warning: [234, 179, 8] as [number, number, number],       // Caution items
+  danger: [239, 68, 68] as [number, number, number],        // Critical/negative
   
-  // Neutral colors
+  // Neutral colors - Per standards
   white: [255, 255, 255] as [number, number, number],
-  lightGray: [248, 250, 252] as [number, number, number],   // Background
-  gray: [148, 163, 184] as [number, number, number],        // Muted text
-  darkGray: [71, 85, 105] as [number, number, number],      // Secondary text
+  lightGray: [248, 250, 252] as [number, number, number],   // Background (2% tint)
+  gray: [148, 163, 184] as [number, number, number],        // Backgrounds, dividers (Secondary)
+  darkGray: [100, 116, 139] as [number, number, number],    // Subtext, borders (Secondary)
   text: [15, 23, 42] as [number, number, number],           // Primary text
   
   // Table colors
-  tableHeader: [30, 58, 138] as [number, number, number],
-  tableAltRow: [241, 245, 249] as [number, number, number],
-  tableBorder: [226, 232, 240] as [number, number, number],
+  tableHeader: [79, 70, 229] as [number, number, number],   // Primary color
+  tableAltRow: [241, 245, 249] as [number, number, number], // 5% neutral tint
+  tableBorder: [226, 232, 240] as [number, number, number], // Subtle border
   
   // Risk level colors
   riskCritical: [220, 38, 38] as [number, number, number],
@@ -35,24 +37,25 @@ export const PDF_BRAND_COLORS = {
 };
 
 
-// Typography settings - Standardized type scale
+// Typography settings - Per PDF_DESIGN_STANDARDS.md Section 4
 export const PDF_TYPOGRAPHY = {
   fonts: {
-    heading: 'helvetica' as const,
-    body: 'helvetica' as const,
+    heading: 'helvetica' as const,  // Helvetica Bold for headings
+    body: 'helvetica' as const,     // Helvetica Regular for body
+    mono: 'courier' as const,       // Courier for code/data
   },
   sizes: {
     title: 28,       // Cover page main title
-    h1: 18,          // Section headings
-    h2: 14,          // Subsection headings
-    h3: 11,          // Card headers
-    body: 10,        // Standard body text
-    small: 8,        // Secondary text, labels
-    tiny: 7,         // Footnotes, table cells
-    caption: 6,      // Micro text
+    h1: 18,          // Section headings (Bold, 1.3 line height)
+    h2: 14,          // Subsection headings (Bold, 1.4 line height)
+    h3: 12,          // Card headers (Bold, 1.4 line height) - FIXED: was 11
+    body: 10,        // Standard body text (Normal, 1.5 line height)
+    caption: 8,      // Caption text (Normal, 1.4 line height)
+    small: 7,        // Small text (Normal, 1.3 line height)
+    tiny: 6,         // Micro text
   },
-  lineHeight: 1.5,   // Improved line height for readability
-  letterSpacing: 0.02, // Slight letter spacing for headings
+  lineHeight: 1.5,   // Default line height for body text
+  letterSpacing: 0.02,
 };
 
 // Page layout constants (in mm) - A4 with proper margins

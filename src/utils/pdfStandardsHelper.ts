@@ -302,13 +302,16 @@ export const drawConnectionNode = (
 };
 
 /**
- * Get phase color from brand colors
+ * Get phase color from brand colors - Per PDF_DESIGN_STANDARDS.md Section 10
  */
 export const getPhaseColor = (phase: string): number[] => {
   const phaseColors: Record<string, number[]> = {
-    "Planning & Preparation": PDF_BRAND_COLORS.primaryLight,
+    "Planning & Preparation": PDF_BRAND_COLORS.primary,
+    "Budget & Assessment": PDF_BRAND_COLORS.success,
+    "Tender & Procurement": PDF_BRAND_COLORS.warning,
     "Design Phase": [138, 43, 226], // Purple
-    "Construction": PDF_BRAND_COLORS.warning,
+    "Construction": PDF_BRAND_COLORS.danger,
+    "Documentation": PDF_BRAND_COLORS.primaryLight,
     "Commissioning": [0, 128, 128], // Teal
     "Handover": PDF_BRAND_COLORS.success,
   };
