@@ -331,233 +331,203 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       
       yPos += 20;
 
-      // === MERMAID-STYLE FLOWCHART ===
-      // Professional engineering flowchart with boxes, arrows and hierarchical structure
+      // === STRUCTURED LIST FORMAT ===
+      // Professional engineering list with phases, items, and dates
       
       // Engineering color palette
-      const FLOW_COLORS: Record<string, [number, number, number]> = {
-        boxBorder: [71, 85, 105],        // Slate-600
-        boxBg: [255, 255, 255],          // White
-        boxBgCompleted: [240, 253, 244], // Green-50
-        arrow: [100, 116, 139],          // Slate-500
+      const LIST_COLORS: Record<string, [number, number, number]> = {
+        phaseHeader: [51, 65, 85],       // Slate-700
+        phaseHeaderBg: [241, 245, 249],  // Slate-100
+        rowBg: [255, 255, 255],          // White
+        rowAltBg: [248, 250, 252],       // Slate-50
+        completedBg: [240, 253, 244],    // Green-50
         text: [30, 41, 59],              // Slate-800
         subText: [100, 116, 139],        // Slate-500
-        phaseBox: [241, 245, 249],       // Slate-100
-        phaseBorder: [51, 65, 85],       // Slate-700
+        border: [203, 213, 225],         // Slate-300
+        completed: [22, 101, 52],        // Green-800
+        overdue: [153, 27, 27],          // Red-800
+        pending: [146, 64, 14],          // Amber-800
       };
 
-      // Layout constants
-      const boxWidth = 50;
-      const boxHeight = 14;
-      const boxRadius = 2;
-      const arrowHeadSize = 2;
-      const verticalGap = 18;
-      const horizontalGap = 8;
-      const centerX = pageWidth / 2;
+      // Table layout
+      const tableStartX = margins.left;
+      const tableWidth = contentWidth;
+      const colWidths = {
+        status: 8,
+        title: tableWidth - 68,
+        startDate: 30,
+        endDate: 30,
+      };
+      const rowHeight = 10;
+      const phaseRowHeight = 12;
 
-      // Helper: Draw arrow
-      const drawArrow = (fromX: number, fromY: number, toX: number, toY: number, label?: string) => {
-        doc.setDrawColor(...FLOW_COLORS.arrow);
-        doc.setLineWidth(0.6);
-        doc.line(fromX, fromY, toX, toY);
+      // Helper: Draw table header
+      const drawTableHeader = () => {
+        doc.setFillColor(...LIST_COLORS.phaseHeader);
+        doc.rect(tableStartX, yPos, tableWidth, 8, "F");
         
-        // Arrow head
-        const angle = Math.atan2(toY - fromY, toX - fromX);
-        const x1 = toX - arrowHeadSize * Math.cos(angle - Math.PI / 6);
-        const y1 = toY - arrowHeadSize * Math.sin(angle - Math.PI / 6);
-        const x2 = toX - arrowHeadSize * Math.cos(angle + Math.PI / 6);
-        const y2 = toY - arrowHeadSize * Math.sin(angle + Math.PI / 6);
-        doc.setFillColor(...FLOW_COLORS.arrow);
-        doc.triangle(toX, toY, x1, y1, x2, y2, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "bold");
         
-        // Label on arrow
-        if (label) {
-          const midX = (fromX + toX) / 2;
-          const midY = (fromY + toY) / 2;
-          doc.setFontSize(6);
-          doc.setTextColor(...FLOW_COLORS.subText);
-          doc.setFont(PDF_TYPOGRAPHY.fonts.body, "italic");
-          doc.text(label, midX + 2, midY - 1);
-        }
+        let colX = tableStartX + 2;
+        doc.text("", colX, yPos + 5.5); // Status column (icon only)
+        colX += colWidths.status;
+        doc.text("Task", colX, yPos + 5.5);
+        colX = tableStartX + tableWidth - colWidths.startDate - colWidths.endDate;
+        doc.text("Start", colX, yPos + 5.5);
+        colX += colWidths.startDate;
+        doc.text("End", colX, yPos + 5.5);
+        
+        yPos += 10;
       };
 
-      // Helper: Draw flowchart box
-      const drawFlowBox = (x: number, y: number, width: number, height: number, text: string, isCompleted: boolean = false, isPhase: boolean = false) => {
-        const bgColor = isPhase ? FLOW_COLORS.phaseBox : (isCompleted ? FLOW_COLORS.boxBgCompleted : FLOW_COLORS.boxBg);
-        const borderColor = isPhase ? FLOW_COLORS.phaseBorder : FLOW_COLORS.boxBorder;
-        
-        doc.setFillColor(...bgColor);
-        doc.setDrawColor(...borderColor);
-        doc.setLineWidth(isPhase ? 0.8 : 0.5);
-        doc.roundedRect(x, y, width, height, boxRadius, boxRadius, "FD");
-        
-        // Completion indicator
-        if (isCompleted && !isPhase) {
-          doc.setFillColor(22, 101, 52);
-          doc.circle(x + 4, y + height / 2, 1.5, "F");
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(4);
-          doc.text("✓", x + 4, y + height / 2 + 0.5, { align: "center" });
-        }
-        
-        // Text - centered
-        doc.setTextColor(...FLOW_COLORS.text);
-        doc.setFontSize(isPhase ? 8 : 7);
-        doc.setFont(PDF_TYPOGRAPHY.fonts.body, isPhase ? "bold" : "normal");
-        
-        // Truncate text to fit
-        let displayText = text;
-        const maxWidth = width - (isCompleted ? 10 : 6);
-        while (doc.getTextWidth(displayText) > maxWidth && displayText.length > 5) {
-          displayText = displayText.substring(0, displayText.length - 4) + "...";
-        }
-        
-        doc.text(displayText, x + width / 2, y + height / 2 + 1.5, { align: "center" });
-        
-        return { centerX: x + width / 2, bottomY: y + height, topY: y };
-      };
+      // Draw main header
+      doc.setFillColor(...LIST_COLORS.phaseHeader);
+      doc.roundedRect(margins.left, yPos, contentWidth, 12, 2, 2, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+      doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
+      doc.text("Project Roadmap", margins.left + 5, yPos + 8);
+      
+      // Progress stats on right
+      const totalItems = items.length;
+      const completedCount = items.filter(i => i.is_completed).length;
+      const progressPct = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
+      doc.text(`${completedCount}/${totalItems} completed (${progressPct}%)`, 
+        pageWidth - margins.right - 5, yPos + 8, { align: "right" });
+      
+      yPos += 18;
+      
+      // Draw table header
+      drawTableHeader();
 
-      // Group items by phase preserving hierarchy
-      interface FlowNode {
-        id: string;
-        title: string;
-        isCompleted: boolean;
-        children: FlowNode[];
-        phase: string;
-      }
-
-      const buildFlowNodes = (nodes: RoadmapNode[]): FlowNode[] => {
-        return nodes.map(n => ({
-          id: n.item.id,
-          title: n.item.title,
-          isCompleted: n.item.is_completed || false,
-          phase: n.item.phase || "Uncategorized",
-          children: buildFlowNodes(n.children)
-        }));
-      };
-
-      // Render flowchart for each phase
-      let previousPhaseBottom = yPos;
-
+      // Render each phase
       for (const phase of phases) {
         const phaseNodes = groupedByPhase[phase];
-        const flowNodes = buildFlowNodes(phaseNodes);
         
-        // Calculate space needed
-        const flatCount = flowNodes.reduce((acc, n) => acc + 1 + n.children.length, 0);
-        const estimatedHeight = 20 + flatCount * (boxHeight + 8);
-        yPos = checkSafePageBreak(doc, yPos, Math.min(estimatedHeight, 80));
+        // Flatten items for this phase
+        const flattenNodes = (nodes: RoadmapNode[]): RoadmapItem[] => {
+          const result: RoadmapItem[] = [];
+          nodes.forEach(node => {
+            result.push(node.item);
+            if (node.children.length > 0) {
+              result.push(...flattenNodes(node.children));
+            }
+          });
+          return result;
+        };
         
-        // Phase header box
-        const phaseBoxWidth = 70;
-        const phaseBoxX = centerX - phaseBoxWidth / 2;
-        const phaseResult = drawFlowBox(phaseBoxX, yPos, phaseBoxWidth, 12, phase, false, true);
+        const phaseItems = flattenNodes(phaseNodes);
+        const phaseCompleted = phaseItems.filter(i => i.is_completed).length;
         
-        // Arrow from previous phase
-        if (previousPhaseBottom < yPos - 5) {
-          drawArrow(centerX, previousPhaseBottom + 2, centerX, yPos - 1);
-        }
+        // Check for page break (need space for phase header + at least 2 items)
+        yPos = checkSafePageBreak(doc, yPos, phaseRowHeight + rowHeight * 2 + 10);
         
-        yPos += 18;
+        // Phase header row
+        doc.setFillColor(...LIST_COLORS.phaseHeaderBg);
+        doc.setDrawColor(...LIST_COLORS.border);
+        doc.setLineWidth(0.3);
+        doc.rect(tableStartX, yPos, tableWidth, phaseRowHeight, "FD");
+        
+        // Phase accent bar
+        doc.setFillColor(...LIST_COLORS.phaseHeader);
+        doc.rect(tableStartX, yPos, 3, phaseRowHeight, "F");
+        
+        doc.setTextColor(...LIST_COLORS.phaseHeader);
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "bold");
+        doc.text(phase, tableStartX + 6, yPos + 8);
+        
+        // Phase progress
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+        doc.setTextColor(...LIST_COLORS.subText);
+        doc.text(`${phaseCompleted}/${phaseItems.length}`, 
+          tableStartX + tableWidth - 5, yPos + 8, { align: "right" });
+        
+        yPos += phaseRowHeight;
         
         // Render items in this phase
-        const itemCount = flowNodes.length;
-        
-        if (itemCount === 1) {
-          // Single item - center it
-          const item = flowNodes[0];
-          const itemX = centerX - boxWidth / 2;
-          drawArrow(centerX, yPos - 6, centerX, yPos - 1);
-          const result = drawFlowBox(itemX, yPos, boxWidth, boxHeight, item.title, item.isCompleted);
+        phaseItems.forEach((item, idx) => {
+          // Check for page break
+          if (yPos + rowHeight > contentArea.endY) {
+            doc.addPage();
+            yPos = contentArea.startY;
+            drawTableHeader();
+          }
           
-          // Render children if any
-          if (item.children.length > 0) {
-            yPos += boxHeight + 8;
-            const childrenWidth = item.children.length * (boxWidth + horizontalGap) - horizontalGap;
-            const startChildX = centerX - childrenWidth / 2;
-            
-            // Arrow down to children
-            drawArrow(centerX, yPos - 8, centerX, yPos - 1);
-            
-            // Horizontal line connecting children
-            if (item.children.length > 1) {
-              doc.setDrawColor(...FLOW_COLORS.arrow);
-              doc.setLineWidth(0.5);
-              doc.line(startChildX + boxWidth / 2, yPos - 1, startChildX + childrenWidth - boxWidth / 2, yPos - 1);
-            }
-            
-            item.children.forEach((child, idx) => {
-              const childX = startChildX + idx * (boxWidth + horizontalGap);
-              // Vertical connector to each child
-              doc.line(childX + boxWidth / 2, yPos - 1, childX + boxWidth / 2, yPos);
-              drawFlowBox(childX, yPos, boxWidth, boxHeight, child.title, child.isCompleted);
-            });
-            yPos += boxHeight;
+          const isCompleted = item.is_completed;
+          const dueStatus = getDueDateStatus(item.due_date);
+          const isAlt = idx % 2 === 1;
+          
+          // Row background
+          const rowBg = isCompleted ? LIST_COLORS.completedBg : 
+            (isAlt ? LIST_COLORS.rowAltBg : LIST_COLORS.rowBg);
+          doc.setFillColor(...rowBg);
+          doc.setDrawColor(...LIST_COLORS.border);
+          doc.setLineWidth(0.2);
+          doc.rect(tableStartX, yPos, tableWidth, rowHeight, "FD");
+          
+          let colX = tableStartX + 3;
+          
+          // Status indicator
+          const statusColor = isCompleted ? LIST_COLORS.completed : 
+            dueStatus === "overdue" ? LIST_COLORS.overdue :
+            dueStatus === "soon" ? LIST_COLORS.pending : LIST_COLORS.subText;
+          doc.setFillColor(...statusColor);
+          doc.circle(colX + 2, yPos + rowHeight / 2, 2, "F");
+          
+          // Checkmark if completed
+          if (isCompleted) {
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(5);
+            doc.text("✓", colX + 2, yPos + rowHeight / 2 + 0.8, { align: "center" });
+          }
+          
+          colX += colWidths.status;
+          
+          // Title
+          doc.setTextColor(...LIST_COLORS.text);
+          doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
+          doc.setFont(PDF_TYPOGRAPHY.fonts.body, isCompleted ? "normal" : "normal");
+          
+          let title = item.title;
+          const maxTitleWidth = colWidths.title - 5;
+          while (doc.getTextWidth(title) > maxTitleWidth && title.length > 10) {
+            title = title.substring(0, title.length - 4) + "...";
+          }
+          doc.text(title, colX, yPos + rowHeight / 2 + 1.5);
+          
+          // Start date
+          colX = tableStartX + tableWidth - colWidths.startDate - colWidths.endDate;
+          doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
+          doc.setTextColor(...LIST_COLORS.subText);
+          if (item.start_date) {
+            doc.text(format(new Date(item.start_date), "dd MMM"), colX, yPos + rowHeight / 2 + 1);
           } else {
-            yPos += boxHeight;
+            doc.text("-", colX + 8, yPos + rowHeight / 2 + 1);
           }
-        } else if (itemCount > 1) {
-          // Multiple items - arrange horizontally with center connector
-          const totalWidth = Math.min(itemCount * (boxWidth + horizontalGap) - horizontalGap, contentWidth - 10);
-          const adjustedBoxWidth = Math.min(boxWidth, (totalWidth - (itemCount - 1) * horizontalGap) / itemCount);
-          const startX = centerX - totalWidth / 2;
           
-          // Arrow and horizontal connector
-          drawArrow(centerX, yPos - 6, centerX, yPos - 1);
-          doc.setDrawColor(...FLOW_COLORS.arrow);
-          doc.setLineWidth(0.5);
-          doc.line(startX + adjustedBoxWidth / 2, yPos - 1, startX + totalWidth - adjustedBoxWidth / 2, yPos - 1);
-          
-          flowNodes.forEach((item, idx) => {
-            const itemX = startX + idx * (adjustedBoxWidth + horizontalGap);
-            // Vertical connector
-            doc.line(itemX + adjustedBoxWidth / 2, yPos - 1, itemX + adjustedBoxWidth / 2, yPos);
-            drawFlowBox(itemX, yPos, adjustedBoxWidth, boxHeight, item.title, item.isCompleted);
-          });
-          
-          yPos += boxHeight;
-          
-          // Render children for items that have them
-          const itemsWithChildren = flowNodes.filter(n => n.children.length > 0);
-          if (itemsWithChildren.length > 0) {
-            yPos += 10;
-            
-            itemsWithChildren.forEach((item, parentIdx) => {
-              if (item.children.length > 0) {
-                const parentX = startX + flowNodes.indexOf(item) * (adjustedBoxWidth + horizontalGap);
-                const parentCenterX = parentX + adjustedBoxWidth / 2;
-                
-                // Children row
-                const childrenWidth = Math.min(item.children.length * (40 + 4) - 4, 120);
-                const startChildX = parentCenterX - childrenWidth / 2;
-                const childBoxWidth = Math.min(40, (childrenWidth - (item.children.length - 1) * 4) / item.children.length);
-                
-                // Arrow down
-                drawArrow(parentCenterX, yPos - 10, parentCenterX, yPos - 1);
-                
-                // Horizontal connector
-                if (item.children.length > 1) {
-                  doc.setDrawColor(...FLOW_COLORS.arrow);
-                  doc.line(startChildX + childBoxWidth / 2, yPos - 1, startChildX + childrenWidth - childBoxWidth / 2, yPos - 1);
-                }
-                
-                item.children.forEach((child, idx) => {
-                  const childX = startChildX + idx * (childBoxWidth + 4);
-                  doc.line(childX + childBoxWidth / 2, yPos - 1, childX + childBoxWidth / 2, yPos);
-                  drawFlowBox(childX, yPos, childBoxWidth, 10, child.title, child.isCompleted);
-                });
-              }
-            });
-            
-            yPos += 12;
+          // End/Due date
+          colX += colWidths.startDate;
+          if (item.due_date) {
+            const dateColor: [number, number, number] = dueStatus === "overdue" ? LIST_COLORS.overdue : 
+              dueStatus === "soon" ? LIST_COLORS.pending : LIST_COLORS.subText;
+            doc.setTextColor(...dateColor);
+            doc.text(format(new Date(item.due_date), "dd MMM"), colX, yPos + rowHeight / 2 + 1);
+          } else {
+            doc.setTextColor(...LIST_COLORS.subText);
+            doc.text("-", colX + 8, yPos + rowHeight / 2 + 1);
           }
-        }
+          
+          yPos += rowHeight;
+        });
         
-        previousPhaseBottom = yPos;
-        yPos += 12;
+        yPos += 4; // Gap between phases
       }
       
-      yPos += 5;
+      yPos += 10;
 
       // === MEETING NOTES PAGE ===
       if (options.includeActionItems) {
