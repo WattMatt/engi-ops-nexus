@@ -43,8 +43,10 @@ export const addStandardHeader = async (
 ) => {
   const pageWidth = doc.internal.pageSize.width;
   const headerY = STANDARD_MARGINS.top;
+  const headerTopY = headerY - STANDARD_MARGINS.headerHeight; // Top of header area
 
   // Try to add logo
+  let logoHeight = 0;
   try {
     const companyDetails = await fetchCompanyDetails();
     if (companyDetails?.logoUrl) {
@@ -53,22 +55,27 @@ export const addStandardHeader = async (
       await new Promise<void>((resolve, reject) => {
         img.onload = () => {
           // Max logo size: 45mm × 18mm per standards
-          const maxWidth = 45;
-          const maxHeight = 15;
+          const maxWidth = 35;
+          const maxHeight = 12;
           const aspectRatio = img.width / img.height;
-          let logoWidth = maxWidth;
-          let logoHeight = logoWidth / aspectRatio;
-          if (logoHeight > maxHeight) {
-            logoHeight = maxHeight;
-            logoWidth = logoHeight * aspectRatio;
+          let calcLogoWidth = maxWidth;
+          let calcLogoHeight = calcLogoWidth / aspectRatio;
+          if (calcLogoHeight > maxHeight) {
+            calcLogoHeight = maxHeight;
+            calcLogoWidth = calcLogoHeight * aspectRatio;
           }
+          logoHeight = calcLogoHeight;
+          
+          // Center logo vertically in header area
+          const logoY = headerTopY + (STANDARD_MARGINS.headerHeight - calcLogoHeight) / 2;
+          
           doc.addImage(
             img,
             "PNG",
             STANDARD_MARGINS.left,
-            headerY - 12,
-            logoWidth,
-            logoHeight
+            logoY,
+            calcLogoWidth,
+            calcLogoHeight
           );
           resolve();
         };
@@ -80,15 +87,18 @@ export const addStandardHeader = async (
     // No logo - that's fine
   }
 
-  // Document title right-aligned
+  // Calculate vertical center for text alignment
+  const textCenterY = headerTopY + STANDARD_MARGINS.headerHeight / 2;
+
+  // Document title right-aligned, vertically centered
   doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
   doc.setTextColor(
     PDF_BRAND_COLORS.text[0],
     PDF_BRAND_COLORS.text[1],
     PDF_BRAND_COLORS.text[2]
   );
-  doc.text(documentTitle, pageWidth - STANDARD_MARGINS.right, headerY - 8, {
+  doc.text(documentTitle, pageWidth - STANDARD_MARGINS.right, textCenterY - 2, {
     align: "right",
   });
 
@@ -96,7 +106,7 @@ export const addStandardHeader = async (
   if (projectName) {
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text(projectName, pageWidth - STANDARD_MARGINS.right, headerY - 3, {
+    doc.text(projectName, pageWidth - STANDARD_MARGINS.right, textCenterY + 4, {
       align: "right",
     });
   }
