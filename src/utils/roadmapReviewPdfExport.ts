@@ -746,13 +746,16 @@ export async function generateEnhancedRoadmapPDF(
   
   // 2. Table of Contents (for meeting-review type)
   if (config.includeTableOfContents && config.reportType === 'meeting-review') {
+    // Extract project names for TOC
+    const projectNames = projects.map(p => p.projectName);
+    
     const tocEntries = buildTocEntries(projects.length, {
       includeCoverPage: config.includeCoverPage,
       includeTableOfContents: true,
       includeAnalytics: config.includeAnalytics,
       includeDetailedProjects: config.includeDetailedProjects,
       includeSummaryMinutes: config.includeSummaryMinutes,
-    });
+    }, projectNames);
     generateTableOfContents(doc, tocEntries, config.companyLogo, config.companyName);
   }
   
