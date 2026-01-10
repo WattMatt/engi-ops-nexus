@@ -1,0 +1,74 @@
+/**
+ * PDFMake Utilities - Main Export
+ * 
+ * This module provides a complete replacement for jsPDF with pdfmake,
+ * offering a more declarative and maintainable approach to PDF generation.
+ * 
+ * Usage:
+ * ```typescript
+ * import { createDocument, heading, paragraph, dataTable, fetchCompanyDetails, generateCoverPageContent } from '@/utils/pdfmake';
+ * 
+ * const companyDetails = await fetchCompanyDetails();
+ * const coverPage = await generateCoverPageContent({ title: 'Report', projectName: 'My Project' }, companyDetails);
+ * 
+ * const doc = createDocument()
+ *   .add(coverPage)
+ *   .add(heading('Section 1'))
+ *   .add(paragraph('This is body text'))
+ *   .add(dataTable(columns, data))
+ *   .withStandardFooter();
+ * 
+ * doc.download('report.pdf');
+ * ```
+ */
+
+// Core configuration
+export { pdfMake, PAGE_SIZES, STANDARD_MARGINS, mmToPoints, pointsToMm } from './config';
+
+// Styles and colors
+export { PDF_COLORS, FONT_SIZES, defaultStyles, tableLayouts, QUALITY_PRESETS } from './styles';
+export type { QualityPreset } from './styles';
+
+// Helper functions
+export {
+  heading,
+  paragraph,
+  keyValue,
+  sectionHeader,
+  dataTable,
+  infoTable,
+  twoColumns,
+  stack,
+  horizontalLine,
+  spacer,
+  imageToBase64,
+  image,
+  pageBreak,
+  newPage,
+  formatCurrency,
+  formatDate,
+  formatPercentage,
+} from './helpers';
+export type { TableColumn } from './helpers';
+
+// Document builder
+export { PDFDocumentBuilder, createDocument } from './documentBuilder';
+export type { DocumentBuilderOptions } from './documentBuilder';
+
+// Cover page
+export { fetchCompanyDetails, generateCoverPageContent } from './coverPage';
+export type { CoverPageOptions, CompanyDetails, ContactDetails } from './coverPage';
+
+// Re-export pdfmake types for convenience
+export type { 
+  Content, 
+  TDocumentDefinitions, 
+  ContentTable, 
+  ContentColumns, 
+  ContentStack,
+  Margins,
+  Style,
+  StyleDictionary,
+  PageOrientation,
+  PageSize,
+} from 'pdfmake/interfaces';
