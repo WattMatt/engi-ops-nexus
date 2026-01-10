@@ -17,6 +17,7 @@ interface BOQExcelImportDialogProps {
   projectId: string;
 }
 
+// EXACT COPY from FinalAccountExcelImport.tsx - only field name adapted
 interface ParsedItem {
   item_code: string;
   description: string;
@@ -24,10 +25,9 @@ interface ParsedItem {
   quantity: number;
   supply_rate: number;
   install_rate: number;
-  total_rate: number; // Combined rate from Excel (supply + install, or single "Rate" column)
-  direct_amount: number; // The actual amount from Excel
+  amount: number; // SAME AS FINAL ACCOUNT - direct value from Excel
+  is_prime_cost: boolean;
   item_type: 'quantity' | 'prime_cost' | 'percentage' | 'sub_header';
-  prime_cost_amount?: number;
 }
 
 interface ParsedSection {
@@ -66,9 +66,7 @@ export function BOQExcelImportDialog({
 
   /**
    * Parse section code and name from sheet name
-   * CORRECT structure (aligned with Final Account import):
-   * - "1 Mall Portion", "1.1 P&G", "1.2 Medium Voltage" -> Bill 1 (Mall) with sub-sections
-   * - "3 ASJ", "4 Boxer", etc -> SEPARATE bills (Bill 3, Bill 4, etc.)
+   * EXACT COPY from FinalAccountExcelImport.tsx
    */
   const parseSectionFromSheetName = (sheetName: string): { 
     billNumber: number;
@@ -153,8 +151,8 @@ export function BOQExcelImportDialog({
   };
 
   /**
-   * Parse sheet - EXACTLY like Final Account import
-   * This is the PROVEN working logic - no custom modifications!
+   * EXACT COPY of parseSheet from FinalAccountExcelImport.tsx
+   * Only item_type mapping differs (uses BOQ enum)
    */
   const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string): { section: ParsedSection; billNumber: number; billName: string } | null => {
     const parsed = parseSectionFromSheetName(sheetName);
@@ -209,14 +207,6 @@ export function BOQExcelImportDialog({
       if (testMap.description !== undefined) {
         headerRowIdx = i;
         colMap = testMap;
-        
-        // Debug: Log header detection for P&G sheet
-        if (sheetName.includes('P&G') || sheetName.includes('1.1')) {
-          console.log(`[BOQ Import] Header found in "${sheetName}" at row ${i}:`, {
-            headerRow: row.slice(0, 8),
-            colMap,
-          });
-        }
         break;
       }
     }
@@ -236,21 +226,6 @@ export function BOQExcelImportDialog({
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
       const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
-      
-      // Debug logging for P&G section items
-      if (itemCode === 'A1' || itemCode === 'A3') {
-        console.log(`[BOQ Import DEBUG] Item ${itemCode}:`, {
-          description,
-          unitRaw,
-          quantity,
-          supplyRate,
-          installRate,
-          amount,
-          colMapAmount: colMap.amount,
-          rawAmountCell: colMap.amount !== undefined ? row[colMap.amount] : 'NO_COL',
-          rowData: row.slice(0, 8),
-        });
-      }
       
       if (!itemCode && !description) continue;
       
@@ -275,7 +250,6 @@ export function BOQExcelImportDialog({
       );
       
       if (isSectionHeader) {
-        console.log(`[BOQ Import] Skipping section header: ${itemCode} - ${description} (amount: ${amount})`);
         if (amount > boqStatedTotal) {
           boqStatedTotal = amount;
         }
@@ -287,7 +261,7 @@ export function BOQExcelImportDialog({
         || unitRaw.toLowerCase() === 'sum' && /supply|delivery|cost|amount/i.test(description);
       const isProvisionalSum = /provisional\s*sum|^ps\s/i.test(description);
       
-      // Map to BOQ item types (quantity is default, prime_cost for PC/PS/Sum items)
+      // Map to BOQ item types
       let itemType: 'quantity' | 'prime_cost' | 'percentage' | 'sub_header' = 'quantity';
       if (isPrimeCost || isProvisionalSum) itemType = 'prime_cost';
       
@@ -298,10 +272,9 @@ export function BOQExcelImportDialog({
         quantity,
         supply_rate: supplyRate,
         install_rate: installRate,
-        total_rate: supplyRate + installRate, // Calculate total rate directly
-        direct_amount: amount, // EXACT value from Excel - no modifications!
+        amount, // EXACT VALUE FROM EXCEL - SAME AS FINAL ACCOUNT
+        is_prime_cost: isPrimeCost,
         item_type: itemType,
-        prime_cost_amount: (isPrimeCost || isProvisionalSum) ? amount : undefined,
       });
     }
     
@@ -353,23 +326,12 @@ export function BOQExcelImportDialog({
 
       for (const sheetName of workbook.SheetNames) {
         const shouldSkip = skipPatterns.some(pattern => pattern.test(sheetName.trim()));
-        if (shouldSkip) {
-          console.log(`[BOQ Import] Skipping sheet "${sheetName}" (summary/notes sheet)`);
-          continue;
-        }
+        if (shouldSkip) continue;
         
         const worksheet = workbook.Sheets[sheetName];
         const result = parseSheet(worksheet, sheetName);
         if (result) {
           const { section, billNumber, billName } = result;
-          
-          // Debug: Log section 1.1 items
-          if (section.sectionCode === '1.1') {
-            console.log(`[BOQ Import] Section 1.1 parsed from sheet "${sheetName}":`, {
-              itemCount: section.items.length,
-              items: section.items.map(i => ({ code: i.item_code, amount: i.direct_amount })),
-            });
-          }
           
           if (!billsMap.has(billNumber)) {
             billsMap.set(billNumber, {
@@ -393,12 +355,6 @@ export function BOQExcelImportDialog({
       parsedBills.forEach(bill => {
         bill.sections.sort((a, b) => a._sectionNumber - b._sectionNumber);
       });
-
-      console.log("[BOQ Import] Bills structure:", parsedBills.map(b => ({
-        number: b.billNumber,
-        name: b.billName,
-        sections: b.sections.map(s => `${s.sectionCode}: ${s.sectionName}`),
-      })));
 
       setProgress(20);
       setProgressText(`Found ${parsedBills.length} bills, clearing existing data...`);
@@ -451,6 +407,8 @@ export function BOQExcelImportDialog({
 
         if (billError) throw billError;
 
+        let billTotal = 0;
+
         for (let si = 0; si < bill.sections.length; si++) {
           const section = bill.sections[si];
           
@@ -468,23 +426,29 @@ export function BOQExcelImportDialog({
 
           if (sectionError) throw sectionError;
 
-          // Insert items in batches - store all data from Excel including rates and costs
-          const itemsToInsert = section.items.map((item, idx) => ({
-            section_id: newSection.id,
-            item_code: item.item_code,
-            description: item.description,
-            unit: item.unit,
-            quantity: item.quantity,
-            supply_rate: item.supply_rate,
-            install_rate: item.install_rate,
-            total_rate: item.total_rate, // Combined rate (supply + install or single rate column)
-            supply_cost: item.quantity * item.supply_rate, // Calculated supply cost
-            install_cost: item.quantity * item.install_rate, // Calculated install cost
-            total_amount: item.direct_amount, // Use actual Excel amount - no more calculation mismatches!
-            item_type: item.item_type,
-            prime_cost_amount: item.prime_cost_amount || null,
-            display_order: idx + 1,
-          }));
+          // Insert items - EXACT SAME APPROACH AS FINAL ACCOUNT
+          let sectionTotal = 0;
+          const itemsToInsert = section.items.map((item, idx) => {
+            const itemAmount = item.amount; // Direct from Excel
+            sectionTotal += itemAmount;
+            
+            return {
+              section_id: newSection.id,
+              item_code: item.item_code,
+              description: item.description,
+              unit: item.unit,
+              quantity: item.quantity,
+              supply_rate: item.supply_rate,
+              install_rate: item.install_rate,
+              total_rate: item.supply_rate + item.install_rate,
+              supply_cost: item.quantity * item.supply_rate,
+              install_cost: item.quantity * item.install_rate,
+              total_amount: itemAmount, // DIRECT FROM EXCEL - SAME AS FINAL ACCOUNT's contract_amount
+              item_type: item.item_type,
+              prime_cost_amount: item.is_prime_cost ? itemAmount : null,
+              display_order: idx + 1,
+            };
+          });
 
           const chunkSize = 100;
           for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
@@ -493,9 +457,22 @@ export function BOQExcelImportDialog({
             if (itemsError) throw itemsError;
           }
 
+          // Update section total
+          await supabase
+            .from("boq_project_sections")
+            .update({ total_amount: sectionTotal })
+            .eq("id", newSection.id);
+
+          billTotal += sectionTotal;
           totalItems += itemsToInsert.length;
           totalSections++;
         }
+
+        // Update bill total
+        await supabase
+          .from("boq_bills")
+          .update({ total_amount: billTotal })
+          .eq("id", newBill.id);
 
         setProgress(30 + (bi + 1) * progressPerBill);
       }
