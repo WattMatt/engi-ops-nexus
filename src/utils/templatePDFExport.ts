@@ -1,8 +1,17 @@
+/**
+ * Template PDF Export
+ * 
+ * MIGRATED TO PDFMAKE: This file maintains backward compatibility with jsPDF
+ * while providing pdfmake alternatives for new implementations.
+ */
+
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { initializePDF, getStandardTableStyles, STANDARD_MARGINS, type PDFExportOptions } from "./pdfExportBase";
 import { generateCoverPage } from "./pdfCoverPage";
 import { format } from "date-fns";
+import { createDocument, downloadPdf } from "./pdfmake";
+import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 
 export const exportTemplatePDF = async (templateData: any, companyDetails: any) => {
   const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };

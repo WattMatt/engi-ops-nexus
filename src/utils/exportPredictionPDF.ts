@@ -1,7 +1,15 @@
-import jsPDF from "jspdf";
-import { captureChartAsCanvas, createHighQualityPDF, addHighQualityImage, waitForElementRender } from "@/utils/pdfQualitySettings";
-import { generateCoverPage, fetchCompanyDetails } from "@/utils/pdfCoverPage";
+/**
+ * AI Prediction PDF Export
+ * 
+ * MIGRATED TO PDFMAKE: This file maintains backward compatibility with jsPDF
+ * while providing pdfmake alternatives for new implementations.
+ */
 
+import jsPDF from "jspdf";
+import { captureChartAsCanvas, createHighQualityPDF, addHighQualityImage, waitForElementRender, captureChartAsBase64 } from "@/utils/pdfQualitySettings";
+import { generateCoverPage, fetchCompanyDetails } from "@/utils/pdfCoverPage";
+import { createDocument, downloadPdf } from "./pdfmake";
+import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 interface PredictionData {
   summary: {
     totalEstimate: number;
