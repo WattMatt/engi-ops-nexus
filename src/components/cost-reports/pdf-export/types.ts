@@ -1,5 +1,10 @@
 import jsPDF from "jspdf";
+import type { Content, TDocumentDefinitions, StyleDictionary } from "pdfmake/interfaces";
 import { PDFMargins, PDFSectionOptions } from "../PDFExportSettings";
+
+// ============================================================================
+// jsPDF Types (Legacy - to be deprecated)
+// ============================================================================
 
 export interface PDFGenerationContext {
   doc: jsPDF;
@@ -23,6 +28,39 @@ export interface PDFGenerationContext {
     coverPage?: any;
   };
 }
+
+// ============================================================================
+// pdfmake Types (New - preferred)
+// ============================================================================
+
+export interface PdfmakeGenerationContext {
+  report: any;
+  pageWidth: number;
+  pageHeight: number;
+  contentWidth: number;
+  margins: PDFMargins;
+  sections: PDFSectionOptions;
+  companyDetails: CompanyDetails;
+  categoryTotals: CategoryTotal[];
+  grandTotals: GrandTotals;
+  categoriesData: any[];
+  variationsData: any[];
+  detailsData: any[];
+  contactId?: string;
+  templates?: {
+    costReport?: any;
+    coverPage?: any;
+  };
+}
+
+export interface PdfmakeSectionResult {
+  content: Content[];
+  pageBreakBefore?: boolean;
+}
+
+// ============================================================================
+// Shared Types
+// ============================================================================
 
 export interface CompanyDetails {
   companyName: string;
@@ -65,11 +103,25 @@ export interface PDFSectionGenerator {
   getEstimatedPages: () => number;
 }
 
+// pdfmake section generator interface
+export interface PdfmakeSectionGenerator {
+  name: string;
+  key: keyof PDFSectionOptions;
+  shouldInclude: (sections: PDFSectionOptions) => boolean;
+  generate: (context: PdfmakeGenerationContext) => Promise<PdfmakeSectionResult>;
+  getEstimatedPages: () => number;
+}
+
 export interface TocEntry {
   title: string;
   page: number;
 }
 
+// ============================================================================
+// Color Constants
+// ============================================================================
+
+// RGB format for jsPDF (legacy)
 export const PDF_COLORS = {
   primary: [30, 58, 138] as [number, number, number],
   secondary: [59, 130, 246] as [number, number, number],
@@ -85,6 +137,22 @@ export const PDF_COLORS = {
   categoryCyan: [34, 197, 218] as [number, number, number],
 };
 
+// Hex format for pdfmake (new)
+export const PDF_COLORS_HEX = {
+  primary: '#1e3a8a',
+  secondary: '#3b82f6',
+  accent: '#6366f1',
+  success: '#10b981',
+  warning: '#fbbf24',
+  danger: '#ef4444',
+  neutral: '#475569',
+  light: '#f1f5f9',
+  white: '#ffffff',
+  text: '#0f172a',
+  tableHeader: '#2980b9',
+  categoryCyan: '#22c5da',
+};
+
 export const CATEGORY_COLORS = [
   [59, 130, 246],   // Blue
   [16, 185, 129],   // Green
@@ -94,3 +162,69 @@ export const CATEGORY_COLORS = [
   [236, 72, 153],   // Pink
   [134, 239, 172],  // Light green
 ];
+
+export const CATEGORY_COLORS_HEX = [
+  '#3b82f6',  // Blue
+  '#10b981',  // Green
+  '#fbbf24',  // Yellow
+  '#f97316',  // Orange
+  '#8b5cf6',  // Purple
+  '#ec4899',  // Pink
+  '#86efac',  // Light green
+];
+
+// ============================================================================
+// pdfmake Helper Functions
+// ============================================================================
+
+/**
+ * Convert RGB array to hex string
+ */
+export function rgbToHex(rgb: [number, number, number]): string {
+  return '#' + rgb.map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Get default pdfmake styles for cost reports
+ */
+export function getCostReportStyles(): StyleDictionary {
+  return {
+    header: {
+      fontSize: 16,
+      bold: true,
+      color: PDF_COLORS_HEX.text,
+      margin: [0, 0, 0, 10],
+    },
+    subheader: {
+      fontSize: 12,
+      color: PDF_COLORS_HEX.neutral,
+      margin: [0, 0, 0, 5],
+    },
+    tableHeader: {
+      fontSize: 8,
+      bold: true,
+      color: PDF_COLORS_HEX.white,
+      fillColor: PDF_COLORS_HEX.tableHeader,
+    },
+    tableCell: {
+      fontSize: 8,
+    },
+    sectionTitle: {
+      fontSize: 11,
+      bold: true,
+      color: PDF_COLORS_HEX.primary,
+      margin: [0, 10, 0, 5],
+    },
+    categoryBadge: {
+      fontSize: 8,
+      bold: true,
+      color: PDF_COLORS_HEX.white,
+    },
+    positive: {
+      color: PDF_COLORS_HEX.success,
+    },
+    negative: {
+      color: PDF_COLORS_HEX.danger,
+    },
+  };
+}

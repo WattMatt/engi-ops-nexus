@@ -1,5 +1,10 @@
 import jsPDF from "jspdf";
-import { PDFGenerationContext, CATEGORY_COLORS } from "../types";
+import type { Content, TableCell } from "pdfmake/interfaces";
+import { PDFGenerationContext, PdfmakeGenerationContext, PdfmakeSectionResult, CATEGORY_COLORS, CATEGORY_COLORS_HEX, PDF_COLORS_HEX } from "../types";
+
+// ============================================================================
+// jsPDF Implementation (Legacy)
+// ============================================================================
 
 export async function generateCategoryDetailsSection(
   context: PDFGenerationContext
@@ -109,4 +114,149 @@ export async function generateCategoryDetailsSection(
   });
 
   return pageNumber;
+}
+
+// ============================================================================
+// pdfmake Implementation (New - preferred)
+// ============================================================================
+
+/**
+ * Build a category card for pdfmake
+ */
+function buildCategoryCard(
+  cat: { code: string; description: string; originalBudget: number; anticipatedFinal: number; originalVariance: number },
+  colorHex: string
+): Content {
+  const isNegative = cat.originalVariance < 0;
+  const varianceColor = isNegative ? PDF_COLORS_HEX.success : PDF_COLORS_HEX.danger;
+  const varianceBgColor = isNegative ? '#dcfce7' : '#fee2e2';
+
+  return {
+    stack: [
+      // Header with code badge
+      {
+        columns: [
+          {
+            text: cat.code,
+            fontSize: 8,
+            bold: true,
+            color: '#ffffff',
+            background: colorHex,
+            margin: [4, 2, 4, 2],
+          },
+          {
+            text: cat.description,
+            fontSize: 8,
+            bold: true,
+            margin: [5, 2, 0, 0],
+          },
+        ],
+      },
+      // Budget info
+      {
+        columns: [
+          {
+            stack: [
+              { text: 'ORIGINAL BUDGET', fontSize: 6, color: '#646464', margin: [0, 5, 0, 2] },
+              { text: `R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, fontSize: 9, bold: true },
+              { text: 'ANTICIPATED FINAL', fontSize: 6, color: '#646464', margin: [0, 5, 0, 2] },
+              { text: `R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, fontSize: 9, bold: true },
+            ],
+          },
+          {
+            stack: [
+              { 
+                text: `${isNegative ? '-' : '+'}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
+                fontSize: 9, 
+                bold: true, 
+                alignment: 'right' as const,
+                color: varianceColor,
+              },
+              { 
+                text: isNegative ? 'SAVING' : 'EXTRA', 
+                fontSize: 6, 
+                bold: true, 
+                alignment: 'right' as const,
+                color: varianceColor,
+                background: varianceBgColor,
+                margin: [0, 3, 0, 0],
+              },
+            ],
+            width: 'auto',
+          },
+        ],
+        margin: [0, 5, 0, 0],
+      },
+    ],
+    margin: [0, 0, 0, 10],
+    // Border styling
+    border: [true, true, true, true],
+    borderColor: [colorHex, colorHex, colorHex, colorHex],
+  } as Content;
+}
+
+/**
+ * Build category details content for pdfmake
+ */
+export function buildCategoryDetailsContent(
+  context: PdfmakeGenerationContext
+): PdfmakeSectionResult {
+  const { categoryTotals } = context;
+
+  // Build category cards in a 2-column layout
+  const cardRows: Content[][] = [];
+  for (let i = 0; i < categoryTotals.length; i += 2) {
+    const row: Content[] = [];
+    
+    const cat1 = categoryTotals[i];
+    const color1 = CATEGORY_COLORS_HEX[i % CATEGORY_COLORS_HEX.length];
+    row.push(buildCategoryCard(cat1, color1));
+    
+    if (i + 1 < categoryTotals.length) {
+      const cat2 = categoryTotals[i + 1];
+      const color2 = CATEGORY_COLORS_HEX[(i + 1) % CATEGORY_COLORS_HEX.length];
+      row.push(buildCategoryCard(cat2, color2));
+    } else {
+      row.push({ text: '' }); // Empty cell for odd number of categories
+    }
+    
+    cardRows.push(row);
+  }
+
+  const content: Content[] = [
+    // Header
+    {
+      text: 'CATEGORY PERFORMANCE DETAILS',
+      style: 'header',
+      alignment: 'center',
+      margin: [0, 0, 0, 15],
+    },
+    // Cards table
+    {
+      table: {
+        widths: ['*', '*'],
+        body: cardRows.map(row => row.map(cell => {
+          if (typeof cell === 'object' && cell !== null && !Array.isArray(cell)) {
+            return { ...cell, margin: [5, 5, 5, 5] };
+          }
+          return { text: '', margin: [5, 5, 5, 5] };
+        })),
+      },
+      layout: {
+        hLineWidth: () => 0.5,
+        vLineWidth: () => 0.5,
+        hLineColor: () => '#e5e5e5',
+        vLineColor: () => '#e5e5e5',
+        paddingLeft: () => 8,
+        paddingRight: () => 8,
+        paddingTop: () => 8,
+        paddingBottom: () => 8,
+      },
+    },
+  ];
+
+  return {
+    content,
+    pageBreakBefore: true,
+  };
 }
