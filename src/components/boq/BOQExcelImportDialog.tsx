@@ -227,13 +227,7 @@ export function BOQExcelImportDialog({
       const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
-      const rateFromColumn = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : 0;
       const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
-      
-      // Calculate total rate - use combined supply+install if available, otherwise use rate column
-      const totalRate = (supplyRate > 0 || installRate > 0) 
-        ? supplyRate + installRate 
-        : rateFromColumn;
       
       if (!itemCode && !description) continue;
       
@@ -247,7 +241,7 @@ export function BOQExcelImportDialog({
         continue; // Don't add as item
       }
       
-      // Detect section header rows - skip them (same as Final Account)
+      // Detect section header rows - skip them (EXACT same logic as Final Account)
       const isSectionHeader = (
         /^[A-Z]$/i.test(itemCode) &&
         amount > 0 &&
@@ -280,7 +274,7 @@ export function BOQExcelImportDialog({
         quantity,
         supply_rate: supplyRate,
         install_rate: installRate,
-        total_rate: totalRate,
+        total_rate: supplyRate + installRate, // Calculate total rate directly
         direct_amount: amount, // EXACT value from Excel - no modifications!
         item_type: itemType,
         prime_cost_amount: (isPrimeCost || isProvisionalSum) ? amount : undefined,
