@@ -24,7 +24,8 @@ interface ParsedItem {
   quantity: number;
   supply_rate: number;
   install_rate: number;
-  direct_amount: number; // For Sum items that have an amount but no rates
+  total_rate: number; // Combined rate from Excel (supply + install, or single "Rate" column)
+  direct_amount: number; // The actual amount from Excel
   item_type: 'quantity' | 'prime_cost' | 'percentage' | 'sub_header';
   prime_cost_amount?: number;
 }
@@ -226,7 +227,13 @@ export function BOQExcelImportDialog({
       const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
+      const rateFromColumn = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : 0;
       const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+      
+      // Calculate total rate - use combined supply+install if available, otherwise use rate column
+      const totalRate = (supplyRate > 0 || installRate > 0) 
+        ? supplyRate + installRate 
+        : rateFromColumn;
       
       if (!itemCode && !description) continue;
       
@@ -247,7 +254,8 @@ export function BOQExcelImportDialog({
         !unitRaw &&
         quantity === 0 &&
         supplyRate === 0 &&
-        installRate === 0
+        installRate === 0 &&
+        rateFromColumn === 0
       );
       
       if (isSectionHeader) {
@@ -273,6 +281,7 @@ export function BOQExcelImportDialog({
         quantity,
         supply_rate: supplyRate,
         install_rate: installRate,
+        total_rate: totalRate,
         direct_amount: amount, // EXACT value from Excel - no modifications!
         item_type: itemType,
         prime_cost_amount: (isPrimeCost || isProvisionalSum) ? amount : undefined,
@@ -434,8 +443,7 @@ export function BOQExcelImportDialog({
 
           if (sectionError) throw sectionError;
 
-          // Insert items in batches
-          // Now that total_amount is a regular column, we can store the actual Excel amount directly
+          // Insert items in batches - store all data from Excel including rates and costs
           const itemsToInsert = section.items.map((item, idx) => ({
             section_id: newSection.id,
             item_code: item.item_code,
@@ -444,6 +452,9 @@ export function BOQExcelImportDialog({
             quantity: item.quantity,
             supply_rate: item.supply_rate,
             install_rate: item.install_rate,
+            total_rate: item.total_rate, // Combined rate (supply + install or single rate column)
+            supply_cost: item.quantity * item.supply_rate, // Calculated supply cost
+            install_cost: item.quantity * item.install_rate, // Calculated install cost
             total_amount: item.direct_amount, // Use actual Excel amount - no more calculation mismatches!
             item_type: item.item_type,
             prime_cost_amount: item.prime_cost_amount || null,
