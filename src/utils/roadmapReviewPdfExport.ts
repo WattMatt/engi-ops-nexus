@@ -1,5 +1,13 @@
+/**
+ * Roadmap Review PDF Export
+ * 
+ * MIGRATION STATUS: Phase 4 - pdfmake compatibility layer added
+ * - jsPDF: Full support with autoTable (current implementation)
+ * - pdfmake: Content builders available for incremental migration
+ */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
 import { 
@@ -10,6 +18,7 @@ import {
 import { CHART_QUALITY_CANVAS_OPTIONS, addHighQualityImage } from "./pdfQualitySettings";
 import { 
   PDF_BRAND_COLORS, 
+  PDF_COLORS_HEX,
   PDF_LAYOUT, 
   PDF_TYPOGRAPHY,
   RoadmapPDFExportOptions,
@@ -23,11 +32,39 @@ import {
   drawCard, 
   drawBadge,
   checkPageBreak,
-  drawProgressBar as drawEnhancedProgressBar 
+  drawProgressBar as drawEnhancedProgressBar,
+  // pdfmake builders
+  buildPageHeaderContent,
+  buildPageFooterContent,
+  buildCardContent,
+  buildBadgeContent,
+  buildProgressBarContent
 } from "./roadmapReviewPdfSections/pageDecorations";
-import { generateTableOfContents, buildTocEntries } from "./roadmapReviewPdfSections/tableOfContents";
-import { drawCompactMeetingNotes } from "./roadmapReviewPdfSections/meetingNotes";
-import { generateSummaryMinutesPage } from "./roadmapReviewPdfSections/summaryMinutes";
+import { 
+  generateTableOfContents, 
+  buildTocEntries,
+  // pdfmake builder
+  buildTocContent
+} from "./roadmapReviewPdfSections/tableOfContents";
+import { 
+  drawCompactMeetingNotes,
+  // pdfmake builders
+  buildMeetingNotesContent,
+  buildCompactMeetingNotesContent
+} from "./roadmapReviewPdfSections/meetingNotes";
+import { 
+  generateSummaryMinutesPage,
+  // pdfmake builder
+  buildSummaryMinutesContent
+} from "./roadmapReviewPdfSections/summaryMinutes";
+import {
+  // pdfmake builders
+  buildRoadmapTableContent,
+  buildFullRoadmapPageContent
+} from "./roadmapReviewPdfSections/fullRoadmapPage";
+
+// Alias for hex colors
+const PDF_BRAND_COLORS_HEX = PDF_COLORS_HEX;
 
 /**
  * Captures a chart element by ID and returns as canvas

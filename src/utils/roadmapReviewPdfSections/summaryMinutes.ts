@@ -1,15 +1,161 @@
 /**
  * Summary Minutes Page - Final page with consolidated meeting summary
  * Implements proper page break handling to prevent content cramming
+ * 
+ * MIGRATION STATUS: Phase 4 - pdfmake compatibility layer added
+ * - jsPDF: Full support (current implementation)
+ * - pdfmake: Content builders for summary minutes
  */
 import jsPDF from "jspdf";
+import type { Content, ContentTable, TableCell } from "pdfmake/interfaces";
 import { 
   PDF_BRAND_COLORS, 
+  PDF_COLORS_HEX,
   PDF_TYPOGRAPHY, 
   PDF_LAYOUT,
   getContentDimensions 
 } from "../roadmapReviewPdfStyles";
-import { addPageHeader, drawCard, checkPageBreak } from "./pageDecorations";
+import { addPageHeader, drawCard, checkPageBreak, buildCardContent } from "./pageDecorations";
+
+// Alias for cleaner code
+const PDF_BRAND_COLORS_HEX = PDF_COLORS_HEX;
+
+// ============================================================================
+// PDFMAKE CONTENT BUILDERS  
+// ============================================================================
+
+interface SummaryMinutesOptions {
+  companyLogo?: string | null;
+  companyName?: string;
+  generationDate: string;
+  projectCount: number;
+}
+
+/**
+ * Build pdfmake summary minutes page content
+ */
+export const buildSummaryMinutesContent = (options: SummaryMinutesOptions): Content => {
+  const { projectCount } = options;
+  
+  // Build decisions table
+  const decisionsTableBody: TableCell[][] = [
+    [
+      { text: '#', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Decision', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Owner', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+    ],
+    ...Array(3).fill(null).map((_, i) => [
+      { text: `${i + 1}.`, fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+    ]),
+  ];
+
+  // Build action items table  
+  const actionsTableBody: TableCell[][] = [
+    [
+      { text: '✓', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Project', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Action', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Owner', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Due', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Status', bold: true, color: '#FFFFFF', fillColor: PDF_BRAND_COLORS_HEX.primary, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+    ],
+    ...Array(5).fill(null).map((_, i) => [
+      { text: '☐', fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny, fillColor: i % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF' },
+    ]),
+  ];
+
+  // Build signature section
+  const signatureFields = ['Prepared by', 'Reviewed by', 'Approved by'];
+
+  return {
+    stack: [
+      // Page title
+      {
+        text: 'ROADMAP REVIEW - MEETING MINUTES',
+        fontSize: PDF_TYPOGRAPHY.sizes.h1,
+        bold: true,
+        alignment: 'center',
+        color: PDF_BRAND_COLORS_HEX.primary,
+        margin: [0, 0, 0, 14],
+      },
+      
+      // Meeting details card
+      buildCardContent({
+        columns: [
+          { text: 'Date: ______________', fontSize: PDF_TYPOGRAPHY.sizes.small },
+          { text: 'Location: ______________', fontSize: PDF_TYPOGRAPHY.sizes.small },
+        ],
+      }, { fillColor: PDF_BRAND_COLORS_HEX.lightGray }),
+      
+      // Portfolio Overview
+      { text: 'Portfolio Overview', fontSize: PDF_TYPOGRAPHY.sizes.h2, bold: true, color: PDF_BRAND_COLORS_HEX.primary, margin: [0, 12, 0, 4] },
+      buildCardContent({
+        stack: [
+          { text: `${projectCount} projects reviewed. Key observations:`, fontSize: PDF_TYPOGRAPHY.sizes.tiny, italics: true, color: PDF_BRAND_COLORS_HEX.gray },
+          { text: '_______________________________________________', fontSize: PDF_TYPOGRAPHY.sizes.small, margin: [0, 6, 0, 0] },
+          { text: '_______________________________________________', fontSize: PDF_TYPOGRAPHY.sizes.small, margin: [0, 6, 0, 0] },
+        ],
+      }),
+      
+      // Key Decisions
+      { text: 'Key Decisions', fontSize: PDF_TYPOGRAPHY.sizes.h2, bold: true, color: PDF_BRAND_COLORS_HEX.primary, margin: [0, 12, 0, 4] },
+      {
+        table: { headerRows: 1, widths: ['5%', '70%', '25%'], body: decisionsTableBody },
+        layout: { hLineColor: () => PDF_BRAND_COLORS_HEX.tableBorder, vLineColor: () => PDF_BRAND_COLORS_HEX.tableBorder, hLineWidth: () => 0.2, vLineWidth: () => 0.2 },
+      },
+      
+      // Priority Action Items
+      { text: 'Priority Action Items', fontSize: PDF_TYPOGRAPHY.sizes.h2, bold: true, color: PDF_BRAND_COLORS_HEX.primary, margin: [0, 12, 0, 4] },
+      {
+        table: { headerRows: 1, widths: ['5%', '22%', '35%', '15%', '12%', '11%'], body: actionsTableBody },
+        layout: { hLineColor: () => PDF_BRAND_COLORS_HEX.tableBorder, vLineColor: () => PDF_BRAND_COLORS_HEX.tableBorder, hLineWidth: () => 0.2, vLineWidth: () => 0.2 },
+      },
+      
+      // Next Steps
+      { text: 'Next Steps & Follow-ups', fontSize: PDF_TYPOGRAPHY.sizes.h2, bold: true, color: PDF_BRAND_COLORS_HEX.primary, margin: [0, 12, 0, 4] },
+      buildCardContent({
+        columns: [
+          { text: 'Next Review Date: __________', fontSize: PDF_TYPOGRAPHY.sizes.small },
+          { text: 'Escalations Required: __________', fontSize: PDF_TYPOGRAPHY.sizes.small },
+        ],
+      }),
+      
+      // Sign-off
+      { text: 'Sign-off', fontSize: PDF_TYPOGRAPHY.sizes.h2, bold: true, color: PDF_BRAND_COLORS_HEX.primary, margin: [0, 12, 0, 4] },
+      {
+        columns: signatureFields.map(label => 
+          buildCardContent({
+            stack: [
+              { text: label, bold: true, fontSize: PDF_TYPOGRAPHY.sizes.tiny, color: PDF_BRAND_COLORS_HEX.darkGray },
+              { text: '_______________', fontSize: PDF_TYPOGRAPHY.sizes.small, margin: [0, 10, 0, 4] },
+              { 
+                columns: [
+                  { text: 'Name: ______', fontSize: 5 },
+                  { text: 'Date: ______', fontSize: 5 },
+                ],
+              },
+            ],
+          })
+        ),
+        columnGap: 8,
+      },
+    ],
+  };
+};
+
+// ============================================================================
+// JSPDF IMPLEMENTATIONS (Original - kept for backward compatibility)
+// ============================================================================
+
+// Re-export interface for backward compatibility
+export type { SummaryMinutesOptions };
 
 interface SummaryMinutesOptions {
   companyLogo?: string | null;

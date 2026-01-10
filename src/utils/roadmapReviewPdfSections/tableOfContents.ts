@@ -1,14 +1,92 @@
 /**
  * Table of Contents Page
+ * 
+ * MIGRATION STATUS: Phase 4 - pdfmake compatibility layer added
+ * - jsPDF: Full support (current implementation)
+ * - pdfmake: Content builder available for TOC generation
  */
 import jsPDF from "jspdf";
+import type { Content, ContentText } from "pdfmake/interfaces";
 import { 
   PDF_BRAND_COLORS, 
+  PDF_COLORS_HEX,
   PDF_TYPOGRAPHY, 
   PDF_LAYOUT,
   getContentDimensions 
 } from "../roadmapReviewPdfStyles";
-import { addPageHeader, drawCard } from "./pageDecorations";
+import { addPageHeader, drawCard, buildCardContent } from "./pageDecorations";
+
+// Alias for cleaner code
+const PDF_BRAND_COLORS_HEX = PDF_COLORS_HEX;
+
+// ============================================================================
+// PDFMAKE CONTENT BUILDERS
+// ============================================================================
+
+interface TocEntry {
+  title: string;
+  page: number;
+  level: 1 | 2;
+}
+
+/**
+ * Build pdfmake TOC content
+ */
+export const buildTocContent = (entries: TocEntry[]): Content => {
+  const tocItems: Content[] = entries.map((entry) => {
+    const isMainSection = entry.level === 1;
+    return {
+      columns: [
+        {
+          text: entry.title,
+          fontSize: isMainSection ? PDF_TYPOGRAPHY.sizes.h3 : PDF_TYPOGRAPHY.sizes.body,
+          bold: isMainSection,
+          color: isMainSection ? PDF_BRAND_COLORS_HEX.primary : PDF_BRAND_COLORS_HEX.text,
+          margin: [isMainSection ? 0 : 10, 0, 0, 0] as [number, number, number, number],
+        },
+        {
+          text: entry.page.toString(),
+          fontSize: isMainSection ? PDF_TYPOGRAPHY.sizes.h3 : PDF_TYPOGRAPHY.sizes.body,
+          bold: isMainSection,
+          alignment: 'right' as const,
+          color: isMainSection ? PDF_BRAND_COLORS_HEX.primary : PDF_BRAND_COLORS_HEX.text,
+        },
+      ],
+      margin: [0, isMainSection ? 6 : 3, 0, 0] as [number, number, number, number],
+    };
+  });
+
+  return {
+    stack: [
+      {
+        text: 'TABLE OF CONTENTS',
+        style: 'h1',
+        alignment: 'center',
+        color: PDF_BRAND_COLORS_HEX.primary,
+        margin: [0, 0, 0, 15],
+      },
+      {
+        canvas: [
+          {
+            type: 'line',
+            x1: 40,
+            y1: 0,
+            x2: PDF_LAYOUT.pageWidth - PDF_LAYOUT.margins.right - 40,
+            y2: 0,
+            lineWidth: 0.5,
+            lineColor: PDF_BRAND_COLORS_HEX.primary,
+          },
+        ],
+        margin: [0, 0, 0, 15],
+      },
+      ...tocItems,
+    ],
+  };
+};
+
+// ============================================================================
+// JSPDF IMPLEMENTATIONS (Original - kept for backward compatibility)
+// ============================================================================
 
 interface TocEntry {
   title: string;

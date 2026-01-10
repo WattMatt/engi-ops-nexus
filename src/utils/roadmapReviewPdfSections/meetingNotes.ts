@@ -1,15 +1,141 @@
 /**
  * Meeting Notes Section - Per-project notes areas with action items
+ * 
+ * MIGRATION STATUS: Phase 4 - pdfmake compatibility layer added
+ * - jsPDF: Full support (current implementation)
+ * - pdfmake: Content builders for meeting notes sections
  */
 import jsPDF from "jspdf";
+import type { Content, ContentTable } from "pdfmake/interfaces";
 import { 
   PDF_BRAND_COLORS, 
+  PDF_COLORS_HEX,
   PDF_TYPOGRAPHY, 
   PDF_LAYOUT,
   MEETING_NOTES_CONFIG,
   getContentDimensions 
 } from "../roadmapReviewPdfStyles";
-import { drawCard } from "./pageDecorations";
+import { drawCard, buildCardContent } from "./pageDecorations";
+
+// Alias for cleaner code
+const PDF_BRAND_COLORS_HEX = PDF_COLORS_HEX;
+
+// ============================================================================
+// PDFMAKE CONTENT BUILDERS
+// ============================================================================
+
+/**
+ * Build pdfmake meeting notes content
+ */
+export const buildMeetingNotesContent = (projectName: string): Content => {
+  const { discussionLines, decisionLines, actionItemRows } = MEETING_NOTES_CONFIG;
+
+  // Build discussion lines
+  const discussionContent: Content[] = Array(discussionLines).fill(null).map(() => ({
+    canvas: [{
+      type: 'line',
+      x1: 0, y1: 0,
+      x2: 400, y2: 0,
+      lineWidth: 0.2,
+      lineColor: PDF_BRAND_COLORS_HEX.gray,
+    }],
+    margin: [0, 6, 0, 0] as [number, number, number, number],
+  }));
+
+  // Build decision lines
+  const decisionContent: Content[] = Array(decisionLines).fill(null).map(() => ({
+    canvas: [{
+      type: 'line',
+      x1: 0, y1: 0,
+      x2: 400, y2: 0,
+      lineWidth: 0.2,
+      lineColor: PDF_BRAND_COLORS_HEX.gray,
+    }],
+    margin: [0, 6, 0, 0] as [number, number, number, number],
+  }));
+
+  // Build action items table
+  const actionTableBody: Content[][] = [
+    [
+      { text: 'Action', bold: true, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Owner', bold: true, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: 'Due Date', bold: true, fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+    ],
+    ...Array(actionItemRows).fill(null).map(() => [
+      { text: '☐', fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+      { text: '', fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+    ]),
+  ];
+
+  return buildCardContent({
+    stack: [
+      // Header
+      {
+        text: '📝 MEETING NOTES',
+        fontSize: PDF_TYPOGRAPHY.sizes.body,
+        bold: true,
+        color: '#FFFFFF',
+        fillColor: PDF_BRAND_COLORS_HEX.primary,
+        margin: [0, 0, 0, 8],
+      },
+      // Discussion Points
+      { text: 'Discussion Points:', bold: true, fontSize: PDF_TYPOGRAPHY.sizes.small, color: PDF_BRAND_COLORS_HEX.darkGray },
+      ...discussionContent,
+      // Decisions Made
+      { text: 'Decisions Made:', bold: true, fontSize: PDF_TYPOGRAPHY.sizes.small, color: PDF_BRAND_COLORS_HEX.darkGray, margin: [0, 8, 0, 0] },
+      ...decisionContent,
+      // Action Items
+      { text: 'Action Items:', bold: true, fontSize: PDF_TYPOGRAPHY.sizes.small, color: PDF_BRAND_COLORS_HEX.darkGray, margin: [0, 8, 0, 4] },
+      {
+        table: {
+          headerRows: 1,
+          widths: ['55%', '25%', '20%'],
+          body: actionTableBody,
+        },
+        layout: {
+          hLineColor: () => PDF_BRAND_COLORS_HEX.tableBorder,
+          vLineColor: () => PDF_BRAND_COLORS_HEX.tableBorder,
+          hLineWidth: () => 0.2,
+          vLineWidth: () => 0.2,
+        },
+      },
+      // Follow-up row
+      {
+        columns: [
+          { text: 'Follow-up Required: ☐ Yes ☐ No', fontSize: PDF_TYPOGRAPHY.sizes.small },
+          { text: 'Next Review: __________', fontSize: PDF_TYPOGRAPHY.sizes.small, alignment: 'right' },
+        ],
+        margin: [0, 8, 0, 0],
+      },
+    ],
+  }, { fillColor: '#FCFCFD', borderColor: PDF_BRAND_COLORS_HEX.primary });
+};
+
+/**
+ * Build compact meeting notes for pdfmake
+ */
+export const buildCompactMeetingNotesContent = (): Content => {
+  return buildCardContent({
+    stack: [
+      { text: 'Notes & Actions', bold: true, fontSize: PDF_TYPOGRAPHY.sizes.small, color: PDF_BRAND_COLORS_HEX.primary },
+      { text: 'Notes: _______________________________________', fontSize: PDF_TYPOGRAPHY.sizes.tiny, color: PDF_BRAND_COLORS_HEX.gray, margin: [0, 4, 0, 0] },
+      { text: '____________________________________________', fontSize: PDF_TYPOGRAPHY.sizes.tiny, color: PDF_BRAND_COLORS_HEX.gray, margin: [0, 4, 0, 0] },
+      {
+        columns: [
+          { text: 'Action: ____________', fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+          { text: 'Owner: ________', fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+          { text: 'Due: ______', fontSize: PDF_TYPOGRAPHY.sizes.tiny },
+        ],
+        margin: [0, 4, 0, 0],
+      },
+    ],
+  }, { fillColor: '#FCFCFD', borderColor: PDF_BRAND_COLORS_HEX.primaryLight });
+};
+
+// ============================================================================
+// JSPDF IMPLEMENTATIONS (Original - kept for backward compatibility)
+// ============================================================================
 
 /**
  * Draw a blank line for handwritten notes
