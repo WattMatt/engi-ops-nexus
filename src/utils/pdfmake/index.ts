@@ -98,6 +98,51 @@ export type {
   BenchmarkResult,
 } from './testing';
 
+// Image utilities
+export {
+  loadImageAsBase64,
+  fileToBase64,
+  processImage,
+  captureElement,
+  captureElementById,
+  captureMultipleElements,
+  createImageContent,
+  createCaptionedImage,
+  createImageGrid,
+  createBannerImage,
+  resizeImage,
+  compressImageToSize,
+  getImageDimensions,
+  captureRechartsChart,
+  buildChartContent,
+} from './imageUtils';
+export type {
+  ImageOptions,
+  ImageCaptureOptions,
+  ProcessedImage,
+  ImageGridOptions,
+} from './imageUtils';
+
+// Chart utilities
+export {
+  waitForCharts,
+  captureChart,
+  captureCharts,
+  captureChartsByPrefix,
+  buildSingleChartContent,
+  buildChartGridContent,
+  buildChartSectionContent,
+  COST_REPORT_CHARTS,
+  ROADMAP_CHARTS,
+  buildCostReportChartsSection,
+  buildRoadmapChartsSection,
+} from './chartUtils';
+export type {
+  ChartConfig,
+  CapturedChartData,
+  ChartSectionOptions,
+} from './chartUtils';
+
 // Re-export pdfmake types for convenience
 export type { 
   Content, 
