@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, Building2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Building2, ChevronDown, ChevronRight, Settings2 } from "lucide-react";
 
 interface GlobalContact {
   id: string;
@@ -24,23 +25,50 @@ interface GlobalContact {
   notes: string | null;
 }
 
-const CONTACT_TYPES = [
+// Default contact categories
+const DEFAULT_CONTACT_TYPES = [
+  { value: "supply_authority", label: "Supply Authority" },
   { value: "client", label: "Client" },
-  { value: "quantity_surveyor", label: "Quantity Surveyor" },
   { value: "architect", label: "Architect" },
+  { value: "mechanical", label: "Mechanical" },
+  { value: "fire", label: "Fire" },
+  { value: "structural", label: "Structural" },
+  { value: "civil", label: "Civil" },
+  { value: "wet_services", label: "Wet Services" },
+  { value: "tenant_coordinator", label: "Tenant Coordinator" },
+  { value: "safety", label: "Safety" },
+  { value: "landscaping", label: "Landscaping" },
+  { value: "quantity_surveyor", label: "Quantity Surveyor" },
   { value: "contractor", label: "Contractor" },
   { value: "engineer", label: "Engineer" },
   { value: "consultant", label: "Consultant" },
-  { value: "other", label: "Other" },
 ];
+
+const CUSTOM_CATEGORIES_KEY = "global_contacts_custom_categories";
 
 export function GlobalContactsManager() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<GlobalContact | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["client"]));
+  const [newCategoryLabel, setNewCategoryLabel] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Load custom categories from localStorage
+  const [customCategories, setCustomCategories] = useState<Array<{ value: string; label: string }>>(() => {
+    try {
+      const stored = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Combined categories
+  const allContactTypes = [...DEFAULT_CONTACT_TYPES, ...customCategories];
 
   const [formData, setFormData] = useState({
     contact_type: "client",
@@ -60,13 +88,93 @@ export function GlobalContactsManager() {
       const { data, error } = await supabase
         .from("global_contacts")
         .select("*")
-        .order("contact_type")
         .order("organization_name");
       
       if (error) throw error;
       return data as GlobalContact[];
     },
   });
+
+  // Group contacts by type
+  const groupedContacts = contacts?.reduce((acc, contact) => {
+    const type = contact.contact_type;
+    if (!acc[type]) {
+      acc[type] = [];
+    }
+    acc[type].push(contact);
+    return acc;
+  }, {} as Record<string, GlobalContact[]>) || {};
+
+  // Get categories that have contacts
+  const categoriesWithContacts = Object.keys(groupedContacts);
+  
+  // All categories to display (those with contacts + all defined types)
+  const allCategoriesToDisplay = [...new Set([
+    ...allContactTypes.map(t => t.value),
+    ...categoriesWithContacts
+  ])];
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategoryLabel.trim()) return;
+    
+    const value = newCategoryLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    
+    // Check if already exists
+    if (allContactTypes.some(t => t.value === value || t.label.toLowerCase() === newCategoryLabel.toLowerCase())) {
+      toast({
+        title: "Category exists",
+        description: "This category already exists",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newCategory = { value, label: newCategoryLabel.trim() };
+    const updated = [...customCategories, newCategory];
+    setCustomCategories(updated);
+    localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(updated));
+    
+    toast({
+      title: "Category added",
+      description: `"${newCategoryLabel}" has been added to the categories`,
+    });
+    
+    setNewCategoryLabel("");
+    setCategoryDialogOpen(false);
+  };
+
+  const handleDeleteCategory = (categoryValue: string) => {
+    const contactsInCategory = groupedContacts[categoryValue]?.length || 0;
+    if (contactsInCategory > 0) {
+      toast({
+        title: "Cannot delete",
+        description: `This category has ${contactsInCategory} contact(s). Move or delete them first.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updated = customCategories.filter(c => c.value !== categoryValue);
+    setCustomCategories(updated);
+    localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(updated));
+    
+    toast({
+      title: "Category removed",
+      description: "The category has been removed",
+    });
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -156,6 +264,9 @@ export function GlobalContactsManager() {
           title: "Success",
           description: "Contact added to library",
         });
+
+        // Expand the category the contact was added to
+        setExpandedCategories(prev => new Set([...prev, formData.contact_type]));
       }
 
       queryClient.invalidateQueries({ queryKey: ["global-contacts"] });
@@ -232,7 +343,11 @@ export function GlobalContactsManager() {
   };
 
   const getContactTypeLabel = (type: string) => {
-    return CONTACT_TYPES.find(t => t.value === type)?.label || type;
+    return allContactTypes.find(t => t.value === type)?.label || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const isCustomCategory = (categoryValue: string) => {
+    return customCategories.some(c => c.value === categoryValue);
   };
 
   if (isLoading) {
@@ -252,168 +367,240 @@ export function GlobalContactsManager() {
           <div>
             <CardTitle>Global Contacts Library</CardTitle>
             <CardDescription>
-              Manage your contacts library for quick selection across all projects
+              Manage your contacts library organized by category for quick selection across all projects
             </CardDescription>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Contact
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingContact ? "Edit Contact" : "Add New Contact"}</DialogTitle>
-                <DialogDescription>
-                  Add a contact to your global library for easy reuse across projects
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_type">Contact Type *</Label>
-                    <Select
-                      value={formData.contact_type}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, contact_type: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONTACT_TYPES.map(type => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="organization_name">Organization Name *</Label>
+          <div className="flex gap-2">
+            {/* Manage Categories Dialog */}
+            <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Categories
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Manage Categories</DialogTitle>
+                  <DialogDescription>
+                    Add custom categories to organize your contacts
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="flex gap-2">
                     <Input
-                      id="organization_name"
-                      value={formData.organization_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, organization_name: e.target.value }))}
-                      placeholder="ABC Company (Pty) Ltd"
-                      required
+                      placeholder="New category name..."
+                      value={newCategoryLabel}
+                      onChange={(e) => setNewCategoryLabel(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
                     />
+                    <Button onClick={handleAddCategory} disabled={!newCategoryLabel.trim()}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Organization Logo</Label>
-                  <div className="flex items-center gap-4">
-                    {formData.logo_url && (
-                      <img
-                        src={formData.logo_url}
-                        alt="Logo"
-                        className="h-16 w-auto object-contain border rounded p-2"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                        disabled={uploading}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        PNG or SVG recommended
-                      </p>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Default Categories</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {DEFAULT_CONTACT_TYPES.map(type => (
+                        <span
+                          key={type.value}
+                          className="px-2 py-1 bg-muted rounded-md text-sm"
+                        >
+                          {type.label}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                  {customCategories.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Custom Categories</Label>
+                      <div className="space-y-1">
+                        {customCategories.map(type => (
+                          <div
+                            key={type.value}
+                            className="flex items-center justify-between px-2 py-1 bg-muted rounded-md"
+                          >
+                            <span className="text-sm">{type.label}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleDeleteCategory(type.value)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Add Contact Dialog */}
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Contact
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingContact ? "Edit Contact" : "Add New Contact"}</DialogTitle>
+                  <DialogDescription>
+                    Add a contact to your global library for easy reuse across projects
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contact_type">Category *</Label>
+                      <Select
+                        value={formData.contact_type}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, contact_type: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allContactTypes.map(type => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="organization_name">Organization Name *</Label>
+                      <Input
+                        id="organization_name"
+                        value={formData.organization_name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, organization_name: e.target.value }))}
+                        placeholder="ABC Company (Pty) Ltd"
+                        required
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="contact_person_name">Contact Person</Label>
+                    <Label>Organization Logo</Label>
+                    <div className="flex items-center gap-4">
+                      {formData.logo_url && (
+                        <img
+                          src={formData.logo_url}
+                          alt="Logo"
+                          className="h-16 w-auto object-contain border rounded p-2"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          disabled={uploading}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PNG or SVG recommended
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contact_person_name">Contact Person</Label>
+                      <Input
+                        id="contact_person_name"
+                        value={formData.contact_person_name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, contact_person_name: e.target.value }))}
+                        placeholder="John Smith"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="contact@example.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
                     <Input
-                      id="contact_person_name"
-                      value={formData.contact_person_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, contact_person_name: e.target.value }))}
-                      placeholder="John Smith"
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="(012) 345 6789"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="address_line1">Address Line 1</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="contact@example.com"
+                      id="address_line1"
+                      value={formData.address_line1}
+                      onChange={(e) => setFormData(prev => ({ ...prev, address_line1: e.target.value }))}
+                      placeholder="123 Main Street"
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="(012) 345 6789"
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address_line2">Address Line 2</Label>
+                    <Input
+                      id="address_line2"
+                      value={formData.address_line2}
+                      onChange={(e) => setFormData(prev => ({ ...prev, address_line2: e.target.value }))}
+                      placeholder="City, Province, Postal Code"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="address_line1">Address Line 1</Label>
-                  <Input
-                    id="address_line1"
-                    value={formData.address_line1}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address_line1: e.target.value }))}
-                    placeholder="123 Main Street"
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Additional information..."
+                      rows={3}
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="address_line2">Address Line 2</Label>
-                  <Input
-                    id="address_line2"
-                    value={formData.address_line2}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address_line2: e.target.value }))}
-                    placeholder="City, Province, Postal Code"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Additional information..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      editingContact ? "Update Contact" : "Add Contact"
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={loading}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        editingContact ? "Update Contact" : "Add Contact"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2">
         {!contacts || contacts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -421,54 +608,103 @@ export function GlobalContactsManager() {
             <p className="text-sm">Add contacts to quickly assign them to projects</p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {contacts.map((contact) => (
-              <div key={contact.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {contact.logo_url && (
-                      <img
-                        src={contact.logo_url}
-                        alt={contact.organization_name}
-                        className="h-10 w-auto object-contain"
-                      />
-                    )}
-                    <div>
-                      <h4 className="font-semibold">{contact.organization_name}</h4>
-                      <p className="text-sm text-muted-foreground">{getContactTypeLabel(contact.contact_type)}</p>
+          <div className="space-y-2">
+            {allContactTypes.map((type) => {
+              const categoryContacts = groupedContacts[type.value] || [];
+              const isExpanded = expandedCategories.has(type.value);
+              const hasContacts = categoryContacts.length > 0;
+
+              return (
+                <Collapsible
+                  key={type.value}
+                  open={isExpanded}
+                  onOpenChange={() => toggleCategory(type.value)}
+                >
+                  <CollapsibleTrigger asChild>
+                    <div className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${hasContacts ? 'bg-muted hover:bg-muted/80' : 'bg-muted/30 hover:bg-muted/50'}`}>
+                      <div className="flex items-center gap-2">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                        <span className="font-medium">{type.label}</span>
+                        <span className="text-sm text-muted-foreground">
+                          ({categoryContacts.length})
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFormData(prev => ({ ...prev, contact_type: type.value }));
+                          setDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditDialog(contact)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(contact.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="space-y-1 text-sm">
-                  {contact.contact_person_name && (
-                    <p className="text-muted-foreground">Contact: {contact.contact_person_name}</p>
-                  )}
-                  {contact.email && (
-                    <p className="text-muted-foreground">Email: {contact.email}</p>
-                  )}
-                  {contact.phone && (
-                    <p className="text-muted-foreground">Phone: {contact.phone}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {hasContacts ? (
+                      <div className="grid gap-3 md:grid-cols-2 p-3 pt-2">
+                        {categoryContacts.map((contact) => (
+                          <div key={contact.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                {contact.logo_url && (
+                                  <img
+                                    src={contact.logo_url}
+                                    alt={contact.organization_name}
+                                    className="h-10 w-auto object-contain"
+                                  />
+                                )}
+                                <div>
+                                  <h4 className="font-semibold">{contact.organization_name}</h4>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEditDialog(contact)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDelete(contact.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-1 text-sm">
+                              {contact.contact_person_name && (
+                                <p className="text-muted-foreground">Contact: {contact.contact_person_name}</p>
+                              )}
+                              {contact.email && (
+                                <p className="text-muted-foreground">Email: {contact.email}</p>
+                              )}
+                              {contact.phone && (
+                                <p className="text-muted-foreground">Phone: {contact.phone}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No contacts in this category
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })}
           </div>
         )}
       </CardContent>
