@@ -10,7 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, Building2, ChevronDown, ChevronRight, Settings2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Building2, ChevronDown, ChevronRight, Settings2, FolderOpen } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface GlobalContact {
   id: string;
@@ -92,6 +94,47 @@ export function GlobalContactsManager() {
       
       if (error) throw error;
       return data as GlobalContact[];
+    },
+  });
+
+  // Fetch project usage for each global contact
+  const { data: contactProjectUsage } = useQuery({
+    queryKey: ["global-contacts-project-usage"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_contacts")
+        .select(`
+          global_contact_id,
+          project_id,
+          projects:project_id (
+            id,
+            name,
+            project_number
+          )
+        `)
+        .not("global_contact_id", "is", null);
+      
+      if (error) throw error;
+      
+      // Group by global_contact_id
+      const usage: Record<string, Array<{ id: string; name: string; project_number: string | null }>> = {};
+      data?.forEach((item: any) => {
+        if (item.global_contact_id && item.projects) {
+          if (!usage[item.global_contact_id]) {
+            usage[item.global_contact_id] = [];
+          }
+          // Avoid duplicates
+          if (!usage[item.global_contact_id].some(p => p.id === item.projects.id)) {
+            usage[item.global_contact_id].push({
+              id: item.projects.id,
+              name: item.projects.name,
+              project_number: item.projects.project_number,
+            });
+          }
+        }
+      });
+      
+      return usage;
     },
   });
 
@@ -698,7 +741,11 @@ export function GlobalContactsManager() {
                   <CollapsibleContent>
                     {hasContacts ? (
                       <div className="grid gap-3 md:grid-cols-2 p-3 pt-2">
-                        {categoryContacts.map((contact) => (
+                        {categoryContacts.map((contact) => {
+                          const projectsUsingContact = contactProjectUsage?.[contact.id] || [];
+                          const projectCount = projectsUsingContact.length;
+                          
+                          return (
                           <div key={contact.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-3">
@@ -742,8 +789,40 @@ export function GlobalContactsManager() {
                                 <p className="text-muted-foreground">Phone: {contact.phone}</p>
                               )}
                             </div>
+
+                            {/* Projects using this contact */}
+                            {projectCount > 0 && (
+                              <div className="mt-3 pt-3 border-t">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-2 cursor-help">
+                                      <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <span className="text-xs text-muted-foreground">
+                                        Used in {projectCount} project{projectCount !== 1 ? 's' : ''}
+                                      </span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" align="start" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-sm">Projects using this contact:</p>
+                                      <ul className="text-xs space-y-0.5">
+                                        {projectsUsingContact.map((project) => (
+                                          <li key={project.id} className="flex items-center gap-1">
+                                            <span className="text-muted-foreground">
+                                              {project.project_number ? `${project.project_number} - ` : ''}
+                                            </span>
+                                            <span>{project.name}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            )}
                           </div>
-                        ))}
+                        );
+                        })}
                       </div>
                     ) : (
                       <div className="p-4 text-center text-sm text-muted-foreground">
