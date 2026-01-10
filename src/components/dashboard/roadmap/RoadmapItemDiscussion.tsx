@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
-import { Send, Trash2, Loader2 } from "lucide-react";
+import { Send, Trash2, Loader2, Pencil, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useRoadmapComments } from "@/hooks/useRoadmapComments";
 
@@ -17,6 +17,8 @@ interface RoadmapItemDiscussionProps {
 
 export const RoadmapItemDiscussion = ({ itemId, itemTitle }: RoadmapItemDiscussionProps) => {
   const [newComment, setNewComment] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
   const queryClient = useQueryClient();
   
   // Get current user
@@ -89,6 +91,41 @@ export const RoadmapItemDiscussion = ({ itemId, itemTitle }: RoadmapItemDiscussi
     },
   });
 
+  const updateComment = useMutation({
+    mutationFn: async ({ commentId, content }: { commentId: string; content: string }) => {
+      const { error } = await supabase
+        .from("roadmap_item_comments")
+        .update({ content, updated_at: new Date().toISOString() })
+        .eq("id", commentId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditingCommentId(null);
+      setEditContent("");
+      queryClient.invalidateQueries({ queryKey: ["roadmap-comments", itemId] });
+      toast.success("Comment updated");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update comment");
+    },
+  });
+
+  const handleStartEdit = (commentId: string, content: string) => {
+    setEditingCommentId(commentId);
+    setEditContent(content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditContent("");
+  };
+
+  const handleSaveEdit = () => {
+    if (!editContent.trim() || !editingCommentId) return;
+    updateComment.mutate({ commentId: editingCommentId, content: editContent.trim() });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
@@ -140,21 +177,69 @@ export const RoadmapItemDiscussion = ({ itemId, itemTitle }: RoadmapItemDiscussi
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                      {comment.updated_at !== comment.created_at && " (edited)"}
                     </span>
-                    {currentUser?.id === comment.user_id && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-                        onClick={() => deleteComment.mutate(comment.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                    {currentUser?.id === comment.user_id && editingCommentId !== comment.id && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleStartEdit(comment.id, comment.content)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+                          onClick={() => deleteComment.mutate(comment.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap">
-                    {comment.content}
-                  </p>
+                  {editingCommentId === comment.id ? (
+                    <div className="mt-1 space-y-2">
+                      <Textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="min-h-[60px] resize-none text-sm"
+                        autoFocus
+                      />
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2"
+                          onClick={handleCancelEdit}
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={handleSaveEdit}
+                          disabled={!editContent.trim() || updateComment.isPending}
+                        >
+                          {updateComment.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Check className="h-3 w-3 mr-1" />
+                              Save
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap">
+                      {comment.content}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
