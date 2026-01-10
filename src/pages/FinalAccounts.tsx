@@ -7,8 +7,8 @@ import { FinalAccountBillsManager } from "@/components/final-accounts/FinalAccou
 import { BOQDiscrepanciesSummary } from "@/components/final-accounts/BOQDiscrepanciesSummary";
 import { PrimeCostManager } from "@/components/final-accounts/PrimeCostManager";
 import { ReferenceDrawingsManager } from "@/components/final-accounts/ReferenceDrawingsManager";
-import { ProcurementTracker } from "@/components/procurement/ProcurementTracker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 const FinalAccounts = () => {
   const projectId = localStorage.getItem("selectedProjectId");
   const queryClient = useQueryClient();
@@ -105,8 +105,7 @@ const FinalAccounts = () => {
       <Tabs defaultValue="bills" className="space-y-4">
         <TabsList>
           <TabsTrigger value="bills">Bills & Sections</TabsTrigger>
-          <TabsTrigger value="prime-costs">Prime Costs</TabsTrigger>
-          <TabsTrigger value="procurement">Procurement</TabsTrigger>
+          <TabsTrigger value="prime-costs">Prime Costs & Procurement</TabsTrigger>
           <TabsTrigger value="discrepancies">BOQ Discrepancies</TabsTrigger>
           <TabsTrigger value="drawings">Reference Drawings</TabsTrigger>
           <TabsTrigger value="overview">Account Details</TabsTrigger>
@@ -116,9 +115,6 @@ const FinalAccounts = () => {
         </TabsContent>
         <TabsContent value="prime-costs" className="space-y-4">
           <PrimeCostManager accountId={account.id} projectId={projectId || ""} />
-        </TabsContent>
-        <TabsContent value="procurement" className="space-y-4">
-          <ProcurementTracker projectId={projectId || ""} />
         </TabsContent>
         <TabsContent value="discrepancies" className="space-y-4">
           <BOQDiscrepanciesSummary accountId={account.id} />
