@@ -1,10 +1,27 @@
 /**
  * PDF Standards Helper
  * 
- * MIGRATED TO PDFMAKE: This file now provides pdfmake-compatible utilities.
- * Legacy jsPDF functions are kept for backward compatibility.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ⚠️  MIGRATION STATUS: MIGRATED TO PDFMAKE
+ * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * @see src/utils/pdfmake/documentBuilder.ts for the new API
+ * This file provides standardized PDF utilities for both pdfmake and jsPDF.
+ * 
+ * RECOMMENDED USAGE (pdfmake):
+ * ```typescript
+ * import { createStandardDocument, createHeaderContent, createStyledCard } from '@/utils/pdfStandardsHelper';
+ * 
+ * const doc = createStandardDocument('Report Title', 'Project Name');
+ * doc.add(createStyledCard(content, { indicatorColor: '#22c55e' }));
+ * ```
+ * 
+ * LEGACY FUNCTIONS (deprecated):
+ * - addStandardHeader() → use .withStandardHeader()
+ * - addStandardFooter() → use .withStandardFooter()
+ * - addAllHeadersAndFooters() → use .withStandardHeader().withStandardFooter()
+ * - drawStyledCard() → use createStyledCard()
+ * 
+ * @see src/utils/pdfmake/documentBuilder.ts for the document builder API
  */
 
 import type { Content, Margins } from 'pdfmake/interfaces';

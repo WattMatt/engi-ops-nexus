@@ -1,8 +1,25 @@
 /**
  * PDF Style Manager
  * 
- * MIGRATED TO PDFMAKE: This file now provides pdfmake-compatible style management.
- * The PDFStyleManager class works with both jsPDF (legacy) and pdfmake (new).
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ⚠️  MIGRATION STATUS: MIGRATED TO PDFMAKE
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 
+ * This file provides style management for both pdfmake (new) and jsPDF (legacy).
+ * 
+ * RECOMMENDED USAGE (pdfmake):
+ * ```typescript
+ * import { PDF_COLORS, FONT_SIZES, defaultStyles } from '@/utils/pdfmake';
+ * // Or use PDFStyleManager for custom styling
+ * const styleManager = new PDFStyleManager(settings);
+ * const pdfmakeStyles = styleManager.getPdfmakeStyles();
+ * ```
+ * 
+ * LEGACY USAGE (jsPDF - deprecated):
+ * ```typescript
+ * const styleManager = new PDFStyleManager(settings);
+ * styleManager.applyHeading(doc, 1, 'Title', x, y); // deprecated
+ * ```
  * 
  * @see src/utils/pdfmake/styles.ts for the new styling system
  */
