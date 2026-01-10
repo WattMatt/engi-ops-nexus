@@ -254,8 +254,7 @@ export function BOQExcelImportDialog({
         !unitRaw &&
         quantity === 0 &&
         supplyRate === 0 &&
-        installRate === 0 &&
-        rateFromColumn === 0
+        installRate === 0
       );
       
       if (isSectionHeader) {
