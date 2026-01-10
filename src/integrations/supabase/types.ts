@@ -7823,6 +7823,241 @@ export type Database = {
           },
         ]
       }
+      procurement_audit_log: {
+        Row: {
+          action_type: string
+          change_details: Json | null
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_status: string | null
+          old_status: string | null
+          procurement_item_id: string
+        }
+        Insert: {
+          action_type: string
+          change_details?: Json | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_status?: string | null
+          old_status?: string | null
+          procurement_item_id: string
+        }
+        Update: {
+          action_type?: string
+          change_details?: Json | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_status?: string | null
+          old_status?: string | null
+          procurement_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_audit_log_procurement_item_id_fkey"
+            columns: ["procurement_item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_items: {
+        Row: {
+          actual_cost: number | null
+          approval_notes: string | null
+          approval_requested_at: string | null
+          approved_at: string | null
+          approved_budget: number | null
+          approved_by: string | null
+          budget_check_passed: boolean | null
+          budget_variance: number | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          delivered_at: string | null
+          description: string | null
+          estimated_cost: number | null
+          expected_delivery_date: string | null
+          id: string
+          lead_time_days: number | null
+          name: string
+          notes: string | null
+          ordered_at: string | null
+          po_number: string | null
+          priority: string | null
+          project_id: string
+          quantity: number | null
+          quote_received_at: string | null
+          quote_requested_at: string | null
+          quoted_amount: number | null
+          roadmap_item_id: string | null
+          source_id: string | null
+          source_reference: string | null
+          source_type: string
+          status: string
+          submitted_by: string | null
+          supplier_contact: string | null
+          supplier_email: string | null
+          supplier_name: string | null
+          supplier_phone: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          approval_notes?: string | null
+          approval_requested_at?: string | null
+          approved_at?: string | null
+          approved_budget?: number | null
+          approved_by?: string | null
+          budget_check_passed?: boolean | null
+          budget_variance?: number | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          description?: string | null
+          estimated_cost?: number | null
+          expected_delivery_date?: string | null
+          id?: string
+          lead_time_days?: number | null
+          name: string
+          notes?: string | null
+          ordered_at?: string | null
+          po_number?: string | null
+          priority?: string | null
+          project_id: string
+          quantity?: number | null
+          quote_received_at?: string | null
+          quote_requested_at?: string | null
+          quoted_amount?: number | null
+          roadmap_item_id?: string | null
+          source_id?: string | null
+          source_reference?: string | null
+          source_type: string
+          status?: string
+          submitted_by?: string | null
+          supplier_contact?: string | null
+          supplier_email?: string | null
+          supplier_name?: string | null
+          supplier_phone?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_cost?: number | null
+          approval_notes?: string | null
+          approval_requested_at?: string | null
+          approved_at?: string | null
+          approved_budget?: number | null
+          approved_by?: string | null
+          budget_check_passed?: boolean | null
+          budget_variance?: number | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          description?: string | null
+          estimated_cost?: number | null
+          expected_delivery_date?: string | null
+          id?: string
+          lead_time_days?: number | null
+          name?: string
+          notes?: string | null
+          ordered_at?: string | null
+          po_number?: string | null
+          priority?: string | null
+          project_id?: string
+          quantity?: number | null
+          quote_received_at?: string | null
+          quote_requested_at?: string | null
+          quoted_amount?: number | null
+          roadmap_item_id?: string | null
+          source_id?: string | null
+          source_reference?: string | null
+          source_type?: string
+          status?: string
+          submitted_by?: string | null
+          supplier_contact?: string | null
+          supplier_email?: string | null
+          supplier_name?: string | null
+          supplier_phone?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_items_roadmap_item_id_fkey"
+            columns: ["roadmap_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_roadmap_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_quotes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_selected: boolean | null
+          lead_time_days: number | null
+          notes: string | null
+          procurement_item_id: string
+          quote_valid_until: string | null
+          quoted_amount: number
+          supplier_email: string | null
+          supplier_name: string
+          supplier_phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_selected?: boolean | null
+          lead_time_days?: number | null
+          notes?: string | null
+          procurement_item_id: string
+          quote_valid_until?: string | null
+          quoted_amount: number
+          supplier_email?: string | null
+          supplier_name: string
+          supplier_phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_selected?: boolean | null
+          lead_time_days?: number | null
+          notes?: string | null
+          procurement_item_id?: string
+          quote_valid_until?: string | null
+          quoted_amount?: number
+          supplier_email?: string | null
+          supplier_name?: string
+          supplier_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_quotes_procurement_item_id_fkey"
+            columns: ["procurement_item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
