@@ -44,6 +44,7 @@ import AdminAIReview from "./pages/AdminAIReview";
 import AdminRoadmapReview from "./pages/AdminRoadmapReview";
 import BulkServices from "./pages/BulkServices";
 import MasterLibrary from "./pages/MasterLibrary";
+import ContactLibrary from "./pages/ContactLibrary";
 import ProjectRoadmap from "./pages/ProjectRoadmap";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
@@ -137,6 +138,7 @@ const App = () => (
             <Route path="projects-report/handover" element={<HandoverDocuments />} />
             <Route path="bulk-services" element={<BulkServices />} />
             <Route path="master-library" element={<MasterLibrary />} />
+            <Route path="contact-library" element={<ContactLibrary />} />
             <Route path="roadmap" element={<ProjectRoadmap />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
