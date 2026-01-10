@@ -1,15 +1,188 @@
+/**
+ * Full Roadmap Page - Detailed project roadmap items
+ * 
+ * MIGRATION STATUS: Phase 4 - pdfmake compatibility layer added
+ * - jsPDF: Full support with autoTable (current implementation)
+ * - pdfmake: Content builders for roadmap tables
+ */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import type { Content, ContentTable, TableCell } from "pdfmake/interfaces";
 import { format } from "date-fns";
 import { EnhancedProjectSummary, getDueDateStatus } from "../roadmapReviewCalculations";
 import { 
   PDF_BRAND_COLORS, 
+  PDF_COLORS_HEX,
   PDF_LAYOUT, 
   PDF_TYPOGRAPHY,
   getContentDimensions,
   getRiskColor
 } from "../roadmapReviewPdfStyles";
-import { addPageHeader, checkPageBreak, drawCard } from "./pageDecorations";
+import { addPageHeader, checkPageBreak, drawCard, buildCardContent, buildBadgeContent } from "./pageDecorations";
+
+// Alias for cleaner code
+const PDF_BRAND_COLORS_HEX = PDF_COLORS_HEX;
+
+// ============================================================================
+// PDFMAKE CONTENT BUILDERS
+// ============================================================================
+
+interface RoadmapItem {
+  id: string;
+  project_id: string;
+  title: string;
+  description?: string | null;
+  due_date?: string | null;
+  priority?: string | null;
+  is_completed: boolean;
+  parent_id?: string | null;
+}
+
+/**
+ * Build pdfmake roadmap items table content
+ */
+export const buildRoadmapTableContent = (
+  items: RoadmapItem[],
+  isPending: boolean = true
+): Content => {
+  const headerColor = isPending ? PDF_BRAND_COLORS_HEX.primary : PDF_BRAND_COLORS_HEX.success;
+  
+  const tableBody: TableCell[][] = [
+    // Header row
+    [
+      { text: 'Task', bold: true, color: '#FFFFFF', fillColor: headerColor, fontSize: PDF_TYPOGRAPHY.sizes.small },
+      { text: 'Due Date', bold: true, color: '#FFFFFF', fillColor: headerColor, fontSize: PDF_TYPOGRAPHY.sizes.small, alignment: 'center' },
+      { text: 'Priority', bold: true, color: '#FFFFFF', fillColor: headerColor, fontSize: PDF_TYPOGRAPHY.sizes.small, alignment: 'center' },
+      { text: 'Status', bold: true, color: '#FFFFFF', fillColor: headerColor, fontSize: PDF_TYPOGRAPHY.sizes.small, alignment: 'center' },
+    ],
+    // Data rows
+    ...items.map((item, index) => {
+      const dueStatus = getDueDateStatus(item.due_date || null);
+      const statusLabel = item.is_completed ? '✓ Done' : 
+        dueStatus === 'overdue' ? 'OVERDUE' : 
+        dueStatus === 'soon' ? 'Due Soon' : 'Pending';
+      
+      const statusColor = item.is_completed ? PDF_BRAND_COLORS_HEX.success :
+        dueStatus === 'overdue' ? PDF_BRAND_COLORS_HEX.danger :
+        dueStatus === 'soon' ? PDF_BRAND_COLORS_HEX.warning : PDF_BRAND_COLORS_HEX.text;
+
+      const rowFill = index % 2 === 0 ? PDF_BRAND_COLORS_HEX.lightGray : '#FFFFFF';
+
+      return [
+        { 
+          text: item.title.length > 45 ? item.title.substring(0, 42) + '...' : item.title, 
+          fontSize: PDF_TYPOGRAPHY.sizes.tiny,
+          fillColor: rowFill,
+        },
+        { 
+          text: item.due_date ? format(new Date(item.due_date), 'MMM d, yyyy') : '-', 
+          fontSize: PDF_TYPOGRAPHY.sizes.tiny, 
+          alignment: 'center' as const,
+          fillColor: rowFill,
+        },
+        { 
+          text: (item.priority || 'Normal').charAt(0).toUpperCase() + (item.priority || 'normal').slice(1), 
+          fontSize: PDF_TYPOGRAPHY.sizes.tiny, 
+          alignment: 'center' as const,
+          fillColor: rowFill,
+        },
+        { 
+          text: statusLabel, 
+          fontSize: PDF_TYPOGRAPHY.sizes.tiny, 
+          alignment: 'center' as const,
+          color: statusColor,
+          bold: dueStatus === 'overdue',
+          fillColor: rowFill,
+        },
+      ];
+    }),
+  ];
+
+  return {
+    table: {
+      headerRows: 1,
+      widths: ['45%', '20%', '15%', '20%'],
+      body: tableBody,
+    },
+    layout: {
+      hLineColor: () => PDF_BRAND_COLORS_HEX.tableBorder,
+      vLineColor: () => PDF_BRAND_COLORS_HEX.tableBorder,
+      hLineWidth: () => 0.3,
+      vLineWidth: () => 0.3,
+      paddingLeft: () => 4,
+      paddingRight: () => 4,
+      paddingTop: () => 3,
+      paddingBottom: () => 3,
+    },
+  };
+};
+
+/**
+ * Build pdfmake full roadmap page content
+ */
+export const buildFullRoadmapPageContent = (
+  project: EnhancedProjectSummary,
+  allItems: RoadmapItem[]
+): Content => {
+  const projectItems = allItems.filter(item => item.project_id === project.projectId);
+  const pendingItems = projectItems.filter(item => !item.is_completed);
+  const completedItems = projectItems.filter(item => item.is_completed);
+
+  const healthColor = project.healthScore >= 70 ? PDF_BRAND_COLORS_HEX.success : 
+    project.healthScore >= 40 ? PDF_BRAND_COLORS_HEX.warning : PDF_BRAND_COLORS_HEX.danger;
+
+  const sections: Content[] = [
+    // Project header
+    buildCardContent({
+      columns: [
+        {
+          stack: [
+            { text: project.projectName, fontSize: PDF_TYPOGRAPHY.sizes.h2, bold: true, color: PDF_BRAND_COLORS_HEX.primary },
+            { 
+              text: `Total Items: ${projectItems.length}  |  Completed: ${project.completedItems}  |  Progress: ${project.progress}%  |  Overdue: ${project.overdueCount}`, 
+              fontSize: PDF_TYPOGRAPHY.sizes.small, 
+              color: PDF_BRAND_COLORS_HEX.darkGray,
+              margin: [0, 4, 0, 0],
+            },
+          ],
+        },
+        buildBadgeContent(`${project.healthScore}%`, healthColor),
+      ],
+    }),
+  ];
+
+  // Pending items section
+  if (pendingItems.length > 0) {
+    sections.push(
+      { text: `Pending Items (${pendingItems.length})`, fontSize: PDF_TYPOGRAPHY.sizes.h3, bold: true, color: PDF_BRAND_COLORS_HEX.primary, margin: [0, 12, 0, 6] },
+      buildRoadmapTableContent(pendingItems, true)
+    );
+  }
+
+  // Completed items section
+  if (completedItems.length > 0) {
+    sections.push(
+      { text: `Completed Items (${completedItems.length})`, fontSize: PDF_TYPOGRAPHY.sizes.h3, bold: true, color: PDF_BRAND_COLORS_HEX.success, margin: [0, 12, 0, 6] },
+      buildRoadmapTableContent(completedItems.slice(0, 15), false)
+    );
+    
+    if (completedItems.length > 15) {
+      sections.push({
+        text: `+ ${completedItems.length - 15} more completed items`,
+        fontSize: PDF_TYPOGRAPHY.sizes.tiny,
+        italics: true,
+        color: PDF_BRAND_COLORS_HEX.gray,
+        margin: [0, 4, 0, 0],
+      });
+    }
+  }
+
+  return { stack: sections };
+};
+
+// ============================================================================
+// JSPDF IMPLEMENTATIONS (Original - kept for backward compatibility)
+// ============================================================================
 
 interface RoadmapItem {
   id: string;

@@ -1,14 +1,193 @@
 /**
  * PDF Page Decorations - Headers, Footers, and Branding Elements
  * Implements consistent margins, alignment, and brand compliance
+ * 
+ * MIGRATION STATUS: Phase 4 - pdfmake compatibility layer added
+ * - jsPDF: Full support (current implementation)
+ * - pdfmake: Content builder helpers available
  */
 import jsPDF from "jspdf";
+import type { Content, ContentText, ContentColumns, ContentCanvas } from "pdfmake/interfaces";
 import { 
   PDF_BRAND_COLORS, 
+  PDF_COLORS_HEX,
   PDF_TYPOGRAPHY, 
   PDF_LAYOUT,
   getContentDimensions 
 } from "../roadmapReviewPdfStyles";
+
+// Alias for cleaner code
+const PDF_BRAND_COLORS_HEX = PDF_COLORS_HEX;
+
+// ============================================================================
+// PDFMAKE CONTENT BUILDERS
+// ============================================================================
+
+/**
+ * Build pdfmake page header content
+ */
+export const buildPageHeaderContent = (
+  sectionTitle: string,
+  companyName?: string
+): Content => {
+  return {
+    columns: [
+      {
+        text: companyName || 'Roadmap Review',
+        style: 'headerCompany',
+        color: '#FFFFFF',
+        bold: true,
+        fontSize: PDF_TYPOGRAPHY.sizes.h3,
+      },
+      {
+        text: sectionTitle,
+        style: 'headerSection',
+        color: '#FFFFFF',
+        alignment: 'right',
+        fontSize: PDF_TYPOGRAPHY.sizes.small,
+      },
+    ],
+    margin: [PDF_LAYOUT.margins.left, 5, PDF_LAYOUT.margins.right, 5],
+  };
+};
+
+/**
+ * Build pdfmake page footer content
+ */
+export const buildPageFooterContent = (
+  currentPage: number,
+  pageCount: number,
+  generationDate: string,
+  confidential: boolean = true
+): Content => {
+  return {
+    columns: [
+      {
+        text: confidential ? 'CONFIDENTIAL - For Internal Use Only' : '',
+        fontSize: PDF_TYPOGRAPHY.sizes.tiny,
+        color: PDF_BRAND_COLORS_HEX.gray,
+        italics: true,
+      },
+      {
+        text: `Generated: ${generationDate}`,
+        fontSize: PDF_TYPOGRAPHY.sizes.tiny,
+        color: PDF_BRAND_COLORS_HEX.gray,
+        alignment: 'center',
+      },
+      {
+        text: `Page ${currentPage} of ${pageCount}`,
+        fontSize: PDF_TYPOGRAPHY.sizes.tiny,
+        color: PDF_BRAND_COLORS_HEX.gray,
+        alignment: 'right',
+      },
+    ],
+    margin: [PDF_LAYOUT.margins.left, 0, PDF_LAYOUT.margins.right, 5],
+  };
+};
+
+/**
+ * Build pdfmake card container
+ */
+export const buildCardContent = (
+  content: Content,
+  options?: {
+    fillColor?: string;
+    borderColor?: string;
+    margin?: [number, number, number, number];
+  }
+): Content => {
+  const {
+    fillColor = '#FFFFFF',
+    borderColor = PDF_BRAND_COLORS_HEX.tableBorder,
+    margin = [0, 4, 0, 4],
+  } = options || {};
+
+  return {
+    table: {
+      widths: ['*'],
+      body: [[content]],
+    },
+    layout: {
+      hLineColor: () => borderColor,
+      vLineColor: () => borderColor,
+      hLineWidth: () => 0.5,
+      vLineWidth: () => 0.5,
+      fillColor: () => fillColor,
+      paddingLeft: () => 8,
+      paddingRight: () => 8,
+      paddingTop: () => 6,
+      paddingBottom: () => 6,
+    },
+    margin,
+  };
+};
+
+/**
+ * Build pdfmake badge content
+ */
+export const buildBadgeContent = (
+  text: string,
+  bgColor: string,
+  textColor: string = '#FFFFFF'
+): Content => {
+  return {
+    table: {
+      body: [[{ text, color: textColor, fontSize: PDF_TYPOGRAPHY.sizes.tiny, bold: true }]],
+    },
+    layout: {
+      hLineWidth: () => 0,
+      vLineWidth: () => 0,
+      fillColor: () => bgColor,
+      paddingLeft: () => 4,
+      paddingRight: () => 4,
+      paddingTop: () => 2,
+      paddingBottom: () => 2,
+    },
+  };
+};
+
+/**
+ * Build pdfmake progress bar content
+ */
+export const buildProgressBarContent = (
+  progress: number,
+  width: number = 100
+): Content => {
+  const clampedProgress = Math.max(0, Math.min(100, progress));
+  let progressColor = PDF_BRAND_COLORS_HEX.danger;
+  if (clampedProgress >= 75) progressColor = PDF_BRAND_COLORS_HEX.success;
+  else if (clampedProgress >= 50) progressColor = PDF_BRAND_COLORS_HEX.primaryLight;
+  else if (clampedProgress >= 25) progressColor = PDF_BRAND_COLORS_HEX.warning;
+
+  return {
+    canvas: [
+      // Background bar
+      {
+        type: 'rect',
+        x: 0,
+        y: 0,
+        w: width,
+        h: 6,
+        r: 3,
+        color: PDF_BRAND_COLORS_HEX.lightGray,
+      },
+      // Progress fill
+      {
+        type: 'rect',
+        x: 0,
+        y: 0,
+        w: (clampedProgress / 100) * width,
+        h: 6,
+        r: 3,
+        color: progressColor,
+      },
+    ],
+  };
+};
+
+// ============================================================================
+// JSPDF IMPLEMENTATIONS (Original)
+// ============================================================================
 
 /**
  * Add branded header to a page with proper logo sizing and alignment
