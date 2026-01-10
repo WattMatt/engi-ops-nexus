@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -26,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,7 +44,7 @@ import {
   FileText,
   Truck,
   AlertCircle,
-  DollarSign,
+  Download,
 } from "lucide-react";
 
 interface ProcurementTrackerProps {
@@ -65,6 +68,7 @@ interface ProcurementItem {
   quantity: number;
   unit: string;
   source_type: string;
+  source_id: string | null;
   source_reference: string | null;
   supplier_name: string | null;
   estimated_cost: number;
@@ -110,6 +114,7 @@ export function ProcurementTracker({ projectId }: ProcurementTrackerProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ProcurementItem | null>(null);
 
   // Fetch procurement items
@@ -232,10 +237,16 @@ export function ProcurementTracker({ projectId }: ProcurementTrackerProps) {
             <Package className="h-5 w-5" />
             Procurement Schedule
           </CardTitle>
-          <Button size="sm" onClick={() => setAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Item
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+              <Download className="h-4 w-4 mr-2" />
+              Import from Prime Costs
+            </Button>
+            <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filters */}
@@ -378,6 +389,14 @@ export function ProcurementTracker({ projectId }: ProcurementTrackerProps) {
         projectId={projectId}
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
+      />
+
+      {/* Import from Prime Costs Dialog */}
+      <ImportPrimeCostsDialog
+        projectId={projectId}
+        existingSourceIds={items.filter(i => i.source_type === 'prime_cost').map(i => i.source_id).filter(Boolean) as string[]}
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
       />
 
       {/* Item Detail Dialog */}
@@ -646,6 +665,283 @@ function ProcurementItemDetailDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Import from Prime Costs Dialog
+interface PrimeCostItem {
+  id: string;
+  item_code: string | null;
+  description: string;
+  unit: string | null;
+  prime_cost_amount: number | null;
+  bill_name: string;
+}
+
+function ImportPrimeCostsDialog({
+  projectId,
+  existingSourceIds,
+  open,
+  onOpenChange,
+}: {
+  projectId: string;
+  existingSourceIds: string[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Fetch Prime Cost items from BOQ
+  const { data: primeCostItems = [], isLoading } = useQuery({
+    queryKey: ["prime-cost-items-for-import", projectId],
+    queryFn: async () => {
+      // Get the project's BOQ
+      const { data: boq } = await supabase
+        .from("project_boqs")
+        .select("id")
+        .eq("project_id", projectId)
+        .maybeSingle();
+
+      if (!boq) return [];
+
+      // Get prime cost items from BOQ
+      const { data, error } = await supabase
+        .from("boq_items")
+        .select(`
+          id,
+          item_code,
+          description,
+          unit,
+          prime_cost_amount,
+          section:boq_project_sections!inner(
+            bill:boq_bills!inner(
+              bill_name,
+              project_boq_id
+            )
+          )
+        `)
+        .eq("item_type", "prime_cost")
+        .eq("section.bill.project_boq_id", boq.id);
+
+      if (error) throw error;
+
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        item_code: item.item_code,
+        description: item.description,
+        unit: item.unit,
+        prime_cost_amount: item.prime_cost_amount,
+        bill_name: item.section?.bill?.bill_name || "Unknown Bill",
+      })) as PrimeCostItem[];
+    },
+    enabled: open,
+  });
+
+  // Filter out already imported items
+  const availableItems = primeCostItems.filter(
+    (item) => !existingSourceIds.includes(item.id)
+  );
+
+  // Filter by search
+  const filteredItems = availableItems.filter(
+    (item) =>
+      !searchQuery ||
+      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.bill_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.item_code?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Toggle selection
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  // Select all visible
+  const selectAll = () => {
+    const allIds = filteredItems.map((item) => item.id);
+    setSelectedIds(allIds);
+  };
+
+  // Clear selection
+  const clearSelection = () => setSelectedIds([]);
+
+  // Import mutation
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const { data: user } = await supabase.auth.getUser();
+      const itemsToImport = primeCostItems.filter((item) =>
+        selectedIds.includes(item.id)
+      );
+
+      // Determine category based on description
+      const getCategory = (description: string): string => {
+        const desc = description.toLowerCase();
+        if (desc.includes("distribution board") || desc.includes("db")) return "DBs";
+        if (desc.includes("light") || desc.includes("fitting")) return "Lighting";
+        if (desc.includes("cable")) return "Cables";
+        if (desc.includes("switchgear")) return "Switchgear";
+        return "Equipment";
+      };
+
+      const procurementItems = itemsToImport.map((item) => ({
+        project_id: projectId,
+        name: item.description,
+        description: `Imported from BOQ: ${item.bill_name}`,
+        quantity: 1,
+        unit: item.unit || "No.",
+        source_type: "prime_cost",
+        source_id: item.id,
+        source_reference: `${item.bill_name} - ${item.item_code || "PC Item"}`,
+        estimated_cost: item.prime_cost_amount || 0,
+        priority: "normal",
+        category: getCategory(item.description),
+        created_by: user.user?.id,
+      }));
+
+      const { error } = await supabase
+        .from("procurement_items")
+        .insert(procurementItems);
+
+      if (error) throw error;
+
+      return itemsToImport.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["procurement-items"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap-items"] });
+      toast.success(`Imported ${count} item${count !== 1 ? "s" : ""} to procurement schedule`);
+      setSelectedIds([]);
+      onOpenChange(false);
+    },
+    onError: () => toast.error("Failed to import items"),
+  });
+
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null || amount === undefined) return "-";
+    return `R ${amount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Import from Prime Costs
+          </DialogTitle>
+          <DialogDescription>
+            Select Prime Cost items from your BOQ to add to the procurement schedule. 
+            Items already imported are hidden.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+          {/* Search and select all */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={selectAll}>
+              Select All
+            </Button>
+            <Button variant="outline" size="sm" onClick={clearSelection}>
+              Clear
+            </Button>
+          </div>
+
+          {/* Items list */}
+          <ScrollArea className="flex-1 border rounded-lg">
+            {isLoading ? (
+              <div className="p-8 text-center text-muted-foreground">
+                Loading Prime Cost items...
+              </div>
+            ) : availableItems.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                {primeCostItems.length === 0
+                  ? "No Prime Cost items found in BOQ"
+                  : "All Prime Cost items have been imported"}
+              </div>
+            ) : (
+              <div className="divide-y">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+                      selectedIds.includes(item.id) ? "bg-primary/5" : ""
+                    }`}
+                    onClick={() => toggleSelection(item.id)}
+                  >
+                    <Checkbox
+                      checked={selectedIds.includes(item.id)}
+                      onCheckedChange={() => toggleSelection(item.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">
+                        {item.description}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px]">
+                          {item.bill_name}
+                        </Badge>
+                        {item.item_code && <span>{item.item_code}</span>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm">
+                        {formatCurrency(item.prime_cost_amount)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.unit || "Sum"}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Selection summary */}
+          {selectedIds.length > 0 && (
+            <div className="bg-muted/50 rounded-lg p-3 flex items-center justify-between">
+              <span className="text-sm">
+                <strong>{selectedIds.length}</strong> item{selectedIds.length !== 1 ? "s" : ""} selected
+              </span>
+              <span className="text-sm font-mono">
+                Total: {formatCurrency(
+                  primeCostItems
+                    .filter((item) => selectedIds.includes(item.id))
+                    .reduce((sum, item) => sum + (item.prime_cost_amount || 0), 0)
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => importMutation.mutate()}
+            disabled={selectedIds.length === 0 || importMutation.isPending}
+          >
+            {importMutation.isPending
+              ? "Importing..."
+              : `Import ${selectedIds.length} Item${selectedIds.length !== 1 ? "s" : ""}`}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
