@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Layers,
   FileSpreadsheet,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -119,6 +120,7 @@ const siteManagementModule = {
   icon: Building2,
   items: [
     { title: "Master Library", url: "/dashboard/master-library", icon: Package },
+    { title: "Contact Library", url: "/dashboard/contact-library", icon: Users },
   ],
 };
 
