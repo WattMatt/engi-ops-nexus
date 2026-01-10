@@ -2,8 +2,42 @@
  * Centralized PDF styling constants for Roadmap Review Reports
  * Provides consistent branding, colors, typography, and layout spacing
  * 
+ * MIGRATED TO PDFMAKE: This file now provides both jsPDF (legacy) and pdfmake formats.
+ * 
  * IMPORTANT: These values MUST match PDF_DESIGN_STANDARDS.md
  */
+
+import { PDF_COLORS as PDFMAKE_COLORS, FONT_SIZES } from './pdfmake/styles';
+
+// ============ PDFMAKE FORMAT (PREFERRED) ============
+// Use these for new pdfmake implementations
+
+export const PDF_COLORS_HEX = {
+  primary: '#334155',        // Slate-700
+  primaryLight: '#475569',   // Slate-600
+  primaryDark: '#1e293b',    // Slate-800
+  success: '#166534',        // Green-800
+  warning: '#92400e',        // Amber-800
+  danger: '#991b1b',         // Red-800
+  white: '#ffffff',
+  lightGray: '#f8fafc',      // Slate-50
+  gray: '#94a3b8',           // Slate-400
+  darkGray: '#475569',       // Slate-600
+  text: '#0f172a',           // Slate-900
+  tableHeader: '#334155',    // Slate-700
+  tableAltRow: '#f8fafc',    // Slate-50
+  tableBorder: '#cbd5e1',    // Slate-300
+  riskCritical: '#7f1d1d',   // Red-900
+  riskHigh: '#7c2d12',       // Orange-900
+  riskMedium: '#713f12',     // Amber-900
+  riskLow: '#14532d',        // Green-900
+};
+
+// Re-export pdfmake colors for convenience
+export { PDFMAKE_COLORS, FONT_SIZES };
+
+// ============ LEGACY JSPDF FORMAT ============
+// Kept for backward compatibility during migration
 
 // Brand color palette (RGB format for jsPDF) - Professional Engineering Style
 // Muted, professional colors replacing vibrant accents
@@ -108,7 +142,7 @@ export const getContentDimensions = () => {
 };
 
 
-// Risk level to color mapping
+// Risk level to color mapping (legacy jsPDF format)
 export const getRiskColor = (riskLevel: string): [number, number, number] => {
   switch (riskLevel) {
     case 'critical': return PDF_BRAND_COLORS.riskCritical;
@@ -119,7 +153,18 @@ export const getRiskColor = (riskLevel: string): [number, number, number] => {
   }
 };
 
-// Health score to color mapping
+// Risk level to hex color (pdfmake format)
+export const getRiskColorHex = (riskLevel: string): string => {
+  switch (riskLevel) {
+    case 'critical': return PDF_COLORS_HEX.riskCritical;
+    case 'high': return PDF_COLORS_HEX.riskHigh;
+    case 'medium': return PDF_COLORS_HEX.riskMedium;
+    case 'low': return PDF_COLORS_HEX.riskLow;
+    default: return PDF_COLORS_HEX.gray;
+  }
+};
+
+// Health score to color mapping (legacy jsPDF format)
 export const getHealthColor = (score: number): [number, number, number] => {
   if (score >= 80) return PDF_BRAND_COLORS.success;
   if (score >= 60) return PDF_BRAND_COLORS.warning;
@@ -127,7 +172,15 @@ export const getHealthColor = (score: number): [number, number, number] => {
   return PDF_BRAND_COLORS.danger;
 };
 
-// Priority to color mapping
+// Health score to hex color (pdfmake format)
+export const getHealthColorHex = (score: number): string => {
+  if (score >= 80) return PDF_COLORS_HEX.success;
+  if (score >= 60) return PDF_COLORS_HEX.warning;
+  if (score >= 40) return PDF_COLORS_HEX.riskHigh;
+  return PDF_COLORS_HEX.danger;
+};
+
+// Priority to color mapping (legacy jsPDF format)
 export const getPriorityColor = (priority: string): [number, number, number] => {
   switch (priority?.toLowerCase()) {
     case 'critical': return PDF_BRAND_COLORS.riskCritical;
@@ -136,6 +189,18 @@ export const getPriorityColor = (priority: string): [number, number, number] => 
     case 'normal':
     case 'low': return PDF_BRAND_COLORS.success;
     default: return PDF_BRAND_COLORS.gray;
+  }
+};
+
+// Priority to hex color (pdfmake format)
+export const getPriorityColorHex = (priority: string): string => {
+  switch (priority?.toLowerCase()) {
+    case 'critical': return PDF_COLORS_HEX.riskCritical;
+    case 'high': return PDF_COLORS_HEX.riskHigh;
+    case 'medium': return PDF_COLORS_HEX.riskMedium;
+    case 'normal':
+    case 'low': return PDF_COLORS_HEX.success;
+    default: return PDF_COLORS_HEX.gray;
   }
 };
 

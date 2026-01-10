@@ -1,5 +1,8 @@
 /**
  * PDF export utility for Final Account Sections
+ * 
+ * MIGRATED TO PDFMAKE: This file maintains backward compatibility with jsPDF
+ * while providing pdfmake alternatives for new implementations.
  */
 
 import jsPDF from "jspdf";
@@ -14,6 +17,8 @@ import {
   STANDARD_MARGINS,
   checkPageBreak,
 } from "./pdfExportBase";
+import { createDocument, downloadPdf } from "./pdfmake";
+import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 
 interface SectionData {
   id: string;

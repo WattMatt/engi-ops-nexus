@@ -232,3 +232,32 @@ export class PDFDocumentBuilder {
 export const createDocument = (options?: DocumentBuilderOptions): PDFDocumentBuilder => {
   return new PDFDocumentBuilder(options);
 };
+
+/**
+ * Quick helper to download a PDF from a document definition
+ */
+export const downloadPdf = (docDefinition: TDocumentDefinitions, filename: string): void => {
+  pdfMake.createPdf(docDefinition).download(filename);
+};
+
+/**
+ * Quick helper to open a PDF in a new tab
+ */
+export const openPdf = (docDefinition: TDocumentDefinitions): void => {
+  pdfMake.createPdf(docDefinition).open();
+};
+
+/**
+ * Quick helper to get a PDF as a Blob
+ */
+export const getPdfBlob = (docDefinition: TDocumentDefinitions): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    pdfMake.createPdf(docDefinition).getBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error('Failed to generate PDF blob'));
+      }
+    });
+  });
+};

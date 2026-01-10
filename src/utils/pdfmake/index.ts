@@ -52,7 +52,7 @@ export {
 export type { TableColumn } from './helpers';
 
 // Document builder
-export { PDFDocumentBuilder, createDocument } from './documentBuilder';
+export { PDFDocumentBuilder, createDocument, downloadPdf, openPdf, getPdfBlob } from './documentBuilder';
 export type { DocumentBuilderOptions } from './documentBuilder';
 
 // Cover page

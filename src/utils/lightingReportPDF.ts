@@ -1,6 +1,9 @@
 /**
  * Lighting Report PDF Generator
  * Generates comprehensive lighting reports with schedules, specifications, and analysis
+ * 
+ * MIGRATED TO PDFMAKE: This file maintains backward compatibility with jsPDF
+ * while providing pdfmake alternatives for new implementations.
  */
 
 import jsPDF from "jspdf";
@@ -9,6 +12,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { initializePDF, STANDARD_MARGINS, addSectionHeader, addBodyText, addPageNumbers } from "./pdfExportBase";
 import { LightingReportConfig } from "@/components/lighting/reports/LightingReportTab";
 import { format } from "date-fns";
+import { createDocument, downloadPdf } from "./pdfmake";
+import { PDF_COLORS } from "./pdfmake/styles";
+import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 
 interface ProjectData {
   project_name: string;
