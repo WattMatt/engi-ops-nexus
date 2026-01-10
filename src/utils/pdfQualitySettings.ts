@@ -1,17 +1,20 @@
 /**
  * Standardized high-quality PDF export settings
  * 
- * This utility provides consistent, high-quality settings for all PDF exports
- * to ensure the final PDF matches the UI quality as closely as possible.
+ * MIGRATED TO PDFMAKE: This file now provides quality settings for pdfmake.
+ * Legacy jsPDF/html2canvas functions are kept for backward compatibility.
  * 
  * QUALITY PRESETS:
- * - DRAFT: Fast rendering, smaller files (scale 1.5, JPEG 0.75)
- * - STANDARD: Balanced quality (scale 2, JPEG 0.85) - DEFAULT
- * - HIGH: Best quality, larger files (scale 3, JPEG 0.95)
+ * - DRAFT: Fast rendering, smaller files
+ * - STANDARD: Balanced quality - DEFAULT
+ * - HIGH: Best quality, larger files
+ * 
+ * @see src/utils/pdfmake/styles.ts for pdfmake quality presets
  */
 
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { QUALITY_PRESETS as PDFMAKE_QUALITY_PRESETS } from './pdfmake';
 
 export type QualityPreset = 'draft' | 'standard' | 'high';
 
@@ -58,12 +61,15 @@ export const getQualitySettings = (preset: QualityPreset = 'standard'): QualityS
 };
 
 /**
+ * Get pdfmake quality preset settings
+ */
+export const getPdfmakeQualitySettings = (preset: QualityPreset = 'standard') => {
+  return PDFMAKE_QUALITY_PRESETS[preset];
+};
+
+/**
  * High-quality html2canvas settings
- * - scale: 2 provides good quality without massive file sizes
- * - useCORS: true for cross-origin images
- * - allowTaint: false for security
- * - backgroundColor: white for consistent backgrounds
- * - imageTimeout: longer timeout for complex charts
+ * Still useful for capturing charts and UI elements as images
  */
 export const HIGH_QUALITY_CANVAS_OPTIONS = {
   scale: 2,
@@ -78,7 +84,6 @@ export const HIGH_QUALITY_CANVAS_OPTIONS = {
 
 /**
  * Standard quality canvas settings (for simpler captures)
- * - scale: 3 provides good quality with faster rendering
  */
 export const STANDARD_QUALITY_CANVAS_OPTIONS = {
   scale: 3,
@@ -93,7 +98,7 @@ export const STANDARD_QUALITY_CANVAS_OPTIONS = {
 
 /**
  * Chart-specific canvas settings
- * - Optimized for chart elements with reasonable scale
+ * Optimized for chart elements with reasonable scale
  */
 export const CHART_QUALITY_CANVAS_OPTIONS = {
   scale: 2,
@@ -110,6 +115,7 @@ export const CHART_QUALITY_CANVAS_OPTIONS = {
 
 /**
  * Capture an element as high-quality canvas
+ * Useful for embedding charts/UI elements as images in pdfmake documents
  */
 export const captureElementAsCanvas = async (
   element: HTMLElement,
@@ -135,42 +141,80 @@ export const captureChartAsCanvas = async (
 };
 
 /**
+ * Convert a canvas to a base64 data URL for use in pdfmake
+ * @param canvas - The canvas element to convert
+ * @param format - Image format ('PNG' or 'JPEG')
+ * @param quality - JPEG quality (0-1), defaults to 0.85
+ */
+export const canvasToDataUrl = (
+  canvas: HTMLCanvasElement,
+  format: 'PNG' | 'JPEG' = 'JPEG',
+  quality: number = 0.85
+): string => {
+  return format === 'JPEG' 
+    ? canvas.toDataURL('image/jpeg', quality)
+    : canvas.toDataURL('image/png');
+};
+
+/**
+ * Capture an element and convert to base64 for pdfmake
+ * This is the preferred way to add captured UI elements to pdfmake documents
+ */
+export const captureElementAsBase64 = async (
+  element: HTMLElement,
+  options: {
+    scale?: number;
+    format?: 'PNG' | 'JPEG';
+    quality?: number;
+  } = {}
+): Promise<string> => {
+  const { scale = 2, format = 'JPEG', quality = 0.85 } = options;
+  
+  const canvas = await captureElementAsCanvas(element, { scale });
+  return canvasToDataUrl(canvas, format, quality);
+};
+
+/**
+ * Capture a chart element and convert to base64 for pdfmake
+ */
+export const captureChartAsBase64 = async (
+  element: HTMLElement,
+  options: {
+    format?: 'PNG' | 'JPEG';
+    quality?: number;
+  } = {}
+): Promise<string> => {
+  const { format = 'JPEG', quality = 0.85 } = options;
+  
+  const canvas = await captureChartAsCanvas(element);
+  return canvasToDataUrl(canvas, format, quality);
+};
+
+// ============ LEGACY JSPDF COMPATIBILITY ============
+// These functions are kept for backward compatibility during migration
+
+/**
+ * @deprecated Use canvasToDataUrl() + pdfmake image() instead
  * Add image to PDF with optimized quality settings
- * Uses JPEG compression by default to reduce file size
- * 
- * @param doc - jsPDF instance
- * @param canvas - HTML canvas element
- * @param x - X position in PDF
- * @param y - Y position in PDF
- * @param width - Width in PDF
- * @param height - Height in PDF
- * @param format - Image format ('PNG' or 'JPEG'), defaults to JPEG for smaller files
- * @param quality - JPEG quality (0-1), defaults to 0.85 for good quality/size balance
  */
 export const addHighQualityImage = (
   doc: jsPDF,
   canvas: HTMLCanvasElement,
-  x: number,
+  x: number as number,
   y: number,
   width: number,
   height: number,
   format: 'PNG' | 'JPEG' = 'JPEG',
   quality: number = 0.85
 ) => {
-  // Convert canvas to data URL with compression
-  const imgData = format === 'JPEG' 
-    ? canvas.toDataURL('image/jpeg', quality)
-    : canvas.toDataURL('image/png');
-  
-  // Add image to PDF with compression
+  console.warn('addHighQualityImage is deprecated. Use captureElementAsBase64() + pdfmake image() instead.');
+  const imgData = canvasToDataUrl(canvas, format, quality);
   doc.addImage(imgData, format, x, y, width, height, undefined, 'FAST');
 };
 
 /**
+ * @deprecated Use createDocument() from @/utils/pdfmake instead
  * Create a new jsPDF instance with optimal settings
- * 
- * @param orientation - Page orientation
- * @param compress - Enable PDF compression (default: true)
  */
 export const createHighQualityPDF = (
   orientation: 'portrait' | 'landscape' = 'portrait',
@@ -181,9 +225,7 @@ export const createHighQualityPDF = (
     unit: 'mm',
     format: 'a4',
     compress,
-    // Use higher precision for better rendering
     precision: 16,
-    // Enable better font rendering
     putOnlyUsedFonts: true,
     floatPrecision: 16,
   });
@@ -199,11 +241,9 @@ export const waitForElementRender = (ms: number = 2000): Promise<void> => {
 
 /**
  * Prepare element for high-quality capture
- * - Ensures element is visible and fully rendered
- * - Scrolls element into view if needed
+ * Ensures element is visible and fully rendered
  */
 export const prepareElementForCapture = async (element: HTMLElement): Promise<void> => {
-  // Ensure element is visible
   element.style.display = 'block';
   element.style.visibility = 'visible';
   

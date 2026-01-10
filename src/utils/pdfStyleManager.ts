@@ -1,16 +1,27 @@
+/**
+ * PDF Style Manager
+ * 
+ * MIGRATED TO PDFMAKE: This file now provides pdfmake-compatible style management.
+ * The PDFStyleManager class works with both jsPDF (legacy) and pdfmake (new).
+ * 
+ * @see src/utils/pdfmake/styles.ts for the new styling system
+ */
+
+import type { StyleDictionary, Margins } from 'pdfmake/interfaces';
+import { PDF_COLORS, FONT_SIZES, defaultStyles as pdfmakeDefaultStyles, tableLayouts } from './pdfmake';
 import jsPDF from "jspdf";
 
 export interface ElementPosition {
   x: number;
   y: number;
-  page?: number; // Which PDF page the element belongs to (1-indexed)
+  page?: number;
 }
 
 export interface ElementMetadata {
   visible: boolean;
   locked: boolean;
   zIndex: number;
-  page?: number; // Which page this element is on
+  page?: number;
 }
 
 export interface PDFStyleSettings {
@@ -69,6 +80,69 @@ export interface PDFStyleSettings {
   };
 }
 
+/**
+ * Default style settings based on pdfmake styles
+ */
+export const getDefaultStyleSettings = (): PDFStyleSettings => ({
+  typography: {
+    headingFont: 'helvetica',
+    bodyFont: 'helvetica',
+    h1Size: FONT_SIZES.h1,
+    h2Size: FONT_SIZES.h2,
+    h3Size: FONT_SIZES.h3,
+    bodySize: FONT_SIZES.body,
+    smallSize: FONT_SIZES.small,
+  },
+  colors: {
+    primary: hexToRgb(PDF_COLORS.primary),
+    secondary: hexToRgb(PDF_COLORS.secondary),
+    accent: hexToRgb(PDF_COLORS.accent),
+    text: hexToRgb(PDF_COLORS.text),
+    neutral: hexToRgb(PDF_COLORS.textMuted),
+    success: hexToRgb(PDF_COLORS.success),
+    danger: hexToRgb(PDF_COLORS.danger),
+    warning: hexToRgb(PDF_COLORS.warning),
+    white: [255, 255, 255],
+  },
+  spacing: {
+    lineSpacing: 1.4,
+    paragraphSpacing: 8,
+    sectionSpacing: 15,
+  },
+  tables: {
+    headerBg: hexToRgb(PDF_COLORS.textMuted),
+    headerText: [255, 255, 255],
+    alternateRowBg: hexToRgb(PDF_COLORS.background),
+    borderColor: hexToRgb(PDF_COLORS.border),
+    fontSize: FONT_SIZES.table,
+    cellPadding: 4,
+    showGridLines: true,
+  },
+  layout: {
+    margins: { top: 20, bottom: 20, left: 15, right: 15 },
+  },
+});
+
+/**
+ * Convert hex color to RGB array
+ */
+function hexToRgb(hex: string): [number, number, number] {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+    : [0, 0, 0];
+}
+
+/**
+ * Convert RGB array to hex color
+ */
+function rgbToHex(rgb: [number, number, number]): string {
+  return '#' + rgb.map(x => {
+    const hex = x.toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  }).join('');
+}
+
 export class PDFStyleManager {
   constructor(private settings: PDFStyleSettings) {}
 
@@ -76,6 +150,81 @@ export class PDFStyleManager {
     return this.settings;
   }
 
+  /**
+   * Get pdfmake-compatible styles dictionary
+   */
+  getPdfmakeStyles(): StyleDictionary {
+    return {
+      ...pdfmakeDefaultStyles,
+      h1: {
+        fontSize: this.settings.typography.h1Size,
+        bold: true,
+        color: rgbToHex(this.settings.colors.primary),
+        margin: [0, 15, 0, 8] as Margins,
+      },
+      h2: {
+        fontSize: this.settings.typography.h2Size,
+        bold: true,
+        color: rgbToHex(this.settings.colors.text),
+        margin: [0, 12, 0, 6] as Margins,
+      },
+      h3: {
+        fontSize: this.settings.typography.h3Size,
+        bold: true,
+        color: rgbToHex(this.settings.colors.neutral),
+        margin: [0, 10, 0, 4] as Margins,
+      },
+      body: {
+        fontSize: this.settings.typography.bodySize,
+        color: rgbToHex(this.settings.colors.text),
+        lineHeight: this.settings.spacing.lineSpacing,
+      },
+      small: {
+        fontSize: this.settings.typography.smallSize,
+        color: rgbToHex(this.settings.colors.neutral),
+      },
+      tableHeader: {
+        fontSize: this.settings.tables.fontSize,
+        bold: true,
+        color: rgbToHex(this.settings.tables.headerText),
+        fillColor: rgbToHex(this.settings.tables.headerBg),
+      },
+      tableCell: {
+        fontSize: this.settings.tables.fontSize,
+        color: rgbToHex(this.settings.colors.text),
+      },
+    };
+  }
+
+  /**
+   * Get pdfmake-compatible table layout
+   */
+  getPdfmakeTableLayout() {
+    return {
+      hLineWidth: () => this.settings.tables.showGridLines ? 0.5 : 0,
+      vLineWidth: () => this.settings.tables.showGridLines ? 0.5 : 0,
+      hLineColor: () => rgbToHex(this.settings.tables.borderColor),
+      vLineColor: () => rgbToHex(this.settings.tables.borderColor),
+      fillColor: (rowIndex: number) => 
+        rowIndex === 0 ? rgbToHex(this.settings.tables.headerBg) : 
+        rowIndex % 2 === 0 ? rgbToHex(this.settings.tables.alternateRowBg) : null,
+      paddingLeft: () => this.settings.tables.cellPadding,
+      paddingRight: () => this.settings.tables.cellPadding,
+      paddingTop: () => this.settings.tables.cellPadding,
+      paddingBottom: () => this.settings.tables.cellPadding,
+    };
+  }
+
+  /**
+   * Get pdfmake-compatible margins
+   */
+  getPdfmakeMargins(): Margins {
+    const m = this.settings.layout.margins;
+    return [m.left, m.top, m.right, m.bottom];
+  }
+
+  // Legacy jsPDF methods (kept for backward compatibility)
+  
   applyHeading(doc: jsPDF, level: 1 | 2 | 3, text: string, x: number, y: number, options?: any) {
     const sizeKey = `h${level}Size` as 'h1Size' | 'h2Size' | 'h3Size';
     doc.setFont(this.settings.typography.headingFont, 'bold');
@@ -104,7 +253,6 @@ export class PDFStyleManager {
   applySectionHeader(doc: jsPDF, text: string, x: number, y: number, pageWidth: number, margins: { left: number; right: number }) {
     this.applyHeading(doc, 1, text, pageWidth / 2, y + 5, { align: "center" });
     
-    // Add subtle line under header
     doc.setDrawColor(...this.settings.colors.neutral);
     doc.setLineWidth(0.5);
     doc.line(x, y + 8, pageWidth - margins.right, y + 8);
