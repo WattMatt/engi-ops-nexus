@@ -3504,13 +3504,17 @@ export type Database = {
       }
       final_account_items: {
         Row: {
+          actual_delivery: string | null
           adjustment_amount: number | null
           adjustment_reason: string | null
+          approved_at: string | null
+          approved_by: string | null
           contract_amount: number | null
           contract_quantity: number | null
           created_at: string
           description: string
           display_order: number | null
+          expected_delivery: string | null
           final_amount: number | null
           final_quantity: number | null
           id: string
@@ -3521,32 +3525,43 @@ export type Database = {
           is_rate_only: boolean | null
           item_code: string
           item_type: string | null
+          lead_time_days: number | null
           notes: string | null
+          order_date: string | null
           pa_parent_item_id: string | null
           pa_percentage: number | null
           pc_actual_cost: number | null
           pc_allowance: number | null
           pc_profit_attendance_percent: number | null
+          po_number: string | null
+          procurement_notes: string | null
+          procurement_status: string | null
           ps_original_sum: number | null
           ps_spent_amount: number | null
+          quote_amount: number | null
           section_id: string
           shop_subsection_id: string | null
           source_boq_item_id: string | null
           source_floor_plan_id: string | null
           source_reference_drawing_id: string | null
+          supplier_name: string | null
           supply_rate: number | null
           unit: string | null
           updated_at: string
           variation_amount: number | null
         }
         Insert: {
+          actual_delivery?: string | null
           adjustment_amount?: number | null
           adjustment_reason?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           contract_amount?: number | null
           contract_quantity?: number | null
           created_at?: string
           description: string
           display_order?: number | null
+          expected_delivery?: string | null
           final_amount?: number | null
           final_quantity?: number | null
           id?: string
@@ -3557,32 +3572,43 @@ export type Database = {
           is_rate_only?: boolean | null
           item_code: string
           item_type?: string | null
+          lead_time_days?: number | null
           notes?: string | null
+          order_date?: string | null
           pa_parent_item_id?: string | null
           pa_percentage?: number | null
           pc_actual_cost?: number | null
           pc_allowance?: number | null
           pc_profit_attendance_percent?: number | null
+          po_number?: string | null
+          procurement_notes?: string | null
+          procurement_status?: string | null
           ps_original_sum?: number | null
           ps_spent_amount?: number | null
+          quote_amount?: number | null
           section_id: string
           shop_subsection_id?: string | null
           source_boq_item_id?: string | null
           source_floor_plan_id?: string | null
           source_reference_drawing_id?: string | null
+          supplier_name?: string | null
           supply_rate?: number | null
           unit?: string | null
           updated_at?: string
           variation_amount?: number | null
         }
         Update: {
+          actual_delivery?: string | null
           adjustment_amount?: number | null
           adjustment_reason?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           contract_amount?: number | null
           contract_quantity?: number | null
           created_at?: string
           description?: string
           display_order?: number | null
+          expected_delivery?: string | null
           final_amount?: number | null
           final_quantity?: number | null
           id?: string
@@ -3593,19 +3619,26 @@ export type Database = {
           is_rate_only?: boolean | null
           item_code?: string
           item_type?: string | null
+          lead_time_days?: number | null
           notes?: string | null
+          order_date?: string | null
           pa_parent_item_id?: string | null
           pa_percentage?: number | null
           pc_actual_cost?: number | null
           pc_allowance?: number | null
           pc_profit_attendance_percent?: number | null
+          po_number?: string | null
+          procurement_notes?: string | null
+          procurement_status?: string | null
           ps_original_sum?: number | null
           ps_spent_amount?: number | null
+          quote_amount?: number | null
           section_id?: string
           shop_subsection_id?: string | null
           source_boq_item_id?: string | null
           source_floor_plan_id?: string | null
           source_reference_drawing_id?: string | null
+          supplier_name?: string | null
           supply_rate?: number | null
           unit?: string | null
           updated_at?: string
@@ -7823,197 +7856,15 @@ export type Database = {
           },
         ]
       }
-      procurement_audit_log: {
-        Row: {
-          action_type: string
-          change_details: Json | null
-          changed_by: string | null
-          created_at: string
-          id: string
-          new_status: string | null
-          old_status: string | null
-          procurement_item_id: string
-        }
-        Insert: {
-          action_type: string
-          change_details?: Json | null
-          changed_by?: string | null
-          created_at?: string
-          id?: string
-          new_status?: string | null
-          old_status?: string | null
-          procurement_item_id: string
-        }
-        Update: {
-          action_type?: string
-          change_details?: Json | null
-          changed_by?: string | null
-          created_at?: string
-          id?: string
-          new_status?: string | null
-          old_status?: string | null
-          procurement_item_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_audit_log_procurement_item_id_fkey"
-            columns: ["procurement_item_id"]
-            isOneToOne: false
-            referencedRelation: "procurement_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      procurement_items: {
-        Row: {
-          actual_cost: number | null
-          approval_notes: string | null
-          approval_requested_at: string | null
-          approved_at: string | null
-          approved_budget: number | null
-          approved_by: string | null
-          budget_check_passed: boolean | null
-          budget_variance: number | null
-          category: string | null
-          created_at: string
-          created_by: string | null
-          delivered_at: string | null
-          description: string | null
-          estimated_cost: number | null
-          expected_delivery_date: string | null
-          id: string
-          lead_time_days: number | null
-          name: string
-          notes: string | null
-          ordered_at: string | null
-          po_number: string | null
-          priority: string | null
-          project_id: string
-          quantity: number | null
-          quote_received_at: string | null
-          quote_requested_at: string | null
-          quoted_amount: number | null
-          roadmap_item_id: string | null
-          source_id: string | null
-          source_reference: string | null
-          source_type: string
-          status: string
-          submitted_by: string | null
-          supplier_contact: string | null
-          supplier_email: string | null
-          supplier_name: string | null
-          supplier_phone: string | null
-          unit: string | null
-          updated_at: string
-        }
-        Insert: {
-          actual_cost?: number | null
-          approval_notes?: string | null
-          approval_requested_at?: string | null
-          approved_at?: string | null
-          approved_budget?: number | null
-          approved_by?: string | null
-          budget_check_passed?: boolean | null
-          budget_variance?: number | null
-          category?: string | null
-          created_at?: string
-          created_by?: string | null
-          delivered_at?: string | null
-          description?: string | null
-          estimated_cost?: number | null
-          expected_delivery_date?: string | null
-          id?: string
-          lead_time_days?: number | null
-          name: string
-          notes?: string | null
-          ordered_at?: string | null
-          po_number?: string | null
-          priority?: string | null
-          project_id: string
-          quantity?: number | null
-          quote_received_at?: string | null
-          quote_requested_at?: string | null
-          quoted_amount?: number | null
-          roadmap_item_id?: string | null
-          source_id?: string | null
-          source_reference?: string | null
-          source_type: string
-          status?: string
-          submitted_by?: string | null
-          supplier_contact?: string | null
-          supplier_email?: string | null
-          supplier_name?: string | null
-          supplier_phone?: string | null
-          unit?: string | null
-          updated_at?: string
-        }
-        Update: {
-          actual_cost?: number | null
-          approval_notes?: string | null
-          approval_requested_at?: string | null
-          approved_at?: string | null
-          approved_budget?: number | null
-          approved_by?: string | null
-          budget_check_passed?: boolean | null
-          budget_variance?: number | null
-          category?: string | null
-          created_at?: string
-          created_by?: string | null
-          delivered_at?: string | null
-          description?: string | null
-          estimated_cost?: number | null
-          expected_delivery_date?: string | null
-          id?: string
-          lead_time_days?: number | null
-          name?: string
-          notes?: string | null
-          ordered_at?: string | null
-          po_number?: string | null
-          priority?: string | null
-          project_id?: string
-          quantity?: number | null
-          quote_received_at?: string | null
-          quote_requested_at?: string | null
-          quoted_amount?: number | null
-          roadmap_item_id?: string | null
-          source_id?: string | null
-          source_reference?: string | null
-          source_type?: string
-          status?: string
-          submitted_by?: string | null
-          supplier_contact?: string | null
-          supplier_email?: string | null
-          supplier_name?: string | null
-          supplier_phone?: string | null
-          unit?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "procurement_items_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "procurement_items_roadmap_item_id_fkey"
-            columns: ["roadmap_item_id"]
-            isOneToOne: false
-            referencedRelation: "project_roadmap_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       procurement_quotes: {
         Row: {
           created_at: string
           created_by: string | null
+          final_account_item_id: string
           id: string
           is_selected: boolean | null
           lead_time_days: number | null
           notes: string | null
-          procurement_item_id: string
           quote_valid_until: string | null
           quoted_amount: number
           supplier_email: string | null
@@ -8023,11 +7874,11 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          final_account_item_id: string
           id?: string
           is_selected?: boolean | null
           lead_time_days?: number | null
           notes?: string | null
-          procurement_item_id: string
           quote_valid_until?: string | null
           quoted_amount: number
           supplier_email?: string | null
@@ -8037,11 +7888,11 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          final_account_item_id?: string
           id?: string
           is_selected?: boolean | null
           lead_time_days?: number | null
           notes?: string | null
-          procurement_item_id?: string
           quote_valid_until?: string | null
           quoted_amount?: number
           supplier_email?: string | null
@@ -8050,10 +7901,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "procurement_quotes_procurement_item_id_fkey"
-            columns: ["procurement_item_id"]
+            foreignKeyName: "procurement_quotes_final_account_item_id_fkey"
+            columns: ["final_account_item_id"]
             isOneToOne: false
-            referencedRelation: "procurement_items"
+            referencedRelation: "final_account_items"
             referencedColumns: ["id"]
           },
         ]

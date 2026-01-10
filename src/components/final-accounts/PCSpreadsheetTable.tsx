@@ -5,10 +5,15 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { FileText, Layers } from "lucide-react";
+import { FileText, Layers, Truck, Package, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { PrimeCostDocuments } from "./PrimeCostDocuments";
 import { PrimeCostBreakdown } from "./PrimeCostBreakdown";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
 
 interface PCSpreadsheetTableProps {
   items: any[];
@@ -19,22 +24,34 @@ interface PCSpreadsheetTableProps {
 
 type EditableField = 'item_code' | 'description' | 'pc_allowance' | 'pc_actual_cost' | 'pc_profit_attendance_percent';
 
+const PROCUREMENT_STATUSES = [
+  { value: 'not_started', label: 'Not Started', icon: Clock, color: 'text-muted-foreground' },
+  { value: 'pending_quote', label: 'Pending Quote', icon: AlertCircle, color: 'text-amber-500' },
+  { value: 'quote_received', label: 'Quote Received', icon: FileText, color: 'text-blue-500' },
+  { value: 'pending_approval', label: 'Pending Approval', icon: Clock, color: 'text-orange-500' },
+  { value: 'approved', label: 'Approved', icon: CheckCircle2, color: 'text-green-500' },
+  { value: 'ordered', label: 'Ordered', icon: Package, color: 'text-purple-500' },
+  { value: 'in_transit', label: 'In Transit', icon: Truck, color: 'text-indigo-500' },
+  { value: 'delivered', label: 'Delivered', icon: CheckCircle2, color: 'text-green-600' },
+  { value: 'cancelled', label: 'Cancelled', icon: AlertCircle, color: 'text-destructive' },
+] as const;
+
 const COLUMNS: { 
-  key: EditableField | 'pa_value' | 'adjustment' | 'documents'; 
+  key: EditableField | 'pa_value' | 'adjustment' | 'documents' | 'procurement'; 
   label: string; 
   width: string; 
   editable: boolean; 
-  type: 'text' | 'number' | 'currency' | 'percent' | 'action'; 
+  type: 'text' | 'number' | 'currency' | 'percent' | 'action' | 'procurement'; 
   align: 'left' | 'right' | 'center';
 }[] = [
-  { key: 'item_code', label: 'Code', width: 'w-[90px] shrink-0', editable: false, type: 'text', align: 'right' },
-  { key: 'description', label: 'Description', width: 'flex-1 min-w-[120px]', editable: false, type: 'text', align: 'right' },
-  { key: 'pc_allowance', label: 'PC Allowance', width: 'w-[190px] shrink-0', editable: false, type: 'currency', align: 'right' },
-  { key: 'pc_actual_cost', label: 'Actual Cost', width: 'w-[230px] shrink-0', editable: true, type: 'currency', align: 'right' },
-  { key: 'pc_profit_attendance_percent', label: 'P&A %', width: 'w-[100px] shrink-0', editable: true, type: 'percent', align: 'right' },
-  { key: 'pa_value', label: 'P&A Value', width: 'w-[180px] shrink-0', editable: false, type: 'currency', align: 'right' },
-  { key: 'adjustment', label: 'Adjustment', width: 'w-[190px] shrink-0', editable: false, type: 'currency', align: 'right' },
-  { key: 'documents', label: 'Docs', width: 'w-[70px] shrink-0', editable: false, type: 'action', align: 'right' },
+  { key: 'item_code', label: 'Code', width: 'w-[80px] shrink-0', editable: false, type: 'text', align: 'right' },
+  { key: 'description', label: 'Description', width: 'flex-1 min-w-[100px]', editable: false, type: 'text', align: 'left' },
+  { key: 'pc_allowance', label: 'Allowance', width: 'w-[110px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'pc_actual_cost', label: 'Actual', width: 'w-[140px] shrink-0', editable: true, type: 'currency', align: 'right' },
+  { key: 'pc_profit_attendance_percent', label: 'P&A%', width: 'w-[70px] shrink-0', editable: true, type: 'percent', align: 'right' },
+  { key: 'adjustment', label: 'Adj.', width: 'w-[100px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'procurement', label: 'Procurement', width: 'w-[160px] shrink-0', editable: false, type: 'procurement', align: 'center' },
+  { key: 'documents', label: 'Docs', width: 'w-[60px] shrink-0', editable: false, type: 'action', align: 'center' },
 ];
 
 export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: PCSpreadsheetTableProps) {
@@ -56,6 +73,7 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
     description: "",
     currentActualCost: 0,
   });
+  const [procurementPopover, setProcurementPopover] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -209,6 +227,24 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
     },
   });
 
+  // Procurement status update mutation
+  const updateProcurementMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, any> }) => {
+      const { error } = await supabase
+        .from("final_account_items")
+        .update(updates)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["final-account-items-prime-costs-grouped", accountId] });
+      toast.success("Procurement status updated");
+    },
+    onError: () => {
+      toast.error("Failed to update procurement status");
+    },
+  });
+
   const startEditing = useCallback((rowId: string, field: string) => {
     const item = items.find(i => i.id === rowId);
     if (!item) return;
@@ -303,6 +339,136 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
   const renderCell = (item: any, column: typeof COLUMNS[0]) => {
     const isActive = activeCell?.rowId === item.id && activeCell?.field === column.key;
     
+    // Special handling for procurement status
+    if (column.key === 'procurement') {
+      const status = item.procurement_status || 'not_started';
+      const statusConfig = PROCUREMENT_STATUSES.find(s => s.value === status) || PROCUREMENT_STATUSES[0];
+      const StatusIcon = statusConfig.icon;
+      
+      return (
+        <Popover open={procurementPopover === item.id} onOpenChange={(open) => setProcurementPopover(open ? item.id : null)}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn("h-7 px-2 gap-1.5 text-xs font-normal w-full justify-start", statusConfig.color)}
+            >
+              <StatusIcon className="h-3.5 w-3.5" />
+              <span className="truncate">{statusConfig.label}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-3" align="start">
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs font-medium">Status</Label>
+                <Select
+                  value={status}
+                  onValueChange={(value) => {
+                    updateProcurementMutation.mutate({ 
+                      id: item.id, 
+                      updates: { procurement_status: value } 
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROCUREMENT_STATUSES.map((s) => (
+                      <SelectItem key={s.value} value={s.value} className="text-xs">
+                        <div className="flex items-center gap-2">
+                          <s.icon className={cn("h-3.5 w-3.5", s.color)} />
+                          {s.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs font-medium">Supplier</Label>
+                  <Input
+                    className="h-7 text-xs mt-1"
+                    placeholder="Supplier name"
+                    defaultValue={item.supplier_name || ''}
+                    onBlur={(e) => {
+                      if (e.target.value !== (item.supplier_name || '')) {
+                        updateProcurementMutation.mutate({ 
+                          id: item.id, 
+                          updates: { supplier_name: e.target.value || null } 
+                        });
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium">PO Number</Label>
+                  <Input
+                    className="h-7 text-xs mt-1"
+                    placeholder="PO-XXX"
+                    defaultValue={item.po_number || ''}
+                    onBlur={(e) => {
+                      if (e.target.value !== (item.po_number || '')) {
+                        updateProcurementMutation.mutate({ 
+                          id: item.id, 
+                          updates: { po_number: e.target.value || null } 
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs font-medium">Quote Amount</Label>
+                  <Input
+                    className="h-7 text-xs mt-1"
+                    type="number"
+                    placeholder="0.00"
+                    defaultValue={item.quote_amount || ''}
+                    onBlur={(e) => {
+                      const val = parseFloat(e.target.value) || null;
+                      if (val !== item.quote_amount) {
+                        updateProcurementMutation.mutate({ 
+                          id: item.id, 
+                          updates: { quote_amount: val } 
+                        });
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium">Expected Delivery</Label>
+                  <Input
+                    className="h-7 text-xs mt-1"
+                    type="date"
+                    defaultValue={item.expected_delivery || ''}
+                    onBlur={(e) => {
+                      if (e.target.value !== (item.expected_delivery || '')) {
+                        updateProcurementMutation.mutate({ 
+                          id: item.id, 
+                          updates: { expected_delivery: e.target.value || null } 
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {item.expected_delivery && (
+                <div className="text-xs text-muted-foreground">
+                  Expected: {format(new Date(item.expected_delivery), 'dd MMM yyyy')}
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      );
+    }
+    
     // Special handling for documents button
     if (column.key === 'documents') {
       const docCount = documentCounts?.[item.id] || 0;
@@ -322,16 +488,6 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
               </Badge>
             )}
           </Button>
-        </div>
-      );
-    }
-    
-    // Special handling for P&A Value (calculated)
-    if (column.key === 'pa_value') {
-      const paValue = calculatePAValue(item);
-      return (
-        <div className="px-1.5 py-1 text-xs text-right text-muted-foreground">
-          {paValue > 0 ? formatCurrency(paValue) : "-"}
         </div>
       );
     }
@@ -506,10 +662,10 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
       
       {/* Totals row */}
       <div className="flex bg-muted/50 border-t font-semibold">
-        <div className={cn("px-1.5 py-2 text-xs border-r text-right", COLUMNS[0].width)}>
+        <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[0].width)}>
           Subtotal
         </div>
-        <div className={cn("px-1.5 py-2 text-xs border-r text-right", COLUMNS[1].width)}>
+        <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[1].width)}>
           {items.length} items
         </div>
         <div className={cn("px-1.5 py-2 text-xs text-right border-r", COLUMNS[2].width)}>
@@ -521,17 +677,17 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
         <div className={cn("px-1.5 py-2 text-xs text-right border-r", COLUMNS[4].width)}>
           -
         </div>
-        <div className={cn("px-1.5 py-2 text-xs text-right border-r", COLUMNS[5].width)}>
-          {formatCurrency(totals.paValue)}
-        </div>
         <div className={cn(
           "px-1.5 py-2 text-xs text-right font-medium border-r",
-          COLUMNS[6].width,
+          COLUMNS[5].width,
           totals.adjustment >= 0 ? "text-destructive" : "text-green-600"
         )}>
           {totals.adjustment >= 0 ? "+" : ""}{formatCurrency(totals.adjustment)}
         </div>
-        <div className={cn("px-1.5 py-2 text-xs text-right", COLUMNS[7].width)}>
+        <div className={cn("px-1.5 py-2 text-xs text-center border-r", COLUMNS[6].width)}>
+          -
+        </div>
+        <div className={cn("px-1.5 py-2 text-xs text-center", COLUMNS[7].width)}>
           -
         </div>
       </div>
