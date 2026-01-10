@@ -143,6 +143,40 @@ export type {
   ChartSectionOptions,
 } from './chartUtils';
 
+// HR Export utilities
+export {
+  buildPayslipContent,
+  generatePayslipPDF,
+  buildEmployeeReportContent,
+  buildAttendanceReportContent,
+  buildLeaveReportContent,
+  createEmployeeReportPDF,
+  createAttendanceReportPDF,
+  createLeaveReportPDF,
+} from './hrExports';
+export type {
+  PayslipData,
+  EmployeeReportData,
+  AttendanceReportData,
+  LeaveReportData,
+} from './hrExports';
+
+// Admin Export utilities
+export {
+  buildProjectSummaryContent,
+  buildAuditLogContent,
+  buildInvoiceContent,
+  createProjectSummaryPDF,
+  createAuditLogPDF,
+  createInvoicePDF,
+} from './adminExports';
+export type {
+  ProjectSummaryData,
+  AuditLogData,
+  SystemReportData,
+  InvoiceData,
+} from './adminExports';
+
 // Re-export pdfmake types for convenience
 export type { 
   Content, 
