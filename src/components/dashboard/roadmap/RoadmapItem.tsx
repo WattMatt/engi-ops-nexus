@@ -359,9 +359,24 @@ export const RoadmapItem = ({
               {item.description}
             </p>
           )}
+          {/* Inline preview of notes */}
           {item.comments && (
-            <div className="mt-1 p-2 bg-muted/50 rounded text-xs text-muted-foreground italic">
-              {item.comments}
+            <div className="mt-1 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+              <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+              <span className="line-clamp-2">{item.comments}</span>
+            </div>
+          )}
+          {/* Inline preview of discussions */}
+          {itemComments && itemComments.length > 0 && (
+            <div className="mt-1 p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded text-xs space-y-1">
+              <div className="flex items-center gap-1 text-blue-700 dark:text-blue-400 font-medium">
+                <MessagesSquare className="h-3 w-3" />
+                <span>{itemComments.length} discussion{itemComments.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className="text-blue-600 dark:text-blue-300 line-clamp-2">
+                <span className="font-medium">{itemComments[itemComments.length - 1]?.author_name || 'Team member'}:</span>{' '}
+                {itemComments[itemComments.length - 1]?.content}
+              </div>
             </div>
           )}
         </div>
