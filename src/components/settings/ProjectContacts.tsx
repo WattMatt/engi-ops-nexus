@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, Building2, Upload, Star, FileText, Library } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Building2, Upload, Star, FileText, Library, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -29,6 +29,7 @@ interface ProjectContact {
   logo_url: string | null;
   is_primary: boolean;
   notes: string | null;
+  global_contact_id: string | null;
 }
 
 const CONTACT_TYPES = [
@@ -153,11 +154,85 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
     });
   };
 
+  // Helper function to find or create a global contact
+  const findOrCreateGlobalContact = async (contactData: typeof formData): Promise<string> => {
+    // First, check if a global contact with the same organization name and type already exists
+    const { data: existingContact } = await supabase
+      .from('global_contacts')
+      .select('id')
+      .eq('organization_name', contactData.organization_name)
+      .eq('contact_type', contactData.contact_type)
+      .maybeSingle();
+
+    if (existingContact) {
+      // Update the existing global contact with any new information
+      await supabase
+        .from('global_contacts')
+        .update({
+          contact_person_name: contactData.contact_person_name || null,
+          email: contactData.email || null,
+          phone: contactData.phone || null,
+          address_line1: contactData.address_line1 || null,
+          address_line2: contactData.address_line2 || null,
+          logo_url: contactData.logo_url || null,
+          notes: contactData.notes || null,
+        })
+        .eq('id', existingContact.id);
+
+      return existingContact.id;
+    }
+
+    // Create a new global contact
+    const { data: newContact, error } = await supabase
+      .from('global_contacts')
+      .insert({
+        contact_type: contactData.contact_type,
+        organization_name: contactData.organization_name,
+        contact_person_name: contactData.contact_person_name || null,
+        email: contactData.email || null,
+        phone: contactData.phone || null,
+        address_line1: contactData.address_line1 || null,
+        address_line2: contactData.address_line2 || null,
+        logo_url: contactData.logo_url || null,
+        notes: contactData.notes || null,
+      })
+      .select('id')
+      .single();
+
+    if (error) throw error;
+    return newContact.id;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      let globalContactId: string | null = null;
+
+      // Always sync to global contacts (single source of truth)
+      if (useGlobalContact && selectedGlobalContactId) {
+        // Using an existing global contact - update it with any changes
+        globalContactId = selectedGlobalContactId;
+        await supabase
+          .from('global_contacts')
+          .update({
+            contact_type: formData.contact_type,
+            organization_name: formData.organization_name,
+            contact_person_name: formData.contact_person_name || null,
+            email: formData.email || null,
+            phone: formData.phone || null,
+            address_line1: formData.address_line1 || null,
+            address_line2: formData.address_line2 || null,
+            logo_url: formData.logo_url || null,
+            notes: formData.notes || null,
+          })
+          .eq('id', selectedGlobalContactId);
+      } else {
+        // Creating or updating manually - sync to global contacts
+        globalContactId = await findOrCreateGlobalContact(formData);
+      }
+
       if (editingContact) {
         const { error } = await supabase
           .from('project_contacts')
@@ -172,7 +247,7 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
             logo_url: formData.logo_url || null,
             is_primary: formData.is_primary,
             notes: formData.notes || null,
-            global_contact_id: useGlobalContact ? selectedGlobalContactId : null,
+            global_contact_id: globalContactId,
           })
           .eq('id', editingContact.id);
 
@@ -180,7 +255,7 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
 
         toast({
           title: "Success",
-          description: "Contact updated successfully",
+          description: "Contact updated successfully (synced to library)",
         });
       } else {
         const { error } = await supabase
@@ -197,18 +272,20 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
             logo_url: formData.logo_url || null,
             is_primary: formData.is_primary,
             notes: formData.notes || null,
-            global_contact_id: useGlobalContact ? selectedGlobalContactId : null,
+            global_contact_id: globalContactId,
           });
 
         if (error) throw error;
 
         toast({
           title: "Success",
-          description: "Contact added successfully",
+          description: "Contact added successfully (synced to library)",
         });
       }
 
+      // Invalidate both project and global contacts queries
       queryClient.invalidateQueries({ queryKey: ["project-contacts", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["global-contacts"] });
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
@@ -306,7 +383,7 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
           <div>
             <CardTitle>Project Contacts</CardTitle>
             <CardDescription>
-              Manage project stakeholders (clients, quantity surveyors, architects, etc.) for reports and documentation
+              Manage project stakeholders for reports and documentation. All contacts are automatically synced to your global Contact Library.
             </CardDescription>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => {
@@ -579,13 +656,19 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
                       />
                     )}
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h4 className="font-semibold">{contact.organization_name}</h4>
                         <Badge variant="outline">{getContactTypeLabel(contact.contact_type)}</Badge>
                         {contact.is_primary && (
                           <Badge variant="secondary" className="gap-1">
                             <Star className="h-3 w-3" />
                             Primary
+                          </Badge>
+                        )}
+                        {contact.global_contact_id && (
+                          <Badge variant="default" className="gap-1 bg-primary/80">
+                            <Link2 className="h-3 w-3" />
+                            Synced to Library
                           </Badge>
                         )}
                       </div>
