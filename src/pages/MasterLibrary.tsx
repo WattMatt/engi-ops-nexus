@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Package, Users, Upload, FolderTree, TrendingUp, ArrowLeft, Code } from "lucide-react";
+import { Package, Users, Upload, FolderTree, TrendingUp, ArrowLeft, Code, FileText } from "lucide-react";
 import { MaterialsLibraryTab } from "@/components/master-library/MaterialsLibraryTab";
 import { RetailerRatesTab } from "@/components/master-library/RetailerRatesTab";
 import { BOQUploadTab } from "@/components/master-library/BOQUploadTab";
 import { MaterialCategoriesTab } from "@/components/master-library/MaterialCategoriesTab";
 import { MaterialAnalyticsTab } from "@/components/master-library/MaterialAnalyticsTab";
 import { DevelopmentPhasesTab } from "@/components/master-library/DevelopmentPhasesTab";
+import { PdfMigrationTab } from "@/components/master-library/development-phases/PdfMigrationTab";
+
 const MasterLibrary = () => {
   const [activeTab, setActiveTab] = useState("materials");
   const navigate = useNavigate();
@@ -33,7 +35,7 @@ const MasterLibrary = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="materials" className="gap-2">
               <Package className="h-4 w-4" />
               <span className="hidden sm:inline">Materials</span>
@@ -57,6 +59,10 @@ const MasterLibrary = () => {
             <TabsTrigger value="development" className="gap-2">
               <Code className="h-4 w-4" />
               <span className="hidden sm:inline">Dev Phases</span>
+            </TabsTrigger>
+            <TabsTrigger value="pdf-migration" className="gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">PDF Migration</span>
             </TabsTrigger>
           </TabsList>
 
@@ -82,6 +88,10 @@ const MasterLibrary = () => {
           
           <TabsContent value="development">
             <DevelopmentPhasesTab />
+          </TabsContent>
+          
+          <TabsContent value="pdf-migration">
+            <PdfMigrationTab />
           </TabsContent>
         </Tabs>
       </div>
