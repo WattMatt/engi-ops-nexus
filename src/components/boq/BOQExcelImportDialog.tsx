@@ -229,6 +229,21 @@ export function BOQExcelImportDialog({
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
       const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
       
+      // Debug logging for P&G section items
+      if (itemCode === 'A1' || itemCode === 'A3') {
+        console.log(`[BOQ Import DEBUG] Item ${itemCode}:`, {
+          description,
+          unitRaw,
+          quantity,
+          supplyRate,
+          installRate,
+          amount,
+          colMapAmount: colMap.amount,
+          rawAmountCell: colMap.amount !== undefined ? row[colMap.amount] : 'NO_COL',
+          rowData: row.slice(0, 8),
+        });
+      }
+      
       if (!itemCode && !description) continue;
       
       const textToCheck = `${itemCode} ${description}`.toLowerCase();
@@ -252,6 +267,7 @@ export function BOQExcelImportDialog({
       );
       
       if (isSectionHeader) {
+        console.log(`[BOQ Import] Skipping section header: ${itemCode} - ${description} (amount: ${amount})`);
         if (amount > boqStatedTotal) {
           boqStatedTotal = amount;
         }
