@@ -74,11 +74,6 @@ const mainModules = [
     url: "/dashboard/bulk-services",
     icon: Layers,
   },
-  {
-    title: "Master Library",
-    url: "/dashboard/master-library",
-    icon: Package,
-  },
 ];
 
 
@@ -116,6 +111,14 @@ const specificationsModule = {
   icon: FileStack,
   items: [
     { title: "All Specifications", url: "/dashboard/specifications" },
+  ],
+};
+
+const siteManagementModule = {
+  title: "Site Management",
+  icon: Building2,
+  items: [
+    { title: "Master Library", url: "/dashboard/master-library", icon: Package },
   ],
 };
 
@@ -304,7 +307,31 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              {/* Operational Modules */}
+              {/* Site Management - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(siteManagementModule.items)}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-muted/50">
+                      <siteManagementModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{siteManagementModule.title}</span>}
+                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {siteManagementModule.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.url} className={getNavCls(item.url)}>
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
               {operationalModules.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
