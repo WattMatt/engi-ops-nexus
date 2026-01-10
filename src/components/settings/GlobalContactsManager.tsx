@@ -216,6 +216,27 @@ export function GlobalContactsManager() {
     }
   };
 
+  // Get existing logo for an organization (for auto-populating)
+  const getOrganizationLogo = (orgName: string): string | null => {
+    if (!contacts || !orgName.trim()) return null;
+    const existingContact = contacts.find(
+      c => c.organization_name.toLowerCase() === orgName.toLowerCase() && c.logo_url
+    );
+    return existingContact?.logo_url || null;
+  };
+
+  // When organization name changes, check if we should auto-populate logo
+  const handleOrganizationNameChange = (newName: string) => {
+    setFormData(prev => {
+      const existingLogo = getOrganizationLogo(newName);
+      // Only auto-populate if current form has no logo and org has an existing one
+      if (existingLogo && !prev.logo_url) {
+        return { ...prev, organization_name: newName, logo_url: existingLogo };
+      }
+      return { ...prev, organization_name: newName };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -239,11 +260,24 @@ export function GlobalContactsManager() {
 
         if (error) throw error;
 
+        // Sync logo across all contacts with the same organization name
+        if (formData.logo_url) {
+          await supabase
+            .from('global_contacts')
+            .update({ logo_url: formData.logo_url })
+            .eq('organization_name', formData.organization_name)
+            .neq('id', editingContact.id);
+        }
+
         toast({
           title: "Success",
           description: "Contact updated successfully",
         });
       } else {
+        // Check if organization already has a logo we should use
+        const existingLogo = getOrganizationLogo(formData.organization_name);
+        const logoToUse = formData.logo_url || existingLogo;
+
         const { error } = await supabase
           .from('global_contacts')
           .insert({
@@ -254,11 +288,19 @@ export function GlobalContactsManager() {
             phone: formData.phone || null,
             address_line1: formData.address_line1 || null,
             address_line2: formData.address_line2 || null,
-            logo_url: formData.logo_url || null,
+            logo_url: logoToUse || null,
             notes: formData.notes || null,
           });
 
         if (error) throw error;
+
+        // If a new logo was uploaded, sync it to other contacts with same org
+        if (formData.logo_url && formData.logo_url !== existingLogo) {
+          await supabase
+            .from('global_contacts')
+            .update({ logo_url: formData.logo_url })
+            .eq('organization_name', formData.organization_name);
+        }
 
         toast({
           title: "Success",
@@ -484,7 +526,14 @@ export function GlobalContactsManager() {
                       <Input
                         id="organization_name"
                         value={formData.organization_name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, organization_name: e.target.value }))}
+                        onChange={(e) => handleOrganizationNameChange(e.target.value)}
+                        onBlur={() => {
+                          // Also check on blur in case they paste a name
+                          const existingLogo = getOrganizationLogo(formData.organization_name);
+                          if (existingLogo && !formData.logo_url) {
+                            setFormData(prev => ({ ...prev, logo_url: existingLogo }));
+                          }
+                        }}
                         placeholder="ABC Company (Pty) Ltd"
                         required
                       />
