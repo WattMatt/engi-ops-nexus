@@ -93,6 +93,7 @@ const App = () => (
         
         {/* Global Master Library - accessible without selecting a project */}
         <Route path="/master-library" element={<MasterLibrary />} />
+        <Route path="/contact-library" element={<ContactLibrary />} />
           
           {/* Admin routes - no project required */}
           <Route path="/admin" element={<AdminLayout />}>
