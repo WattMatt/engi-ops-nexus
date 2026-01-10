@@ -9,6 +9,7 @@ interface RoadmapComment {
   content: string;
   created_at: string;
   updated_at: string;
+  author_name?: string | null;
 }
 
 export const useRoadmapComments = (itemId: string) => {
@@ -24,6 +25,23 @@ export const useRoadmapComments = (itemId: string) => {
         .order("created_at", { ascending: true });
       
       if (error) throw error;
+      
+      // Fetch author names for each comment
+      if (data && data.length > 0) {
+        const userIds = [...new Set(data.map(c => c.user_id))];
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds);
+        
+        const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+        
+        return data.map(comment => ({
+          ...comment,
+          author_name: profileMap.get(comment.user_id) || null,
+        })) as RoadmapComment[];
+      }
+      
       return data as RoadmapComment[];
     },
     enabled: !!itemId,
