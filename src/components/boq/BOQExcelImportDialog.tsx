@@ -355,6 +355,14 @@ export function BOQExcelImportDialog({
         if (result) {
           const { section, billNumber, billName } = result;
           
+          // Debug: Log section 1.1 items
+          if (section.sectionCode === '1.1') {
+            console.log(`[BOQ Import] Section 1.1 parsed from sheet "${sheetName}":`, {
+              itemCount: section.items.length,
+              items: section.items.map(i => ({ code: i.item_code, amount: i.direct_amount })),
+            });
+          }
+          
           if (!billsMap.has(billNumber)) {
             billsMap.set(billNumber, {
               billNumber,
