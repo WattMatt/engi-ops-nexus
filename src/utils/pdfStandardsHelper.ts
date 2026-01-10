@@ -1,12 +1,29 @@
-import jsPDF from "jspdf";
-import { PDF_BRAND_COLORS, PDF_TYPOGRAPHY, PDF_LAYOUT } from "./roadmapReviewPdfStyles";
-import { fetchCompanyDetails } from "./pdfCoverPage";
+/**
+ * PDF Standards Helper
+ * 
+ * MIGRATED TO PDFMAKE: This file now provides pdfmake-compatible utilities.
+ * Legacy jsPDF functions are kept for backward compatibility.
+ * 
+ * @see src/utils/pdfmake/documentBuilder.ts for the new API
+ */
 
-// Standard page dimensions (A4)
+import type { Content, Margins } from 'pdfmake/interfaces';
+import { 
+  createDocument, 
+  PDF_COLORS, 
+  FONT_SIZES,
+  spacer,
+  horizontalLine,
+  fetchCompanyDetails,
+  type DocumentBuilderOptions
+} from './pdfmake';
+import { format } from 'date-fns';
+
+// Standard page dimensions (A4) in mm
 const PAGE_WIDTH = 210;
 const PAGE_HEIGHT = 297;
 
-// Standard margins per PDF_DESIGN_STANDARDS.md
+// Standard margins per PDF_DESIGN_STANDARDS.md (in mm)
 export const STANDARD_MARGINS = {
   top: 25,
   bottom: 22,
@@ -16,7 +33,7 @@ export const STANDARD_MARGINS = {
   footerHeight: 15,
 };
 
-// Calculate content area
+// Calculate content area in mm
 export const getContentArea = () => ({
   startY: STANDARD_MARGINS.top + STANDARD_MARGINS.headerHeight,
   endY: PAGE_HEIGHT - STANDARD_MARGINS.bottom - STANDARD_MARGINS.footerHeight,
@@ -33,7 +50,149 @@ export const CARD_STYLE = {
   safeZone: 5,
 };
 
+// ============ NEW PDFMAKE API ============
+
 /**
+ * Create a document with standard headers and footers
+ */
+export const createStandardDocument = (
+  documentTitle: string,
+  projectName?: string,
+  options?: Partial<DocumentBuilderOptions>
+) => {
+  return createDocument(options)
+    .withStandardHeader(documentTitle, projectName)
+    .withStandardFooter();
+};
+
+/**
+ * Create a header content block for pdfmake
+ */
+export const createHeaderContent = (
+  documentTitle: string,
+  projectName?: string,
+  logoBase64?: string
+): Content => {
+  const columns: Content[] = [];
+  
+  // Logo on left
+  if (logoBase64) {
+    columns.push({
+      image: logoBase64,
+      width: 35,
+      margin: [0, 0, 10, 0] as Margins,
+    });
+  }
+  
+  // Title and project on right
+  columns.push({
+    stack: [
+      { text: documentTitle, fontSize: FONT_SIZES.body, bold: true, color: PDF_COLORS.text },
+      ...(projectName ? [{ text: projectName, fontSize: FONT_SIZES.caption, color: PDF_COLORS.textLight }] : []),
+    ],
+    alignment: 'right' as const,
+  });
+  
+  return {
+    columns,
+    margin: [STANDARD_MARGINS.left, STANDARD_MARGINS.top - STANDARD_MARGINS.headerHeight, STANDARD_MARGINS.right, 5] as Margins,
+  };
+};
+
+/**
+ * Create a footer content block for pdfmake
+ */
+export const createFooterContent = (
+  pageNum: number,
+  totalPages: number,
+  includeConfidentiality: boolean = true
+): Content => {
+  return {
+    columns: [
+      includeConfidentiality 
+        ? { text: 'CONFIDENTIAL', fontSize: FONT_SIZES.caption, italics: true, color: PDF_COLORS.textLight }
+        : { text: '' },
+      { text: `Page ${pageNum} of ${totalPages}`, fontSize: FONT_SIZES.caption, alignment: 'center', color: PDF_COLORS.textMuted },
+      { 
+        text: format(new Date(), 'd MMM yyyy'), 
+        fontSize: FONT_SIZES.caption, 
+        alignment: 'right', 
+        color: PDF_COLORS.textLight 
+      },
+    ],
+    margin: [STANDARD_MARGINS.left, 0, STANDARD_MARGINS.right, STANDARD_MARGINS.bottom] as Margins,
+  };
+};
+
+/**
+ * Create a styled card content block for pdfmake
+ */
+export const createStyledCard = (
+  content: Content,
+  options: {
+    fillColor?: string;
+    borderColor?: string;
+    indicatorColor?: string;
+    width?: number | string;
+  } = {}
+): Content => {
+  const { 
+    fillColor = PDF_COLORS.background, 
+    borderColor = PDF_COLORS.border,
+    indicatorColor,
+    width = '*'
+  } = options;
+  
+  // Create a table-based card layout
+  const cardBody: Content[][] = indicatorColor
+    ? [[
+        { text: '', fillColor: indicatorColor, width: 3 },
+        { stack: Array.isArray(content) ? content : [content], margin: [CARD_STYLE.padding, CARD_STYLE.padding, CARD_STYLE.padding, CARD_STYLE.padding] as Margins }
+      ]]
+    : [[{ stack: Array.isArray(content) ? content : [content], margin: [CARD_STYLE.padding, CARD_STYLE.padding, CARD_STYLE.padding, CARD_STYLE.padding] as Margins }]];
+  
+  return {
+    table: {
+      widths: indicatorColor ? [3, '*'] : ['*'],
+      body: cardBody,
+    },
+    layout: {
+      hLineWidth: () => 0.5,
+      vLineWidth: () => 0.5,
+      hLineColor: () => borderColor,
+      vLineColor: () => borderColor,
+      fillColor: () => fillColor,
+    },
+  };
+};
+
+/**
+ * Get phase color for roadmap styling
+ */
+export const getPhaseColor = (phase: string): string => {
+  const phaseColors: Record<string, string> = {
+    "Planning & Preparation": '#334155',    // Slate-700
+    "Budget & Assessment": '#475569',       // Slate-600
+    "Tender & Procurement": '#64748b',      // Slate-500
+    "Design Phase": '#52525b',              // Zinc-600
+    "Construction": '#374151',              // Gray-700
+    "Documentation": '#4b5563',             // Gray-600
+    "Commissioning": '#3f3f46',             // Zinc-700
+    "Handover": '#1e293b',                  // Slate-800
+  };
+
+  return phaseColors[phase] || '#334155';   // Default: Slate-700
+};
+
+// ============ LEGACY JSPDF COMPATIBILITY ============
+// These functions are kept for backward compatibility
+
+import jsPDF from "jspdf";
+import { PDF_BRAND_COLORS, PDF_TYPOGRAPHY, PDF_LAYOUT } from "./roadmapReviewPdfStyles";
+import { fetchCompanyDetails as fetchCompanyDetailsLegacy } from "./pdfCoverPage";
+
+/**
+ * @deprecated Use createStandardDocument().withStandardHeader() instead
  * Add standard header to a page (not cover page)
  */
 export const addStandardHeader = async (
@@ -41,20 +200,19 @@ export const addStandardHeader = async (
   documentTitle: string,
   projectName?: string
 ) => {
+  console.warn('addStandardHeader is deprecated. Use createStandardDocument() from pdfmake instead.');
   const pageWidth = doc.internal.pageSize.width;
   const headerY = STANDARD_MARGINS.top;
-  const headerTopY = headerY - STANDARD_MARGINS.headerHeight; // Top of header area
+  const headerTopY = headerY - STANDARD_MARGINS.headerHeight;
 
-  // Try to add logo
   let logoHeight = 0;
   try {
-    const companyDetails = await fetchCompanyDetails();
+    const companyDetails = await fetchCompanyDetailsLegacy();
     if (companyDetails?.logoUrl) {
       const img = new Image();
       img.crossOrigin = "anonymous";
       await new Promise<void>((resolve, reject) => {
         img.onload = () => {
-          // Max logo size: 45mm × 18mm per standards
           const maxWidth = 35;
           const maxHeight = 12;
           const aspectRatio = img.width / img.height;
@@ -66,17 +224,9 @@ export const addStandardHeader = async (
           }
           logoHeight = calcLogoHeight;
           
-          // Center logo vertically in header area
           const logoY = headerTopY + (STANDARD_MARGINS.headerHeight - calcLogoHeight) / 2;
           
-          doc.addImage(
-            img,
-            "PNG",
-            STANDARD_MARGINS.left,
-            logoY,
-            calcLogoWidth,
-            calcLogoHeight
-          );
+          doc.addImage(img, "PNG", STANDARD_MARGINS.left, logoY, calcLogoWidth, calcLogoHeight);
           resolve();
         };
         img.onerror = reject;
@@ -87,42 +237,26 @@ export const addStandardHeader = async (
     // No logo - that's fine
   }
 
-  // Calculate vertical center for text alignment
   const textCenterY = headerTopY + STANDARD_MARGINS.headerHeight / 2;
 
-  // Document title right-aligned, vertically centered
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(
-    PDF_BRAND_COLORS.text[0],
-    PDF_BRAND_COLORS.text[1],
-    PDF_BRAND_COLORS.text[2]
-  );
-  doc.text(documentTitle, pageWidth - STANDARD_MARGINS.right, textCenterY - 2, {
-    align: "right",
-  });
+  doc.setTextColor(PDF_BRAND_COLORS.text[0], PDF_BRAND_COLORS.text[1], PDF_BRAND_COLORS.text[2]);
+  doc.text(documentTitle, pageWidth - STANDARD_MARGINS.right, textCenterY - 2, { align: "right" });
 
-  // Project name if provided
   if (projectName) {
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text(projectName, pageWidth - STANDARD_MARGINS.right, textCenterY + 4, {
-      align: "right",
-    });
+    doc.text(projectName, pageWidth - STANDARD_MARGINS.right, textCenterY + 4, { align: "right" });
   }
 
-  // Separator line (0.5pt, 50% opacity)
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.18);
-  doc.line(
-    STANDARD_MARGINS.left,
-    headerY,
-    pageWidth - STANDARD_MARGINS.right,
-    headerY
-  );
+  doc.line(STANDARD_MARGINS.left, headerY, pageWidth - STANDARD_MARGINS.right, headerY);
 };
 
 /**
+ * @deprecated Use createStandardDocument().withStandardFooter() instead
  * Add standard footer to a page
  */
 export const addStandardFooter = (
@@ -135,17 +269,10 @@ export const addStandardFooter = (
   const pageHeight = doc.internal.pageSize.height;
   const footerY = pageHeight - STANDARD_MARGINS.bottom;
 
-  // Separator line above footer
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.18);
-  doc.line(
-    STANDARD_MARGINS.left,
-    footerY - 8,
-    pageWidth - STANDARD_MARGINS.right,
-    footerY - 8
-  );
+  doc.line(STANDARD_MARGINS.left, footerY - 8, pageWidth - STANDARD_MARGINS.right, footerY - 8);
 
-  // Confidentiality notice (left, 7pt italic)
   if (includeConfidentiality) {
     doc.setFontSize(7);
     doc.setFont("helvetica", "italic");
@@ -153,27 +280,22 @@ export const addStandardFooter = (
     doc.text("CONFIDENTIAL", STANDARD_MARGINS.left, footerY);
   }
 
-  // Page numbers centered
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(80, 80, 80);
-  doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, footerY, {
-    align: "center",
-  });
+  doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, footerY, { align: "center" });
 
-  // Date right-aligned
   const dateStr = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
   doc.setFontSize(7);
-  doc.text(dateStr, pageWidth - STANDARD_MARGINS.right, footerY, {
-    align: "right",
-  });
+  doc.text(dateStr, pageWidth - STANDARD_MARGINS.right, footerY, { align: "right" });
 };
 
 /**
+ * @deprecated Use withStandardHeader/withStandardFooter on document builder instead
  * Add headers and footers to all pages (except cover)
  */
 export const addAllHeadersAndFooters = async (
@@ -192,6 +314,7 @@ export const addAllHeadersAndFooters = async (
 };
 
 /**
+ * @deprecated pdfmake handles page breaks automatically
  * Check if we need a page break and handle it properly
  */
 export const checkSafePageBreak = (
@@ -210,7 +333,8 @@ export const checkSafePageBreak = (
 };
 
 /**
- * Draw a styled card (simplified without GState for compatibility)
+ * @deprecated Use createStyledCard() instead
+ * Draw a styled card
  */
 export const drawStyledCard = (
   doc: jsPDF,
@@ -230,13 +354,11 @@ export const drawStyledCard = (
     indicatorColor,
   } = options;
 
-  // Card background
   doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
   doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
   doc.setLineWidth(0.3);
   doc.roundedRect(x, y, width, height, CARD_STYLE.borderRadius, CARD_STYLE.borderRadius, "FD");
 
-  // Left indicator stripe
   if (indicatorColor) {
     doc.setFillColor(indicatorColor[0], indicatorColor[1], indicatorColor[2]);
     doc.rect(x, y + CARD_STYLE.borderRadius, 3, height - CARD_STYLE.borderRadius * 2, "F");
@@ -258,11 +380,7 @@ export const drawConnectionLine = (
     lineWidth?: number;
   } = {}
 ) => {
-  const {
-    color = [180, 180, 180],
-    dashed = false,
-    lineWidth = 0.5,
-  } = options;
+  const { color = [180, 180, 180], dashed = false, lineWidth = 0.5 } = options;
 
   doc.setDrawColor(color[0], color[1], color[2]);
   doc.setLineWidth(lineWidth);
@@ -309,22 +427,4 @@ export const drawConnectionNode = (
 ) => {
   doc.setFillColor(color[0], color[1], color[2]);
   doc.circle(x, y, radius, "F");
-};
-
-/**
- * Get phase color - Professional engineering palette (muted slate tones)
- */
-export const getPhaseColor = (phase: string): number[] => {
-  const phaseColors: Record<string, number[]> = {
-    "Planning & Preparation": [51, 65, 85],    // Slate-700
-    "Budget & Assessment": [71, 85, 105],      // Slate-600
-    "Tender & Procurement": [100, 116, 139],   // Slate-500
-    "Design Phase": [82, 82, 91],              // Zinc-600
-    "Construction": [55, 65, 81],              // Gray-700
-    "Documentation": [75, 85, 99],             // Gray-600
-    "Commissioning": [63, 63, 70],             // Zinc-700
-    "Handover": [45, 55, 72],                  // Slate-800
-  };
-
-  return phaseColors[phase] || [51, 65, 85];   // Default: Slate-700
 };
