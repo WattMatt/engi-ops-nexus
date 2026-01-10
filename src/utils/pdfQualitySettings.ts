@@ -119,12 +119,12 @@ export const CHART_QUALITY_CANVAS_OPTIONS = {
  */
 export const captureElementAsCanvas = async (
   element: HTMLElement,
-  options: Partial<typeof HIGH_QUALITY_CANVAS_OPTIONS> = {}
+  options: { scale?: number; useCORS?: boolean; backgroundColor?: string } = {}
 ): Promise<HTMLCanvasElement> => {
   return await html2canvas(element, {
     ...HIGH_QUALITY_CANVAS_OPTIONS,
     ...options,
-  });
+  } as Parameters<typeof html2canvas>[1]);
 };
 
 /**
@@ -200,7 +200,7 @@ export const captureChartAsBase64 = async (
 export const addHighQualityImage = (
   doc: jsPDF,
   canvas: HTMLCanvasElement,
-  x: number as number,
+  x: number,
   y: number,
   width: number,
   height: number,

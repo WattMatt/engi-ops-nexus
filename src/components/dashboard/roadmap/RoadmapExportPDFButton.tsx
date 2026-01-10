@@ -202,7 +202,7 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
     complianceData.footerHeight = 15;
     complianceData.hasPageNumbers = true;
     complianceData.cardPadding = 4;
-    complianceData.colorsUsed.set('primary', PDF_BRAND_COLORS.primary);
+    complianceData.colorsUsed.set('primary', `rgb(${PDF_BRAND_COLORS.primary.join(',')})`);
 
     try {
       const doc = initializePDF({ orientation: 'portrait' });
