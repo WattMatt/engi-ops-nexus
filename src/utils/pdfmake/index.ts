@@ -69,6 +69,35 @@ export {
 } from './costReportBuilder';
 export type { CostReportData, CostReportOptions } from './costReportBuilder';
 
+// Validation utilities
+export {
+  validateDocument,
+  getDocumentSummary,
+  formatValidationResult,
+} from './validation';
+export type {
+  ValidationResult,
+  ValidationError,
+  ValidationWarning,
+  DocumentSummary,
+  ContentStats,
+} from './validation';
+
+// Testing utilities
+export {
+  testPDFGeneration,
+  generatePDFPreview,
+  compareDocuments,
+  createTestDocument,
+  benchmarkPDFGeneration,
+  formatBenchmarkResult,
+} from './testing';
+export type {
+  PDFTestResult,
+  DocumentComparison,
+  BenchmarkResult,
+} from './testing';
+
 // Re-export pdfmake types for convenience
 export type { 
   Content, 
