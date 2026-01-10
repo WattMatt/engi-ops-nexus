@@ -2,8 +2,14 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import jsPDF from "jspdf";
 import { format } from "date-fns";
+
+// pdfmake imports
+import { createDocument, sectionHeader, paragraph, spacer } from "@/utils/pdfmake";
+import { getCostReportStyles, PDF_COLORS_HEX } from "@/components/cost-reports/pdf-export/types";
+
+// Legacy jsPDF imports (for backward compatibility if needed)
+import jsPDF from "jspdf";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { 
   initializePDF, 
@@ -14,13 +20,177 @@ import {
 interface ProjectOutlineExportPDFButtonProps {
   outline: any;
   sections: any[];
+  usePdfmake?: boolean; // Feature flag for pdfmake migration
 }
 
-export const ProjectOutlineExportPDFButton = ({ outline, sections }: ProjectOutlineExportPDFButtonProps) => {
+export const ProjectOutlineExportPDFButton = ({ 
+  outline, 
+  sections,
+  usePdfmake = true // Default to new pdfmake implementation
+}: ProjectOutlineExportPDFButtonProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const handleExport = async () => {
+  /**
+   * New pdfmake-based export implementation
+   */
+  const handleExportPdfmake = async () => {
+    setLoading(true);
+    try {
+      const doc = createDocument({
+        pageSize: 'A4',
+        orientation: 'portrait',
+        margins: [40, 60, 40, 60],
+      });
+
+      // Cover page content
+      doc.add([
+        { text: '', pageBreak: 'after' }, // Empty first page placeholder for cover
+      ]);
+
+      // Build cover page
+      doc.add([
+        spacer(80),
+        {
+          text: outline.document_title || 'Baseline Document',
+          fontSize: 28,
+          bold: true,
+          color: PDF_COLORS_HEX.primary,
+          alignment: 'center',
+          margin: [0, 0, 0, 20],
+        },
+        {
+          text: outline.project_name,
+          fontSize: 18,
+          color: PDF_COLORS_HEX.text,
+          alignment: 'center',
+          margin: [0, 0, 0, 40],
+        },
+        {
+          text: outline.prepared_by || '',
+          fontSize: 12,
+          color: PDF_COLORS_HEX.neutral,
+          alignment: 'center',
+          margin: [0, 0, 0, 10],
+        },
+        {
+          text: `Revision: ${outline.revision || 'A'}`,
+          fontSize: 10,
+          color: PDF_COLORS_HEX.neutral,
+          alignment: 'center',
+          margin: [0, 0, 0, 40],
+        },
+        {
+          text: format(new Date(), 'dd MMMM yyyy'),
+          fontSize: 10,
+          color: PDF_COLORS_HEX.neutral,
+          alignment: 'center',
+        },
+        { text: '', pageBreak: 'after' },
+      ]);
+
+      // Index page
+      doc.add([
+        {
+          text: outline.project_name,
+          fontSize: 18,
+          bold: true,
+          alignment: 'center',
+          margin: [0, 0, 0, 20],
+        },
+        {
+          text: 'Index:',
+          fontSize: 14,
+          bold: true,
+          margin: [0, 0, 0, 10],
+        },
+        {
+          ul: sections.map((section: any) => ({
+            text: `${section.section_number}. ${section.section_title}`,
+            fontSize: 11,
+            margin: [0, 3, 0, 3],
+          })),
+          margin: [20, 0, 0, 30],
+        },
+        spacer(20),
+        {
+          text: `Created by: ${outline.contact_person || ''}`,
+          fontSize: 9,
+          color: PDF_COLORS_HEX.neutral,
+        },
+        {
+          text: `Representing: ${outline.prepared_by || ''}`,
+          fontSize: 9,
+          color: PDF_COLORS_HEX.neutral,
+        },
+      ]);
+
+      // Section pages
+      sections.forEach((section: any, index: number) => {
+        doc.add([
+          { text: '', pageBreak: 'before' },
+          {
+            text: outline.project_name,
+            fontSize: 18,
+            bold: true,
+            alignment: 'center',
+            margin: [0, 0, 0, 20],
+          },
+          {
+            text: `${section.section_number}. ${section.section_title}:`,
+            fontSize: 14,
+            bold: true,
+            margin: [0, 0, 0, 10],
+          },
+          {
+            text: section.content || '',
+            fontSize: 11,
+            lineHeight: 1.4,
+            margin: [0, 0, 0, 20],
+          },
+          spacer(20),
+          {
+            text: `Created by: ${outline.contact_person || ''}`,
+            fontSize: 9,
+            color: PDF_COLORS_HEX.neutral,
+          },
+          {
+            text: `Representing: ${outline.prepared_by || ''}`,
+            fontSize: 9,
+            color: PDF_COLORS_HEX.neutral,
+          },
+        ]);
+      });
+
+      // Add standard header/footer
+      doc.withStandardHeader(outline.project_name, outline.revision || 'A');
+      doc.withStandardFooter();
+
+      // Generate and download
+      const fileName = `${outline.project_name.replace(/[^a-z0-9]/gi, '_')}_Baseline_Document_${Date.now()}.pdf`;
+      doc.download(fileName);
+
+      toast({
+        title: "Success",
+        description: "Baseline document exported successfully",
+      });
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to export PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Legacy jsPDF-based export implementation
+   * @deprecated Use handleExportPdfmake instead
+   */
+  const handleExportJsPDF = async () => {
     setLoading(true);
     try {
       const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
@@ -127,6 +297,8 @@ export const ProjectOutlineExportPDFButton = ({ outline, sections }: ProjectOutl
       setLoading(false);
     }
   };
+
+  const handleExport = usePdfmake ? handleExportPdfmake : handleExportJsPDF;
 
   return (
     <Button onClick={handleExport} disabled={loading}>

@@ -59,6 +59,16 @@ export type { DocumentBuilderOptions } from './documentBuilder';
 export { fetchCompanyDetails, generateCoverPageContent } from './coverPage';
 export type { CoverPageOptions, CompanyDetails, ContactDetails } from './coverPage';
 
+// Cost report builder
+export { 
+  generateCostReportPDF, 
+  downloadCostReportPDF,
+  buildCoverPageContent,
+  buildExecutiveSummaryContent,
+  buildCategoryDetailsContent,
+} from './costReportBuilder';
+export type { CostReportData, CostReportOptions } from './costReportBuilder';
+
 // Re-export pdfmake types for convenience
 export type { 
   Content, 
