@@ -1,10 +1,25 @@
 /**
  * Base utilities for all PDF exports
  * 
- * MIGRATED TO PDFMAKE: This file now uses pdfmake instead of jsPDF.
- * Legacy jsPDF functions are kept for backward compatibility but marked as deprecated.
- * New code should use the pdfmake utilities from @/utils/pdfmake
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ⚠️  MIGRATION STATUS: MIGRATED TO PDFMAKE
+ * ═══════════════════════════════════════════════════════════════════════════════
  * 
+ * This file has been migrated to use pdfmake instead of jsPDF.
+ * 
+ * NEW CODE SHOULD USE:
+ * ```typescript
+ * import { createDocument, heading, paragraph, dataTable } from '@/utils/pdfmake';
+ * ```
+ * 
+ * LEGACY FUNCTIONS (deprecated, will be removed in future):
+ * - initializePDF() → use createDocument()
+ * - addSectionHeader() → use sectionHeader()
+ * - addBodyText() → use paragraph()
+ * - addKeyValue() → use keyValue()
+ * - getStandardTableStyles() → use getStandardTableLayout()
+ * 
+ * @see src/utils/pdfmake/README.md for migration guide
  * @see src/utils/pdfmake/index.ts for the new API
  */
 

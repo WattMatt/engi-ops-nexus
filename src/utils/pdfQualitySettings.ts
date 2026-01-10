@@ -1,15 +1,29 @@
 /**
  * Standardized high-quality PDF export settings
  * 
- * MIGRATED TO PDFMAKE: This file now provides quality settings for pdfmake.
- * Legacy jsPDF/html2canvas functions are kept for backward compatibility.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ⚠️  MIGRATION STATUS: PARTIALLY MIGRATED TO PDFMAKE
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 
+ * This file provides quality presets and canvas capture utilities.
+ * 
+ * STILL USEFUL (kept for chart/element capture):
+ * - captureElementAsCanvas() - Capture HTML elements
+ * - captureChartAsCanvas() - Capture chart elements
+ * - captureElementAsBase64() - Capture as base64 for pdfmake
+ * - canvasToDataUrl() - Convert canvas to data URL
  * 
  * QUALITY PRESETS:
  * - DRAFT: Fast rendering, smaller files
- * - STANDARD: Balanced quality - DEFAULT
+ * - STANDARD: Balanced quality - DEFAULT  
  * - HIGH: Best quality, larger files
  * 
+ * DEPRECATED (jsPDF-specific):
+ * - addHighQualityImage() → use captureElementAsBase64() + pdfmake image()
+ * - createHighQualityPDF() → use createDocument() from @/utils/pdfmake
+ * 
  * @see src/utils/pdfmake/styles.ts for pdfmake quality presets
+ * @see src/utils/pdfmake/imageUtils.ts for advanced image utilities
  */
 
 import html2canvas from "html2canvas";
