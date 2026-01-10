@@ -209,6 +209,14 @@ export function BOQExcelImportDialog({
       if (testMap.description !== undefined) {
         headerRowIdx = i;
         colMap = testMap;
+        
+        // Debug: Log header detection for P&G sheet
+        if (sheetName.includes('P&G') || sheetName.includes('1.1')) {
+          console.log(`[BOQ Import] Header found in "${sheetName}" at row ${i}:`, {
+            headerRow: row.slice(0, 8),
+            colMap,
+          });
+        }
         break;
       }
     }
