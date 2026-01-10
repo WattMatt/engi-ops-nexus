@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Folder, LogOut, Users, Settings, Library, Sparkles, Map, LayoutGrid } from "lucide-react";
+import { Folder, LogOut, Users, Settings, Library, Sparkles, Map, LayoutGrid, Contact } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -114,6 +114,11 @@ const ProjectSelect = () => {
               <Button variant="outline" size="sm" onClick={() => navigate("/master-library")}>
                 <Library className="h-4 w-4 mr-2" />
                 Master Library
+              </Button>
+              
+              <Button variant="outline" size="sm" onClick={() => navigate("/contact-library")}>
+                <Contact className="h-4 w-4 mr-2" />
+                Contact Library
               </Button>
               
               {!isAdminRoute && isAdmin && (
