@@ -1,5 +1,10 @@
 import jsPDF from "jspdf";
-import { captureChartAsCanvas, addHighQualityImage } from "@/utils/pdfQualitySettings";
+import type { Content } from "pdfmake/interfaces";
+import { captureChartAsCanvas, addHighQualityImage, canvasToDataUrl } from "@/utils/pdfQualitySettings";
+
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface ChartCaptureConfig {
   elementId: string;
@@ -14,6 +19,10 @@ export interface CapturedChart {
   width: number;
   height: number;
 }
+
+// ============================================================================
+// Capture Functions
+// ============================================================================
 
 /**
  * Captures a chart element from the DOM and returns it as a canvas
@@ -80,8 +89,13 @@ export async function captureCostReportCharts(): Promise<CapturedChart[]> {
   return capturedCharts;
 }
 
+// ============================================================================
+// jsPDF Functions (Legacy)
+// ============================================================================
+
 /**
  * Adds captured charts to a PDF document as a Visual Summary page
+ * @deprecated Use buildChartsContent for pdfmake instead
  */
 export async function addChartsToPDF(
   doc: jsPDF,
@@ -169,6 +183,77 @@ export async function addChartsToPDF(
     yPos += chartHeight + 15;
   }
 }
+
+// ============================================================================
+// pdfmake Functions (New - preferred)
+// ============================================================================
+
+/**
+ * Build charts content for pdfmake
+ */
+export async function buildChartsContent(
+  charts: CapturedChart[]
+): Promise<Content[]> {
+  if (charts.length === 0) return [];
+
+  const content: Content[] = [
+    // Header
+    {
+      text: 'VISUAL SUMMARY',
+      style: 'header',
+      alignment: 'center',
+      margin: [0, 0, 0, 5],
+    },
+    {
+      text: 'Charts & Graphs Overview',
+      fontSize: 9,
+      color: '#3c3c3c',
+      alignment: 'center',
+      margin: [0, 0, 0, 10],
+    },
+    // Separator line
+    {
+      canvas: [
+        {
+          type: 'line',
+          x1: 0,
+          y1: 0,
+          x2: 515,
+          y2: 0,
+          lineWidth: 0.5,
+          lineColor: '#c8c8c8',
+        },
+      ],
+      margin: [0, 0, 0, 15],
+    },
+  ];
+
+  // Add each chart
+  for (const chart of charts) {
+    const base64 = canvasToDataUrl(chart.canvas, 'PNG', 0.95);
+    
+    content.push({
+      text: chart.title,
+      fontSize: 11,
+      bold: true,
+      color: '#1e3a8a',
+      margin: [0, 10, 0, 5],
+    });
+    
+    content.push({
+      image: base64,
+      width: 400,
+      alignment: 'center',
+      margin: [0, 0, 0, 15],
+    });
+  }
+
+  return content;
+}
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
 
 /**
  * Waits for charts to render before capturing
