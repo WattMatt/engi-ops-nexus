@@ -161,13 +161,14 @@ export function BOQExcelImportDialog({
     if (parsed.isBillHeader) return null;
     
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-    const allRows: string[][] = [];
+    const allRows: any[][] = []; // Use any to preserve original cell values
     
     for (let r = range.s.r; r <= range.e.r; r++) {
-      const row: string[] = [];
+      const row: any[] = [];
       for (let c = range.s.c; c <= range.e.c; c++) {
         const cell = worksheet[XLSX.utils.encode_cell({ r, c })];
-        row.push(cell ? String(cell.v ?? "").trim() : "");
+        // Keep original value for numbers, convert to string only for header detection
+        row.push(cell ? cell.v : null);
       }
       allRows.push(row);
     }
@@ -185,12 +186,13 @@ export function BOQExcelImportDialog({
       itemCode: /^no$|^item$|^code$|^ref$|item\s*no|item\s*code/i,
     };
 
-    const findColumnsInRow = (row: string[]): Record<string, number> => {
+    const findColumnsInRow = (row: any[]): Record<string, number> => {
       const colMap: Record<string, number> = {};
       row.forEach((cell, idx) => {
-        const cellLower = cell.toLowerCase();
+        if (cell === null || cell === undefined) return;
+        const cellStr = String(cell).toLowerCase().trim();
         for (const [key, pattern] of Object.entries(patterns)) {
-          if (pattern.test(cellLower) && colMap[key] === undefined) {
+          if (pattern.test(cellStr) && colMap[key] === undefined) {
             colMap[key] = idx;
           }
         }
@@ -213,19 +215,46 @@ export function BOQExcelImportDialog({
     
     if (headerRowIdx === -1) return null;
     
+    // Debug: Log column mapping for P&G sheets
+    if (/p.*g|prelim/i.test(sheetName)) {
+      console.log(`[BOQ Import] Sheet "${sheetName}" header row ${headerRowIdx}:`, allRows[headerRowIdx]);
+      console.log(`[BOQ Import] Sheet "${sheetName}" colMap:`, colMap);
+    }
+    
     const items: ParsedItem[] = [];
     let boqStatedTotal = 0;
     
     for (let i = headerRowIdx + 1; i < allRows.length; i++) {
       const row = allRows[i];
-      const description = colMap.description !== undefined ? String(row[colMap.description] || "").trim() : "";
       
-      let itemCode = colMap.itemCode !== undefined ? String(row[colMap.itemCode] || "").trim() : "";
+      // Get values - use original cell values, not string-converted
+      const descriptionRaw = colMap.description !== undefined ? row[colMap.description] : null;
+      const description = descriptionRaw !== null && descriptionRaw !== undefined ? String(descriptionRaw).trim() : "";
+      
+      const itemCodeRaw = colMap.itemCode !== undefined ? row[colMap.itemCode] : null;
+      let itemCode = itemCodeRaw !== null && itemCodeRaw !== undefined ? String(itemCodeRaw).trim() : "";
+      
       const unitRaw = colMap.unit !== undefined ? String(row[colMap.unit] || "").trim() : "";
+      
+      // Parse numbers directly from cell values (Excel stores numbers as numbers)
       const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
-      const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+      
+      // CRITICAL: Get amount directly from cell value
+      const amountRaw = colMap.amount !== undefined ? row[colMap.amount] : null;
+      const amount = parseNumber(amountRaw);
+      
+      // Debug: Log A1, A3, B1 rows
+      if (/p.*g|prelim/i.test(sheetName) && /^[AB][1-3]?$/i.test(itemCode)) {
+        console.log(`[BOQ Import] Sheet "${sheetName}" item ${itemCode}:`, {
+          rawAmount: amountRaw,
+          parsedAmount: amount,
+          colMapAmount: colMap.amount,
+          rowLength: row.length,
+          row: row.slice(0, 7),
+        });
+      }
       
       if (!itemCode && !description) continue;
       
@@ -239,26 +268,26 @@ export function BOQExcelImportDialog({
         continue; // Don't add as item
       }
       
-      // Detect section header rows - skip them (EXACT same logic as Final Account)
-      const isSectionHeader = (
-        /^[A-Z]$/i.test(itemCode) &&
-        amount > 0 &&
+      // Detect section header rows - these are single letters (A, B, C) with section totals
+      // But only skip if there's NO unit - P&G items like "A1 Time Based Sum R646850" have units!
+      const isSectionHeaderOnly = (
+        /^[A-Z]$/i.test(itemCode) && // Single letter only (not A1, A2, etc.)
         !unitRaw &&
         quantity === 0 &&
         supplyRate === 0 &&
         installRate === 0
       );
       
-      if (isSectionHeader) {
-        if (amount > boqStatedTotal) {
+      if (isSectionHeaderOnly) {
+        if (amount > 0 && amount > boqStatedTotal) {
           boqStatedTotal = amount;
         }
         continue;
       }
       
-      // Detect Prime Cost and Provisional Sum items (same as Final Account)
+      // Detect Prime Cost and Provisional Sum items
       const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for/i.test(description) 
-        || unitRaw.toLowerCase() === 'sum' && /supply|delivery|cost|amount/i.test(description);
+        || (unitRaw.toLowerCase() === 'sum' && /supply|delivery|cost|amount/i.test(description));
       const isProvisionalSum = /provisional\s*sum|^ps\s/i.test(description);
       
       // Map to BOQ item types
@@ -272,13 +301,19 @@ export function BOQExcelImportDialog({
         quantity,
         supply_rate: supplyRate,
         install_rate: installRate,
-        amount, // EXACT VALUE FROM EXCEL - SAME AS FINAL ACCOUNT
+        amount, // EXACT VALUE FROM EXCEL
         is_prime_cost: isPrimeCost,
         item_type: itemType,
       });
     }
     
     if (items.length === 0) return null;
+    
+    // Debug: Log parsed items for P&G
+    if (/p.*g|prelim/i.test(sheetName)) {
+      console.log(`[BOQ Import] Sheet "${sheetName}" parsed ${items.length} items:`, 
+        items.map(i => ({ code: i.item_code, amount: i.amount })));
+    }
     
     return { 
       section: {
