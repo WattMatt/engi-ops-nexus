@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, Building2, ChevronDown, ChevronRight, Settings2, FolderOpen } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Building2, ChevronDown, ChevronRight, Settings2, FolderOpen, Filter, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -49,6 +50,7 @@ const DEFAULT_CONTACT_TYPES = [
 const CUSTOM_CATEGORIES_KEY = "global_contacts_custom_categories";
 
 export function GlobalContactsManager() {
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<GlobalContact | null>(null);
@@ -56,6 +58,7 @@ export function GlobalContactsManager() {
   const [loading, setLoading] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["client"]));
   const [newCategoryLabel, setNewCategoryLabel] = useState("");
+  const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -138,15 +141,26 @@ export function GlobalContactsManager() {
     },
   });
 
-  // Group contacts by type
-  const groupedContacts = contacts?.reduce((acc, contact) => {
+  // Filter contacts based on usage
+  const filteredContacts = useMemo(() => {
+    if (!contacts) return [];
+    if (usageFilter === "all") return contacts;
+    
+    return contacts.filter(contact => {
+      const isUsed = contactProjectUsage?.[contact.id]?.length > 0;
+      return usageFilter === "used" ? isUsed : !isUsed;
+    });
+  }, [contacts, contactProjectUsage, usageFilter]);
+
+  // Group filtered contacts by type
+  const groupedContacts = filteredContacts.reduce((acc, contact) => {
     const type = contact.contact_type;
     if (!acc[type]) {
       acc[type] = [];
     }
     acc[type].push(contact);
     return acc;
-  }, {} as Record<string, GlobalContact[]>) || {};
+  }, {} as Record<string, GlobalContact[]>);
 
   // Get categories that have contacts
   const categoriesWithContacts = Object.keys(groupedContacts);
@@ -156,6 +170,12 @@ export function GlobalContactsManager() {
     ...allContactTypes.map(t => t.value),
     ...categoriesWithContacts
   ])];
+
+  // Helper to navigate to a project
+  const navigateToProject = (projectId: string) => {
+    localStorage.setItem("selectedProjectId", projectId);
+    navigate("/dashboard");
+  };
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => {
@@ -448,14 +468,28 @@ export function GlobalContactsManager() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <CardTitle>Global Contacts Library</CardTitle>
             <CardDescription>
               Manage your contacts library organized by category for quick selection across all projects
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Usage Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={usageFilter} onValueChange={(value: "all" | "used" | "unused") => setUsageFilter(value)}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Contacts</SelectItem>
+                  <SelectItem value="used">Used in Projects</SelectItem>
+                  <SelectItem value="unused">Not Used</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {/* Manage Categories Dialog */}
             <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
               <DialogTrigger asChild>
@@ -793,31 +827,54 @@ export function GlobalContactsManager() {
                             {/* Projects using this contact */}
                             {projectCount > 0 && (
                               <div className="mt-3 pt-3 border-t">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-2 cursor-help">
-                                      <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                                      <span className="text-xs text-muted-foreground">
-                                        Used in {projectCount} project{projectCount !== 1 ? 's' : ''}
-                                      </span>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" align="start" className="max-w-xs">
-                                    <div className="space-y-1">
-                                      <p className="font-medium text-sm">Projects using this contact:</p>
-                                      <ul className="text-xs space-y-0.5">
-                                        {projectsUsingContact.map((project) => (
-                                          <li key={project.id} className="flex items-center gap-1">
-                                            <span className="text-muted-foreground">
-                                              {project.project_number ? `${project.project_number} - ` : ''}
-                                            </span>
-                                            <span>{project.name}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">
+                                    Used in {projectCount} project{projectCount !== 1 ? 's' : ''}:
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {projectsUsingContact.slice(0, 3).map((project) => (
+                                    <Badge
+                                      key={project.id}
+                                      variant="secondary"
+                                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs gap-1"
+                                      onClick={() => navigateToProject(project.id)}
+                                    >
+                                      {project.project_number || project.name}
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                    </Badge>
+                                  ))}
+                                  {projectCount > 3 && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge variant="outline" className="text-xs cursor-help">
+                                          +{projectCount - 3} more
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="bottom" align="start" className="max-w-xs">
+                                        <div className="space-y-1">
+                                          <p className="font-medium text-sm">More projects:</p>
+                                          <ul className="text-xs space-y-1">
+                                            {projectsUsingContact.slice(3).map((project) => (
+                                              <li 
+                                                key={project.id} 
+                                                className="flex items-center gap-1 cursor-pointer hover:text-primary"
+                                                onClick={() => navigateToProject(project.id)}
+                                              >
+                                                <span>
+                                                  {project.project_number ? `${project.project_number} - ` : ''}
+                                                  {project.name}
+                                                </span>
+                                                <ExternalLink className="h-2.5 w-2.5" />
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
