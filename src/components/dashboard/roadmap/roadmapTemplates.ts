@@ -17,13 +17,13 @@ export const defaultRoadmapTemplate: RoadmapTemplateItem[] = [
       { title: "Supply Authority Confirmation", sort_order: 2 },
     ],
   },
-  {
-    title: "Project Budget Preparation",
-    phase: "Planning & Preparation",
-    sort_order: 2,
-  },
   
   // Phase 2: Budget Preparation / Assessment
+  {
+    title: "Project Budget Preparation",
+    phase: "Budget & Assessment",
+    sort_order: 2,
+  },
   {
     title: "Budget Preparation",
     phase: "Budget & Assessment",
