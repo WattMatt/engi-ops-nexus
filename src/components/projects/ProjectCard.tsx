@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Folder, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProjectCardMenu } from "./ProjectCardMenu";
 
 interface Project {
   id: string;
@@ -11,11 +12,14 @@ interface Project {
   status: string;
   project_logo_url: string | null;
   client_logo_url: string | null;
+  city?: string | null;
+  province?: string | null;
 }
 
 interface ProjectCardProps {
   project: Project;
   onSelect: (id: string) => void;
+  onDeleted?: () => void;
   index: number;
   viewMode: "grid" | "list";
 }
@@ -27,7 +31,7 @@ const statusColors: Record<string, { bg: string; text: string; dot: string }> = 
   on_hold: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-500" },
 };
 
-export const ProjectCard = ({ project, onSelect, index, viewMode }: ProjectCardProps) => {
+export const ProjectCard = ({ project, onSelect, onDeleted, index, viewMode }: ProjectCardProps) => {
   const status = statusColors[project.status] || statusColors.active;
   
   if (viewMode === "list") {
@@ -78,10 +82,13 @@ export const ProjectCard = ({ project, onSelect, index, viewMode }: ProjectCardP
             </div>
           )}
           
-          <Button variant="ghost" size="sm" className="gap-2 group-hover:gap-3 transition-all">
-            Open
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="gap-2 group-hover:gap-3 transition-all">
+              Open
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <ProjectCardMenu project={project} onDeleted={onDeleted} />
+          </div>
         </div>
       </Card>
     );
@@ -105,13 +112,16 @@ export const ProjectCard = ({ project, onSelect, index, viewMode }: ProjectCardP
           <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300">
             <Folder className="h-6 w-6 text-primary" />
           </div>
-          <span className={cn(
-            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium",
-            status.bg, status.text
-          )}>
-            <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", status.dot)} />
-            {project.status}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium",
+              status.bg, status.text
+            )}>
+              <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", status.dot)} />
+              {project.status}
+            </span>
+            <ProjectCardMenu project={project} onDeleted={onDeleted} />
+          </div>
         </div>
         
         {(project.project_logo_url || project.client_logo_url) && (
