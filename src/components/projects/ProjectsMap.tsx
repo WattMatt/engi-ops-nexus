@@ -752,7 +752,11 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
                     key={project.id}
                     variant={placingPin === project.id ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setPlacingPin(placingPin === project.id ? null : project.id)}
+                    onClick={() => {
+                      const newValue = placingPin === project.id ? null : project.id;
+                      placingPinRef.current = newValue; // Update ref immediately
+                      setPlacingPin(newValue);
+                    }}
                     className={cn(
                       "gap-2 transition-all",
                       placingPin === project.id && "ring-2 ring-offset-2"
@@ -802,8 +806,10 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
                     size="sm"
                     onClick={() => {
                       if (placingPin === project.id) {
+                        placingPinRef.current = null; // Update ref immediately
                         setPlacingPin(null);
                       } else {
+                        placingPinRef.current = project.id; // Update ref immediately
                         setPlacingPin(project.id);
                         // Fly to current location
                         if (project.latitude && project.longitude && map.current) {
