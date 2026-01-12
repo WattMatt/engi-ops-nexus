@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
+import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
 import "mapbox-gl/dist/mapbox-gl.css";
+import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, MapPin, X, Navigation, Map, Satellite, Building2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, MapPin, X, Navigation, Map, Satellite, Building2, Search, Crosshair, LocateFixed } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
 interface Project {
   id: string;
   project_number: string;
@@ -38,12 +40,16 @@ const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
 export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: ProjectsMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const geocoderContainer = useRef<HTMLDivElement>(null);
+  const geocoder = useRef<MapboxGeocoder | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
+  const searchMarker = useRef<mapboxgl.Marker | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [placingPin, setPlacingPin] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite'>('streets');
-
+  const [searchedLocation, setSearchedLocation] = useState<{ lng: number; lat: number; name: string } | null>(null);
+  const [showDropPinMode, setShowDropPinMode] = useState(false);
   const MAP_STYLES = {
     streets: 'mapbox://styles/mapbox/light-v11',
     satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
@@ -87,6 +93,95 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+    
+    // Add geolocate control
+    map.current.addControl(
+      new mapboxgl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: false,
+        showUserHeading: false,
+      }),
+      "top-right"
+    );
+
+    // Initialize Geocoder for address/street search
+    if (geocoderContainer.current) {
+      geocoder.current = new MapboxGeocoder({
+        accessToken: mapboxToken,
+        mapboxgl: mapboxgl as any,
+        placeholder: "Search street, address, or area...",
+        countries: "za", // Limit to South Africa
+        types: "address,place,locality,neighborhood,poi",
+        language: "en",
+        limit: 8,
+        marker: false, // We'll add our own marker
+      });
+
+      geocoderContainer.current.innerHTML = '';
+      geocoderContainer.current.appendChild(geocoder.current.onAdd(map.current));
+
+      // Handle geocoder result
+      geocoder.current.on("result", (e: any) => {
+        const { center, place_name } = e.result;
+        const [lng, lat] = center;
+        
+        // Remove previous search marker
+        if (searchMarker.current) {
+          searchMarker.current.remove();
+        }
+
+        // Add new search marker
+        const el = document.createElement("div");
+        el.innerHTML = `
+          <div style="
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, hsl(222.2 47.4% 11.2%), hsl(222.2 47.4% 25%));
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+          ">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+          </div>
+        `;
+
+        searchMarker.current = new mapboxgl.Marker(el)
+          .setLngLat([lng, lat])
+          .setPopup(
+            new mapboxgl.Popup({ offset: 25 }).setHTML(`
+              <div style="padding: 12px; font-family: system-ui;">
+                <p style="font-size: 13px; font-weight: 600; margin: 0 0 4px 0; color: #1f2937;">📍 ${place_name}</p>
+                <p style="font-size: 11px; color: #6b7280; margin: 0;">Click "Drop Pin Here" to assign a project</p>
+              </div>
+            `)
+          )
+          .addTo(map.current!);
+
+        setSearchedLocation({ lng, lat, name: place_name });
+        
+        // Fly to location with appropriate zoom
+        map.current?.flyTo({
+          center: [lng, lat],
+          zoom: 16,
+          duration: 1500,
+        });
+      });
+
+      geocoder.current.on("clear", () => {
+        if (searchMarker.current) {
+          searchMarker.current.remove();
+          searchMarker.current = null;
+        }
+        setSearchedLocation(null);
+      });
+    }
 
     // Handle click for placing pins
     map.current.on("click", async (e) => {
@@ -104,6 +199,15 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
           toast.success("Project location saved!");
           onLocationUpdate?.(placingPin, lat, lng);
           setPlacingPin(null);
+          setShowDropPinMode(false);
+          
+          // Clear search marker after placing
+          if (searchMarker.current) {
+            searchMarker.current.remove();
+            searchMarker.current = null;
+          }
+          setSearchedLocation(null);
+          geocoder.current?.clear();
         } catch (error) {
           console.error("Error saving location:", error);
           toast.error("Failed to save location");
@@ -114,9 +218,45 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
     return () => {
       markers.current.forEach(marker => marker.remove());
       markers.current = [];
+      if (searchMarker.current) {
+        searchMarker.current.remove();
+      }
+      geocoder.current = null;
       map.current?.remove();
     };
   }, [mapboxToken]);
+
+  // Handle dropping pin at searched location
+  const handleDropPinAtSearchedLocation = useCallback(async () => {
+    if (!searchedLocation || !placingPin) return;
+
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({ 
+          latitude: searchedLocation.lat, 
+          longitude: searchedLocation.lng 
+        })
+        .eq("id", placingPin);
+
+      if (error) throw error;
+
+      toast.success(`Project pinned to ${searchedLocation.name.split(',')[0]}`);
+      onLocationUpdate?.(placingPin, searchedLocation.lat, searchedLocation.lng);
+      setPlacingPin(null);
+      setShowDropPinMode(false);
+      
+      if (searchMarker.current) {
+        searchMarker.current.remove();
+        searchMarker.current = null;
+      }
+      setSearchedLocation(null);
+      geocoder.current?.clear();
+    } catch (error) {
+      console.error("Error saving location:", error);
+      toast.error("Failed to save location");
+    }
+  }, [searchedLocation, placingPin, onLocationUpdate]);
 
   // Update map style
   useEffect(() => {
@@ -339,6 +479,13 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
       {/* Header controls */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
+          {/* Address/Street Search */}
+          <div 
+            ref={geocoderContainer} 
+            className="geocoder-container"
+            style={{ minWidth: '320px' }}
+          />
+
           {/* Map style toggle */}
           <div className="inline-flex items-center rounded-lg border bg-background p-1 shadow-sm">
             <Button
@@ -376,7 +523,7 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
 
         {/* Status legend */}
         <div className="flex flex-wrap items-center gap-3">
-        {Object.entries(STATUS_CONFIG).map(([status, config]) => (
+          {Object.entries(STATUS_CONFIG).map(([status, config]) => (
             <div key={status} className="flex items-center gap-2">
               <div 
                 className="w-2.5 h-2.5 rounded-full shadow-sm" 
@@ -407,17 +554,66 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
               </div>
               <div className="pr-2">
                 <p className="text-sm font-semibold">Place Project Pin</p>
-                <p className="text-xs opacity-80">Click anywhere on the map</p>
+                <p className="text-xs opacity-80">
+                  {searchedLocation 
+                    ? "Click 'Drop Pin Here' or click on map" 
+                    : "Search an address or click on map"}
+                </p>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 hover:bg-primary-foreground/20 rounded-full"
-                onClick={() => setPlacingPin(null)}
+                onClick={() => {
+                  setPlacingPin(null);
+                  setShowDropPinMode(false);
+                }}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Drop pin at searched location button */}
+        {searchedLocation && placingPin && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+            <Button
+              size="lg"
+              onClick={handleDropPinAtSearchedLocation}
+              className="gap-2 shadow-xl animate-in fade-in slide-in-from-bottom-2"
+            >
+              <LocateFixed className="h-5 w-5" />
+              Drop Pin Here
+              <span className="text-xs opacity-80 ml-1">
+                ({searchedLocation.name.split(',')[0]})
+              </span>
+            </Button>
+          </div>
+        )}
+
+        {/* Searched location info panel */}
+        {searchedLocation && !placingPin && (
+          <div className="absolute bottom-4 left-4 z-10 max-w-sm">
+            <Card className="shadow-xl border-2">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Search className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{searchedLocation.name.split(',')[0]}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {searchedLocation.name.split(',').slice(1).join(',')}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+                  <Crosshair className="h-3.5 w-3.5" />
+                  Select a project below to pin it here
+                </p>
+              </CardContent>
+            </Card>
           </div>
         )}
       </Card>
