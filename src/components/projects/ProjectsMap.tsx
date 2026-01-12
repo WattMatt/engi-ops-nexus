@@ -44,12 +44,18 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
   const geocoder = useRef<MapboxGeocoder | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
   const searchMarker = useRef<mapboxgl.Marker | null>(null);
+  const placingPinRef = useRef<string | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [placingPin, setPlacingPin] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite'>('streets');
   const [searchedLocation, setSearchedLocation] = useState<{ lng: number; lat: number; name: string } | null>(null);
   const [showDropPinMode, setShowDropPinMode] = useState(false);
+
+  // Keep ref in sync with state for use in event handlers
+  useEffect(() => {
+    placingPinRef.current = placingPin;
+  }, [placingPin]);
   const MAP_STYLES = {
     streets: 'mapbox://styles/mapbox/light-v11',
     satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
@@ -183,9 +189,10 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
       });
     }
 
-    // Handle click for placing pins
+    // Handle click for placing pins - use ref to get current value
     map.current.on("click", async (e) => {
-      if (placingPin) {
+      const currentPlacingPin = placingPinRef.current;
+      if (currentPlacingPin) {
         const { lng, lat } = e.lngLat;
         
         try {
@@ -222,13 +229,13 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
               ...(city && { city }),
               ...(province && { province })
             })
-            .eq("id", placingPin);
+            .eq("id", currentPlacingPin);
 
           if (error) throw error;
 
           const locationName = city ? `${city}${province ? `, ${province}` : ''}` : 'location';
           toast.success(`Project pinned to ${locationName}!`);
-          onLocationUpdate?.(placingPin, lat, lng);
+          onLocationUpdate?.(currentPlacingPin, lat, lng);
           setPlacingPin(null);
           setShowDropPinMode(false);
           
