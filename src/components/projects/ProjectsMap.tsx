@@ -189,14 +189,45 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
         const { lng, lat } = e.lngLat;
         
         try {
+          // Reverse geocode to get city/province
+          let city: string | null = null;
+          let province: string | null = null;
+          
+          try {
+            const response = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=place,region&access_token=${mapboxToken}`
+            );
+            const data = await response.json();
+            
+            if (data.features && data.features.length > 0) {
+              // Find city (place) and province (region)
+              for (const feature of data.features) {
+                if (feature.place_type.includes('place') && !city) {
+                  city = feature.text;
+                }
+                if (feature.place_type.includes('region') && !province) {
+                  province = feature.text;
+                }
+              }
+            }
+          } catch (geoError) {
+            console.warn("Reverse geocoding failed:", geoError);
+          }
+
           const { error } = await supabase
             .from("projects")
-            .update({ latitude: lat, longitude: lng })
+            .update({ 
+              latitude: lat, 
+              longitude: lng,
+              ...(city && { city }),
+              ...(province && { province })
+            })
             .eq("id", placingPin);
 
           if (error) throw error;
 
-          toast.success("Project location saved!");
+          const locationName = city ? `${city}${province ? `, ${province}` : ''}` : 'location';
+          toast.success(`Project pinned to ${locationName}!`);
           onLocationUpdate?.(placingPin, lat, lng);
           setPlacingPin(null);
           setShowDropPinMode(false);
@@ -228,20 +259,45 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
 
   // Handle dropping pin at searched location
   const handleDropPinAtSearchedLocation = useCallback(async () => {
-    if (!searchedLocation || !placingPin) return;
+    if (!searchedLocation || !placingPin || !mapboxToken) return;
 
     try {
+      // Parse city and province from the searched location name
+      const nameParts = searchedLocation.name.split(',').map(p => p.trim());
+      let city: string | null = nameParts[0] || null;
+      let province: string | null = null;
+      
+      // Try to find province from the name parts or via reverse geocoding
+      try {
+        const response = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${searchedLocation.lng},${searchedLocation.lat}.json?types=region&access_token=${mapboxToken}`
+        );
+        const data = await response.json();
+        
+        if (data.features && data.features.length > 0) {
+          province = data.features[0].text;
+        }
+      } catch (geoError) {
+        console.warn("Failed to get province:", geoError);
+        // Fallback: try to extract from name
+        if (nameParts.length > 1) {
+          province = nameParts[nameParts.length - 2]; // Usually second to last
+        }
+      }
+
       const { error } = await supabase
         .from("projects")
         .update({ 
           latitude: searchedLocation.lat, 
-          longitude: searchedLocation.lng 
+          longitude: searchedLocation.lng,
+          ...(city && { city }),
+          ...(province && { province })
         })
         .eq("id", placingPin);
 
       if (error) throw error;
 
-      toast.success(`Project pinned to ${searchedLocation.name.split(',')[0]}`);
+      toast.success(`Project pinned to ${city}${province ? `, ${province}` : ''}`);
       onLocationUpdate?.(placingPin, searchedLocation.lat, searchedLocation.lng);
       setPlacingPin(null);
       setShowDropPinMode(false);
@@ -256,7 +312,7 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
       console.error("Error saving location:", error);
       toast.error("Failed to save location");
     }
-  }, [searchedLocation, placingPin, onLocationUpdate]);
+  }, [searchedLocation, placingPin, onLocationUpdate, mapboxToken]);
 
   // Update map style
   useEffect(() => {
