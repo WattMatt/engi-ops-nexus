@@ -449,7 +449,8 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
               display: flex;
               align-items: center;
               justify-content: space-between;
-              gap: 12px;
+              gap: 8px;
+              margin-bottom: 10px;
             ">
               <span style="
                 display: inline-flex;
@@ -465,10 +466,48 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
                 <span style="width: 6px; height: 6px; background: ${config.color}; border-radius: 50%;"></span>
                 ${config.label}
               </span>
+              <span style="font-size: 10px; color: #9ca3af;">
+                ${project.latitude?.toFixed(4)}, ${project.longitude?.toFixed(4)}
+              </span>
+            </div>
+            <div style="
+              display: flex;
+              gap: 8px;
+            ">
+              <button 
+                onclick="window.moveProjectPin('${project.id}')"
+                style="
+                  flex: 1;
+                  padding: 8px 12px;
+                  background: #f3f4f6;
+                  color: #374151;
+                  border: 1px solid #e5e7eb;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 12px;
+                  font-weight: 500;
+                  transition: all 0.15s ease;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                "
+                onmouseover="this.style.background='#e5e7eb'"
+                onmouseout="this.style.background='#f3f4f6'"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 3v16h16"/>
+                  <path d="m5 19 6-6"/>
+                  <path d="m2 6 3-3 3 3"/>
+                  <path d="m18 16 3 3-3 3"/>
+                </svg>
+                Move Pin
+              </button>
               <button 
                 onclick="window.selectProject('${project.id}')"
                 style="
-                  padding: 8px 14px;
+                  flex: 1;
+                  padding: 8px 12px;
                   background: hsl(222.2 47.4% 11.2%);
                   color: white;
                   border: none;
@@ -499,8 +538,17 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
       onProjectSelect(projectId);
     };
 
+    // Global function for moving pin
+    (window as any).moveProjectPin = (projectId: string) => {
+      // Close any open popups
+      markers.current.forEach(marker => marker.getPopup()?.remove());
+      setPlacingPin(projectId);
+      toast.info("Click on the map to set the new location");
+    };
+
     return () => {
       delete (window as any).selectProject;
+      delete (window as any).moveProjectPin;
     };
   }, [projects, mapboxToken, onProjectSelect]);
 
@@ -716,6 +764,73 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
             <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary" />
               Click a project, then click on the map to set its location
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Mapped projects - for moving pins */}
+      {projectsWithLocation.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <MapPin className="h-4 w-4 text-emerald-600" />
+              </div>
+              <div className="flex-1">
+                <span>Mapped Projects</span>
+                <Badge variant="secondary" className="ml-2">{projectsWithLocation.length}</Badge>
+              </div>
+              <span className="text-xs font-normal text-muted-foreground">Click to move pin</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-wrap gap-2">
+              {projectsWithLocation.map(project => {
+                const config = STATUS_CONFIG[project.status] || { color: "#6b7280", label: project.status };
+                return (
+                  <Button
+                    key={project.id}
+                    variant={placingPin === project.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      if (placingPin === project.id) {
+                        setPlacingPin(null);
+                      } else {
+                        setPlacingPin(project.id);
+                        // Fly to current location
+                        if (project.latitude && project.longitude && map.current) {
+                          map.current.flyTo({
+                            center: [project.longitude, project.latitude],
+                            zoom: 14,
+                            duration: 1000,
+                          });
+                        }
+                      }
+                    }}
+                    className={cn(
+                      "gap-2 transition-all",
+                      placingPin === project.id && "ring-2 ring-offset-2"
+                    )}
+                    style={{
+                      borderColor: placingPin !== project.id ? `${config.color}40` : undefined,
+                    }}
+                  >
+                    <div 
+                      className="w-2 h-2 rounded-full" 
+                      style={{ backgroundColor: config.color }}
+                    />
+                    <span className="font-medium">{project.project_number}</span>
+                    {project.city && (
+                      <span className="text-muted-foreground font-normal">- {project.city}</span>
+                    )}
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Select a project to update its location, or click a marker on the map
             </p>
           </CardContent>
         </Card>
