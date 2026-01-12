@@ -56,6 +56,7 @@ import ClientTenantReport from "./pages/client/ClientTenantReport";
 import ClientGeneratorReport from "./pages/client/ClientGeneratorReport";
 import ClientView from "./pages/ClientView";
 import ContractorReviewPortal from "./pages/ContractorReviewPortal";
+import PRDManager from "./pages/PRDManager";
 import { HelpButton } from "./components/feedback/HelpButton";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,7 @@ const App = () => (
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="prd-manager" element={<PRDManager />} />
           </Route>
 
           {/* Project-specific routes */}

@@ -3012,6 +3012,39 @@ export type Database = {
           },
         ]
       }
+      development_prds: {
+        Row: {
+          branch_name: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          branch_name?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          branch_name?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       distribution_boards: {
         Row: {
           created_at: string
@@ -7698,6 +7731,98 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prd_progress_log: {
+        Row: {
+          created_at: string
+          entry: string
+          entry_type: string
+          id: string
+          prd_id: string
+          story_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          entry: string
+          entry_type?: string
+          id?: string
+          prd_id: string
+          story_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entry?: string
+          entry_type?: string
+          id?: string
+          prd_id?: string
+          story_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_progress_log_prd_id_fkey"
+            columns: ["prd_id"]
+            isOneToOne: false
+            referencedRelation: "development_prds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prd_progress_log_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "prd_stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prd_stories: {
+        Row: {
+          acceptance_criteria: string[] | null
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          notes: string | null
+          prd_id: string
+          priority: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acceptance_criteria?: string[] | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          notes?: string | null
+          prd_id: string
+          priority?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acceptance_criteria?: string[] | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          notes?: string | null
+          prd_id?: string
+          priority?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_stories_prd_id_fkey"
+            columns: ["prd_id"]
+            isOneToOne: false
+            referencedRelation: "development_prds"
             referencedColumns: ["id"]
           },
         ]
