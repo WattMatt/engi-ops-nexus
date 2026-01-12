@@ -241,6 +241,7 @@ const ProjectSelect = () => {
                     key={project.id}
                     project={project}
                     onSelect={handleProjectSelect}
+                    onDeleted={loadProjects}
                     index={index}
                     viewMode={viewMode}
                   />
