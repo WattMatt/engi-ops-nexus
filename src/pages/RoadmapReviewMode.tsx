@@ -264,10 +264,6 @@ export default function RoadmapReviewMode() {
   };
 
   const handleComplete = () => {
-    if (itemUpdates.size === 0) {
-      toast.info("No items have been updated during this review");
-      return;
-    }
     if (!reviewSessionId) {
       toast.error("Review session not initialized. Please refresh and try again.");
       return;
