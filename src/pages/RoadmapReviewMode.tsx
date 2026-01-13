@@ -345,7 +345,7 @@ export default function RoadmapReviewMode() {
             <X className="h-4 w-4 mr-2" />
             Exit Review
           </Button>
-          <Button size="sm" onClick={handleComplete} disabled={updatedCount === 0}>
+          <Button size="sm" onClick={handleComplete}>
             <Send className="h-4 w-4 mr-2" />
             Complete & Send Update
           </Button>
