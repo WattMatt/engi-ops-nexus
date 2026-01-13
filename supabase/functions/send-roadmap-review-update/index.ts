@@ -119,8 +119,11 @@ Deno.serve(async (req) => {
       console.error("Failed to update review session:", sessionError);
     }
 
-    // Send emails to all recipients
-    const emailPromises = recipients.map(async (recipient) => {
+    // Send emails sequentially with delay to avoid Resend rate limits (2 req/sec)
+    const results: { email: string; success: boolean; error?: string }[] = [];
+    
+    for (let i = 0; i < recipients.length; i++) {
+      const recipient = recipients[i];
       const recipientName = recipient.name || "Team Member";
       
       // Generate a view link - for now, just link to the project
@@ -150,15 +153,18 @@ Deno.serve(async (req) => {
             { name: "project_id", value: projectId },
           ],
         });
-        return { email: recipient.email, success: true };
+        results.push({ email: recipient.email, success: true });
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error";
         console.error(`Failed to send email to ${recipient.email}:`, err);
-        return { email: recipient.email, success: false, error: errorMessage };
+        results.push({ email: recipient.email, success: false, error: errorMessage });
       }
-    });
-
-    const results = await Promise.all(emailPromises);
+      
+      // Add 600ms delay between emails to stay under Resend's 2 req/sec limit
+      if (i < recipients.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
+    }
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
 
