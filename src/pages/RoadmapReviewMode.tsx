@@ -23,6 +23,11 @@ interface RoadmapItemData {
   is_completed: boolean;
   completed_at: string | null;
   priority: string | null;
+  link_url: string | null;
+  link_label: string | null;
+  comments: string | null;
+  start_date: string | null;
+  due_date: string | null;
 }
 
 interface ItemUpdate {
