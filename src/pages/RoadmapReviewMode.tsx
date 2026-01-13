@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Send, X, ClipboardCheck, Map as MapIcon, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { RoadmapItem } from "@/components/dashboard/roadmap/RoadmapItem";
+import { AddRoadmapItemDialog } from "@/components/dashboard/roadmap/AddRoadmapItemDialog";
 import { ReviewCompletionDialog } from "@/components/dashboard/roadmap/ReviewCompletionDialog";
 import {
   DndContext,
@@ -66,6 +67,9 @@ export default function RoadmapReviewMode() {
   const [projectName, setProjectName] = useState<string>("");
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set(["all"]));
   const [showOnlyChanged, setShowOnlyChanged] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<RoadmapItemData | null>(null);
+  const [parentId, setParentId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -266,6 +270,18 @@ export default function RoadmapReviewMode() {
     setCompletionDialogOpen(true);
   };
 
+  const handleAddItem = (parentIdParam: string | null = null) => {
+    setParentId(parentIdParam);
+    setEditingItem(null);
+    setAddDialogOpen(true);
+  };
+
+  const handleEditItem = (item: RoadmapItemData) => {
+    setEditingItem(item);
+    setParentId(item.parent_id);
+    setAddDialogOpen(true);
+  };
+
   // Group items by phase
   const phases = [...new Set(items.filter(i => !i.parent_id).map(i => i.phase || "General"))];
   const rootItems = items.filter(i => !i.parent_id);
@@ -429,9 +445,9 @@ export default function RoadmapReviewMode() {
                                 onToggleComplete={(id, isCompleted) => 
                                   toggleComplete.mutate({ id, isCompleted })
                                 }
-                                onEdit={() => {}} // Disabled in review mode
+                                onEdit={handleEditItem}
                                 onDelete={() => {}} // Disabled in review mode
-                                onAddChild={() => {}} // Disabled in review mode
+                                onAddChild={(parentId) => handleAddItem(parentId)}
                                 onReorderChildren={(updates) => reorderItems.mutate(updates)}
                                 onDateChange={(id, field, value) => updateDate.mutate({ id, field, value })}
                                 showDateColumns
@@ -448,6 +464,21 @@ export default function RoadmapReviewMode() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add/Edit Item Dialog */}
+      <AddRoadmapItemDialog
+        open={addDialogOpen}
+        onOpenChange={(open) => {
+          setAddDialogOpen(open);
+          if (!open) {
+            // Refresh data when dialog closes
+            queryClient.invalidateQueries({ queryKey: ["roadmap-items-review", projectId] });
+          }
+        }}
+        projectId={projectId}
+        parentId={parentId}
+        editingItem={editingItem}
+      />
 
       {/* Completion Dialog */}
       <ReviewCompletionDialog
