@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Pencil, Trash2, Copy, Eye, LayoutTemplate, Mail, Bell, Share2, FolderKanban, CheckCircle, UserPlus, Shield } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Copy, Eye, LayoutTemplate, Mail, Bell, Share2, FolderKanban, CheckCircle, UserPlus, Shield, Lock } from "lucide-react";
 import { format } from "date-fns";
 
 const categoryIcons: Record<string, any> = {
@@ -193,13 +193,19 @@ export function EmailTemplatesList() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant={template.is_active ? "default" : "secondary"}>
                         {template.is_active ? "Active" : "Inactive"}
                       </Badge>
                       {template.is_default && (
                         <Badge variant="outline">Default</Badge>
+                      )}
+                      {template.is_system && (
+                        <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300 bg-amber-50">
+                          <Lock className="h-3 w-3" />
+                          System
+                        </Badge>
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">

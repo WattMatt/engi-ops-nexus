@@ -3561,6 +3561,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_default: boolean
+          is_system: boolean | null
           json_content: Json | null
           name: string
           plain_text_content: string | null
@@ -3580,6 +3581,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_default?: boolean
+          is_system?: boolean | null
           json_content?: Json | null
           name: string
           plain_text_content?: string | null
@@ -3599,6 +3601,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_default?: boolean
+          is_system?: boolean | null
           json_content?: Json | null
           name?: string
           plain_text_content?: string | null

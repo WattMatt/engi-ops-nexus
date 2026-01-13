@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Save, Eye, Code, Sparkles, LayoutTemplate, Variable, Send, Undo2 } from "lucide-react";
+import { ArrowLeft, Save, Eye, Code, Sparkles, LayoutTemplate, Variable, Send, Undo2, Lock, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { EmailBuilderCanvas } from "./builder/EmailBuilderCanvas";
 import { EmailPreviewModal } from "./EmailPreviewModal";
@@ -155,21 +156,42 @@ export function EmailTemplateEditor() {
     );
   }
 
+  const isSystemTemplate = template?.is_system === true;
+
   return (
     <div className="space-y-6">
+      {/* System Template Warning */}
+      {isSystemTemplate && !isNew && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <Lock className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <strong>System Template</strong> – This template is managed by the system and used by automated workflows. 
+            Changes here will update the template for all future emails. The edge function implementation remains the source of truth.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/admin/email-templates")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">
-              {isNew ? "Create Email Template" : `Edit: ${template?.name || "Template"}`}
-            </h1>
-            <p className="text-muted-foreground">
-              {isNew ? "Design a new email template with the drag-and-drop builder" : `Version ${template?.version || 1}`}
-            </p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-2xl font-bold">
+                {isNew ? "Create Email Template" : `Edit: ${template?.name || "Template"}`}
+              </h1>
+              <p className="text-muted-foreground">
+                {isNew ? "Design a new email template with the drag-and-drop builder" : `Version ${template?.version || 1}`}
+              </p>
+            </div>
+            {isSystemTemplate && (
+              <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300 bg-amber-50">
+                <Lock className="h-3 w-3" />
+                System
+              </Badge>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
