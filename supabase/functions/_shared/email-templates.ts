@@ -1,225 +1,172 @@
 /**
  * Branded email templates for Watson Mattheus
  * All emails use consistent styling and branding
+ * 
+ * IMPORTANT: These templates use 100% inline styles and table-based layouts
+ * for maximum compatibility with all email clients including Outlook, Gmail, and Apple Mail.
  */
+
+// Brand colors
+const BRAND_NAVY = "#1e3a5f";
+const BRAND_BLUE = "#2563eb";
+const BRAND_DARK_BLUE = "#1d4ed8";
+const TEXT_PRIMARY = "#1f2937";
+const TEXT_SECONDARY = "#475569";
+const TEXT_MUTED = "#64748b";
+const BG_LIGHT = "#f8fafc";
+const BG_GRAY = "#f3f4f6";
+const BORDER_COLOR = "#e2e8f0";
 
 /**
  * Base email wrapper with header and footer
+ * Uses 100% inline styles for cross-client compatibility
  */
 export const emailWrapper = (content: string, title: string, subtitle?: string) => `
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
   <title>${title}</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
   <style>
-    /* Reset styles */
-    body, table, td, p, a, li, blockquote { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
-    
-    /* Base styles */
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      line-height: 1.6; 
-      color: #1f2937; 
-      margin: 0; 
-      padding: 0; 
-      background-color: #f3f4f6;
-      width: 100% !important;
-    }
-    
-    .email-container { 
-      max-width: 600px; 
-      margin: 0 auto; 
-      background: #ffffff;
-    }
-    
-    .header { 
-      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); 
-      color: white; 
-      padding: 32px 24px; 
-      text-align: center; 
-    }
-    
-    .logo { 
-      font-size: 26px; 
-      font-weight: 700; 
-      letter-spacing: -0.5px;
-      margin: 0;
-    }
-    
-    .header-title {
-      margin: 12px 0 0 0; 
-      opacity: 0.95;
-      font-size: 16px;
-      font-weight: 500;
-    }
-    
-    .header-subtitle {
-      margin: 4px 0 0 0; 
-      opacity: 0.8;
-      font-size: 13px;
-    }
-    
-    .content { 
-      background: #ffffff; 
-      padding: 32px 24px; 
-    }
-    
-    .footer { 
-      background: #f8fafc; 
-      padding: 24px; 
-      text-align: center; 
-      color: #64748b; 
-      font-size: 12px;
-      border-top: 1px solid #e2e8f0;
-    }
-    
-    .footer p {
-      margin: 8px 0;
-    }
-    
-    .footer-logo {
-      font-weight: 600;
-      color: #475569;
-      font-size: 14px;
-    }
-    
-    .button { 
-      display: inline-block; 
-      padding: 14px 32px; 
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
-      color: #ffffff !important; 
-      text-decoration: none; 
-      border-radius: 8px; 
-      font-weight: 600;
-      font-size: 14px;
-      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
-    }
-    
-    .button:hover {
-      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-    }
-    
-    .button-secondary {
-      background: #f1f5f9;
-      color: #475569 !important;
-      box-shadow: none;
-      border: 1px solid #e2e8f0;
-    }
-    
-    .highlight { 
-      background: #f8fafc; 
-      padding: 16px 20px; 
-      border-left: 4px solid #2563eb; 
-      margin: 20px 0;
-      border-radius: 0 8px 8px 0;
-    }
-    
-    .highlight-warning {
-      border-left-color: #f59e0b;
-      background: #fffbeb;
-    }
-    
-    .highlight-success {
-      border-left-color: #10b981;
-      background: #ecfdf5;
-    }
-    
-    .highlight-error {
-      border-left-color: #ef4444;
-      background: #fef2f2;
-    }
-    
-    .card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      margin: 16px 0;
-    }
-    
-    .divider {
-      height: 1px;
-      background: #e2e8f0;
-      margin: 24px 0;
-    }
-    
-    .meta {
-      font-size: 12px;
-      color: #64748b;
-    }
-    
-    .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      font-size: 11px;
-      font-weight: 600;
-      border-radius: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .badge-blue {
-      background: #dbeafe;
-      color: #1e40af;
-    }
-    
-    .badge-green {
-      background: #dcfce7;
-      color: #166534;
-    }
-    
-    .badge-orange {
-      background: #ffedd5;
-      color: #9a3412;
-    }
-    
-    .badge-red {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-    
-    @media only screen and (max-width: 600px) {
-      .content { padding: 24px 16px; }
-      .header { padding: 24px 16px; }
-      .button { padding: 12px 24px; }
-    }
+    table {border-collapse: collapse;}
+    td,th,div,p,a,h1,h2,h3,h4,h5,h6 {font-family: "Segoe UI", sans-serif; mso-line-height-rule: exactly;}
   </style>
+  <![endif]-->
 </head>
-<body>
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
+<body style="margin: 0; padding: 0; width: 100% !important; background-color: ${BG_GRAY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+  
+  <!-- Outer wrapper table -->
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${BG_GRAY};">
     <tr>
       <td style="padding: 24px 16px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="email-container" style="margin: 0 auto; max-width: 600px; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        
+        <!-- Email container -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" align="center" style="margin: 0 auto; max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+          
+          <!-- Header with solid background (gradient fallback) -->
           <tr>
-            <td class="header">
-              <p class="logo">Watson Mattheus</p>
-              <p class="header-title">${title}</p>
-              ${subtitle ? `<p class="header-subtitle">${subtitle}</p>` : ''}
+            <td align="center" style="background-color: ${BRAND_NAVY}; padding: 32px 24px;">
+              <!--[if gte mso 9]>
+              <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:120px;">
+                <v:fill type="gradient" color="${BRAND_BLUE}" color2="${BRAND_NAVY}" angle="135"/>
+                <v:textbox inset="0,0,0,0">
+              <![endif]-->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td align="center" style="padding: 0;">
+                    <p style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Watson Mattheus</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top: 12px;">
+                    <p style="margin: 0; font-size: 16px; font-weight: 500; color: #ffffff; opacity: 0.95; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">📋 ${title}</p>
+                  </td>
+                </tr>
+                ${subtitle ? `
+                <tr>
+                  <td align="center" style="padding-top: 4px;">
+                    <p style="margin: 0; font-size: 13px; color: #ffffff; opacity: 0.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${subtitle}</p>
+                  </td>
+                </tr>
+                ` : ''}
+              </table>
+              <!--[if gte mso 9]>
+                </v:textbox>
+              </v:rect>
+              <![endif]-->
             </td>
           </tr>
+          
+          <!-- Content area -->
           <tr>
-            <td class="content">
+            <td style="background-color: #ffffff; padding: 32px 24px;">
               ${content}
             </td>
           </tr>
+          
+          <!-- Footer -->
           <tr>
-            <td class="footer">
-              <p class="footer-logo">Watson Mattheus Engineering</p>
-              <p>This is an automated message. Please do not reply directly to this email.</p>
-              <p style="margin-top: 16px; color: #94a3b8;">© ${new Date().getFullYear()} Watson Mattheus. All rights reserved.</p>
+            <td align="center" style="background-color: ${BG_LIGHT}; padding: 24px; border-top: 1px solid ${BORDER_COLOR};">
+              <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Watson Mattheus Engineering</p>
+              <p style="margin: 0 0 16px 0; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">This is an automated message. Please do not reply directly to this email.</p>
+              <p style="margin: 0; font-size: 12px; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">© ${new Date().getFullYear()} Watson Mattheus. All rights reserved.</p>
             </td>
           </tr>
+          
         </table>
+        
       </td>
     </tr>
   </table>
+  
 </body>
 </html>
+`;
+
+/**
+ * Creates a bulletproof button that works in all email clients including Outlook
+ */
+const createButton = (href: string, text: string, isPrimary: boolean = true) => `
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto;">
+  <tr>
+    <td align="center" style="border-radius: 8px; background-color: ${isPrimary ? BRAND_BLUE : BG_LIGHT};">
+      <!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:44px;v-text-anchor:middle;width:180px;" arcsize="18%" stroke="f" fillcolor="${isPrimary ? BRAND_BLUE : BG_LIGHT}">
+        <w:anchorlock/>
+        <center style="color:${isPrimary ? '#ffffff' : TEXT_SECONDARY};font-family:sans-serif;font-size:14px;font-weight:bold;">${text}</center>
+      </v:roundrect>
+      <![endif]-->
+      <!--[if !mso]><!-->
+      <a href="${href}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 14px; font-weight: 600; color: ${isPrimary ? '#ffffff' : TEXT_SECONDARY}; text-decoration: none; border-radius: 8px; background-color: ${isPrimary ? BRAND_BLUE : BG_LIGHT}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${text}</a>
+      <!--<![endif]-->
+    </td>
+  </tr>
+</table>
+`;
+
+/**
+ * Creates a card/box element with consistent styling
+ */
+const createCard = (content: string) => `
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 16px 0;">
+  <tr>
+    <td style="background-color: ${BG_LIGHT}; border: 1px solid ${BORDER_COLOR}; border-radius: 8px; padding: 16px;">
+      ${content}
+    </td>
+  </tr>
+</table>
+`;
+
+/**
+ * Creates a highlight/callout box
+ */
+const createHighlight = (content: string, borderColor: string = BRAND_BLUE, bgColor: string = BG_LIGHT) => `
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0;">
+  <tr>
+    <td style="background-color: ${bgColor}; border-left: 4px solid ${borderColor}; border-radius: 0 8px 8px 0; padding: 16px 20px;">
+      ${content}
+    </td>
+  </tr>
+</table>
+`;
+
+/**
+ * Creates a badge/tag element
+ */
+const createBadge = (text: string, bgColor: string = "#dbeafe", textColor: string = "#1e40af") => `
+<span style="display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; background-color: ${bgColor}; color: ${textColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${text}</span>
 `;
 
 /**
@@ -231,24 +178,26 @@ export const messageNotificationTemplate = (
   messagePreview: string,
   conversationLink: string
 ) => emailWrapper(`
-  <p style="margin: 0 0 16px 0; font-size: 15px;">Hi ${recipientName},</p>
+  <p style="margin: 0 0 16px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Hi ${recipientName},</p>
   
-  <p style="margin: 0 0 20px 0; font-size: 15px;">
+  <p style="margin: 0 0 20px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
     <strong>${senderName}</strong> mentioned you in a message:
   </p>
   
-  <div class="highlight">
-    <p style="margin: 0; font-style: italic; color: #475569;">"${messagePreview}"</p>
-  </div>
+  ${createHighlight(`<p style="margin: 0; font-style: italic; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">"${messagePreview}"</p>`)}
   
-  <p style="text-align: center; margin: 32px 0 16px 0;">
-    <a href="${conversationLink}" class="button">View Conversation</a>
-  </p>
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
+    <tr>
+      <td align="center">
+        ${createButton(conversationLink, 'View Conversation')}
+      </td>
+    </tr>
+  </table>
   
-  <p class="meta" style="text-align: center; margin-top: 24px;">
+  <p style="text-align: center; margin-top: 24px; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
     You received this email because you were mentioned in a conversation.
   </p>
-`, '💬 New Mention', 'You have a new mention');
+`, 'New Mention', 'You have a new mention');
 
 /**
  * New message notification template
@@ -259,20 +208,22 @@ export const newMessageTemplate = (
   messagePreview: string,
   conversationLink: string
 ) => emailWrapper(`
-  <p style="margin: 0 0 16px 0; font-size: 15px;">Hi ${recipientName},</p>
+  <p style="margin: 0 0 16px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Hi ${recipientName},</p>
   
-  <p style="margin: 0 0 20px 0; font-size: 15px;">
+  <p style="margin: 0 0 20px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
     You have a new message from <strong>${senderName}</strong>:
   </p>
   
-  <div class="highlight">
-    <p style="margin: 0; font-style: italic; color: #475569;">"${messagePreview}"</p>
-  </div>
+  ${createHighlight(`<p style="margin: 0; font-style: italic; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">"${messagePreview}"</p>`)}
   
-  <p style="text-align: center; margin: 32px 0 16px 0;">
-    <a href="${conversationLink}" class="button">Reply Now</a>
-  </p>
-`, '📩 New Message', 'You have an unread message');
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
+    <tr>
+      <td align="center">
+        ${createButton(conversationLink, 'Reply Now')}
+      </td>
+    </tr>
+  </table>
+`, 'New Message', 'You have an unread message');
 
 /**
  * Item shared notification template
@@ -285,24 +236,28 @@ export const itemSharedTemplate = (
   itemLink: string,
   message?: string
 ) => emailWrapper(`
-  <p style="margin: 0 0 16px 0; font-size: 15px;">Hi ${recipientName},</p>
+  <p style="margin: 0 0 16px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Hi ${recipientName},</p>
   
-  <p style="margin: 0 0 20px 0; font-size: 15px;">
+  <p style="margin: 0 0 20px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
     <strong>${senderName}</strong> has shared a ${itemType.toLowerCase()} with you:
   </p>
   
-  <div class="card">
+  ${createCard(`
     <p style="margin: 0 0 8px 0;">
-      <span class="badge badge-blue">${itemType}</span>
+      ${createBadge(itemType)}
     </p>
-    <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">${itemName}</p>
-    ${message ? `<p style="margin: 12px 0 0 0; color: #64748b; font-size: 14px;">"${message}"</p>` : ''}
-  </div>
+    <p style="margin: 0; font-size: 16px; font-weight: 600; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${itemName}</p>
+    ${message ? `<p style="margin: 12px 0 0 0; color: ${TEXT_MUTED}; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">"${message}"</p>` : ''}
+  `)}
   
-  <p style="text-align: center; margin: 32px 0 16px 0;">
-    <a href="${itemLink}" class="button">View ${itemType}</a>
-  </p>
-`, '📎 Item Shared', `${senderName} shared something with you`);
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
+    <tr>
+      <td align="center">
+        ${createButton(itemLink, `View ${itemType}`)}
+      </td>
+    </tr>
+  </table>
+`, 'Item Shared', `${senderName} shared something with you`);
 
 /**
  * Review status notification template
@@ -316,39 +271,41 @@ export const reviewStatusTemplate = (
   documentLink: string
 ) => {
   const statusConfig = {
-    approved: { badge: 'badge-green', label: 'Approved', icon: '✅', highlightClass: 'highlight-success' },
-    rejected: { badge: 'badge-red', label: 'Rejected', icon: '❌', highlightClass: 'highlight-error' },
-    pending: { badge: 'badge-orange', label: 'Pending Review', icon: '⏳', highlightClass: '' },
-    revision_requested: { badge: 'badge-orange', label: 'Revision Requested', icon: '📝', highlightClass: 'highlight-warning' },
+    approved: { badgeBg: '#dcfce7', badgeColor: '#166534', label: '✅ Approved', borderColor: '#10b981', bgColor: '#ecfdf5' },
+    rejected: { badgeBg: '#fee2e2', badgeColor: '#991b1b', label: '❌ Rejected', borderColor: '#ef4444', bgColor: '#fef2f2' },
+    pending: { badgeBg: '#ffedd5', badgeColor: '#9a3412', label: '⏳ Pending Review', borderColor: '#f59e0b', bgColor: '#fffbeb' },
+    revision_requested: { badgeBg: '#ffedd5', badgeColor: '#9a3412', label: '📝 Revision Requested', borderColor: '#f59e0b', bgColor: '#fffbeb' },
   };
   
   const config = statusConfig[status];
   
   return emailWrapper(`
-    <p style="margin: 0 0 16px 0; font-size: 15px;">Hi ${recipientName},</p>
+    <p style="margin: 0 0 16px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Hi ${recipientName},</p>
     
-    <p style="margin: 0 0 20px 0; font-size: 15px;">
+    <p style="margin: 0 0 20px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
       <strong>${reviewerName}</strong> has updated the status of your submission:
     </p>
     
-    <div class="card">
+    ${createCard(`
       <p style="margin: 0 0 12px 0;">
-        <span class="badge ${config.badge}">${config.icon} ${config.label}</span>
+        ${createBadge(config.label, config.badgeBg, config.badgeColor)}
       </p>
-      <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">${documentTitle}</p>
-    </div>
+      <p style="margin: 0; font-size: 16px; font-weight: 600; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${documentTitle}</p>
+    `)}
     
-    ${comments ? `
-    <div class="highlight ${config.highlightClass}">
-      <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Reviewer Comments</p>
-      <p style="margin: 0; color: #475569;">${comments}</p>
-    </div>
-    ` : ''}
+    ${comments ? createHighlight(`
+      <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 600; color: ${TEXT_MUTED}; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Reviewer Comments</p>
+      <p style="margin: 0; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${comments}</p>
+    `, config.borderColor, config.bgColor) : ''}
     
-    <p style="text-align: center; margin: 32px 0 16px 0;">
-      <a href="${documentLink}" class="button">View Document</a>
-    </p>
-  `, '📋 Review Update', `Your submission has been ${config.label.toLowerCase()}`);
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
+      <tr>
+        <td align="center">
+          ${createButton(documentLink, 'View Document')}
+        </td>
+      </tr>
+    </table>
+  `, 'Review Update', `Your submission has been ${config.label.toLowerCase()}`);
 };
 
 /**
@@ -363,27 +320,31 @@ export const systemAlertTemplate = (
   actionLabel?: string
 ) => {
   const severityConfig = {
-    info: { highlightClass: '', icon: 'ℹ️' },
-    warning: { highlightClass: 'highlight-warning', icon: '⚠️' },
-    error: { highlightClass: 'highlight-error', icon: '🚨' },
+    info: { borderColor: BRAND_BLUE, bgColor: BG_LIGHT, icon: 'ℹ️' },
+    warning: { borderColor: '#f59e0b', bgColor: '#fffbeb', icon: '⚠️' },
+    error: { borderColor: '#ef4444', bgColor: '#fef2f2', icon: '🚨' },
   };
   
   const config = severityConfig[severity];
   
   return emailWrapper(`
-    <p style="margin: 0 0 16px 0; font-size: 15px;">Hi ${recipientName},</p>
+    <p style="margin: 0 0 16px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Hi ${recipientName},</p>
     
-    <div class="highlight ${config.highlightClass}">
-      <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">${config.icon} ${alertTitle}</p>
-      <p style="margin: 0; color: #475569;">${alertMessage}</p>
-    </div>
+    ${createHighlight(`
+      <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${config.icon} ${alertTitle}</p>
+      <p style="margin: 0; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${alertMessage}</p>
+    `, config.borderColor, config.bgColor)}
     
     ${actionLink && actionLabel ? `
-    <p style="text-align: center; margin: 32px 0 16px 0;">
-      <a href="${actionLink}" class="button">${actionLabel}</a>
-    </p>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
+      <tr>
+        <td align="center">
+          ${createButton(actionLink, actionLabel)}
+        </td>
+      </tr>
+    </table>
     ` : ''}
-  `, '🔔 System Alert', alertTitle);
+  `, 'System Alert', alertTitle);
 };
 
 /**
@@ -397,28 +358,33 @@ export const projectUpdateTemplate = (
   updatedBy: string,
   projectLink: string
 ) => emailWrapper(`
-  <p style="margin: 0 0 16px 0; font-size: 15px;">Hi ${recipientName},</p>
+  <p style="margin: 0 0 16px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Hi ${recipientName},</p>
   
-  <p style="margin: 0 0 20px 0; font-size: 15px;">
+  <p style="margin: 0 0 20px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
     There's been an update to a project you're involved with:
   </p>
   
-  <div class="card">
+  ${createCard(`
     <p style="margin: 0 0 8px 0;">
-      <span class="badge badge-blue">${updateType}</span>
+      ${createBadge(updateType)}
     </p>
-    <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1f2937;">${projectName}</p>
-    <p style="margin: 0; color: #64748b; font-size: 14px;">${updateDetails}</p>
-    <p class="meta" style="margin: 12px 0 0 0;">Updated by ${updatedBy}</p>
-  </div>
+    <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${projectName}</p>
+    <p style="margin: 0; color: ${TEXT_MUTED}; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${updateDetails}</p>
+    <p style="margin: 12px 0 0 0; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Updated by ${updatedBy}</p>
+  `)}
   
-  <p style="text-align: center; margin: 32px 0 16px 0;">
-    <a href="${projectLink}" class="button">View Project</a>
-  </p>
-`, '📊 Project Update', `Update on ${projectName}`);
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
+    <tr>
+      <td align="center">
+        ${createButton(projectLink, 'View Project')}
+      </td>
+    </tr>
+  </table>
+`, 'Project Update', `Update on ${projectName}`);
 
 /**
  * Roadmap review update template - consolidated update sent after review
+ * Uses 100% inline styles and table-based layout for cross-client compatibility
  */
 export const roadmapReviewUpdateTemplate = (
   recipientName: string,
@@ -433,58 +399,63 @@ export const roadmapReviewUpdateTemplate = (
   reviewLink: string
 ) => {
   const completedItems = updatedItems.filter(i => i.isCompleted);
-  const itemsHtml = updatedItems.map(item => `
+  
+  // Build items table with inline styles
+  const itemRows = updatedItems.map(item => `
     <tr>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">
+      <td style="padding: 8px 12px; border-bottom: 1px solid ${BORDER_COLOR}; width: 30px; vertical-align: top;">
         ${item.isCompleted 
-          ? '<span style="color: #10b981;">✓</span>' 
-          : '<span style="color: #64748b;">○</span>'}
+          ? `<span style="color: #10b981; font-size: 16px;">✓</span>` 
+          : `<span style="color: ${TEXT_MUTED}; font-size: 16px;">○</span>`}
       </td>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px;">
+      <td style="padding: 8px 12px; border-bottom: 1px solid ${BORDER_COLOR}; font-size: 14px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
         ${item.title}
-        ${item.notes ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b; font-style: italic;">${item.notes}</p>` : ''}
+        ${item.notes ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: ${TEXT_MUTED}; font-style: italic; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${item.notes}</p>` : ''}
       </td>
     </tr>
   `).join('');
 
   return emailWrapper(`
-    <p style="margin: 0 0 16px 0; font-size: 15px;">Hi ${recipientName},</p>
+    <p style="margin: 0 0 16px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Hi ${recipientName},</p>
     
-    <p style="margin: 0 0 20px 0; font-size: 15px;">
+    <p style="margin: 0 0 20px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
       <strong>${reviewerName}</strong> has completed a roadmap review for:
     </p>
     
-    <div class="card">
+    ${createCard(`
       <p style="margin: 0 0 8px 0;">
-        <span class="badge badge-blue">Project</span>
+        ${createBadge('Project')}
       </p>
-      <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1f2937;">${projectName}</p>
-      <p style="margin: 0; font-size: 14px; color: #64748b;">
-        <strong>${completedItems.length}</strong> of <strong>${updatedItems.length}</strong> reviewed items completed
+      <p style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${projectName}</p>
+      <p style="margin: 0; font-size: 14px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+        <strong style="color: #10b981;">${completedItems.length}</strong> of <strong>${updatedItems.length}</strong> reviewed items completed
       </p>
-    </div>
+    `)}
     
-    ${message ? `
-    <div class="highlight">
-      <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Message from ${reviewerName}</p>
-      <p style="margin: 0; color: #475569;">${message}</p>
-    </div>
-    ` : ''}
+    ${message ? createHighlight(`
+      <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 600; color: ${TEXT_MUTED}; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Message from ${reviewerName}</p>
+      <p style="margin: 0; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${message}</p>
+    `) : ''}
     
-    <p style="margin: 24px 0 12px 0; font-size: 14px; font-weight: 600; color: #1f2937;">Items Updated:</p>
+    <p style="margin: 24px 0 12px 0; font-size: 14px; font-weight: 600; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Items Updated:</p>
     
-    <table role="presentation" width="100%" style="border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+    <!-- Items table with inline styles -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border: 1px solid ${BORDER_COLOR}; border-radius: 8px; border-collapse: collapse;">
       <tbody>
-        ${itemsHtml}
+        ${itemRows}
       </tbody>
     </table>
     
-    <p style="text-align: center; margin: 32px 0 16px 0;">
-      <a href="${reviewLink}" class="button">View Roadmap</a>
-    </p>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
+      <tr>
+        <td align="center">
+          ${createButton(reviewLink, 'View Roadmap')}
+        </td>
+      </tr>
+    </table>
     
-    <p class="meta" style="text-align: center; margin-top: 24px;">
+    <p style="text-align: center; margin-top: 24px; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
       You're receiving this because you have access to this project's roadmap.
     </p>
-  `, '📋 Roadmap Review Complete', `${reviewerName} has updated the roadmap`);
+  `, 'Roadmap Review Complete', `${reviewerName} has updated the roadmap`);
 };
