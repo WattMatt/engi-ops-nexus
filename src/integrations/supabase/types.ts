@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      application_documentation: {
+        Row: {
+          component_path: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          last_updated: string | null
+          parent_section: string | null
+          readme_content: string | null
+          section_key: string
+          section_name: string
+          status: string | null
+        }
+        Insert: {
+          component_path?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          last_updated?: string | null
+          parent_section?: string | null
+          readme_content?: string | null
+          section_key: string
+          section_name: string
+          status?: string | null
+        }
+        Update: {
+          component_path?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          last_updated?: string | null
+          parent_section?: string | null
+          readme_content?: string | null
+          section_key?: string
+          section_name?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_parent_section"
+            columns: ["parent_section"]
+            isOneToOne: false
+            referencedRelation: "application_documentation"
+            referencedColumns: ["section_key"]
+          },
+        ]
+      }
       application_reviews: {
         Row: {
           created_at: string
