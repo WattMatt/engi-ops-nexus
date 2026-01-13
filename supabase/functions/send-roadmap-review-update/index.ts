@@ -15,11 +15,17 @@ interface ItemUpdate {
   notes?: string;
 }
 
+interface EmailRecipient {
+  email: string;
+  name: string;
+}
+
 interface RoadmapReviewUpdateRequest {
   projectId: string;
   reviewSessionId: string;
   message?: string;
   itemUpdates: ItemUpdate[];
+  recipients: EmailRecipient[];
 }
 
 Deno.serve(async (req) => {
@@ -57,11 +63,21 @@ Deno.serve(async (req) => {
     }
 
     const body: RoadmapReviewUpdateRequest = await req.json();
-    const { projectId, reviewSessionId, message, itemUpdates } = body;
+    const { projectId, reviewSessionId, message, itemUpdates, recipients } = body;
 
     if (!projectId || !reviewSessionId || !itemUpdates) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!recipients || recipients.length === 0) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "No recipients specified" 
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -86,33 +102,6 @@ Deno.serve(async (req) => {
 
     const reviewerName = reviewerProfile?.full_name || user.email || "Team Member";
 
-    // Get all active share tokens for this project
-    const { data: shareTokens, error: tokenError } = await supabase
-      .from("roadmap_share_tokens")
-      .select("reviewer_email, reviewer_name, expires_at")
-      .eq("project_id", projectId);
-
-    if (tokenError) {
-      throw new Error("Failed to fetch share tokens");
-    }
-
-    // Filter out expired tokens
-    const now = new Date();
-    const validTokens = (shareTokens || []).filter(token => {
-      if (!token.expires_at) return true;
-      return new Date(token.expires_at) > now;
-    });
-
-    if (validTokens.length === 0) {
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: "No recipients to send to - roadmap has not been shared with anyone" 
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Get the base URL from the request origin or environment
     const origin = req.headers.get("origin") || Deno.env.get("PUBLIC_SITE_URL") || "https://your-app.lovable.app";
     
@@ -131,8 +120,8 @@ Deno.serve(async (req) => {
     }
 
     // Send emails to all recipients
-    const emailPromises = validTokens.map(async (token) => {
-      const recipientName = token.reviewer_name || "Team Member";
+    const emailPromises = recipients.map(async (recipient) => {
+      const recipientName = recipient.name || "Team Member";
       
       // Generate a view link - for now, just link to the project
       const reviewLink = `${origin}/client-portal`;
@@ -152,7 +141,7 @@ Deno.serve(async (req) => {
 
       try {
         await sendEmail({
-          to: token.reviewer_email,
+          to: recipient.email,
           subject: `Roadmap Update: ${project.name}`,
           html,
           from: DEFAULT_FROM_ADDRESSES.notifications,
@@ -161,11 +150,11 @@ Deno.serve(async (req) => {
             { name: "project_id", value: projectId },
           ],
         });
-        return { email: token.reviewer_email, success: true };
+        return { email: recipient.email, success: true };
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error";
-        console.error(`Failed to send email to ${token.reviewer_email}:`, err);
-        return { email: token.reviewer_email, success: false, error: errorMessage };
+        console.error(`Failed to send email to ${recipient.email}:`, err);
+        return { email: recipient.email, success: false, error: errorMessage };
       }
     });
 
