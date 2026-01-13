@@ -47,8 +47,6 @@ const DEFAULT_CONTACT_TYPES = [
   { value: "consultant", label: "Consultant" },
 ];
 
-const CUSTOM_CATEGORIES_KEY = "global_contacts_custom_categories";
-
 export function GlobalContactsManager() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -62,14 +60,19 @@ export function GlobalContactsManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Load custom categories from localStorage
-  const [customCategories, setCustomCategories] = useState<Array<{ value: string; label: string }>>(() => {
-    try {
-      const stored = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+  // Fetch custom categories from database
+  const { data: customCategories = [] } = useQuery({
+    queryKey: ["contact-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contact_categories")
+        .select("value, label")
+        .eq("is_custom", true)
+        .order("label");
+      
+      if (error) throw error;
+      return data as Array<{ value: string; label: string }>;
+    },
   });
 
   // Combined categories
@@ -189,7 +192,7 @@ export function GlobalContactsManager() {
     });
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryLabel.trim()) return;
     
     const value = newCategoryLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
@@ -204,21 +207,37 @@ export function GlobalContactsManager() {
       return;
     }
 
-    const newCategory = { value, label: newCategoryLabel.trim() };
-    const updated = [...customCategories, newCategory];
-    setCustomCategories(updated);
-    localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(updated));
-    
-    toast({
-      title: "Category added",
-      description: `"${newCategoryLabel}" has been added to the categories`,
-    });
-    
-    setNewCategoryLabel("");
-    setCategoryDialogOpen(false);
+    try {
+      const { error } = await supabase
+        .from("contact_categories")
+        .insert({
+          value,
+          label: newCategoryLabel.trim(),
+          is_custom: true,
+        });
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["contact-categories"] });
+      
+      toast({
+        title: "Category added",
+        description: `"${newCategoryLabel}" has been added to the categories`,
+      });
+      
+      setNewCategoryLabel("");
+      setCategoryDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error adding category:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add category",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteCategory = (categoryValue: string) => {
+  const handleDeleteCategory = async (categoryValue: string) => {
     const contactsInCategory = groupedContacts[categoryValue]?.length || 0;
     if (contactsInCategory > 0) {
       toast({
@@ -229,14 +248,28 @@ export function GlobalContactsManager() {
       return;
     }
 
-    const updated = customCategories.filter(c => c.value !== categoryValue);
-    setCustomCategories(updated);
-    localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(updated));
-    
-    toast({
-      title: "Category removed",
-      description: "The category has been removed",
-    });
+    try {
+      const { error } = await supabase
+        .from("contact_categories")
+        .delete()
+        .eq("value", categoryValue);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["contact-categories"] });
+      
+      toast({
+        title: "Category removed",
+        description: "The category has been removed",
+      });
+    } catch (error: any) {
+      console.error("Error deleting category:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete category",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
