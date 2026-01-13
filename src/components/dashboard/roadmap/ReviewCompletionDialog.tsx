@@ -48,14 +48,15 @@ export function ReviewCompletionDialog({
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
 
-  // Fetch share tokens to show recipients
+  // Fetch share tokens to show recipients (exclude revoked and expired)
   const { data: recipients = [] } = useQuery({
     queryKey: ["roadmap-share-tokens", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("roadmap_share_tokens")
-        .select("reviewer_email, reviewer_name, expires_at")
-        .eq("project_id", projectId);
+        .select("reviewer_email, reviewer_name, expires_at, status")
+        .eq("project_id", projectId)
+        .neq("status", "revoked");
       if (error) throw error;
       
       // Filter out expired tokens
