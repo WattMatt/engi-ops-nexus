@@ -459,3 +459,69 @@ export const roadmapReviewUpdateTemplate = (
     </p>
   `, 'Roadmap Review Complete', `${reviewerName} has updated the roadmap`);
 };
+
+/**
+ * User invitation/welcome email template
+ * Sent when an admin creates a new user account
+ */
+export const userInviteTemplate = (
+  recipientName: string,
+  recipientEmail: string,
+  temporaryPassword: string,
+  role: string,
+  inviterName: string,
+  loginLink: string
+) => {
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+  
+  return emailWrapper(`
+    <p style="margin: 0 0 16px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Hi ${recipientName},</p>
+    
+    <p style="margin: 0 0 20px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      Welcome! <strong>${inviterName}</strong> has created an account for you on the Watson Mattheus platform.
+    </p>
+    
+    ${createCard(`
+      <p style="margin: 0 0 8px 0;">
+        ${createBadge(roleLabel)}
+      </p>
+      <p style="margin: 0 0 16px 0; font-size: 14px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+        Your account is ready. Use the credentials below to log in.
+      </p>
+      
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 8px 0;">
+            <p style="margin: 0; font-size: 12px; font-weight: 600; color: ${TEXT_MUTED}; text-transform: uppercase; letter-spacing: 0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Email</p>
+            <p style="margin: 4px 0 0 0; font-size: 14px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${recipientEmail}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 0 0 0;">
+            <p style="margin: 0; font-size: 12px; font-weight: 600; color: ${TEXT_MUTED}; text-transform: uppercase; letter-spacing: 0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Temporary Password</p>
+            <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: 600; font-family: 'Courier New', monospace; color: ${TEXT_PRIMARY}; background-color: #f3f4f6; padding: 8px 12px; border-radius: 6px; display: inline-block;">${temporaryPassword}</p>
+          </td>
+        </tr>
+      </table>
+    `)}
+    
+    ${createHighlight(`
+      <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 600; color: #9a3412; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">🔐 Security Notice</p>
+      <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+        For your security, you'll be required to change your password when you first log in. Please keep your credentials secure and don't share them with others.
+      </p>
+    `, '#f59e0b', '#fffbeb')}
+    
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
+      <tr>
+        <td align="center">
+          ${createButton(loginLink, 'Log In Now')}
+        </td>
+      </tr>
+    </table>
+    
+    <p style="text-align: center; margin-top: 24px; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      If you weren't expecting this email, please contact your administrator.
+    </p>
+  `, 'Account Created', `You've been invited to Watson Mattheus`);
+};
