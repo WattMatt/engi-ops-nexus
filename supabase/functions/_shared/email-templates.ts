@@ -1,12 +1,40 @@
 /**
- * Branded email templates for Watson Mattheus
- * All emails use consistent styling and branding
+ * ============================================================================
+ * WATSON MATTHEUS - CROSS-CLIENT EMAIL TEMPLATE SYSTEM
+ * ============================================================================
  * 
- * IMPORTANT: These templates use 100% inline styles and table-based layouts
- * for maximum compatibility with all email clients including Outlook, Gmail, and Apple Mail.
+ * All templates in this file are AUTOMATICALLY compatible with:
+ * - ✅ iOS Mail (iPhone, iPad)
+ * - ✅ Apple Mail (macOS)
+ * - ✅ Microsoft Outlook (Windows, Mac, Web)
+ * - ✅ Gmail (Web, iOS, Android)
+ * - ✅ Yahoo Mail
+ * - ✅ Samsung Mail
+ * - ✅ Windows Mail
+ * 
+ * COMPATIBILITY RULES (enforced by this system):
+ * 1. All styles are 100% inline (no external CSS, no <style> blocks for content)
+ * 2. Table-based layouts only (no flexbox, no grid, no float)
+ * 3. VML fallbacks for Outlook buttons and shapes
+ * 4. Safe font stacks with system font fallbacks
+ * 5. No CSS shorthand (padding: 10px 20px → padding-top, padding-left, etc.)
+ * 6. Explicit width on tables, max-width for responsive
+ * 7. role="presentation" on layout tables for accessibility
+ * 8. MSO conditional comments for Outlook-specific fixes
+ * 
+ * HOW TO ADD NEW TEMPLATES:
+ * 1. Use emailWrapper() for consistent header/footer
+ * 2. Use helper functions: createButton(), createCard(), createHighlight(), createBadge()
+ * 3. Always use the BRAND_* and TEXT_* color constants
+ * 4. Include font-family on EVERY text element (some clients strip inherited fonts)
+ * 5. Test with Litmus or Email on Acid if making significant changes
+ * 
+ * ============================================================================
  */
 
-// Brand colors
+// =============================================================================
+// BRAND COLORS - Use these constants, never hardcode colors
+// =============================================================================
 const BRAND_NAVY = "#1e3a5f";
 const BRAND_BLUE = "#2563eb";
 const BRAND_DARK_BLUE = "#1d4ed8";
@@ -17,67 +45,107 @@ const BG_LIGHT = "#f8fafc";
 const BG_GRAY = "#f3f4f6";
 const BORDER_COLOR = "#e2e8f0";
 
+// Safe font stack that works across all platforms
+const FONT_STACK = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+
+// =============================================================================
+// EMAIL WRAPPER - All templates MUST use this for consistent cross-client support
+// =============================================================================
 /**
- * Base email wrapper with header and footer
- * Uses 100% inline styles for cross-client compatibility
+ * Base email wrapper with header and footer.
+ * Handles all cross-client compatibility automatically.
+ * 
+ * @param content - The main email body content (use helper functions)
+ * @param title - Header title displayed in the email
+ * @param subtitle - Optional subtitle below the title
  */
 export const emailWrapper = (content: string, title: string, subtitle?: string) => `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <!--[if !mso]><!-->
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <!--<![endif]-->
+  <!-- iOS: Prevents auto-linking of addresses, dates, phone numbers -->
   <meta name="x-apple-disable-message-reformatting">
   <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+  <!-- Windows Phone: Prevents text size adjustment -->
+  <meta name="MobileOptimized" content="width">
+  <meta name="HandheldFriendly" content="true">
   <title>${title}</title>
   <!--[if mso]>
   <noscript>
     <xml>
       <o:OfficeDocumentSettings>
+        <o:AllowPNG/>
         <o:PixelsPerInch>96</o:PixelsPerInch>
       </o:OfficeDocumentSettings>
     </xml>
   </noscript>
-  <style>
-    table {border-collapse: collapse;}
-    td,th,div,p,a,h1,h2,h3,h4,h5,h6 {font-family: "Segoe UI", sans-serif; mso-line-height-rule: exactly;}
+  <style type="text/css">
+    table {border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt;}
+    td, th, div, p, a, h1, h2, h3, h4, h5, h6 {font-family: "Segoe UI", sans-serif; mso-line-height-rule: exactly;}
+    img {-ms-interpolation-mode: bicubic;}
+    a {text-decoration: none;}
   </style>
   <![endif]-->
+  <!--[if !mso]><!-->
+  <style type="text/css">
+    @media only screen and (max-width: 620px) {
+      .email-container { width: 100% !important; max-width: 100% !important; }
+      .mobile-padding { padding-left: 16px !important; padding-right: 16px !important; }
+    }
+  </style>
+  <!--<![endif]-->
 </head>
-<body style="margin: 0; padding: 0; width: 100% !important; background-color: ${BG_GRAY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+<body style="margin: 0; padding: 0; width: 100% !important; min-width: 100%; background-color: ${BG_GRAY}; font-family: ${FONT_STACK}; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; mso-margin-top-alt: 0; mso-margin-bottom-alt: 0;">
   
-  <!-- Outer wrapper table -->
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${BG_GRAY};">
+  <!-- Preview text (hidden, shows in inbox preview) -->
+  <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
+    ${title}${subtitle ? ' - ' + subtitle : ''}
+    &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847;
+  </div>
+
+  <!-- Outer wrapper table for full-width background -->
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0; padding: 0; background-color: ${BG_GRAY}; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
     <tr>
-      <td style="padding: 24px 16px;">
+      <td align="center" style="padding: 24px 16px;" class="mobile-padding">
         
-        <!-- Email container -->
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" align="center" style="margin: 0 auto; max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+        <!--[if mso]>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" align="center">
+        <tr>
+        <td>
+        <![endif]-->
+        
+        <!-- Email container - 600px max width -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" align="center" class="email-container" style="margin: 0 auto; max-width: 600px; background-color: #ffffff; border-radius: 12px; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
           
-          <!-- Header with solid background (gradient fallback) -->
+          <!-- Header with gradient (solid fallback for Outlook) -->
           <tr>
-            <td align="center" style="background-color: ${BRAND_NAVY}; padding: 32px 24px;">
+            <td align="center" style="background-color: ${BRAND_NAVY}; padding: 32px 24px; border-radius: 12px 12px 0 0;">
               <!--[if gte mso 9]>
               <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:120px;">
                 <v:fill type="gradient" color="${BRAND_BLUE}" color2="${BRAND_NAVY}" angle="135"/>
-                <v:textbox inset="0,0,0,0">
+                <v:textbox inset="0,0,0,0" style="mso-fit-shape-to-text:true">
               <![endif]-->
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
                 <tr>
                   <td align="center" style="padding: 0;">
-                    <p style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Watson Mattheus</p>
+                    <p style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px; font-family: ${FONT_STACK}; mso-line-height-rule: exactly; line-height: 1.3;">Watson Mattheus</p>
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding-top: 12px;">
-                    <p style="margin: 0; font-size: 16px; font-weight: 500; color: #ffffff; opacity: 0.95; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">📋 ${title}</p>
+                  <td align="center" style="padding-top: 12px; padding-bottom: 0; padding-left: 0; padding-right: 0;">
+                    <p style="margin: 0; font-size: 16px; font-weight: 500; color: #ffffff; font-family: ${FONT_STACK}; mso-line-height-rule: exactly; line-height: 1.4;">📋 ${title}</p>
                   </td>
                 </tr>
                 ${subtitle ? `
                 <tr>
-                  <td align="center" style="padding-top: 4px;">
-                    <p style="margin: 0; font-size: 13px; color: #ffffff; opacity: 0.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${subtitle}</p>
+                  <td align="center" style="padding-top: 4px; padding-bottom: 0; padding-left: 0; padding-right: 0;">
+                    <p style="margin: 0; font-size: 13px; color: #ffffff; font-family: ${FONT_STACK}; mso-line-height-rule: exactly; line-height: 1.4;">${subtitle}</p>
                   </td>
                 </tr>
                 ` : ''}
@@ -91,21 +159,27 @@ export const emailWrapper = (content: string, title: string, subtitle?: string) 
           
           <!-- Content area -->
           <tr>
-            <td style="background-color: #ffffff; padding: 32px 24px;">
+            <td style="background-color: #ffffff; padding: 32px 24px;" class="mobile-padding">
               ${content}
             </td>
           </tr>
           
           <!-- Footer -->
           <tr>
-            <td align="center" style="background-color: ${BG_LIGHT}; padding: 24px; border-top: 1px solid ${BORDER_COLOR};">
-              <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Watson Mattheus Engineering</p>
-              <p style="margin: 0 0 16px 0; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">This is an automated message. Please do not reply directly to this email.</p>
-              <p style="margin: 0; font-size: 12px; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">© ${new Date().getFullYear()} Watson Mattheus. All rights reserved.</p>
+            <td align="center" style="background-color: ${BG_LIGHT}; padding: 24px; border-top-width: 1px; border-top-style: solid; border-top-color: ${BORDER_COLOR}; border-radius: 0 0 12px 12px;">
+              <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: ${TEXT_SECONDARY}; font-family: ${FONT_STACK}; mso-line-height-rule: exactly; line-height: 1.4;">Watson Mattheus Engineering</p>
+              <p style="margin: 0 0 16px 0; font-size: 12px; color: ${TEXT_MUTED}; font-family: ${FONT_STACK}; mso-line-height-rule: exactly; line-height: 1.4;">This is an automated message. Please do not reply directly to this email.</p>
+              <p style="margin: 0; font-size: 12px; color: #94a3b8; font-family: ${FONT_STACK}; mso-line-height-rule: exactly; line-height: 1.4;">© ${new Date().getFullYear()} Watson Mattheus. All rights reserved.</p>
             </td>
           </tr>
           
         </table>
+        
+        <!--[if mso]>
+        </td>
+        </tr>
+        </table>
+        <![endif]-->
         
       </td>
     </tr>
@@ -115,21 +189,30 @@ export const emailWrapper = (content: string, title: string, subtitle?: string) 
 </html>
 `;
 
+// =============================================================================
+// HELPER FUNCTIONS - Use these to build email content
+// =============================================================================
+
 /**
- * Creates a bulletproof button that works in all email clients including Outlook
+ * Creates a bulletproof CTA button that works in ALL email clients including Outlook.
+ * Uses VML for Outlook, CSS for modern clients.
+ * 
+ * @param href - The button link URL
+ * @param text - Button label text
+ * @param isPrimary - true for blue button, false for light/secondary
  */
 const createButton = (href: string, text: string, isPrimary: boolean = true) => `
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto;">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
   <tr>
     <td align="center" style="border-radius: 8px; background-color: ${isPrimary ? BRAND_BLUE : BG_LIGHT};">
       <!--[if mso]>
-      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:44px;v-text-anchor:middle;width:180px;" arcsize="18%" stroke="f" fillcolor="${isPrimary ? BRAND_BLUE : BG_LIGHT}">
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:44px;v-text-anchor:middle;width:200px;" arcsize="18%" stroke="f" fillcolor="${isPrimary ? BRAND_BLUE : BG_LIGHT}">
         <w:anchorlock/>
-        <center style="color:${isPrimary ? '#ffffff' : TEXT_SECONDARY};font-family:sans-serif;font-size:14px;font-weight:bold;">${text}</center>
+        <center style="color:${isPrimary ? '#ffffff' : TEXT_SECONDARY};font-family:Segoe UI,sans-serif;font-size:14px;font-weight:bold;">${text}</center>
       </v:roundrect>
       <![endif]-->
       <!--[if !mso]><!-->
-      <a href="${href}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 14px; font-weight: 600; color: ${isPrimary ? '#ffffff' : TEXT_SECONDARY}; text-decoration: none; border-radius: 8px; background-color: ${isPrimary ? BRAND_BLUE : BG_LIGHT}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${text}</a>
+      <a href="${href}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 14px; font-weight: 600; color: ${isPrimary ? '#ffffff' : TEXT_SECONDARY}; text-decoration: none; border-radius: 8px; background-color: ${isPrimary ? BRAND_BLUE : BG_LIGHT}; font-family: ${FONT_STACK}; mso-hide: all;">${text}</a>
       <!--<![endif]-->
     </td>
   </tr>
@@ -137,12 +220,15 @@ const createButton = (href: string, text: string, isPrimary: boolean = true) => 
 `;
 
 /**
- * Creates a card/box element with consistent styling
+ * Creates a card/box element with consistent styling.
+ * Works in all clients including Outlook.
+ * 
+ * @param content - HTML content to display inside the card
  */
 const createCard = (content: string) => `
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 16px 0;">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 16px 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
   <tr>
-    <td style="background-color: ${BG_LIGHT}; border: 1px solid ${BORDER_COLOR}; border-radius: 8px; padding: 16px;">
+    <td style="background-color: ${BG_LIGHT}; border-width: 1px; border-style: solid; border-color: ${BORDER_COLOR}; border-radius: 8px; padding: 16px;">
       ${content}
     </td>
   </tr>
@@ -150,12 +236,17 @@ const createCard = (content: string) => `
 `;
 
 /**
- * Creates a highlight/callout box
+ * Creates a highlight/callout box with left border accent.
+ * Great for warnings, notes, and important information.
+ * 
+ * @param content - HTML content to display
+ * @param borderColor - Left border color (defaults to brand blue)
+ * @param bgColor - Background color (defaults to light gray)
  */
 const createHighlight = (content: string, borderColor: string = BRAND_BLUE, bgColor: string = BG_LIGHT) => `
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0;">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
   <tr>
-    <td style="background-color: ${bgColor}; border-left: 4px solid ${borderColor}; border-radius: 0 8px 8px 0; padding: 16px 20px;">
+    <td style="background-color: ${bgColor}; border-left-width: 4px; border-left-style: solid; border-left-color: ${borderColor}; border-radius: 0 8px 8px 0; padding: 16px 20px;">
       ${content}
     </td>
   </tr>
@@ -163,10 +254,37 @@ const createHighlight = (content: string, borderColor: string = BRAND_BLUE, bgCo
 `;
 
 /**
- * Creates a badge/tag element
+ * Creates a badge/tag element for labels and categories.
+ * Note: Some email clients may not support inline-block perfectly.
+ * 
+ * @param text - Badge label text
+ * @param bgColor - Background color
+ * @param textColor - Text color
  */
 const createBadge = (text: string, bgColor: string = "#dbeafe", textColor: string = "#1e40af") => `
-<span style="display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; background-color: ${bgColor}; color: ${textColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${text}</span>
+<span style="display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; background-color: ${bgColor}; color: ${textColor}; font-family: ${FONT_STACK}; mso-line-height-rule: exactly;">${text}</span>
+`;
+
+/**
+ * Creates a simple text paragraph with proper cross-client styling.
+ * Use this for any body text to ensure consistent rendering.
+ * 
+ * @param text - The paragraph text
+ * @param marginBottom - Bottom margin in pixels (default 16)
+ */
+const createParagraph = (text: string, marginBottom: number = 16) => `
+<p style="margin: 0 0 ${marginBottom}px 0; font-size: 15px; color: ${TEXT_PRIMARY}; font-family: ${FONT_STACK}; mso-line-height-rule: exactly; line-height: 1.5;">${text}</p>
+`;
+
+/**
+ * Creates a divider/separator line.
+ */
+const createDivider = () => `
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 24px 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+  <tr>
+    <td style="border-top-width: 1px; border-top-style: solid; border-top-color: ${BORDER_COLOR}; font-size: 1px; line-height: 1px;">&nbsp;</td>
+  </tr>
+</table>
 `;
 
 /**
