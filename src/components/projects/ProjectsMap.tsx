@@ -51,6 +51,7 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite'>('streets');
   const [searchedLocation, setSearchedLocation] = useState<{ lng: number; lat: number; name: string } | null>(null);
   const [showDropPinMode, setShowDropPinMode] = useState(false);
+  const [searchInView, setSearchInView] = useState(false);
 
   // Keep ref in sync with state for use in event handlers
   useEffect(() => {
@@ -110,26 +111,28 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
       "top-right"
     );
 
-    // Initialize Geocoder for address/street search
+    // Initialize Geocoder for address/street search with expanded types
     if (geocoderContainer.current) {
       geocoder.current = new MapboxGeocoder({
         accessToken: mapboxToken,
         mapboxgl: mapboxgl as any,
-        placeholder: "Search street, address, or area...",
+        placeholder: "Search address, street, suburb, city, province, or postal code...",
         countries: "za", // Limit to South Africa
-        types: "address,place,locality,neighborhood,poi",
+        types: "country,region,postcode,district,place,locality,neighborhood,street,address",
         language: "en",
-        limit: 8,
+        limit: 10, // Increased from 8 for more options
         marker: false, // We'll add our own marker
+        proximity: { longitude: 24.5, latitude: -29 }, // Initial South Africa center
       });
 
       geocoderContainer.current.innerHTML = '';
       geocoderContainer.current.appendChild(geocoder.current.onAdd(map.current));
 
-      // Handle geocoder result
+      // Handle geocoder result with type indicator
       geocoder.current.on("result", (e: any) => {
-        const { center, place_name } = e.result;
+        const { center, place_name, place_type } = e.result;
         const [lng, lat] = center;
+        const typeLabel = place_type?.[0] ? place_type[0].charAt(0).toUpperCase() + place_type[0].slice(1) : 'Location';
         
         // Remove previous search marker
         if (searchMarker.current) {
@@ -163,6 +166,9 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
           .setPopup(
             new mapboxgl.Popup({ offset: 25 }).setHTML(`
               <div style="padding: 12px; font-family: system-ui;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                  <span style="font-size: 10px; font-weight: 600; padding: 2px 6px; background: #e0e7ff; color: #4338ca; border-radius: 4px;">${typeLabel}</span>
+                </div>
                 <p style="font-size: 13px; font-weight: 600; margin: 0 0 4px 0; color: #1f2937;">📍 ${place_name}</p>
                 <p style="font-size: 11px; color: #6b7280; margin: 0;">Click "Drop Pin Here" to assign a project</p>
               </div>
@@ -188,6 +194,14 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
         setSearchedLocation(null);
       });
     }
+
+    // Update proximity bias when map moves for more relevant results
+    map.current.on('moveend', () => {
+      if (geocoder.current && map.current) {
+        const center = map.current.getCenter();
+        geocoder.current.setProximity({ longitude: center.lng, latitude: center.lat });
+      }
+    });
 
     // Handle click for placing pins - use ref to get current value
     map.current.on("click", async (e) => {
@@ -327,6 +341,23 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
       map.current.setStyle(MAP_STYLES[mapStyle]);
     }
   }, [mapStyle, mapboxToken]);
+
+  // Update geocoder bounding box when searchInView changes
+  useEffect(() => {
+    if (geocoder.current && map.current) {
+      if (searchInView) {
+        const bounds = map.current.getBounds();
+        geocoder.current.setBbox([
+          bounds.getWest(),
+          bounds.getSouth(),
+          bounds.getEast(),
+          bounds.getNorth()
+        ]);
+      } else {
+        geocoder.current.setBbox(undefined);
+      }
+    }
+  }, [searchInView]);
 
   // Add markers for projects
   useEffect(() => {
@@ -594,8 +625,23 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
           <div 
             ref={geocoderContainer} 
             className="geocoder-container"
-            style={{ minWidth: '320px' }}
+            style={{ minWidth: '360px' }}
           />
+
+          {/* Search in view toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSearchInView(!searchInView)}
+            className={cn(
+              "gap-2 h-9 px-3",
+              searchInView && "bg-primary/10 border-primary text-primary"
+            )}
+            title={searchInView ? "Searching within visible map area" : "Searching all of South Africa"}
+          >
+            <Crosshair className="h-4 w-4" />
+            {searchInView ? "In View" : "All SA"}
+          </Button>
 
           {/* Map style toggle */}
           <div className="inline-flex items-center rounded-lg border bg-background p-1 shadow-sm">
