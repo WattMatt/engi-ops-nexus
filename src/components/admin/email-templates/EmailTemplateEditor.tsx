@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEmailTemplate, useEmailSenders, useEmailTemplateCategories, useCreateEmailTemplate, useUpdateEmailTemplate } from "@/hooks/useEmailTemplates";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,9 +100,9 @@ export function EmailTemplateEditor() {
     is_default: false,
   });
 
-  // Initialize form with template data
-  useState(() => {
-    if (template) {
+  // Initialize form with template data when loaded
+  useEffect(() => {
+    if (template && !isNew) {
       setFormData({
         name: template.name,
         description: template.description || "",
@@ -116,7 +116,7 @@ export function EmailTemplateEditor() {
         is_default: template.is_default,
       });
     }
-  });
+  }, [template, isNew]);
 
   const handleSave = async () => {
     if (!formData.name || !formData.subject_template) {
