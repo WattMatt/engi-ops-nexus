@@ -37,6 +37,7 @@ export interface EmailTemplate {
   variables: any[];
   is_active: boolean;
   is_default: boolean;
+  is_system: boolean;
   version: number;
   created_at: string;
   updated_at: string;
