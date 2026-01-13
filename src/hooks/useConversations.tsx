@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useState, useEffect } from "react";
 
 export interface Conversation {
   id: string;
@@ -14,23 +15,64 @@ export interface Conversation {
   updated_at: string;
   has_attachments?: boolean;
   attachment_count?: number;
+  project?: {
+    id: string;
+    name: string;
+    project_number: string;
+  };
 }
 
-export const useConversations = () => {
+export const useConversations = (projectId?: string | null) => {
   const queryClient = useQueryClient();
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(
+    projectId ?? localStorage.getItem("selectedProjectId")
+  );
+
+  // Listen for project changes
+  useEffect(() => {
+    const handleProjectChange = () => {
+      const newProjectId = localStorage.getItem("selectedProjectId");
+      setCurrentProjectId(newProjectId);
+    };
+    
+    window.addEventListener('projectChanged', handleProjectChange);
+    window.addEventListener('storage', handleProjectChange);
+    
+    return () => {
+      window.removeEventListener('projectChanged', handleProjectChange);
+      window.removeEventListener('storage', handleProjectChange);
+    };
+  }, []);
+
+  // Update when projectId prop changes
+  useEffect(() => {
+    if (projectId !== undefined) {
+      setCurrentProjectId(projectId);
+    }
+  }, [projectId]);
 
   const { data: conversations, isLoading } = useQuery({
-    queryKey: ["conversations"],
+    queryKey: ["conversations", currentProjectId],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("conversations")
-        .select("*")
+        .select(`
+          *,
+          project:projects(id, name, project_number)
+        `)
         .or(`created_by.eq.${user.id},participants.cs.["${user.id}"]`)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false });
+
+      // Filter by project if one is selected
+      if (currentProjectId) {
+        query = query.eq("project_id", currentProjectId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       

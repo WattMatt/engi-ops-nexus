@@ -19,23 +19,35 @@ interface NewConversationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (conversationId: string) => void;
+  projectId?: string;
 }
 
 export function NewConversationDialog({
   open,
   onOpenChange,
   onCreated,
+  projectId,
 }: NewConversationDialogProps) {
-  const [type, setType] = useState<"direct" | "group" | "project_thread">("direct");
+  const [type, setType] = useState<"direct" | "group" | "project_thread">("project_thread");
   const [title, setTitle] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const { createConversation } = useConversations();
+  const { createConversation } = useConversations(projectId);
 
   const { data: users } = useQuery({
-    queryKey: ["users-for-conversation"],
+    queryKey: ["users-for-conversation", projectId],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
+
+      // If project is selected, get project members; otherwise get all users
+      if (projectId) {
+        const { data: projectMembers } = await supabase
+          .from("project_members")
+          .select("user_id, profiles:user_id(id, full_name, email)")
+          .eq("project_id", projectId);
+        
+        return projectMembers?.map((pm: any) => pm.profiles).filter(Boolean) || [];
+      }
 
       const { data } = await supabase
         .from("profiles")
@@ -55,13 +67,14 @@ export function NewConversationDialog({
         type,
         title: type === "direct" ? undefined : title,
         participants: selectedUsers,
+        project_id: projectId, // Always attach to current project
       },
       {
         onSuccess: (data) => {
           onCreated(data.id);
           setTitle("");
           setSelectedUsers([]);
-          setType("direct");
+          setType("project_thread");
         },
       }
     );
