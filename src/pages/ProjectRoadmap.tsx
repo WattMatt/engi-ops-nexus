@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { ProjectRoadmapWidget } from "@/components/dashboard/roadmap/ProjectRoadmapWidget";
-import { ShareRoadmapDialog } from "@/components/dashboard/roadmap/ShareRoadmapDialog";
 import { RoadmapProgressChart } from "@/components/dashboard/roadmap/RoadmapProgressChart";
 import { RoadmapExportPDFButton } from "@/components/dashboard/roadmap/RoadmapExportPDFButton";
 import { Button } from "@/components/ui/button";
-import { Share2, BarChart3 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { ReviewModeButton } from "@/components/dashboard/roadmap/ReviewModeButton";
 import {
   Collapsible,
@@ -51,12 +50,6 @@ export default function ProjectRoadmap() {
             Analytics
           </Button>
           <RoadmapExportPDFButton projectId={projectId} />
-          <ShareRoadmapDialog projectId={projectId}>
-            <Button variant="outline" size="sm">
-              <Share2 className="h-4 w-4 mr-2" />
-              Share Roadmap
-            </Button>
-          </ShareRoadmapDialog>
         </div>
       </div>
 
