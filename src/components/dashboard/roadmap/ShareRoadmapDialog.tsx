@@ -43,6 +43,7 @@ export function ShareRoadmapDialog({
         .from("roadmap_share_tokens")
         .select("*")
         .eq("project_id", projectId)
+        .neq("status", "revoked")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
