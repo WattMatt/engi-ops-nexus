@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Send, X, ClipboardCheck, Map as MapIcon, ChevronDown, ChevronRight } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Send, X, ClipboardCheck, Map as MapIcon, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { RoadmapItem } from "@/components/dashboard/roadmap/RoadmapItem";
 import { ReviewCompletionDialog } from "@/components/dashboard/roadmap/ReviewCompletionDialog";
@@ -63,6 +65,7 @@ export default function RoadmapReviewMode() {
   const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
   const [projectName, setProjectName] = useState<string>("");
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set(["all"]));
+  const [showOnlyChanged, setShowOnlyChanged] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -279,6 +282,12 @@ export default function RoadmapReviewMode() {
     childrenByParent[key].sort((a, b) => a.sort_order - b.sort_order);
   });
 
+  // Filter items based on showOnlyChanged toggle
+  const changedItemIds = new Set(itemUpdates.keys());
+  const filteredRootItems = showOnlyChanged 
+    ? rootItems.filter(i => changedItemIds.has(i.id))
+    : rootItems;
+
   const completedCount = items.filter(i => i.is_completed).length;
   const progress = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0;
   const updatedCount = itemUpdates.size;
@@ -338,7 +347,20 @@ export default function RoadmapReviewMode() {
               Review Mode
             </Badge>
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            {updatedCount > 0 && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-changed"
+                  checked={showOnlyChanged}
+                  onCheckedChange={setShowOnlyChanged}
+                />
+                <Label htmlFor="show-changed" className="text-sm text-muted-foreground cursor-pointer flex items-center gap-1">
+                  <Filter className="h-3 w-3" />
+                  Changed only
+                </Label>
+              </div>
+            )}
             <span className="text-sm text-muted-foreground">
               {completedCount}/{items.length} completed ({progress}%)
             </span>
@@ -361,7 +383,10 @@ export default function RoadmapReviewMode() {
           ) : (
             <div className="space-y-2">
               {phases.map((phase) => {
-                const phaseItems = rootItems.filter(i => (i.phase || "General") === phase);
+                const phaseItems = filteredRootItems.filter(i => (i.phase || "General") === phase);
+                
+                // Skip phases with no items when filtering
+                if (showOnlyChanged && phaseItems.length === 0) return null;
                 const isExpanded = expandedPhases.has(phase) || expandedPhases.has("all");
 
                 return (
