@@ -416,3 +416,75 @@ export const projectUpdateTemplate = (
     <a href="${projectLink}" class="button">View Project</a>
   </p>
 `, '📊 Project Update', `Update on ${projectName}`);
+
+/**
+ * Roadmap review update template - consolidated update sent after review
+ */
+export const roadmapReviewUpdateTemplate = (
+  recipientName: string,
+  projectName: string,
+  reviewerName: string,
+  updatedItems: Array<{
+    title: string;
+    isCompleted: boolean;
+    notes?: string;
+  }>,
+  message: string | null,
+  reviewLink: string
+) => {
+  const completedItems = updatedItems.filter(i => i.isCompleted);
+  const itemsHtml = updatedItems.map(item => `
+    <tr>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">
+        ${item.isCompleted 
+          ? '<span style="color: #10b981;">✓</span>' 
+          : '<span style="color: #64748b;">○</span>'}
+      </td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px;">
+        ${item.title}
+        ${item.notes ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b; font-style: italic;">${item.notes}</p>` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  return emailWrapper(`
+    <p style="margin: 0 0 16px 0; font-size: 15px;">Hi ${recipientName},</p>
+    
+    <p style="margin: 0 0 20px 0; font-size: 15px;">
+      <strong>${reviewerName}</strong> has completed a roadmap review for:
+    </p>
+    
+    <div class="card">
+      <p style="margin: 0 0 8px 0;">
+        <span class="badge badge-blue">Project</span>
+      </p>
+      <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1f2937;">${projectName}</p>
+      <p style="margin: 0; font-size: 14px; color: #64748b;">
+        <strong>${completedItems.length}</strong> of <strong>${updatedItems.length}</strong> reviewed items completed
+      </p>
+    </div>
+    
+    ${message ? `
+    <div class="highlight">
+      <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Message from ${reviewerName}</p>
+      <p style="margin: 0; color: #475569;">${message}</p>
+    </div>
+    ` : ''}
+    
+    <p style="margin: 24px 0 12px 0; font-size: 14px; font-weight: 600; color: #1f2937;">Items Updated:</p>
+    
+    <table role="presentation" width="100%" style="border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+      <tbody>
+        ${itemsHtml}
+      </tbody>
+    </table>
+    
+    <p style="text-align: center; margin: 32px 0 16px 0;">
+      <a href="${reviewLink}" class="button">View Roadmap</a>
+    </p>
+    
+    <p class="meta" style="text-align: center; margin-top: 24px;">
+      You're receiving this because you have access to this project's roadmap.
+    </p>
+  `, '📋 Roadmap Review Complete', `${reviewerName} has updated the roadmap`);
+};
