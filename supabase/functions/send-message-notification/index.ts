@@ -1,21 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendEmail, DEFAULT_FROM_ADDRESSES } from "../_shared/email.ts";
+import { messageNotificationTemplate } from "../_shared/email-templates.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const smtpClient = new SMTPClient({
-  connection: {
-    hostname: "smtp.gmail.com",
-    port: 465,
-    tls: true,
-    auth: {
-      username: Deno.env.get("GMAIL_USER")!,
-      password: Deno.env.get("GMAIL_APP_PASSWORD")!,
-    },
-  },
-});
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,110 +19,132 @@ interface NotificationRequest {
   senderName: string;
   messagePreview: string;
   conversationId: string;
+  mentionType?: "direct" | "channel";
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const { userId, messageId, senderName, messagePreview, conversationId }: NotificationRequest = await req.json();
+    const { 
+      userId, 
+      messageId, 
+      senderName, 
+      messagePreview, 
+      conversationId,
+      mentionType = "direct"
+    }: NotificationRequest = await req.json();
 
-    console.log("Sending message notification to:", userId);
+    console.log("Processing message notification:", {
+      userId,
+      messageId,
+      senderName,
+      conversationId,
+      mentionType,
+    });
 
-    // Get user's email
+    // Validate required fields
+    if (!userId || !messageId || !senderName || !conversationId || !messagePreview) {
+      throw new Error("Missing required fields");
+    }
+
+    // Get recipient profile with email
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("email, full_name")
       .eq("id", userId)
       .single();
 
-    if (profileError || !profile) {
-      console.error("Error fetching user profile:", profileError);
-      throw new Error("User not found");
+    if (profileError || !profile?.email) {
+      console.error("Error fetching recipient profile:", profileError);
+      throw new Error("Could not find recipient email");
     }
 
-    // Create notification record
-    await supabase
+    const recipientName = profile.full_name || "there";
+    const recipientEmail = profile.email;
+
+    // Create notification record in database
+    const { data: notification, error: notificationError } = await supabase
       .from("message_notifications")
       .insert({
         user_id: userId,
         message_id: messageId,
-        type: "mention",
+        type: mentionType === "direct" ? "mention" : "channel_mention",
         is_read: false,
         email_sent: false,
-      });
+      })
+      .select()
+      .single();
 
-    // Send email notification
-    const appUrl = Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "https://app.lovable.app";
-    const messageLink = `${appUrl}/messages?conversation=${conversationId}`;
+    if (notificationError) {
+      console.error("Error creating notification record:", notificationError);
+      // Continue anyway - email is more important
+    }
 
-    await smtpClient.send({
-      from: Deno.env.get("GMAIL_USER")!,
-      to: profile.email,
+    // Build the conversation link
+    const appUrl = Deno.env.get("APP_URL") || "https://rsdisaisxdglmdmzmkyw.lovable.app";
+    const conversationLink = `${appUrl}/messaging?conversation=${conversationId}`;
+
+    // Prepare message preview (truncate if needed)
+    const truncatedPreview = messagePreview.length > 150 
+      ? messagePreview.substring(0, 150) + "..." 
+      : messagePreview;
+
+    // Generate email HTML using template
+    const emailHtml = messageNotificationTemplate(
+      recipientName,
+      senderName,
+      truncatedPreview,
+      conversationLink
+    );
+
+    // Send email via Resend
+    const emailResult = await sendEmail({
+      to: recipientEmail,
       subject: `${senderName} mentioned you in a message`,
-      content: "auto",
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-              .content { background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; }
-              .message-preview { background: #f7fafc; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0; font-style: italic; }
-              .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-              .footer { text-align: center; color: #718096; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1 style="margin: 0;">💬 New Mention</h1>
-              </div>
-              <div class="content">
-                <p>Hi ${profile.full_name || "there"},</p>
-                <p><strong>${senderName}</strong> mentioned you in a message:</p>
-                <div class="message-preview">
-                  "${messagePreview}"
-                </div>
-                <p>Click the button below to view the full conversation and respond:</p>
-                <p style="text-align: center;">
-                  <a href="${messageLink}" class="button">View Message</a>
-                </p>
-              </div>
-              <div class="footer">
-                <p>Watson Mattheus Team</p>
-                <p>You're receiving this because you were mentioned in a message.</p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `,
+      html: emailHtml,
+      from: DEFAULT_FROM_ADDRESSES.noreply,
+      tags: [
+        { name: "type", value: "message_notification" },
+        { name: "mention_type", value: mentionType },
+      ],
     });
 
-    console.log("Email sent successfully via Gmail");
+    console.log("Email sent successfully via Resend:", emailResult.id);
 
-    // Update notification as email sent
-    await supabase
-      .from("message_notifications")
-      .update({ email_sent: true })
-      .eq("message_id", messageId)
-      .eq("user_id", userId);
+    // Update notification record with email status
+    if (notification?.id) {
+      await supabase
+        .from("message_notifications")
+        .update({
+          email_sent: true,
+        })
+        .eq("id", notification.id);
+    }
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Notification sent successfully",
+        emailId: emailResult.id,
+        notificationId: notification?.id,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
   } catch (error: any) {
     console.error("Error in send-message-notification:", error);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        success: false,
+        error: error.message,
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
