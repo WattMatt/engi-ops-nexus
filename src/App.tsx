@@ -47,6 +47,7 @@ import MasterLibrary from "./pages/MasterLibrary";
 import ContactLibrary from "./pages/ContactLibrary";
 import ProjectRoadmap from "./pages/ProjectRoadmap";
 import RoadmapReviewMode from "./pages/RoadmapReviewMode";
+import ExternalRoadmapReview from "./pages/ExternalRoadmapReview";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
 import HandoverClientManagement from "./pages/HandoverClientManagement";
@@ -150,6 +151,8 @@ const App = () => (
             <Route path="roadmap" element={<ProjectRoadmap />} />
             <Route path="roadmap-review" element={<RoadmapReviewMode />} />
           </Route>
+          {/* External review page - no auth required */}
+          <Route path="/roadmap-review/:token" element={<ExternalRoadmapReview />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
