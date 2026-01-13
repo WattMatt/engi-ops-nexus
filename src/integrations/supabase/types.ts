@@ -3866,6 +3866,48 @@ export type Database = {
         }
         Relationships: []
       }
+      external_roadmap_comments: {
+        Row: {
+          comment_text: string
+          created_at: string
+          id: string
+          reviewer_name: string
+          roadmap_item_id: string | null
+          token_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string
+          id?: string
+          reviewer_name: string
+          roadmap_item_id?: string | null
+          token_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string
+          id?: string
+          reviewer_name?: string
+          roadmap_item_id?: string | null
+          token_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_roadmap_comments_roadmap_item_id_fkey"
+            columns: ["roadmap_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_roadmap_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_roadmap_comments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_share_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       final_account_bills: {
         Row: {
           bill_name: string
@@ -10030,6 +10072,7 @@ export type Database = {
           created_by: string | null
           expires_at: string
           id: string
+          last_accessed_at: string | null
           message: string | null
           permissions: string[]
           project_id: string
@@ -10045,6 +10088,7 @@ export type Database = {
           created_by?: string | null
           expires_at?: string
           id?: string
+          last_accessed_at?: string | null
           message?: string | null
           permissions?: string[]
           project_id: string
@@ -10060,6 +10104,7 @@ export type Database = {
           created_by?: string | null
           expires_at?: string
           id?: string
+          last_accessed_at?: string | null
           message?: string | null
           permissions?: string[]
           project_id?: string
