@@ -623,10 +623,37 @@ export const userInviteTemplate = (
       </table>
     `)}
     
+    ${createCard(`
+      <p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">📋 Getting Started</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top;">
+            <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+              <strong style="color: ${BRAND_BLUE};">Step 1:</strong> Click the "Log In Now" button below
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top;">
+            <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+              <strong style="color: ${BRAND_BLUE};">Step 2:</strong> Enter your email and the temporary password above
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top;">
+            <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+              <strong style="color: ${BRAND_BLUE};">Step 3:</strong> Create a new secure password when prompted
+            </p>
+          </td>
+        </tr>
+      </table>
+    `)}
+    
     ${createHighlight(`
-      <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 600; color: #9a3412; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">🔐 Security Notice</p>
+      <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 600; color: #9a3412; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">🔐 Important Security Notice</p>
       <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-        For your security, you'll be required to change your password when you first log in. Please keep your credentials secure and don't share them with others.
+        <strong>You must change your password</strong> on your first login. This is a temporary password created for initial access only. Please keep your credentials secure and never share them with anyone.
       </p>
     `, '#f59e0b', '#fffbeb')}
     
