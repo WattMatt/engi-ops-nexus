@@ -46,6 +46,7 @@ import BulkServices from "./pages/BulkServices";
 import MasterLibrary from "./pages/MasterLibrary";
 import ContactLibrary from "./pages/ContactLibrary";
 import ProjectRoadmap from "./pages/ProjectRoadmap";
+import RoadmapReviewMode from "./pages/RoadmapReviewMode";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
 import HandoverClientManagement from "./pages/HandoverClientManagement";
@@ -147,6 +148,7 @@ const App = () => (
             <Route path="master-library" element={<MasterLibrary />} />
             <Route path="contact-library" element={<ContactLibrary />} />
             <Route path="roadmap" element={<ProjectRoadmap />} />
+            <Route path="roadmap-review" element={<RoadmapReviewMode />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

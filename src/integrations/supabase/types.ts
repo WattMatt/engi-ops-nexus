@@ -9905,6 +9905,95 @@ export type Database = {
           },
         ]
       }
+      roadmap_item_updates: {
+        Row: {
+          id: string
+          new_status: boolean
+          previous_status: boolean
+          review_session_id: string
+          roadmap_item_id: string
+          update_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          new_status?: boolean
+          previous_status?: boolean
+          review_session_id: string
+          roadmap_item_id: string
+          update_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          new_status?: boolean
+          previous_status?: boolean
+          review_session_id?: string
+          roadmap_item_id?: string
+          update_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_item_updates_review_session_id_fkey"
+            columns: ["review_session_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_review_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadmap_item_updates_roadmap_item_id_fkey"
+            columns: ["roadmap_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_roadmap_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_review_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          project_id: string
+          started_at: string
+          started_by: string
+          status: string
+          summary_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          project_id: string
+          started_at?: string
+          started_by: string
+          status?: string
+          summary_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string
+          started_at?: string
+          started_by?: string
+          status?: string
+          summary_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_review_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roadmap_share_tokens: {
         Row: {
           access_count: number | null

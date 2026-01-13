@@ -5,6 +5,7 @@ import { RoadmapProgressChart } from "@/components/dashboard/roadmap/RoadmapProg
 import { RoadmapExportPDFButton } from "@/components/dashboard/roadmap/RoadmapExportPDFButton";
 import { Button } from "@/components/ui/button";
 import { Share2, BarChart3 } from "lucide-react";
+import { ReviewModeButton } from "@/components/dashboard/roadmap/ReviewModeButton";
 import {
   Collapsible,
   CollapsibleContent,
@@ -40,6 +41,7 @@ export default function ProjectRoadmap() {
           </p>
         </div>
         <div className="flex gap-2">
+          <ReviewModeButton />
           <Button
             variant="outline"
             size="sm"
