@@ -15,8 +15,9 @@ import { useConversations } from "@/hooks/useConversations";
 import { formatDistanceToNow } from "date-fns";
 
 export function MessageNotificationBell() {
+  const projectId = localStorage.getItem("selectedProjectId");
   const { totalUnread, unreadByConversation } = useUnreadMessages();
-  const { conversations } = useConversations();
+  const { conversations } = useConversations(projectId);
   const navigate = useNavigate();
 
   const conversationsWithUnread = conversations
