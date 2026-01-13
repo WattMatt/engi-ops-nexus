@@ -2395,6 +2395,33 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_custom: boolean
+          label: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_custom?: boolean
+          label: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_custom?: boolean
+          label?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string
