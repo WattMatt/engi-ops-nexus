@@ -33,6 +33,7 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [createdPassword, setCreatedPassword] = useState<string>("");
+  const [emailSent, setEmailSent] = useState(false);
   const { logActivity } = useActivityLogger();
 
   const form = useForm<InviteFormData>({
@@ -78,9 +79,13 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
       if (!inviteData?.success) throw new Error(inviteData?.error || "Failed to create user");
 
       setCreatedPassword(data.password);
+      setEmailSent(inviteData?.emailSent || false);
       
+      const wasEmailSent = inviteData?.emailSent;
       toast.success(`User created successfully`, {
-        description: `Share the password with ${data.fullName}. They can change it after logging in.`
+        description: wasEmailSent 
+          ? `A welcome email with login credentials has been sent to ${data.email}`
+          : `Share the password with ${data.fullName}. They can change it after logging in.`
       });
 
       // Log the invite activity
@@ -102,6 +107,7 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
   const handleClose = () => {
     setOpen(false);
     setCreatedPassword("");
+    setEmailSent(false);
     form.reset();
   };
 
@@ -215,12 +221,23 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>User Created Successfully</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                ✅ User Created Successfully
+              </DialogTitle>
               <DialogDescription>
-                Share this password with the user. They should change it after logging in.
+                {emailSent 
+                  ? "A welcome email with login credentials has been sent to the user."
+                  : "Share this password with the user. They should change it after logging in."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {emailSent && (
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
+                    📧 Welcome email sent with login credentials
+                  </p>
+                </div>
+              )}
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm font-medium mb-2">Temporary Password:</p>
                 <div className="flex items-center gap-2">
@@ -240,7 +257,9 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">
-                Make sure to save this password securely. It won't be shown again.
+                {emailSent 
+                  ? "The password is included in the welcome email. Save it securely as backup."
+                  : "Make sure to save this password securely. It won't be shown again."}
               </p>
             </div>
             <DialogFooter>
