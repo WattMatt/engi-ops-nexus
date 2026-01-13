@@ -159,6 +159,10 @@ export default function RoadmapReviewMode() {
   // Toggle item completion - track for review
   const toggleComplete = useMutation({
     mutationFn: async ({ id, isCompleted }: { id: string; isCompleted: boolean }) => {
+      // Capture original state BEFORE the mutation
+      const item = items.find(i => i.id === id);
+      const wasCompleted = item?.is_completed ?? false;
+      
       const { error } = await supabase
         .from("project_roadmap_items")
         .update({
@@ -167,24 +171,21 @@ export default function RoadmapReviewMode() {
         })
         .eq("id", id);
       if (error) throw error;
-      return { id, isCompleted };
+      return { id, isCompleted, wasCompleted, title: item?.title || "" };
     },
-    onSuccess: ({ id, isCompleted }) => {
-      // Track the update for review
-      const item = items.find(i => i.id === id);
-      if (item) {
-        const update: ItemUpdate = {
-          itemId: item.id,
-          title: item.title,
-          wasCompleted: item.is_completed,
-          isNowCompleted: isCompleted,
-        };
-        setItemUpdates(prev => {
-          const next = new Map(prev);
-          next.set(item.id, update);
-          return next;
-        });
-      }
+    onSuccess: ({ id, isCompleted, wasCompleted, title }) => {
+      // Track the update for review with the original state
+      const update: ItemUpdate = {
+        itemId: id,
+        title,
+        wasCompleted,
+        isNowCompleted: isCompleted,
+      };
+      setItemUpdates(prev => {
+        const next = new Map(prev);
+        next.set(id, update);
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: ["roadmap-items-review", projectId] });
       toast.success("Item updated");
     },
@@ -265,6 +266,10 @@ export default function RoadmapReviewMode() {
   const handleComplete = () => {
     if (itemUpdates.size === 0) {
       toast.info("No items have been updated during this review");
+      return;
+    }
+    if (!reviewSessionId) {
+      toast.error("Review session not initialized. Please refresh and try again.");
       return;
     }
     setCompletionDialogOpen(true);
