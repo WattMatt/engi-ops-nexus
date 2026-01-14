@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,10 @@ import {
   LayoutDashboard,
   BarChart3,
   List,
-  Loader2
+  Loader2,
+  Archive,
+  Trash2,
+  ExternalLink
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -42,10 +45,37 @@ import {
 } from "@/utils/roadmapReviewPdfExport";
 import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
 
+interface SavedPdfExport {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  report_type: string;
+  exported_by: string | null;
+  options: Record<string, unknown>;
+  created_at: string;
+}
+
 export default function AdminRoadmapReview() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // Fetch saved PDF exports
+  const { data: savedExports = [], isLoading: exportsLoading } = useQuery({
+    queryKey: ["roadmap-pdf-exports"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("roadmap_pdf_exports")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data as SavedPdfExport[];
+    },
+  });
 
   const { data: queryData, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["admin-roadmap-review-enhanced"],
@@ -220,9 +250,59 @@ export default function AdminRoadmapReview() {
       // Hide the printable charts container
       setShowPrintableCharts(false);
 
+      // Get the PDF as blob for storage
+      const pdfBlob = doc.output('blob');
+      const fileName = `Roadmap_Review_${format(new Date(), "yyyy-MM-dd_HHmmss")}.pdf`;
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Just download if not authenticated
+        downloadPDF(doc);
+        toast.success("PDF report downloaded!");
+        return;
+      }
+
+      // Upload to storage
+      const filePath = `${user.id}/${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('roadmap-exports')
+        .upload(filePath, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        // Fall back to direct download
+        downloadPDF(doc);
+        toast.warning("PDF downloaded but couldn't save to storage");
+        return;
+      }
+
+      // Save record to database
+      const { error: dbError } = await supabase
+        .from('roadmap_pdf_exports')
+        .insert({
+          file_name: fileName,
+          file_path: filePath,
+          file_size: pdfBlob.size,
+          report_type: options?.reportType ?? 'meeting-review',
+          exported_by: user.id,
+          options: options || {},
+        });
+
+      if (dbError) {
+        console.error("Database insert error:", dbError);
+      }
+
       // Download the PDF
       downloadPDF(doc);
-      toast.success("Enhanced PDF report generated successfully!");
+      
+      // Refresh the saved exports list
+      queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
+      
+      toast.success("PDF report saved and downloaded!");
     } catch (error) {
       console.error("Error generating PDF:", error);
       setShowPrintableCharts(false);
@@ -230,7 +310,64 @@ export default function AdminRoadmapReview() {
     } finally {
       setIsGeneratingPDF(false);
     }
-  }, [enhancedSummaries, portfolioMetrics]);
+  }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems]);
+
+  // Delete a saved export
+  const handleDeleteExport = async (exportItem: SavedPdfExport) => {
+    setDeletingId(exportItem.id);
+    try {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('roadmap-exports')
+        .remove([exportItem.file_path]);
+      
+      if (storageError) {
+        console.error("Storage delete error:", storageError);
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('roadmap_pdf_exports')
+        .delete()
+        .eq('id', exportItem.id);
+
+      if (dbError) throw dbError;
+
+      queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
+      toast.success("Export deleted");
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("Failed to delete export");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Download a saved export
+  const handleDownloadExport = async (exportItem: SavedPdfExport) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('roadmap-exports')
+        .download(exportItem.file_path);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = exportItem.file_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Download started");
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Failed to download file");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -305,6 +442,15 @@ export default function AdminRoadmapReview() {
             <List className="h-4 w-4" />
             Projects
           </TabsTrigger>
+          <TabsTrigger value="saved" className="flex items-center gap-2">
+            <Archive className="h-4 w-4" />
+            Saved Reports
+            {savedExports.length > 0 && (
+              <span className="ml-1 text-xs bg-primary/20 text-primary rounded-full px-1.5">
+                {savedExports.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* Dashboard Tab */}
@@ -344,6 +490,87 @@ export default function AdminRoadmapReview() {
                 enhancedSummaries.map((project) => (
                   <EnhancedProjectCard key={project.projectId} project={project} />
                 ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Saved Reports Tab */}
+        <TabsContent value="saved" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Archive className="h-5 w-5" />
+                Saved PDF Reports
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {exportsLoading ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-16" />
+                  ))}
+                </div>
+              ) : savedExports.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Archive className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                  <p className="font-medium">No saved reports yet</p>
+                  <p className="text-sm">Export a PDF to save it for later access</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {savedExports.map((exportItem) => (
+                    <div
+                      key={exportItem.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-8 w-8 text-red-500" />
+                        <div>
+                          <p className="font-medium">{exportItem.file_name}</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{format(new Date(exportItem.created_at), "MMM d, yyyy 'at' h:mm a")}</span>
+                            {exportItem.file_size && (
+                              <>
+                                <span>•</span>
+                                <span>{(exportItem.file_size / 1024).toFixed(1)} KB</span>
+                              </>
+                            )}
+                            {exportItem.report_type && (
+                              <>
+                                <span>•</span>
+                                <span className="capitalize">{exportItem.report_type.replace('-', ' ')}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadExport(exportItem)}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Download
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteExport(exportItem)}
+                          disabled={deletingId === exportItem.id}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          {deletingId === exportItem.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
