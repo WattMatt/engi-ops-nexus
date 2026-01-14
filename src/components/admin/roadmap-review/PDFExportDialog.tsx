@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, Zap, Image, CheckCircle2 } from "lucide-react";
+import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, Zap, Image, CheckCircle2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS } from "@/utils/roadmapReviewPdfStyles";
 import type { PreCaptureStatus } from "@/hooks/useChartPreCapture";
@@ -20,6 +20,8 @@ interface PDFExportDialogProps {
   preCaptureStatus?: PreCaptureStatus;
   /** Number of pre-captured charts available */
   preCapturedChartCount?: number;
+  /** Callback to re-capture charts */
+  onRecaptureCharts?: () => Promise<void>;
 }
 
 export function PDFExportDialog({ 
@@ -29,7 +31,9 @@ export function PDFExportDialog({
   isExporting,
   preCaptureStatus = 'idle',
   preCapturedChartCount = 0,
+  onRecaptureCharts,
 }: PDFExportDialogProps) {
+  const [isRecapturing, setIsRecapturing] = useState(false);
   const [options, setOptions] = useState<RoadmapPDFExportOptions>(DEFAULT_EXPORT_OPTIONS);
   const [companySettings, setCompanySettings] = useState<{
     companyName: string;
@@ -157,27 +161,51 @@ export function PDFExportDialog({
                   Table of Contents
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-start space-x-2">
                 <Checkbox 
                   id="charts"
                   checked={options.includeCharts}
                   onCheckedChange={(checked) => updateOption('includeCharts', !!checked)}
+                  className="mt-1"
                 />
-                <Label htmlFor="charts" className="text-sm cursor-pointer flex items-center gap-2">
-                  Analytics Charts
-                  {preCaptureStatus === 'ready' && preCapturedChartCount > 0 && options.includeCharts && (
-                    <Badge variant="secondary" className="text-xs gap-1">
-                      <Zap className="h-3 w-3" />
-                      {preCapturedChartCount} pre-captured
-                    </Badge>
+                <div className="flex-1 space-y-1">
+                  <Label htmlFor="charts" className="text-sm cursor-pointer flex items-center gap-2 flex-wrap">
+                    Analytics Charts
+                    {preCaptureStatus === 'ready' && preCapturedChartCount > 0 && options.includeCharts && (
+                      <Badge variant="secondary" className="text-xs gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {preCapturedChartCount} pre-captured
+                      </Badge>
+                    )}
+                    {(preCaptureStatus === 'capturing' || isRecapturing) && options.includeCharts && (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {isRecapturing ? 'Re-capturing...' : 'Pre-capturing...'}
+                      </Badge>
+                    )}
+                  </Label>
+                  {/* Re-capture button */}
+                  {options.includeCharts && onRecaptureCharts && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        setIsRecapturing(true);
+                        try {
+                          await onRecaptureCharts();
+                        } finally {
+                          setIsRecapturing(false);
+                        }
+                      }}
+                      disabled={isRecapturing || isExporting || preCaptureStatus === 'capturing'}
+                      className="h-7 px-2 text-xs gap-1"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isRecapturing ? 'animate-spin' : ''}`} />
+                      Re-capture charts
+                    </Button>
                   )}
-                  {preCaptureStatus === 'capturing' && options.includeCharts && (
-                    <Badge variant="outline" className="text-xs gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Pre-capturing...
-                    </Badge>
-                  )}
-                </Label>
+                </div>
               </div>
               {options.includeCharts && (
                 <div className="col-span-2 pl-6 space-y-2">
