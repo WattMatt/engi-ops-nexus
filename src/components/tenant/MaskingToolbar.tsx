@@ -1,5 +1,6 @@
 import React from 'react';
-import { MousePointer, Hand, Ruler, Pencil, Square, Save, FolderOpen, Eye, Upload, SaveAll } from 'lucide-react';
+import type { LucideProps } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Square, Save, FolderOpen, Eye, Upload, SaveAll } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 
@@ -20,14 +21,14 @@ interface ToolbarProps {
 }
 
 interface ToolButtonProps {
-  icon: React.ElementType;
+  icon: React.ElementType<LucideProps>;
   label: string;
   isActive: boolean;
   onClick: () => void;
   disabled?: boolean;
 }
 
-const ToolButton: React.FC<ToolButtonProps> = ({ icon: Icon, label, isActive, onClick, disabled }) => (
+const ToolButton = ({ icon: Icon, label, isActive, onClick, disabled }: ToolButtonProps) => (
   <button
     onClick={onClick}
     disabled={disabled}
@@ -41,12 +42,14 @@ const ToolButton: React.FC<ToolButtonProps> = ({ icon: Icon, label, isActive, on
   </button>
 );
 
-const ActionButton: React.FC<Pick<ToolButtonProps, 'icon' | 'label' | 'onClick' | 'disabled'>> = ({ 
-  icon: Icon, 
-  label, 
-  onClick, 
-  disabled 
-}) => (
+interface ActionButtonProps {
+  icon: React.ElementType<LucideProps>;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+const ActionButton = ({ icon: Icon, label, onClick, disabled }: ActionButtonProps) => (
   <button
     onClick={onClick}
     disabled={disabled}
