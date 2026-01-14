@@ -229,6 +229,7 @@ export interface RoadmapPDFExportOptions {
   companyName?: string;
   confidentialNotice?: boolean;
   reportType: 'standard' | 'meeting-review' | 'executive-summary';
+  chartLayout: 'stacked' | 'grid';
 }
 
 // Default export options
@@ -245,4 +246,5 @@ export const DEFAULT_EXPORT_OPTIONS: RoadmapPDFExportOptions = {
   companyName: 'Roadmap Review',
   confidentialNotice: true,
   reportType: 'meeting-review',
+  chartLayout: 'stacked',
 };
