@@ -320,23 +320,16 @@ export default function AdminRoadmapReview() {
       
       console.log('PDF downloaded:', filename);
 
-      if (cancelExportRef.current) {
-        throw new Error('Export cancelled');
-      }
-
+      // Export complete - close overlay immediately since download has started
       setExportStep('complete');
       toast.success(`Report downloaded: ${filename}`);
-      
-      // Close overlay after short delay
-      setTimeout(() => {
-        setShowProgressOverlay(false);
-      }, 1500);
+      setIsGeneratingPDF(false);
+      setShowProgressOverlay(false);
       
     } catch (error: any) {
       console.error("Error generating PDF:", error);
       if (error?.message === 'Export cancelled') {
         toast.info("Export cancelled");
-        setShowProgressOverlay(false);
       } else if (error?.message?.includes('timed out')) {
         // Timeout - try quick download as fallback
         console.log('[RoadmapPDF] Primary method timed out, trying quick download...');
@@ -345,29 +338,21 @@ export default function AdminRoadmapReview() {
           await quickDownloadRoadmapPdf(enhancedSummaries, portfolioMetrics);
           setExportStep('complete');
           toast.success("Quick report generated successfully");
-          setTimeout(() => {
-            setShowProgressOverlay(false);
-          }, 1500);
         } catch (quickError: any) {
           console.error("Quick download also failed:", quickError);
-          toast.error(`PDF generation failed completely: ${quickError?.message || 'Unknown error'}`);
+          toast.error(`PDF generation failed: ${quickError?.message || 'Unknown error'}`);
           setExportStep('error');
-          setTimeout(() => {
-            setShowProgressOverlay(false);
-          }, 3000);
         }
       } else {
         const errorMessage = error?.message || 'Unknown error occurred';
         console.error("PDF generation error details:", errorMessage);
         toast.error(`PDF generation failed: ${errorMessage.substring(0, 100)}`);
         setExportStep('error');
-        // Close overlay after showing error for a moment
-        setTimeout(() => {
-          setShowProgressOverlay(false);
-        }, 3000);
       }
     } finally {
+      // Always clean up state
       setIsGeneratingPDF(false);
+      setShowProgressOverlay(false);
     }
   }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts]);
 
