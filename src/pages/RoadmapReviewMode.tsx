@@ -122,11 +122,14 @@ export default function RoadmapReviewMode() {
     enabled: !!projectId,
   });
 
-  // Create review session
+  const [sessionRetryCount, setSessionRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
+
+  // Create review session with retry logic
   const createSession = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) throw new Error("Not authenticated. Please log in to start a review session.");
 
       const { data, error } = await supabase
         .from("roadmap_review_sessions")
@@ -138,20 +141,44 @@ export default function RoadmapReviewMode() {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        // Provide user-friendly error messages based on error type
+        if (error.code === '42501' || error.message?.includes('row-level security')) {
+          throw new Error("You don't have permission to start a review session for this project. Please contact your project administrator.");
+        }
+        if (error.code === '23503') {
+          throw new Error("This project no longer exists or you don't have access to it.");
+        }
+        throw new Error(error.message || "Failed to create review session");
+      }
       return data;
     },
     onSuccess: (data) => {
       setReviewSessionId(data.id);
+      setSessionRetryCount(0);
+      toast.success("Review session started successfully");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to start review session");
+      const isRetryable = !error.message?.includes("permission") && 
+                          !error.message?.includes("authenticated") &&
+                          !error.message?.includes("no longer exists");
+      
+      if (isRetryable && sessionRetryCount < MAX_RETRIES) {
+        setSessionRetryCount(prev => prev + 1);
+        toast.warning(`Session creation failed. Retrying... (${sessionRetryCount + 1}/${MAX_RETRIES})`);
+        // Auto-retry after a brief delay
+        setTimeout(() => {
+          createSession.mutate();
+        }, 1000 * (sessionRetryCount + 1)); // Exponential backoff
+      } else {
+        toast.error(error.message || "Failed to start review session");
+      }
     },
   });
 
   // Start session on mount
   useEffect(() => {
-    if (projectId && !reviewSessionId) {
+    if (projectId && !reviewSessionId && !createSession.isPending) {
       createSession.mutate();
     }
   }, [projectId]);
