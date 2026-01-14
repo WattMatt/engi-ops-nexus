@@ -197,7 +197,7 @@ export function GlobalContactsManager() {
     
     const value = newCategoryLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     
-    // Check if already exists
+    // Check if already exists in local list
     if (allContactTypes.some(t => t.value === value || t.label.toLowerCase() === newCategoryLabel.toLowerCase())) {
       toast({
         title: "Category exists",
@@ -208,17 +208,26 @@ export function GlobalContactsManager() {
     }
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("contact_categories")
         .insert({
           value,
           label: newCategoryLabel.trim(),
           is_custom: true,
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase insert error:", error);
+        throw error;
+      }
 
-      queryClient.invalidateQueries({ queryKey: ["contact-categories"] });
+      console.log("Category created successfully:", data);
+
+      // Force refetch the categories
+      await queryClient.invalidateQueries({ queryKey: ["contact-categories"] });
+      await queryClient.refetchQueries({ queryKey: ["contact-categories"] });
       
       toast({
         title: "Category added",
