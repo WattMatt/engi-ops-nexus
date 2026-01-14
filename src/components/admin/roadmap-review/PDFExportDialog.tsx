@@ -1,26 +1,34 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, Zap, Image, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS } from "@/utils/roadmapReviewPdfStyles";
+import type { PreCaptureStatus } from "@/hooks/useChartPreCapture";
 
 interface PDFExportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onExport: (options: RoadmapPDFExportOptions) => Promise<void>;
   isExporting: boolean;
+  /** Pre-capture status from the hook */
+  preCaptureStatus?: PreCaptureStatus;
+  /** Number of pre-captured charts available */
+  preCapturedChartCount?: number;
 }
 
 export function PDFExportDialog({ 
   open, 
   onOpenChange, 
   onExport, 
-  isExporting 
+  isExporting,
+  preCaptureStatus = 'idle',
+  preCapturedChartCount = 0,
 }: PDFExportDialogProps) {
   const [options, setOptions] = useState<RoadmapPDFExportOptions>(DEFAULT_EXPORT_OPTIONS);
   const [companySettings, setCompanySettings] = useState<{
@@ -155,8 +163,20 @@ export function PDFExportDialog({
                   checked={options.includeCharts}
                   onCheckedChange={(checked) => updateOption('includeCharts', !!checked)}
                 />
-                <Label htmlFor="charts" className="text-sm cursor-pointer">
+                <Label htmlFor="charts" className="text-sm cursor-pointer flex items-center gap-2">
                   Analytics Charts
+                  {preCaptureStatus === 'ready' && preCapturedChartCount > 0 && options.includeCharts && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Zap className="h-3 w-3" />
+                      {preCapturedChartCount} pre-captured
+                    </Badge>
+                  )}
+                  {preCaptureStatus === 'capturing' && options.includeCharts && (
+                    <Badge variant="outline" className="text-xs gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Pre-capturing...
+                    </Badge>
+                  )}
                 </Label>
               </div>
               {options.includeCharts && (
@@ -182,6 +202,14 @@ export function PDFExportDialog({
                       </Label>
                     </div>
                   </RadioGroup>
+                </div>
+              )}
+              {!options.includeCharts && (
+                <div className="col-span-2 pl-6">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Zap className="h-3 w-3" />
+                    Skip charts for instant export
+                  </p>
                 </div>
               )}
               <div className="flex items-center space-x-2">
