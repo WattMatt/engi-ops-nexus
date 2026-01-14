@@ -703,11 +703,17 @@ export async function generateRoadmapPdfMake(
 ): Promise<Blob> {
   console.log('[RoadmapPDF] Starting generation with', projects.length, 'projects');
   
-  // Verify pdfmake is ready
-  if (!isPdfMakeReady()) {
-    console.error('[RoadmapPDF] PDFMake not initialized');
-    throw new Error('PDF library not initialized. Please refresh the page and try again.');
+  // Import validation function
+  const { validatePdfMake } = await import('./pdfmake');
+  
+  // Validate pdfmake is properly configured
+  const validation = validatePdfMake();
+  if (!validation.valid) {
+    console.error('[RoadmapPDF] PDFMake validation failed:', validation.error);
+    console.error('[RoadmapPDF] Details:', validation.details);
+    throw new Error(`PDF library not properly initialized: ${validation.error}`);
   }
+  console.log('[RoadmapPDF] PDFMake validation passed');
   
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
@@ -879,7 +885,8 @@ async function buildPdfDocument(
 
   // Generate and return blob with shorter timeout
   console.log('[RoadmapPDF] Building PDF blob...');
-  const blob = await doc.toBlob(45000); // 45 second timeout
+  const blob = await doc.toBlob(30000); // 30 second timeout - reduced for faster failure
+  console.log('[RoadmapPDF] PDF blob created, size:', blob.size, 'bytes');
   return blob;
 }
 
@@ -927,7 +934,8 @@ async function buildMinimalPdf(
     })),
   ]);
   
-  return doc.toBlob(30000); // 30 second timeout for simple doc
+  console.log('[RoadmapPDF] Building minimal PDF blob...');
+  return doc.toBlob(15000); // 15 second timeout for simple doc
 }
 
 /**
