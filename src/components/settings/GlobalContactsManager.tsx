@@ -28,25 +28,6 @@ interface GlobalContact {
   notes: string | null;
 }
 
-// Default contact categories
-const DEFAULT_CONTACT_TYPES = [
-  { value: "supply_authority", label: "Supply Authority" },
-  { value: "client", label: "Client" },
-  { value: "architect", label: "Architect" },
-  { value: "mechanical", label: "Mechanical" },
-  { value: "fire", label: "Fire" },
-  { value: "structural", label: "Structural" },
-  { value: "civil", label: "Civil" },
-  { value: "wet_services", label: "Wet Services" },
-  { value: "tenant_coordinator", label: "Tenant Coordinator" },
-  { value: "safety", label: "Safety" },
-  { value: "landscaping", label: "Landscaping" },
-  { value: "quantity_surveyor", label: "Quantity Surveyor" },
-  { value: "contractor", label: "Contractor" },
-  { value: "engineer", label: "Engineer" },
-  { value: "consultant", label: "Consultant" },
-];
-
 export function GlobalContactsManager() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -60,23 +41,23 @@ export function GlobalContactsManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch custom categories from database
-  const { data: customCategories = [] } = useQuery({
+  // Fetch ALL categories from database (both system and custom)
+  const { data: allContactTypes = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["contact-categories"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contact_categories")
-        .select("value, label")
-        .eq("is_custom", true)
+        .select("value, label, is_custom")
+        .order("is_custom")
         .order("label");
       
       if (error) throw error;
-      return data as Array<{ value: string; label: string }>;
+      return data as Array<{ value: string; label: string; is_custom: boolean }>;
     },
   });
 
-  // Combined categories
-  const allContactTypes = [...DEFAULT_CONTACT_TYPES, ...customCategories];
+  // Separate custom categories for UI display
+  const customCategories = allContactTypes.filter(c => c.is_custom);
 
   const [formData, setFormData] = useState({
     contact_type: "client",
@@ -561,9 +542,9 @@ export function GlobalContactsManager() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Default Categories</Label>
+                    <Label className="text-sm text-muted-foreground">System Categories</Label>
                     <div className="flex flex-wrap gap-2">
-                      {DEFAULT_CONTACT_TYPES.map(type => (
+                      {allContactTypes.filter(t => !t.is_custom).map(type => (
                         <span
                           key={type.value}
                           className="px-2 py-1 bg-muted rounded-md text-sm"
