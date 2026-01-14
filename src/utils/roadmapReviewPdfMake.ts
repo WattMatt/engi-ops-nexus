@@ -19,6 +19,7 @@ import {
   generateCoverPageContent,
   PDF_COLORS,
   FONT_SIZES,
+  isPdfMakeReady,
 } from "./pdfmake";
 import type { PDFDocumentBuilder } from "./pdfmake";
 import { 
@@ -697,7 +698,13 @@ export async function generateRoadmapPdfMake(
   allRoadmapItems?: RoadmapItem[],
   capturedCharts?: CapturedChartData[]
 ): Promise<Blob> {
-  console.log('generateRoadmapPdfMake: Starting with', projects.length, 'projects');
+  console.log('[RoadmapPDF] Starting generation with', projects.length, 'projects');
+  
+  // Verify pdfmake is ready
+  if (!isPdfMakeReady()) {
+    console.error('[RoadmapPDF] PDFMake not initialized');
+    throw new Error('PDF library not initialized. Please refresh the page and try again.');
+  }
   
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
@@ -708,40 +715,40 @@ export async function generateRoadmapPdfMake(
   let charts: CapturedChartData[] = capturedCharts || [];
   if (config.includeCharts && !capturedCharts) {
     try {
-      console.log('generateRoadmapPdfMake: Capturing charts...');
+      console.log('[RoadmapPDF] Capturing charts...');
       charts = await captureRoadmapReviewCharts();
-      console.log(`generateRoadmapPdfMake: Captured ${charts.length} charts`);
+      console.log(`[RoadmapPDF] Captured ${charts.length} charts`);
     } catch (error) {
-      console.error('Failed to capture charts:', error);
+      console.error('[RoadmapPDF] Failed to capture charts:', error);
       charts = [];
     }
   } else if (capturedCharts) {
-    console.log('generateRoadmapPdfMake: Using', capturedCharts.length, 'pre-captured charts');
+    console.log('[RoadmapPDF] Using', capturedCharts.length, 'pre-captured charts');
   }
 
   // First attempt: with charts
   try {
-    console.log('generateRoadmapPdfMake: Building document with charts...');
+    console.log('[RoadmapPDF] Building document with charts...');
     const blob = await buildPdfDocument(projects, metrics, config, allRoadmapItems, charts);
-    console.log('generateRoadmapPdfMake: PDF generated successfully with charts, size:', blob.size);
+    console.log('[RoadmapPDF] PDF generated successfully with charts, size:', blob.size);
     return blob;
   } catch (error) {
-    console.error('PDF generation with charts failed:', error);
+    console.error('[RoadmapPDF] PDF generation with charts failed:', error);
     
     // Fallback: try without charts if we had charts
     if (charts.length > 0) {
-      console.log('generateRoadmapPdfMake: Retrying without charts...');
+      console.log('[RoadmapPDF] Retrying without charts...');
       try {
         const blob = await buildPdfDocument(projects, metrics, config, allRoadmapItems, []);
-        console.log('generateRoadmapPdfMake: PDF generated successfully without charts, size:', blob.size);
+        console.log('[RoadmapPDF] PDF generated successfully without charts, size:', blob.size);
         return blob;
       } catch (fallbackError) {
-        console.error('PDF generation without charts also failed:', fallbackError);
+        console.error('[RoadmapPDF] PDF generation without charts also failed:', fallbackError);
       }
     }
     
     // Final fallback: minimal PDF
-    console.log('generateRoadmapPdfMake: Creating minimal PDF...');
+    console.log('[RoadmapPDF] Creating minimal PDF...');
     return buildMinimalPdf(projects, metrics);
   }
 }

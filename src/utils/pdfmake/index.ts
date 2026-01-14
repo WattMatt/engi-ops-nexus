@@ -23,7 +23,7 @@
  */
 
 // Core configuration
-export { pdfMake, PAGE_SIZES, STANDARD_MARGINS, mmToPoints, pointsToMm } from './config';
+export { pdfMake, PAGE_SIZES, STANDARD_MARGINS, mmToPoints, pointsToMm, isPdfMakeReady } from './config';
 
 // Styles and colors
 export { PDF_COLORS, FONT_SIZES, defaultStyles, tableLayouts, QUALITY_PRESETS } from './styles';
