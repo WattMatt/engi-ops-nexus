@@ -651,12 +651,9 @@ export const ROADMAP_REVIEW_CHARTS: ChartConfig[] = [
 ];
 
 /**
- * Capture roadmap review charts from the DOM
+ * Capture roadmap review charts from the DOM (optimized for speed)
  */
 export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]> => {
-  // Wait for charts to fully render
-  await waitForCharts(1000);
-  
   // Only capture charts that actually exist in the DOM
   const availableCharts = ROADMAP_REVIEW_CHARTS.filter(
     config => document.getElementById(config.elementId) !== null
@@ -669,11 +666,15 @@ export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]>
   
   console.log(`Found ${availableCharts.length} charts to capture:`, availableCharts.map(c => c.elementId));
   
+  // Single brief wait, then parallel capture with optimized settings
+  await waitForCharts(300);
+  
   const charts = await captureCharts(availableCharts, {
-    scale: 2,
-    format: 'PNG',
-    quality: 0.95,
+    scale: 1.5, // Reduced for speed while maintaining quality
+    format: 'JPEG',
+    quality: 0.85,
     backgroundColor: '#ffffff',
+    timeout: 5000,
   });
   
   return charts;
