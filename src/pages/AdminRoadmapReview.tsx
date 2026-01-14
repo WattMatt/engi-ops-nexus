@@ -41,7 +41,7 @@ import {
 } from "@/utils/roadmapReviewCalculations";
 
 // Import PDF export utilities - using pdfmake for better text quality
-import { generateRoadmapPdfMake, captureRoadmapReviewCharts, quickDownloadRoadmapPdf } from "@/utils/roadmapReviewPdfMake";
+import { generateRoadmapPdfMake, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
 import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
 
 // Import pre-capture hook
@@ -377,39 +377,22 @@ export default function AdminRoadmapReview() {
       
     } catch (error: any) {
       console.error("Error generating PDF:", error);
+      const errorMessage = error?.message === 'Export cancelled' 
+        ? 'Export cancelled'
+        : error?.message || 'Unknown error occurred';
+      
       if (error?.message === 'Export cancelled') {
         toast.info("Export cancelled");
-      } else if (error?.message?.includes('timed out')) {
-        // Timeout - try quick download as fallback (direct download)
-        console.log('[RoadmapPDF] Primary method timed out, trying quick download...');
-        toast.info("Full export timed out, generating quick report...");
-        try {
-          await quickDownloadRoadmapPdf(enhancedSummaries, portfolioMetrics);
-          setExportStep('complete');
-          toast.success("Quick report downloaded (not saved)");
-          setTimeout(() => {
-            setShowProgressOverlay(false);
-            setIsGeneratingPDF(false);
-          }, 1200);
-        } catch (quickError: any) {
-          console.error("Quick download also failed:", quickError);
-          toast.error(`PDF generation failed: ${quickError?.message || 'Unknown error'}`);
-          setExportStep('error');
-          setTimeout(() => {
-            setShowProgressOverlay(false);
-            setIsGeneratingPDF(false);
-          }, 2500);
-        }
       } else {
-        const errorMessage = error?.message || 'Unknown error occurred';
         console.error("PDF generation error details:", errorMessage);
         toast.error(`PDF generation failed: ${errorMessage.substring(0, 100)}`);
-        setExportStep('error');
-        setTimeout(() => {
-          setShowProgressOverlay(false);
-          setIsGeneratingPDF(false);
-        }, 2500);
       }
+      
+      setExportStep('error');
+      setTimeout(() => {
+        setShowProgressOverlay(false);
+        setIsGeneratingPDF(false);
+      }, 2500);
     }
   }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts]);
 
