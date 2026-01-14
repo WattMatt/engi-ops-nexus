@@ -102,8 +102,8 @@ Deno.serve(async (req) => {
 
     const reviewerName = reviewerProfile?.full_name || user.email || "Team Member";
 
-    // Get the base URL from the request origin or environment
-    const origin = req.headers.get("origin") || Deno.env.get("PUBLIC_SITE_URL") || "https://your-app.lovable.app";
+    // Always use the production URL for email links
+    const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
     
     // Update the review session as completed
     const { error: sessionError } = await supabase
