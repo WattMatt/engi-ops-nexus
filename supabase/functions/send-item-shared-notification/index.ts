@@ -80,8 +80,8 @@ serve(async (req) => {
     const recipientName = recipient.full_name || "there";
     const senderName = sender?.full_name || "Someone";
 
-    // Build item link based on item type
-    const appUrl = Deno.env.get("APP_URL") || "https://your-app.lovable.app";
+    // Always use the production URL for email links
+    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
     let itemLink = appUrl;
 
     const itemTypeRoutes: Record<string, string> = {
