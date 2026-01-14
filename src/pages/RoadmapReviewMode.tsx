@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Send, X, ClipboardCheck, Map as MapIcon, ChevronDown, ChevronRight, Filter } from "lucide-react";
+import { Send, X, ClipboardCheck, Map as MapIcon, ChevronDown, ChevronRight, Filter, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { RoadmapItem } from "@/components/dashboard/roadmap/RoadmapItem";
 import { AddRoadmapItemDialog } from "@/components/dashboard/roadmap/AddRoadmapItemDialog";
@@ -345,6 +346,70 @@ export default function RoadmapReviewMode() {
       <div className="space-y-6">
         <Skeleton className="h-12 w-64" />
         <Skeleton className="h-96" />
+      </div>
+    );
+  }
+
+  // Show session creation status
+  const sessionError = createSession.isError;
+  const sessionPending = createSession.isPending;
+  const hasSession = !!reviewSessionId;
+
+  if (!hasSession && (sessionPending || sessionError)) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <ClipboardCheck className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-bold">Project Roadmap - Review Mode</h1>
+        </div>
+        
+        <Card className="max-w-lg">
+          <CardContent className="pt-6">
+            {sessionPending ? (
+              <div className="flex flex-col items-center gap-4 py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="text-center">
+                  <p className="font-medium">Starting review session...</p>
+                  {sessionRetryCount > 0 && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Retry attempt {sessionRetryCount} of {MAX_RETRIES}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : sessionError ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Session Creation Failed</AlertTitle>
+                <AlertDescription className="mt-2">
+                  <p className="mb-4">
+                    {(createSession.error as Error)?.message || "Unable to start the review session. Please try again."}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSessionRetryCount(0);
+                        createSession.mutate();
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Try Again
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => navigate("/dashboard/roadmap")}
+                    >
+                      Back to Roadmap
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </CardContent>
+        </Card>
       </div>
     );
   }
