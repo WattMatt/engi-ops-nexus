@@ -70,7 +70,7 @@ export const buildRoadmapTableContent = (
 
       return [
         { 
-          text: item.title.length > 45 ? item.title.substring(0, 42) + '...' : item.title, 
+          text: item.title, // Full title - pdfmake handles wrapping automatically
           fontSize: PDF_TYPOGRAPHY.sizes.tiny,
           fillColor: rowFill,
         },
@@ -224,14 +224,15 @@ export function generateFullRoadmapPage(
   const cardHeight = 28;
   drawCard(doc, startX, yPos, contentWidth, cardHeight, { shadow: true });
   
-  // Project name and badges
+  // Project name and badges - use text wrapping for long names
   doc.setFontSize(PDF_TYPOGRAPHY.sizes.h2);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...PDF_BRAND_COLORS.primary);
-  const displayName = project.projectName.length > 40 
-    ? project.projectName.substring(0, 37) + "..." 
-    : project.projectName;
-  doc.text(displayName, startX + 5, yPos + 10);
+  
+  // Calculate max width for project name (leave space for badges)
+  const maxNameWidth = contentWidth - 55;
+  const nameLines = doc.splitTextToSize(project.projectName, maxNameWidth);
+  doc.text(nameLines, startX + 5, yPos + 10);
   
   // Health badge
   const badgeY = yPos + 5;
@@ -284,14 +285,14 @@ export function generateFullRoadmapPage(
     doc.text(`Pending Items (${pendingItems.length})`, startX, yPos);
     yPos += 6;
     
-    // Build table data for pending items
+    // Build table data for pending items - no truncation, use wrapping
     const pendingTableData = pendingItems.map(item => {
       const dueStatus = getDueDateStatus(item.due_date || null);
       const statusLabel = dueStatus === 'overdue' ? 'OVERDUE' : 
         dueStatus === 'soon' ? 'Due Soon' : 'Pending';
       
       return [
-        item.title.length > 45 ? item.title.substring(0, 42) + "..." : item.title,
+        item.title, // Full title - will wrap
         item.due_date ? format(new Date(item.due_date), "MMM d, yyyy") : "-",
         (item.priority || "Normal").charAt(0).toUpperCase() + (item.priority || "normal").slice(1),
         statusLabel,
@@ -308,20 +309,23 @@ export function generateFullRoadmapPage(
         textColor: [255, 255, 255],
         fontSize: PDF_TYPOGRAPHY.sizes.small, 
         fontStyle: 'bold',
-        cellPadding: 2,
+        cellPadding: 3,
+        overflow: 'linebreak',
       },
       bodyStyles: { 
         fontSize: PDF_TYPOGRAPHY.sizes.tiny,
-        cellPadding: 2,
+        cellPadding: 2.5,
+        overflow: 'linebreak',
+        minCellHeight: 6,
       },
       alternateRowStyles: { fillColor: PDF_BRAND_COLORS.lightGray as any },
       margin: { left: startX, right: PDF_LAYOUT.margins.right },
       tableWidth: contentWidth,
       columnStyles: {
-        0: { cellWidth: contentWidth * 0.45 },
-        1: { cellWidth: contentWidth * 0.20, halign: 'center' },
-        2: { cellWidth: contentWidth * 0.15, halign: 'center' },
-        3: { cellWidth: contentWidth * 0.20, halign: 'center' },
+        0: { cellWidth: contentWidth * 0.45, overflow: 'linebreak' },
+        1: { cellWidth: contentWidth * 0.20, halign: 'center', overflow: 'linebreak' },
+        2: { cellWidth: contentWidth * 0.15, halign: 'center', overflow: 'linebreak' },
+        3: { cellWidth: contentWidth * 0.20, halign: 'center', overflow: 'linebreak' },
       },
       didDrawCell: (data) => {
         // Color the status column based on status
@@ -371,9 +375,9 @@ export function generateFullRoadmapPage(
     doc.text(`Completed Items (${completedItems.length})`, startX, yPos);
     yPos += 6;
     
-    // Build table data for completed items
+    // Build table data for completed items - no truncation, use wrapping
     const completedTableData = completedItems.slice(0, 15).map(item => [
-      item.title.length > 50 ? item.title.substring(0, 47) + "..." : item.title,
+      item.title, // Full title - will wrap
       (item.priority || "Normal").charAt(0).toUpperCase() + (item.priority || "normal").slice(1),
       "✓ Done",
     ]);
@@ -388,20 +392,23 @@ export function generateFullRoadmapPage(
         textColor: [255, 255, 255],
         fontSize: PDF_TYPOGRAPHY.sizes.small, 
         fontStyle: 'bold',
-        cellPadding: 2,
+        cellPadding: 3,
+        overflow: 'linebreak',
       },
       bodyStyles: { 
         fontSize: PDF_TYPOGRAPHY.sizes.tiny,
-        cellPadding: 1.5,
+        cellPadding: 2,
         textColor: [100, 100, 100],
+        overflow: 'linebreak',
+        minCellHeight: 6,
       },
       alternateRowStyles: { fillColor: [245, 255, 245] as any },
       margin: { left: startX, right: PDF_LAYOUT.margins.right },
       tableWidth: contentWidth,
       columnStyles: {
-        0: { cellWidth: contentWidth * 0.60 },
-        1: { cellWidth: contentWidth * 0.20, halign: 'center' },
-        2: { cellWidth: contentWidth * 0.20, halign: 'center' },
+        0: { cellWidth: contentWidth * 0.60, overflow: 'linebreak' },
+        1: { cellWidth: contentWidth * 0.20, halign: 'center', overflow: 'linebreak' },
+        2: { cellWidth: contentWidth * 0.20, halign: 'center', overflow: 'linebreak' },
       },
     });
     
