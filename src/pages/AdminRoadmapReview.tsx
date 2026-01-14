@@ -287,7 +287,7 @@ export default function AdminRoadmapReview() {
         throw new Error('Export cancelled');
       }
 
-      // Step 3: Generate PDF with timeout handling
+      // Step 3: Generate and download PDF directly (no blob)
       setExportStep('generating');
       console.log('Starting PDF generation with', enhancedSummaries.length, 'projects');
       console.log('Options:', {
@@ -295,7 +295,8 @@ export default function AdminRoadmapReview() {
         chartsCount: capturedCharts?.length ?? 0,
       });
       
-      const pdfBlob = await generateRoadmapPdfMake(
+      // This now returns filename and downloads directly
+      const filename = await generateRoadmapPdfMake(
         enhancedSummaries,
         portfolioMetrics,
         {
@@ -317,77 +318,20 @@ export default function AdminRoadmapReview() {
         capturedCharts
       );
       
-      console.log('PDF blob generated, size:', pdfBlob.size);
+      console.log('PDF downloaded:', filename);
 
       if (cancelExportRef.current) {
         throw new Error('Export cancelled');
       }
 
-      // Step 4: Save and download
-      setExportStep('saving');
-
-      const fileName = `Roadmap_Review_${format(new Date(), "yyyy-MM-dd_HHmmss")}.pdf`;
-      
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Create download helper
-      const downloadBlob = (blob: Blob, name: string) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      };
-
-      if (!user) {
-        downloadBlob(pdfBlob, fileName);
-        setExportStep('complete');
-        return;
-      }
-
-      // Upload to storage
-      const filePath = `${user.id}/${fileName}`;
-      const { error: uploadError } = await supabase.storage
-        .from('roadmap-exports')
-        .upload(filePath, pdfBlob, {
-          contentType: 'application/pdf',
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error("Storage upload error:", uploadError);
-        downloadBlob(pdfBlob, fileName);
-        setExportStep('complete');
-        return;
-      }
-
-      // Save record to database
-      const { error: dbError } = await supabase
-        .from('roadmap_pdf_exports')
-        .insert({
-          file_name: fileName,
-          file_path: filePath,
-          file_size: pdfBlob.size,
-          report_type: options?.reportType ?? 'meeting-review',
-          exported_by: user.id,
-          options: options || {},
-        });
-
-      if (dbError) {
-        console.error("Database insert error:", dbError);
-      }
-
-      // Download the PDF
-      downloadBlob(pdfBlob, fileName);
-      
-      // Refresh the saved exports list
-      queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
-      
       setExportStep('complete');
+      toast.success(`Report downloaded: ${filename}`);
+      
+      // Close overlay after short delay
+      setTimeout(() => {
+        setShowProgressOverlay(false);
+      }, 1500);
+      
     } catch (error: any) {
       console.error("Error generating PDF:", error);
       if (error?.message === 'Export cancelled') {
