@@ -10,6 +10,7 @@ import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, Z
 import { supabase } from "@/integrations/supabase/client";
 import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS } from "@/utils/roadmapReviewPdfStyles";
 import type { PreCaptureStatus } from "@/hooks/useChartPreCapture";
+import { toast } from "sonner";
 
 interface PDFExportDialogProps {
   open: boolean;
@@ -204,10 +205,21 @@ export function PDFExportDialog({
                       type="button"
                       variant={isStale ? "secondary" : "ghost"}
                       size="sm"
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        if (isRecapturing) return;
+                        
+                        console.log('Re-capture button clicked');
                         setIsRecapturing(true);
+                        
                         try {
                           await onRecaptureCharts();
+                          toast.success("Charts recaptured successfully");
+                        } catch (error) {
+                          console.error('Recapture failed:', error);
+                          toast.error("Failed to recapture charts");
                         } finally {
                           setIsRecapturing(false);
                         }
@@ -216,7 +228,7 @@ export function PDFExportDialog({
                       className={`h-7 px-2 text-xs gap-1 ${isStale ? 'border-amber-300 dark:border-amber-700' : ''}`}
                     >
                       <RefreshCw className={`h-3 w-3 ${isRecapturing ? 'animate-spin' : ''}`} />
-                      {isStale ? 'Refresh stale charts' : 'Re-capture charts'}
+                      {isRecapturing ? 'Recapturing...' : isStale ? 'Refresh stale charts' : 'Re-capture charts'}
                     </Button>
                   )}
                 </div>
