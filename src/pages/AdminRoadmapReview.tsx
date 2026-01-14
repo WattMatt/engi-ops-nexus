@@ -486,6 +486,7 @@ export default function AdminRoadmapReview() {
         isExporting={isGeneratingPDF}
         preCaptureStatus={preCaptureStatus}
         preCapturedChartCount={preCapturedChartCount}
+        onRecaptureCharts={recaptureCharts}
       />
 
       {/* Export Progress Overlay */}
