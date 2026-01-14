@@ -45,7 +45,7 @@ export const waitForCharts = (ms: number = 500): Promise<void> => {
 };
 
 /**
- * Capture a single chart by element ID (fast, no extra wait)
+ * Capture a single chart by element ID (ultra-fast settings)
  */
 export const captureChart = async (
   config: ChartConfig,
@@ -58,19 +58,27 @@ export const captureChart = async (
   }
 
   try {
-    const image = await captureElement(element, {
-      scale: 1.5, // Reduced from 2 for faster capture
-      format: 'JPEG', // JPEG is faster than PNG
-      quality: 0.85,
+    // Use race to timeout quickly
+    const capturePromise = captureElement(element, {
+      scale: 1, // Minimum scale for speed
+      format: 'JPEG',
+      quality: 0.7, // Lower quality for speed
       backgroundColor: '#ffffff',
-      timeout: 5000, // Shorter timeout
+      timeout: 2000, // Very short timeout
       ...captureOptions,
     });
 
-    return {
-      config,
-      image,
-    };
+    const timeoutPromise = new Promise<null>((resolve) => 
+      setTimeout(() => resolve(null), 2000)
+    );
+
+    const image = await Promise.race([capturePromise, timeoutPromise]);
+    if (!image) {
+      console.warn(`Chart capture timed out: ${config.elementId}`);
+      return null;
+    }
+
+    return { config, image };
   } catch (error) {
     console.error(`Failed to capture chart ${config.elementId}:`, error);
     return null;
@@ -78,7 +86,7 @@ export const captureChart = async (
 };
 
 /**
- * Capture multiple charts in parallel (single wait, then parallel capture)
+ * Capture multiple charts in parallel (no wait, parallel capture with timeout)
  */
 export const captureCharts = async (
   configs: ChartConfig[],
