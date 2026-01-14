@@ -374,7 +374,7 @@ export default function AdminRoadmapReview() {
     } finally {
       setIsGeneratingPDF(false);
     }
-  }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems]);
+  }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts]);
 
   // Delete a saved export
   const handleDeleteExport = async (exportItem: SavedPdfExport) => {
