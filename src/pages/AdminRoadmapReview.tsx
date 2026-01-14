@@ -15,8 +15,9 @@ import {
   Loader2,
   Archive,
   Trash2,
-  ExternalLink
+  Eye
 } from "lucide-react";
+import { PDFPreviewDialog } from "@/components/document-templates/PDFPreviewDialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -61,7 +62,32 @@ export default function AdminRoadmapReview() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewExport, setPreviewExport] = useState<SavedPdfExport | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // Handle opening preview
+  const handlePreviewExport = async (exportItem: SavedPdfExport) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('roadmap-exports')
+        .createSignedUrl(exportItem.file_path, 3600); // 1 hour expiry
+
+      if (error) throw error;
+
+      setPreviewUrl(data.signedUrl);
+      setPreviewExport(exportItem);
+    } catch (error) {
+      console.error("Preview error:", error);
+      toast.error("Failed to load preview");
+    }
+  };
+
+  // Close preview
+  const handleClosePreview = () => {
+    setPreviewExport(null);
+    setPreviewUrl(null);
+  };
 
   // Fetch saved PDF exports
   const { data: savedExports = [], isLoading: exportsLoading } = useQuery({
@@ -549,6 +575,14 @@ export default function AdminRoadmapReview() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handlePreviewExport(exportItem)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Preview
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleDownloadExport(exportItem)}
                         >
                           <Download className="h-4 w-4 mr-1" />
@@ -576,6 +610,16 @@ export default function AdminRoadmapReview() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* PDF Preview Dialog */}
+      {previewUrl && previewExport && (
+        <PDFPreviewDialog
+          open={!!previewExport}
+          onOpenChange={(open) => !open && handleClosePreview()}
+          pdfUrl={previewUrl}
+          fileName={previewExport.file_name}
+        />
+      )}
     </div>
   );
 }
