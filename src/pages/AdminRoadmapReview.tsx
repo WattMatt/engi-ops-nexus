@@ -271,6 +271,11 @@ export default function AdminRoadmapReview() {
 
       // Step 3: Generate PDF
       setExportStep('generating');
+      console.log('Starting PDF generation with', enhancedSummaries.length, 'projects');
+      console.log('Options:', {
+        includeCharts: options?.includeCharts ?? true,
+        chartsCount: capturedCharts?.length ?? 0,
+      });
       
       const pdfBlob = await generateRoadmapPdfMake(
         enhancedSummaries,
@@ -293,6 +298,8 @@ export default function AdminRoadmapReview() {
         queryData?.allRoadmapItems,
         capturedCharts
       );
+      
+      console.log('PDF blob generated, size:', pdfBlob.size);
 
       if (cancelExportRef.current) {
         throw new Error('Export cancelled');

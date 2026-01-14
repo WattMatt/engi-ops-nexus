@@ -180,48 +180,117 @@ export class PDFDocumentBuilder {
   /**
    * Generate PDF as a Blob
    */
-  async toBlob(): Promise<Blob> {
+  async toBlob(timeoutMs: number = 60000): Promise<Blob> {
     const docDefinition = this.build();
+    
+    console.log('Building PDF with', this.content.length, 'content items');
+    
     return new Promise((resolve, reject) => {
-      pdfMake.createPdf(docDefinition).getBlob((blob) => {
-        if (blob) {
-          resolve(blob);
-        } else {
-          reject(new Error('Failed to generate PDF blob'));
+      let resolved = false;
+      
+      // Set timeout to prevent infinite hang
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.error('PDF generation timed out after', timeoutMs, 'ms');
+          reject(new Error(`PDF generation timed out after ${timeoutMs / 1000} seconds`));
         }
-      });
+      }, timeoutMs);
+      
+      try {
+        const pdfDoc = pdfMake.createPdf(docDefinition);
+        
+        pdfDoc.getBlob((blob) => {
+          if (resolved) return; // Already timed out
+          resolved = true;
+          clearTimeout(timeout);
+          
+          if (blob) {
+            console.log('PDF blob generated successfully, size:', blob.size);
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to generate PDF blob - no blob returned'));
+          }
+        });
+      } catch (error) {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        console.error('PDF creation error:', error);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 
   /**
    * Generate PDF as a data URL
    */
-  async toDataUrl(): Promise<string> {
+  async toDataUrl(timeoutMs: number = 60000): Promise<string> {
     const docDefinition = this.build();
     return new Promise((resolve, reject) => {
-      pdfMake.createPdf(docDefinition).getDataUrl((dataUrl) => {
-        if (dataUrl) {
-          resolve(dataUrl);
-        } else {
-          reject(new Error('Failed to generate PDF data URL'));
+      let resolved = false;
+      
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          reject(new Error(`PDF data URL generation timed out after ${timeoutMs / 1000} seconds`));
         }
-      });
+      }, timeoutMs);
+      
+      try {
+        pdfMake.createPdf(docDefinition).getDataUrl((dataUrl) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          
+          if (dataUrl) {
+            resolve(dataUrl);
+          } else {
+            reject(new Error('Failed to generate PDF data URL'));
+          }
+        });
+      } catch (error) {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 
   /**
    * Generate PDF as a buffer
    */
-  async toBuffer(): Promise<Buffer> {
+  async toBuffer(timeoutMs: number = 60000): Promise<Buffer> {
     const docDefinition = this.build();
     return new Promise((resolve, reject) => {
-      pdfMake.createPdf(docDefinition).getBuffer((buffer) => {
-        if (buffer) {
-          resolve(buffer);
-        } else {
-          reject(new Error('Failed to generate PDF buffer'));
+      let resolved = false;
+      
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          reject(new Error(`PDF buffer generation timed out after ${timeoutMs / 1000} seconds`));
         }
-      });
+      }, timeoutMs);
+      
+      try {
+        pdfMake.createPdf(docDefinition).getBuffer((buffer) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          
+          if (buffer) {
+            resolve(buffer);
+          } else {
+            reject(new Error('Failed to generate PDF buffer'));
+          }
+        });
+      } catch (error) {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 }
