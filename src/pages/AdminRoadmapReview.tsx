@@ -40,7 +40,7 @@ import {
 } from "@/utils/roadmapReviewCalculations";
 
 // Import PDF export utilities - using pdfmake for better text quality
-import { generateRoadmapPdfMake } from "@/utils/roadmapReviewPdfMake";
+import { generateRoadmapPdfMake, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
 import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
 
 interface SavedPdfExport {
@@ -215,10 +215,26 @@ export default function AdminRoadmapReview() {
     }
 
     setIsGeneratingPDF(true);
-    toast.info("Generating PDF report with pdfmake...", { duration: 2000 });
-
+    
     try {
-      // Generate PDF using pdfmake (better text quality, no chart capture needed)
+      // First, capture charts if the option is enabled
+      let capturedCharts = undefined;
+      if (options?.includeCharts !== false) {
+        toast.info("Capturing charts...", { duration: 1500 });
+        try {
+          capturedCharts = await captureRoadmapReviewCharts();
+          if (capturedCharts.length > 0) {
+            toast.success(`Captured ${capturedCharts.length} charts`, { duration: 1500 });
+          }
+        } catch (chartError) {
+          console.error("Chart capture error:", chartError);
+          toast.warning("Could not capture charts, continuing without them");
+        }
+      }
+
+      toast.info("Generating PDF report...", { duration: 2000 });
+
+      // Generate PDF using pdfmake with captured charts
       const pdfBlob = await generateRoadmapPdfMake(
         enhancedSummaries,
         portfolioMetrics,
@@ -236,7 +252,8 @@ export default function AdminRoadmapReview() {
           confidentialNotice: options?.confidentialNotice ?? true,
           reportType: options?.reportType ?? 'meeting-review',
         },
-        queryData?.allRoadmapItems
+        queryData?.allRoadmapItems,
+        capturedCharts
       );
 
       const fileName = `Roadmap_Review_${format(new Date(), "yyyy-MM-dd_HHmmss")}.pdf`;
