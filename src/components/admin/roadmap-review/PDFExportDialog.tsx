@@ -194,6 +194,16 @@ export function PDFExportDialog({
                   Project Details
                 </Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="fullRoadmap"
+                  checked={options.includeFullRoadmapItems}
+                  onCheckedChange={(checked) => updateOption('includeFullRoadmapItems', !!checked)}
+                />
+                <Label htmlFor="fullRoadmap" className="text-sm cursor-pointer">
+                  Full Task Lists
+                </Label>
+              </div>
               {options.reportType === 'meeting-review' && (
                 <>
                   <div className="flex items-center space-x-2">
