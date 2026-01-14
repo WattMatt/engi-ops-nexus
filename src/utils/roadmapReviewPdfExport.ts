@@ -432,7 +432,7 @@ function generateExecutiveSummaryPage(
   // Calculate table width to fit within content area
   const tableWidth = Math.min(contentWidth, 150);
   
-  // Summary metrics table - properly sized columns
+  // Summary metrics table - improved styling for readability
   autoTable(doc, {
     startY: yPos,
     head: [["Metric", "Value", "Status"]],
@@ -449,23 +449,29 @@ function generateExecutiveSummaryPage(
     theme: "striped",
     headStyles: { 
       fillColor: PDF_BRAND_COLORS.primary as any, 
+      textColor: [255, 255, 255] as any,
       fontSize: PDF_TYPOGRAPHY.sizes.body, 
       fontStyle: 'bold',
-      cellPadding: 3,
-      overflow: 'linebreak',
+      cellPadding: 4,
+      minCellHeight: 10,
     },
     bodyStyles: { 
-      fontSize: PDF_TYPOGRAPHY.sizes.small,
-      cellPadding: 2.5,
-      overflow: 'linebreak',
+      fontSize: PDF_TYPOGRAPHY.sizes.body,
+      cellPadding: 3.5,
+      minCellHeight: 9,
+      textColor: PDF_BRAND_COLORS.text as any,
     },
     alternateRowStyles: { fillColor: PDF_BRAND_COLORS.lightGray as any },
     margin: { left: startX, right: PDF_LAYOUT.margins.right },
     tableWidth: tableWidth,
     columnStyles: {
-      0: { cellWidth: tableWidth * 0.4, overflow: 'linebreak' },
-      1: { cellWidth: tableWidth * 0.25, halign: 'center', overflow: 'linebreak' },
-      2: { cellWidth: tableWidth * 0.35, halign: 'center', overflow: 'linebreak' },
+      0: { cellWidth: tableWidth * 0.4 },
+      1: { cellWidth: tableWidth * 0.25, halign: 'center' },
+      2: { cellWidth: tableWidth * 0.35, halign: 'center' },
+    },
+    styles: {
+      lineColor: PDF_BRAND_COLORS.tableBorder as any,
+      lineWidth: 0.3,
     },
   });
   
@@ -492,21 +498,29 @@ function generateExecutiveSummaryPage(
       theme: "striped",
       headStyles: { 
         fillColor: PDF_BRAND_COLORS.primary as any, 
-        fontSize: PDF_TYPOGRAPHY.sizes.small,
-        cellPadding: 2.5,
-        overflow: 'linebreak',
+        textColor: [255, 255, 255] as any,
+        fontSize: PDF_TYPOGRAPHY.sizes.body,
+        fontStyle: 'bold',
+        cellPadding: 3.5,
+        minCellHeight: 9,
       },
       bodyStyles: { 
-        fontSize: PDF_TYPOGRAPHY.sizes.small,
-        cellPadding: 2,
-        overflow: 'linebreak',
+        fontSize: PDF_TYPOGRAPHY.sizes.body,
+        cellPadding: 3,
+        minCellHeight: 8,
+        textColor: PDF_BRAND_COLORS.text as any,
       },
+      alternateRowStyles: { fillColor: PDF_BRAND_COLORS.lightGray as any },
       margin: { left: startX, right: PDF_LAYOUT.margins.right },
       tableWidth: priorityTableWidth,
       columnStyles: {
-        0: { cellWidth: priorityTableWidth * 0.45, overflow: 'linebreak' },
-        1: { cellWidth: priorityTableWidth * 0.25, halign: 'center', overflow: 'linebreak' },
-        2: { cellWidth: priorityTableWidth * 0.30, halign: 'center', overflow: 'linebreak' },
+        0: { cellWidth: priorityTableWidth * 0.45 },
+        1: { cellWidth: priorityTableWidth * 0.25, halign: 'center' },
+        2: { cellWidth: priorityTableWidth * 0.30, halign: 'center' },
+      },
+      styles: {
+        lineColor: PDF_BRAND_COLORS.tableBorder as any,
+        lineWidth: 0.2,
       },
     });
   }
@@ -701,44 +715,53 @@ function generateProjectPages(
       yPos += PDF_LAYOUT.spacing.line;
     }
     
-    // Upcoming items table - compact styling
+    // Upcoming items table - improved styling for readability
     if (project.upcomingItems.length > 0) {
-      yPos += 2;
+      yPos += 4;
       autoTable(doc, {
         startY: yPos,
         head: [["Task", "Due", "Priority", "Status"]],
         body: project.upcomingItems.slice(0, 5).map((item) => [
-          item.title, // Don't truncate - let autoTable wrap
+          item.title,
           item.dueDate ? format(new Date(item.dueDate), "MMM d") : "-",
-          (item.priority || "Normal").substring(0, 6),
+          (item.priority || "Normal").charAt(0).toUpperCase() + (item.priority || "Normal").slice(1).toLowerCase(),
           getDueDateStatus(item.dueDate) === "overdue" ? "LATE" : 
             getDueDateStatus(item.dueDate) === "soon" ? "Soon" : "OK",
         ]),
-        theme: "plain",
+        theme: "striped",
         headStyles: { 
-          fillColor: PDF_BRAND_COLORS.lightGray as any, 
-          textColor: PDF_BRAND_COLORS.primary as any, 
-          fontSize: PDF_TYPOGRAPHY.sizes.tiny, 
+          fillColor: PDF_BRAND_COLORS.primary as any, 
+          textColor: [255, 255, 255] as any, 
+          fontSize: PDF_TYPOGRAPHY.sizes.small, 
           fontStyle: 'bold',
-          cellPadding: 1.5,
+          cellPadding: 3,
           overflow: 'linebreak',
+          minCellHeight: 8,
         },
         bodyStyles: { 
-          fontSize: PDF_TYPOGRAPHY.sizes.tiny,
-          cellPadding: 1.5,
+          fontSize: PDF_TYPOGRAPHY.sizes.small,
+          cellPadding: 2.5,
           overflow: 'linebreak',
-          minCellHeight: 6,
+          minCellHeight: 7,
+          textColor: PDF_BRAND_COLORS.text as any,
+        },
+        alternateRowStyles: { 
+          fillColor: PDF_BRAND_COLORS.lightGray as any 
         },
         margin: { left: startX + 3, right: PDF_LAYOUT.margins.right + 3 },
         tableWidth: contentWidth - 6,
         columnStyles: {
           0: { cellWidth: (contentWidth - 6) * 0.45, overflow: 'linebreak' },
-          1: { cellWidth: (contentWidth - 6) * 0.18, halign: 'center', overflow: 'linebreak' },
-          2: { cellWidth: (contentWidth - 6) * 0.18, halign: 'center', overflow: 'linebreak' },
-          3: { cellWidth: (contentWidth - 6) * 0.19, halign: 'center', overflow: 'linebreak' },
+          1: { cellWidth: (contentWidth - 6) * 0.18, halign: 'center' },
+          2: { cellWidth: (contentWidth - 6) * 0.18, halign: 'center' },
+          3: { cellWidth: (contentWidth - 6) * 0.19, halign: 'center' },
+        },
+        styles: {
+          lineColor: PDF_BRAND_COLORS.tableBorder as any,
+          lineWidth: 0.2,
         },
       });
-      yPos = (doc as any).lastAutoTable.finalY + 3;
+      yPos = (doc as any).lastAutoTable.finalY + 5;
     }
     
     // Add roadmap snapshot chart for this project
