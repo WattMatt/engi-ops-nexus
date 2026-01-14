@@ -2,17 +2,17 @@
  * Base utilities for all PDF exports
  * 
  * ═══════════════════════════════════════════════════════════════════════════════
- * ⚠️  MIGRATION STATUS: MIGRATED TO PDFMAKE
+ * MIGRATION STATUS: TRANSITIONING TO PDFMAKE
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * This file has been migrated to use pdfmake instead of jsPDF.
+ * This file provides both pdfmake (preferred) and jsPDF (legacy) utilities.
  * 
- * NEW CODE SHOULD USE:
+ * NEW CODE SHOULD USE PDFMAKE:
  * ```typescript
  * import { createDocument, heading, paragraph, dataTable } from '@/utils/pdfmake';
  * ```
  * 
- * LEGACY FUNCTIONS (deprecated, will be removed in future):
+ * LEGACY JSPDF FUNCTIONS (deprecated, for backward compatibility):
  * - initializePDF() → use createDocument()
  * - addSectionHeader() → use sectionHeader()
  * - addBodyText() → use paragraph()
@@ -157,7 +157,6 @@ import { getQualitySettings, createHighQualityPDF } from "./pdfQualitySettings";
  * Initialize a PDF document with standardized settings
  */
 export const initializePDF = (options: PDFExportOptions = {}): jsPDF => {
-  console.warn('initializePDF is deprecated. Use createPDFDocument() from @/utils/pdfmake instead.');
   const quality = options.quality || getUserQualityPreset();
   const { orientation = 'portrait', compress = true } = options;
   return createHighQualityPDF(orientation, compress);
@@ -168,7 +167,6 @@ export const initializePDF = (options: PDFExportOptions = {}): jsPDF => {
  * Get standardized table styles for autoTable
  */
 export const getStandardTableStyles = (quality?: QualityPreset) => {
-  console.warn('getStandardTableStyles is deprecated. Use getStandardTableLayout() for pdfmake instead.');
   const effectiveQuality = quality || getUserQualityPreset();
   const settings = getQualitySettings(effectiveQuality);
   

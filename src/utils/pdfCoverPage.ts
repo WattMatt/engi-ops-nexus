@@ -1,37 +1,25 @@
 /**
- * Generates a cover page for PDF exports.
+ * PDF Cover Page Generator
  * 
- * Supports three modes:
- * 1. Word Template (.docx): Fills placeholders and converts to PDF via edge function
- * 2. PDF/Image Template: Loads existing file and overlays dynamic text
- * 3. Default Modern: Generates a default modern cover page with gradient accent
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * MIGRATION STATUS: SUPPORTS BOTH jsPDF AND PDFMAKE
+ * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Word Template Placeholders:
- * - {{project_name}} - Project name
- * - {{client_name}} - Client/company name
- * - {{report_title}} - Type of report
- * - {{report_date}} - Current date
- * - {{revision}} - Report revision/version
- * - {{contact_name}} - Contact person name
- * - {{contact_phone}} - Contact phone number
- * - {{company_name}} - Company name
+ * This module provides cover page generation for both:
+ * - jsPDF (legacy) - generateCoverPage function accepts jsPDF doc
+ * - pdfmake (new) - generateCoverPageContent returns Content array
  * 
- * Usage:
+ * NEW CODE SHOULD USE PDFMAKE:
  * ```typescript
- * const doc = new jsPDF();
- * const companyDetails = await fetchCompanyDetails();
- * await generateCoverPage(doc, {
- *   title: "Cost Report",
- *   projectName: "Main Building",
- *   subtitle: "Electrical Installation",
- *   revision: "Rev. 1.0"
- * }, companyDetails);
+ * import { generateCoverPageContent } from '@/utils/pdfmake/coverPage';
  * ```
  */
 
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import type { Content } from 'pdfmake/interfaces';
+import { PDF_COLORS, FONT_SIZES, PAGE_SIZES, imageToBase64, spacer } from './pdfmake';
 
 export interface CoverPageOptions {
   /** Main title at top of page (e.g., "Financial Evaluation", "Cable Schedule") */
@@ -120,135 +108,10 @@ export async function fetchCompanyDetails(): Promise<CompanyDetails> {
 }
 
 /**
- * Create placeholder data from report options and company details
- * 
- * IMPORTANT: Image placeholders (logos) are NOT supported via text replacement.
- * Your Word template must have actual logo images already embedded in the document.
- * Only text placeholders like {{project_name}}, {{date}}, etc. will be replaced.
+ * Generate default modern cover page using jsPDF
+ * @deprecated Use generateCoverPageContent for pdfmake instead
  */
-function createPlaceholderData(
-  options: CoverPageOptions,
-  companyDetails: CompanyDetails,
-  contactDetails?: any
-): Record<string, string> {
-  // Use provided date or default to current date
-  const reportDate = options.date || new Date().toLocaleDateString('en-ZA', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-  
-  // Use contact details if provided, otherwise fall back to company defaults
-  const preparedForName = contactDetails?.organization_name || companyDetails.clientName;
-  const preparedForAddress1 = contactDetails?.address_line1 || companyDetails.clientAddressLine1;
-  const preparedForAddress2 = contactDetails?.address_line2 || companyDetails.clientAddressLine2;
-  const preparedForPhone = contactDetails?.phone || companyDetails.clientPhone;
-  const preparedForEmail = contactDetails?.email || '';
-  const preparedForContact = contactDetails?.contact_person_name || '';
-
-  return {
-    project_name: options.projectName || 'Untitled Project',
-    client_name: companyDetails.clientName || 'Client Name',
-    report_title: options.title || 'Report',
-    report_date: reportDate,
-    date: reportDate, // Also send 'date' for templates that use {{date}}
-    revision: options.revision || 'Rev. 1.0',
-    contact_name: companyDetails.contactName || '',
-    contact_phone: companyDetails.contactPhone || '',
-    company_name: companyDetails.companyName || '',
-    subtitle: options.subtitle || '',
-    // Client/recipient information for "Prepared For" section (multiple naming conventions for compatibility)
-    prepared_for_name: preparedForName,
-    prepared_for_company: preparedForName, // Alternative naming
-    prepared_for_address1: preparedForAddress1,
-    prepared_for_address: preparedForAddress1, // Alternative naming
-    prepared_for_address2: preparedForAddress2,
-    prepared_for_phone: preparedForPhone,
-    prepared_for_tel: preparedForPhone, // Alternative naming
-    prepared_for_email: preparedForEmail,
-    prepared_for_contact: preparedForContact,
-  };
-  // NOTE: We do NOT include logo URLs here because docxtemplater cannot
-  // insert images from URLs without additional paid modules.
-  // Logos must be pre-embedded as actual images in the Word template.
-}
-
-/**
- * Convert Word template to PDF with filled placeholders
- */
-async function convertWordTemplateToPDF(
-  templateUrl: string,
-  placeholderData: Record<string, string>,
-  imagePlaceholders?: Record<string, string>
-): Promise<string> {
-  console.log('Converting Word template to PDF with placeholders:', placeholderData);
-  if (imagePlaceholders) {
-    console.log('Image placeholders:', imagePlaceholders);
-  }
-  
-  const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
-    body: {
-      templateUrl,
-      placeholderData,
-      imagePlaceholders
-    }
-  });
-
-  if (error) {
-    throw new Error(`Word to PDF conversion failed: ${error.message}`);
-  }
-
-  if (!data?.pdfUrl) {
-    throw new Error('No PDF URL returned from conversion');
-  }
-
-  console.log('Word template converted successfully:', data.pdfUrl);
-  return data.pdfUrl;
-}
-
-/**
- * Add overlay text on template-based cover pages
- */
-function addOverlayText(
-  doc: jsPDF,
-  options: CoverPageOptions,
-  companyDetails: CompanyDetails,
-  contactDetails?: any
-): void {
-  const pageWidth = doc.internal.pageSize.width;
-  
-  const colors = {
-    primary: [30, 58, 138] as [number, number, number],
-    secondary: [59, 130, 246] as [number, number, number],
-    white: [255, 255, 255] as [number, number, number],
-    text: [15, 23, 42] as [number, number, number]
-  };
-  
-  doc.setTextColor(...colors.primary);
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.text(options.title, pageWidth / 2, 70, { align: "center" });
-  
-  doc.setFontSize(26);
-  doc.setTextColor(...colors.text);
-  doc.text(options.projectName, pageWidth / 2, 95, { align: "center" });
-  
-  doc.setFontSize(16);
-  doc.setTextColor(...colors.secondary);
-  doc.text(options.subtitle, pageWidth / 2, 127, { align: "center" });
-  
-  // Date and revision
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...colors.white);
-  doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), 30, 273);
-  doc.text(options.revision.replace("Rev.", "Rev "), pageWidth / 2 + 10, 273);
-}
-
-/**
- * Generate default modern cover page (fallback)
- */
-async function generateDefaultCoverPage(
+export async function generateCoverPage(
   doc: jsPDF,
   options: CoverPageOptions,
   companyDetails: CompanyDetails,
@@ -306,60 +169,41 @@ async function generateDefaultCoverPage(
   doc.setTextColor(...colors.secondary);
   doc.text(options.subtitle, pageWidth / 2, yPos, { align: "center" });
   
-  // Add client logo in dedicated space if available (from contactDetails or company settings)
+  // Add client logo if available
   const clientLogoUrl = contactDetails?.logo_url || companyDetails.clientLogoUrl;
   if (clientLogoUrl) {
     try {
-      console.log('Attempting to load client logo from:', clientLogoUrl);
       const clientLogoResponse = await fetch(clientLogoUrl);
-      
-      if (!clientLogoResponse.ok) {
-        console.warn('Client logo fetch failed with status:', clientLogoResponse.status);
-        throw new Error(`Failed to fetch logo: ${clientLogoResponse.status}`);
+      if (clientLogoResponse.ok) {
+        const clientLogoBlob = await clientLogoResponse.blob();
+        if (clientLogoBlob && clientLogoBlob.size > 0 && clientLogoBlob.type.startsWith('image/')) {
+          const clientLogoDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const result = reader.result as string;
+              if (result && result.length > 100) resolve(result);
+              else reject(new Error('Invalid data URL'));
+            };
+            reader.onerror = () => reject(new Error('Failed to read logo blob'));
+            reader.readAsDataURL(clientLogoBlob);
+          });
+          
+          const clientLogoWidth = 45;
+          const clientLogoHeight = 32;
+          const clientLogoX = pageWidth - clientLogoWidth - 28;
+          const clientLogoY = 135;
+          
+          doc.setFillColor(...colors.light);
+          doc.roundedRect(clientLogoX - 5, clientLogoY - 5, clientLogoWidth + 10, clientLogoHeight + 10, 3, 3, 'F');
+          doc.addImage(clientLogoDataUrl, 'PNG', clientLogoX, clientLogoY, clientLogoWidth, clientLogoHeight);
+        }
       }
-      
-      const clientLogoBlob = await clientLogoResponse.blob();
-      
-      // Validate that we got a valid image blob
-      if (!clientLogoBlob || clientLogoBlob.size === 0 || !clientLogoBlob.type.startsWith('image/')) {
-        console.warn('Invalid client logo blob:', clientLogoBlob);
-        throw new Error('Invalid image blob');
-      }
-      
-      const clientLogoDataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          if (!result || result === 'data:' || result.length < 100) {
-            reject(new Error('Invalid data URL'));
-          } else {
-            resolve(result);
-          }
-        };
-        reader.onerror = () => reject(new Error('Failed to read logo blob'));
-        reader.readAsDataURL(clientLogoBlob);
-      });
-      
-      // Position client logo centered above PREPARED BY section
-      const clientLogoWidth = 45;
-      const clientLogoHeight = 32;
-      const clientLogoX = pageWidth - clientLogoWidth - 28;
-      const clientLogoY = 135;
-      
-      // Only draw background and image if we have valid data
-      doc.setFillColor(...colors.light);
-      doc.roundedRect(clientLogoX - 5, clientLogoY - 5, clientLogoWidth + 10, clientLogoHeight + 10, 3, 3, 'F');
-      doc.addImage(clientLogoDataUrl, 'PNG', clientLogoX, clientLogoY, clientLogoWidth, clientLogoHeight);
-      console.log('Client logo added successfully');
     } catch (error) {
       console.error("Failed to add client logo to PDF:", error);
-      // Silently skip - no background box, no image, no undefined text
     }
-  } else {
-    console.log('No client logo URL available - skipping client logo');
   }
   
-  // Company details section with modern card-like appearance (PREPARED BY - appears first)
+  // Company details section
   yPos = 175;
   
   // Light background card
@@ -381,7 +225,7 @@ async function generateDefaultCoverPage(
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...colors.neutral);
-  doc.text("141 Which Hazel ave,", 28, yPos);
+  doc.text("141 Witch Hazel Ave,", 28, yPos);
   
   yPos += 6;
   doc.text("Highveld Techno Park, Building 1A", 28, yPos);
@@ -392,7 +236,7 @@ async function generateDefaultCoverPage(
   yPos += 6;
   doc.text(`Contact: ${companyDetails.contactName}`, 28, yPos);
   
-  // Add company logo with clean positioning
+  // Add company logo
   if (companyDetails.logoUrl) {
     try {
       const logoResponse = await fetch(companyDetails.logoUrl);
@@ -403,7 +247,6 @@ async function generateDefaultCoverPage(
         reader.readAsDataURL(logoBlob);
       });
       
-      // Position logo on the right side with proper spacing
       const logoWidth = 35;
       const logoHeight = 26;
       const logoX = pageWidth - logoWidth - 28;
@@ -415,7 +258,7 @@ async function generateDefaultCoverPage(
     }
   }
   
-  // Modern divider with shadow effect
+  // Modern divider
   yPos = 225;
   doc.setDrawColor(...colors.light);
   doc.setLineWidth(0.3);
@@ -424,11 +267,10 @@ async function generateDefaultCoverPage(
   doc.setLineWidth(1.2);
   doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
   
-  // PREPARED FOR section (if contact is selected - appears second, below company)
+  // PREPARED FOR section
   if (contactDetails) {
     yPos = 238;
     
-    // Light background card for "Prepared For"
     doc.setFillColor(...colors.light);
     doc.roundedRect(22, yPos - 4, pageWidth - 44, 40, 3, 3, 'F');
     
@@ -458,31 +300,14 @@ async function generateDefaultCoverPage(
       yPos += 6;
     }
     
-    if (contactDetails.address_line2) {
-      doc.text(contactDetails.address_line2, 28, yPos);
-      yPos += 6;
-    }
-    
     if (contactDetails.phone) {
       doc.text(`Tel: ${contactDetails.phone}`, 28, yPos);
     }
-    
-    // Client logo is now placed above in its own dedicated space, not here
   }
   
-  // Modern divider
-  yPos = contactDetails ? 287 : 225;
-  doc.setDrawColor(...colors.light);
-  doc.setLineWidth(0.3);
-  doc.line(25, yPos, pageWidth - 25, yPos);
-  doc.setDrawColor(...colors.primary);
-  doc.setLineWidth(1.2);
-  doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
-  
-  // Date and Revision section - simple text labels
+  // Date and Revision section
   yPos = contactDetails ? 305 : 243;
   
-  // Date label and value
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...colors.neutral);
@@ -491,168 +316,215 @@ async function generateDefaultCoverPage(
   doc.text(dateLabel, 28, yPos);
   doc.text(dateValue, 28 + doc.getTextWidth(dateLabel) + 2, yPos);
   
-  // Revision label and value
   const revisionLabel = "Revision:";
   const revisionValue = options.revision;
   const revisionLabelX = pageWidth / 2 - 20;
   doc.text(revisionLabel, revisionLabelX, yPos);
   doc.text(revisionValue, revisionLabelX + doc.getTextWidth(revisionLabel) + 2, yPos);
-  
-  // Page number - simple text
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...colors.neutral);
-  doc.text("1", pageWidth / 2, pageHeight - 10, { align: "center" });
 }
 
 /**
- * Main function to generate a cover page.
- * ALWAYS uses Word template from database.
+ * Generate cover page content for pdfmake
+ * This is the preferred method for new implementations
  */
-export async function generateCoverPage(
-  doc: jsPDF,
+export async function generateCoverPageContent(
   options: CoverPageOptions,
   companyDetails: CompanyDetails,
-  contactId?: string,
-  skipTemplate: boolean = false
-): Promise<void> {
-  const pageWidth = doc.internal.pageSize.width;
-  const pageHeight = doc.internal.pageSize.height;
-  
-  // Fetch contact information if contactId is provided
-  let contactDetails = null;
-  if (contactId) {
-    const { data, error } = await supabase
-      .from("project_contacts")
-      .select("*")
-      .eq("id", contactId)
-      .single();
-    
-    if (!error && data) {
-      contactDetails = data;
-      console.log("📞 Using project contact for 'Prepared For':", contactDetails);
-    }
+  contactDetails?: any
+): Promise<Content[]> {
+  const content: Content[] = [];
+
+  // Gradient accent bar (left side)
+  content.push({
+    canvas: [
+      {
+        type: 'rect',
+        x: 0,
+        y: 0,
+        w: 35,
+        h: PAGE_SIZES.A4.height,
+        color: PDF_COLORS.primary,
+      },
+    ],
+    absolutePosition: { x: 0, y: 0 },
+  });
+
+  // Main title
+  content.push(spacer(50));
+  content.push({
+    text: options.title.toUpperCase(),
+    fontSize: FONT_SIZES.h1,
+    bold: true,
+    color: PDF_COLORS.primary,
+    alignment: 'center',
+    margin: [40, 0, 0, 0],
+  });
+
+  // Title underline
+  content.push({
+    canvas: [
+      {
+        type: 'line',
+        x1: 150,
+        y1: 0,
+        x2: 400,
+        y2: 0,
+        lineWidth: 1,
+        lineColor: PDF_COLORS.secondary,
+      },
+    ],
+    margin: [0, 5, 0, 20],
+  });
+
+  // Project name
+  content.push({
+    text: options.projectName,
+    fontSize: FONT_SIZES.title + 2,
+    bold: true,
+    color: PDF_COLORS.text,
+    alignment: 'center',
+    margin: [40, 0, 0, 15],
+  });
+
+  // Subtitle
+  if (options.subtitle) {
+    content.push({
+      text: options.subtitle,
+      fontSize: FONT_SIZES.h3,
+      color: PDF_COLORS.secondary,
+      alignment: 'center',
+      margin: [40, 0, 0, 30],
+    });
   }
-  
-  console.log("Fetching Word template for cover page...");
-  
-  // Get Word template from document_templates
-  let { data: docTemplate } = await supabase
-    .from("document_templates" as any)
-    .select("*")
-    .eq('is_default_cover', true)
-    .maybeSingle();
-  
-  if (!docTemplate) {
-    const { data: fallbackTemplate } = await supabase
-      .from("document_templates" as any)
-      .select("*")
-      .eq('template_type', 'cover_page')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    docTemplate = fallbackTemplate;
-  }
-  
-  if (!docTemplate) {
-    throw new Error('No cover page template found. Please upload a Word template in Settings → PDF Templates');
-  }
-  
-  const templateUrl = (docTemplate as any).file_url;
-  const fileName = (docTemplate as any).file_name?.toLowerCase() || '';
-  
-  console.log("📄 Using template:", fileName, templateUrl);
-  
-  // Prepare placeholder data
-  const placeholderData = createPlaceholderData(options, companyDetails, contactDetails);
-  console.log('📝 Placeholder data:', placeholderData);
-  
-  // Prepare image placeholders
-  const imagePlaceholders: Record<string, string> = {};
-  
-  // Add company logo
+
+  // Company logo
   if (companyDetails.logoUrl) {
-    imagePlaceholders['company_logo'] = companyDetails.logoUrl;
-    console.log('📷 Adding company logo:', imagePlaceholders['company_logo']);
-  }
-  
-  // Add client logo (for "Prepared For" section)
-  if (contactDetails?.logo_url || companyDetails.clientLogoUrl) {
-    imagePlaceholders['client_logo'] = contactDetails?.logo_url || companyDetails.clientLogoUrl;
-    imagePlaceholders['client_image'] = contactDetails?.logo_url || companyDetails.clientLogoUrl;
-    console.log('📷 Adding client logo:', imagePlaceholders['client_logo']);
-  }
-  
-  // Convert Word template to PDF
-  const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData, imagePlaceholders);
-  console.log('✅ Word template converted to PDF:', convertedPdfUrl);
-  
-  // Load the converted PDF and render it
-  const response = await fetch(convertedPdfUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch converted PDF: ${response.statusText}`);
-  }
-  const blob = await response.blob();
-  console.log('📦 Converted PDF blob size:', blob.size, 'bytes');
-  
-  // Use PDF.js to render the PDF to a canvas - use bundled worker
-  try {
-    const arrayBuffer = await blob.arrayBuffer();
-    console.log('📋 ArrayBuffer created, size:', arrayBuffer.byteLength);
-    
-    // Import both the library and the worker
-    const pdfjs = await import('pdfjs-dist');
-    const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs?url');
-    
-    console.log('📚 PDF.js version:', pdfjs.version);
-    
-    // Use the bundled worker instead of CDN
-    pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker.default;
-    console.log('🔧 Worker source set to bundled worker');
-    
-    const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-    console.log('⏳ Loading PDF document...');
-    
-    const pdfDoc = await loadingTask.promise;
-    console.log('✅ PDF document loaded, pages:', pdfDoc.numPages);
-    
     try {
-      const page = await pdfDoc.getPage(1);
-      console.log('📄 Got page 1');
-      
-      // Scale to A4 size at high quality
-      const viewport = page.getViewport({ scale: 3 });
-      console.log('🖼️ Viewport created:', viewport.width, 'x', viewport.height);
-      
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('Could not get canvas context');
-      
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      console.log('🎨 Canvas created:', canvas.width, 'x', canvas.height);
-      
-      console.log('🖌️ Starting render...');
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-        canvas: canvas
-      }).promise;
-      console.log('✅ Render complete');
-      
-      // Convert canvas to image and add to PDF
-      const imageData = canvas.toDataURL('image/jpeg', 0.95);
-      console.log('📸 Canvas converted to image, length:', imageData.length);
-      
-      doc.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
-      console.log('🎉 Word template cover page loaded successfully');
-    } finally {
-      // Clean up to prevent memory leaks
-      pdfDoc.destroy();
-      console.log('🧹 PDF document destroyed');
+      const logoBase64 = await imageToBase64(companyDetails.logoUrl);
+      content.push({
+        image: logoBase64,
+        width: 100,
+        alignment: 'center',
+        margin: [40, 20, 0, 20],
+      });
+    } catch (error) {
+      console.error('Failed to load company logo:', error);
     }
-  } catch (error) {
-    console.error('❌ Error rendering PDF cover page:', error);
-    throw new Error(`Failed to render PDF cover page: ${error instanceof Error ? error.message : String(error)}`);
   }
+
+  content.push(spacer(20));
+
+  // Prepared By section
+  content.push({
+    stack: [
+      {
+        text: 'PREPARED BY:',
+        fontSize: FONT_SIZES.small,
+        bold: true,
+        color: PDF_COLORS.primary,
+      },
+      spacer(5),
+      {
+        text: companyDetails.companyName.toUpperCase(),
+        fontSize: FONT_SIZES.body,
+        bold: true,
+        color: PDF_COLORS.text,
+      },
+      {
+        text: '141 Witch Hazel Ave,',
+        fontSize: FONT_SIZES.small,
+        color: PDF_COLORS.textMuted,
+      },
+      {
+        text: 'Highveld Techno Park, Building 1A',
+        fontSize: FONT_SIZES.small,
+        color: PDF_COLORS.textMuted,
+      },
+      {
+        text: `Tel: ${companyDetails.contactPhone}`,
+        fontSize: FONT_SIZES.small,
+        color: PDF_COLORS.textMuted,
+      },
+      {
+        text: `Contact: ${companyDetails.contactName}`,
+        fontSize: FONT_SIZES.small,
+        color: PDF_COLORS.textMuted,
+      },
+    ],
+    margin: [60, 0, 0, 20],
+  });
+
+  // Divider
+  content.push({
+    canvas: [
+      {
+        type: 'line',
+        x1: 50,
+        y1: 0,
+        x2: PAGE_SIZES.A4.width - 80,
+        y2: 0,
+        lineWidth: 0.5,
+        lineColor: PDF_COLORS.border,
+      },
+    ],
+    margin: [0, 10, 0, 10],
+  });
+
+  // Prepared For section
+  if (contactDetails?.organization_name || companyDetails.clientName) {
+    const clientName = contactDetails?.organization_name || companyDetails.clientName;
+    
+    content.push({
+      stack: [
+        {
+          text: 'PREPARED FOR:',
+          fontSize: FONT_SIZES.small,
+          bold: true,
+          color: PDF_COLORS.primary,
+        },
+        spacer(5),
+        {
+          text: clientName?.toUpperCase() || '',
+          fontSize: FONT_SIZES.body,
+          bold: true,
+          color: PDF_COLORS.text,
+        },
+        ...(contactDetails?.contact_person_name 
+          ? [{ text: `Attn: ${contactDetails.contact_person_name}`, fontSize: FONT_SIZES.small, color: PDF_COLORS.textMuted }] 
+          : []),
+        ...(contactDetails?.address_line1 || companyDetails.clientAddressLine1 
+          ? [{ text: contactDetails?.address_line1 || companyDetails.clientAddressLine1, fontSize: FONT_SIZES.small, color: PDF_COLORS.textMuted }] 
+          : []),
+        ...(contactDetails?.phone || companyDetails.clientPhone 
+          ? [{ text: `Tel: ${contactDetails?.phone || companyDetails.clientPhone}`, fontSize: FONT_SIZES.small, color: PDF_COLORS.textMuted }] 
+          : []),
+      ],
+      margin: [60, 0, 0, 30],
+    });
+  }
+
+  // Date and revision
+  const reportDate = options.date || format(new Date(), 'dd MMMM yyyy');
+  
+  content.push({
+    columns: [
+      {
+        text: `Date: ${reportDate}`,
+        fontSize: FONT_SIZES.small,
+        color: PDF_COLORS.textMuted,
+      },
+      {
+        text: `${options.revision || 'Rev. 1.0'}`,
+        fontSize: FONT_SIZES.small,
+        color: PDF_COLORS.textMuted,
+        alignment: 'right',
+      },
+    ],
+    margin: [60, 50, 40, 0],
+  });
+
+  // Page break after cover
+  content.push({ text: '', pageBreak: 'after' });
+
+  return content;
 }
