@@ -651,7 +651,7 @@ export const ROADMAP_REVIEW_CHARTS: ChartConfig[] = [
 ];
 
 /**
- * Capture roadmap review charts from the DOM (optimized for speed)
+ * Capture roadmap review charts from the DOM (ultra-fast)
  */
 export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]> => {
   // Only capture charts that actually exist in the DOM
@@ -664,17 +664,15 @@ export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]>
     return [];
   }
   
-  console.log(`Found ${availableCharts.length} charts to capture:`, availableCharts.map(c => c.elementId));
+  console.log(`Capturing ${availableCharts.length} charts...`);
   
-  // Single brief wait, then parallel capture with optimized settings
-  await waitForCharts(300);
-  
+  // No wait - capture immediately with minimal settings
   const charts = await captureCharts(availableCharts, {
-    scale: 1.5, // Reduced for speed while maintaining quality
+    scale: 1,
     format: 'JPEG',
-    quality: 0.85,
+    quality: 0.7,
     backgroundColor: '#ffffff',
-    timeout: 5000,
+    timeout: 2000,
   });
   
   return charts;
