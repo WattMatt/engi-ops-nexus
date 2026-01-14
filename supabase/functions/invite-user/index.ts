@@ -170,8 +170,8 @@ serve(async (req) => {
     let emailSent = false;
     if (sendWelcomeEmail) {
       try {
-        // Determine origin for login link
-        const origin = req.headers.get('origin') || 'https://watsonmattheus.com';
+        // Always use the production URL for login link
+        const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
         const loginLink = `${origin}/auth`;
 
         const emailHtml = userInviteTemplate(

@@ -43,8 +43,8 @@ const handler = async (req: Request): Promise<Response> => {
       .eq("id", projectId)
       .single();
 
-    // Build the review link - use the origin from the request or fallback
-    const origin = req.headers.get("origin") || Deno.env.get("APP_URL") || "https://rsdisaisxdglmdmzmkyw.lovableproject.com";
+    // Always use the production URL for email links
+    const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
     const reviewLink = `${origin}/roadmap-review/${accessToken}`;
 
     const projectName = project?.name || 'Project';

@@ -70,8 +70,8 @@ serve(async (req) => {
       .select()
       .single();
 
-    // Send email notification
-    const appUrl = Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "https://app.lovable.app";
+    // Always use the production URL for email links
+    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
     const actionLink = link ? `${appUrl}${link}` : appUrl;
 
     const getIconAndColor = (type: string) => {

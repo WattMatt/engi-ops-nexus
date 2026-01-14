@@ -84,8 +84,8 @@ serve(async (req) => {
       // Continue anyway - email is more important
     }
 
-    // Build the conversation link
-    const appUrl = Deno.env.get("APP_URL") || "https://rsdisaisxdglmdmzmkyw.lovable.app";
+    // Always use the production URL for email links
+    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
     const conversationLink = `${appUrl}/messaging?conversation=${conversationId}`;
 
     // Prepare message preview (truncate if needed)

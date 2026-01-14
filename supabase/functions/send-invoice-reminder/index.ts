@@ -410,7 +410,7 @@ function buildReminderEmail(monthName: string, invoiceCount: number, projectCoun
 
             <p>Please log into the system to generate and send these invoices:</p>
             <p style="text-align: center;">
-              <a href="${Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "https://app.lovable.app"}/admin/finance" class="button">
+              <a href="${Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app"}/admin/finance" class="button">
                 Open Finance Module
               </a>
             </p>
