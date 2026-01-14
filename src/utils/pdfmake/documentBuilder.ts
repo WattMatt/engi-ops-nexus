@@ -188,8 +188,9 @@ export class PDFDocumentBuilder {
     
     const docDefinition = this.build();
     
-    console.log('[PDFMake] Building PDF with', this.content.length, 'content items');
-    console.log('[PDFMake] Document has images:', Object.keys(docDefinition.images || {}).length);
+    const contentCount = Array.isArray(this.content) ? this.content.length : 1;
+    const imageCount = Object.keys(docDefinition.images || {}).length;
+    console.log(`[PDFMake] Building PDF: ${contentCount} content items, ${imageCount} images`);
     
     return new Promise((resolve, reject) => {
       let resolved = false;
@@ -198,13 +199,13 @@ export class PDFDocumentBuilder {
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.error('[PDFMake] PDF generation timed out after', timeoutMs, 'ms');
-          reject(new Error(`PDF generation timed out after ${timeoutMs / 1000} seconds. Try Quick Export or uncheck charts.`));
+          console.error(`[PDFMake] Generation timed out after ${timeoutMs}ms`);
+          reject(new Error(`PDF generation timed out after ${timeoutMs / 1000} seconds. Try Quick Export.`));
         }
       }, timeoutMs);
       
       try {
-        console.log('[PDFMake] Creating PDF document...');
+        console.log('[PDFMake] Creating document...');
         const pdfDoc = pdfMake.createPdf(docDefinition);
         
         console.log('[PDFMake] Generating blob...');
@@ -214,10 +215,10 @@ export class PDFDocumentBuilder {
           clearTimeout(timeout);
           
           if (blob && blob.size > 0) {
-            console.log('[PDFMake] PDF blob generated successfully, size:', blob.size, 'bytes');
+            console.log(`[PDFMake] Success: ${Math.round(blob.size / 1024)}KB`);
             resolve(blob);
           } else {
-            console.error('[PDFMake] Blob generation returned empty or null blob');
+            console.error('[PDFMake] Generated empty blob');
             reject(new Error('Failed to generate PDF - empty result. Try Quick Export.'));
           }
         });
@@ -225,7 +226,7 @@ export class PDFDocumentBuilder {
         if (resolved) return;
         resolved = true;
         clearTimeout(timeout);
-        console.error('[PDFMake] Synchronous error during PDF creation:', error);
+        console.error('[PDFMake] Sync error:', error);
         reject(error instanceof Error ? error : new Error(String(error)));
       }
     });

@@ -53,46 +53,53 @@ export const captureChart = async (
 ): Promise<CapturedChartData | null> => {
   const element = document.getElementById(config.elementId);
   if (!element) {
-    console.warn(`Chart element not found: ${config.elementId}`);
+    console.warn(`[ChartCapture] Element not found: ${config.elementId}`);
     return null;
   }
 
+  const startTime = Date.now();
+  
   try {
-    // Use aggressive compression for PDF embedding
+    // Use balanced settings for quality vs size
     const capturePromise = captureElement(element, {
-      scale: 0.75, // Reduced scale for smaller file size
+      scale: 1.0, // Full scale for better quality
       format: 'JPEG',
-      quality: 0.55, // Lower quality for smaller file size
+      quality: 0.7, // Good quality while keeping size manageable
       backgroundColor: '#ffffff',
-      timeout: 4000,
-      maxWidth: 500, // Limit max dimensions
-      maxHeight: 350,
+      timeout: 8000, // Increased timeout
+      maxWidth: 600, // Reasonable size limits
+      maxHeight: 400,
       ...captureOptions,
     });
 
     const timeoutPromise = new Promise<null>((resolve) => 
-      setTimeout(() => resolve(null), 4000)
+      setTimeout(() => {
+        console.warn(`[ChartCapture] Timed out: ${config.elementId}`);
+        resolve(null);
+      }, 10000)
     );
 
     const image = await Promise.race([capturePromise, timeoutPromise]);
+    const elapsed = Date.now() - startTime;
+    
     if (!image) {
-      console.warn(`Chart capture timed out: ${config.elementId}`);
+      console.warn(`[ChartCapture] Failed: ${config.elementId} (${elapsed}ms)`);
       return null;
     }
 
-    // Log image size for debugging
-    const sizeKB = Math.round(image.dataUrl.length * 0.75 / 1024);
-    console.log(`Chart captured: ${config.elementId} (${sizeKB}KB)`);
+    // Calculate size in KB
+    const sizeKB = Math.round(image.sizeBytes / 1024);
+    console.log(`[ChartCapture] Success: ${config.elementId} (${sizeKB}KB, ${elapsed}ms)`);
 
-    // Skip if chart is too large (over 100KB)
-    if (sizeKB > 100) {
-      console.warn(`Chart too large, skipping: ${config.elementId} (${sizeKB}KB)`);
+    // Allow larger charts (up to 200KB) - increased from 100KB
+    if (sizeKB > 200) {
+      console.warn(`[ChartCapture] Too large, skipping: ${config.elementId} (${sizeKB}KB > 200KB limit)`);
       return null;
     }
 
     return { config, image };
   } catch (error) {
-    console.error(`Failed to capture chart ${config.elementId}:`, error);
+    console.error(`[ChartCapture] Error capturing ${config.elementId}:`, error);
     return null;
   }
 };
