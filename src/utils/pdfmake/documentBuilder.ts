@@ -4,10 +4,9 @@
  */
 
 import type { TDocumentDefinitions, Content, PageOrientation, PageSize, Margins, StyleDictionary } from 'pdfmake/interfaces';
-import { pdfMake, STANDARD_MARGINS, PAGE_SIZES } from './config';
+import { pdfMake, STANDARD_MARGINS, PAGE_SIZES, isPdfMakeReady } from './config';
 import { defaultStyles, tableLayouts, PDF_COLORS } from './styles';
 import { format } from 'date-fns';
-
 export interface DocumentBuilderOptions {
   orientation?: PageOrientation;
   pageSize?: PageSize;
@@ -178,12 +177,19 @@ export class PDFDocumentBuilder {
   }
 
   /**
-   * Generate PDF as a Blob
+   * Generate PDF as a Blob with comprehensive error handling
    */
   async toBlob(timeoutMs: number = 60000): Promise<Blob> {
+    // Verify pdfmake is ready
+    if (!isPdfMakeReady()) {
+      console.error('[PDFMake] VFS not initialized - PDF generation will fail');
+      throw new Error('PDF library not initialized. Please refresh the page and try again.');
+    }
+    
     const docDefinition = this.build();
     
-    console.log('Building PDF with', this.content.length, 'content items');
+    console.log('[PDFMake] Building PDF with', this.content.length, 'content items');
+    console.log('[PDFMake] Document has images:', Object.keys(docDefinition.images || {}).length);
     
     return new Promise((resolve, reject) => {
       let resolved = false;
@@ -192,31 +198,34 @@ export class PDFDocumentBuilder {
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.error('PDF generation timed out after', timeoutMs, 'ms');
-          reject(new Error(`PDF generation timed out after ${timeoutMs / 1000} seconds`));
+          console.error('[PDFMake] PDF generation timed out after', timeoutMs, 'ms');
+          reject(new Error(`PDF generation timed out after ${timeoutMs / 1000} seconds. Try Quick Export or uncheck charts.`));
         }
       }, timeoutMs);
       
       try {
+        console.log('[PDFMake] Creating PDF document...');
         const pdfDoc = pdfMake.createPdf(docDefinition);
         
+        console.log('[PDFMake] Generating blob...');
         pdfDoc.getBlob((blob) => {
           if (resolved) return; // Already timed out
           resolved = true;
           clearTimeout(timeout);
           
-          if (blob) {
-            console.log('PDF blob generated successfully, size:', blob.size);
+          if (blob && blob.size > 0) {
+            console.log('[PDFMake] PDF blob generated successfully, size:', blob.size, 'bytes');
             resolve(blob);
           } else {
-            reject(new Error('Failed to generate PDF blob - no blob returned'));
+            console.error('[PDFMake] Blob generation returned empty or null blob');
+            reject(new Error('Failed to generate PDF - empty result. Try Quick Export.'));
           }
         });
       } catch (error) {
         if (resolved) return;
         resolved = true;
         clearTimeout(timeout);
-        console.error('PDF creation error:', error);
+        console.error('[PDFMake] Synchronous error during PDF creation:', error);
         reject(error instanceof Error ? error : new Error(String(error)));
       }
     });

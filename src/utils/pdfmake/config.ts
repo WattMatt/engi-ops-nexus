@@ -6,18 +6,43 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 
-// Initialize pdfmake with fonts
-// @ts-ignore - pdfmake typings don't fully cover vfs
-pdfMake.vfs = (pdfFonts as any).pdfMake?.vfs || pdfFonts;
-
-// Define font families
-pdfMake.fonts = {
-  Roboto: {
-    normal: 'Roboto-Regular.ttf',
-    bold: 'Roboto-Medium.ttf',
-    italics: 'Roboto-Italic.ttf',
-    bolditalics: 'Roboto-MediumItalic.ttf'
+// Initialize pdfmake with fonts - handle multiple VFS formats
+const initializePdfMake = () => {
+  try {
+    // Try different VFS structures (varies by pdfmake version)
+    const vfs = (pdfFonts as any).pdfMake?.vfs 
+      || (pdfFonts as any).vfs 
+      || (pdfFonts as any).default?.pdfMake?.vfs
+      || (pdfFonts as any).default?.vfs
+      || pdfFonts;
+    
+    if (vfs && typeof vfs === 'object' && Object.keys(vfs).length > 0) {
+      pdfMake.vfs = vfs;
+      console.log('[PDFMake] VFS initialized successfully with', Object.keys(vfs).length, 'fonts');
+    } else {
+      console.warn('[PDFMake] VFS appears empty or invalid, PDF generation may fail');
+    }
+  } catch (error) {
+    console.error('[PDFMake] Failed to initialize VFS:', error);
   }
+  
+  // Define font families
+  pdfMake.fonts = {
+    Roboto: {
+      normal: 'Roboto-Regular.ttf',
+      bold: 'Roboto-Medium.ttf',
+      italics: 'Roboto-Italic.ttf',
+      bolditalics: 'Roboto-MediumItalic.ttf'
+    }
+  };
+};
+
+// Initialize immediately
+initializePdfMake();
+
+// Verify VFS is ready
+export const isPdfMakeReady = (): boolean => {
+  return pdfMake.vfs && typeof pdfMake.vfs === 'object' && Object.keys(pdfMake.vfs).length > 0;
 };
 
 export { pdfMake };
