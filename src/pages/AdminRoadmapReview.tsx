@@ -513,10 +513,8 @@ export default function AdminRoadmapReview() {
         }}
       />
 
-      {/* Hidden Printable Charts Container - renders all charts for PDF capture */}
-      {showPrintableCharts && (
-        <PrintableChartContainer projects={enhancedSummaries} />
-      )}
+      {/* Hidden Printable Charts Container - ALWAYS rendered off-screen for chart capture */}
+      <PrintableChartContainer projects={enhancedSummaries} />
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
