@@ -394,7 +394,14 @@ export default function AdminRoadmapReview() {
         toast.info("Export cancelled");
         setShowProgressOverlay(false);
       } else {
+        const errorMessage = error?.message || 'Unknown error occurred';
+        console.error("PDF generation error details:", errorMessage);
+        toast.error(`PDF generation failed: ${errorMessage.substring(0, 100)}`);
         setExportStep('error');
+        // Close overlay after showing error for a moment
+        setTimeout(() => {
+          setShowProgressOverlay(false);
+        }, 3000);
       }
     } finally {
       setIsGeneratingPDF(false);

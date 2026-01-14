@@ -1,10 +1,12 @@
 /**
  * PDFMake Document Builder
  * Fluent API for building PDF documents
+ * 
+ * CRITICAL: Uses getBuffer() instead of getBlob() for reliable PDF generation
  */
 
 import type { TDocumentDefinitions, Content, PageOrientation, PageSize, Margins, StyleDictionary } from 'pdfmake/interfaces';
-import { pdfMake, STANDARD_MARGINS, PAGE_SIZES, isPdfMakeReady } from './config';
+import { pdfMake, STANDARD_MARGINS, PAGE_SIZES, validatePdfMake } from './config';
 import { defaultStyles, tableLayouts, PDF_COLORS } from './styles';
 import { format } from 'date-fns';
 export interface DocumentBuilderOptions {
@@ -178,14 +180,19 @@ export class PDFDocumentBuilder {
 
   /**
    * Generate PDF as a Blob with comprehensive error handling
-   * Uses getBase64 as fallback if getBlob fails
+   * CRITICAL: Uses getBuffer() which is more reliable than getBlob()
    */
   async toBlob(timeoutMs: number = 60000): Promise<Blob> {
-    // Verify pdfmake is ready
-    if (!isPdfMakeReady()) {
-      console.error('[PDFMake] VFS not initialized');
-      throw new Error('PDF library not initialized. Please refresh the page.');
+    console.log('[PDFMake] toBlob starting...');
+    
+    // Validate pdfmake configuration first
+    const validation = validatePdfMake();
+    if (!validation.valid) {
+      console.error('[PDFMake] Validation failed:', validation.error);
+      console.error('[PDFMake] Details:', validation.details);
+      throw new Error(`PDF library error: ${validation.error}`);
     }
+    console.log('[PDFMake] Validation passed');
     
     const docDefinition = this.build();
     
@@ -193,7 +200,6 @@ export class PDFDocumentBuilder {
     const imageCount = Object.keys(docDefinition.images || {}).length;
     console.log(`[PDFMake] Building: ${contentCount} items, ${imageCount} images`);
     
-    // Try getBlob first, then fallback to getBase64
     return new Promise((resolve, reject) => {
       let resolved = false;
       
@@ -222,41 +228,43 @@ export class PDFDocumentBuilder {
       };
       
       try {
-        console.log('[PDFMake] Creating document...');
+        console.log('[PDFMake] Creating PDF document...');
         const pdfDoc = pdfMake.createPdf(docDefinition);
+        console.log('[PDFMake] PDF document created, getting buffer...');
         
-        // Primary method: getBlob
-        console.log('[PDFMake] Generating blob...');
-        pdfDoc.getBlob((blob) => {
-          if (resolved) return;
+        // CRITICAL: Use getBuffer instead of getBlob - it's more reliable
+        pdfDoc.getBuffer((buffer: Uint8Array) => {
+          console.log('[PDFMake] getBuffer callback received');
           
-          if (blob && blob.size > 0) {
-            handleSuccess(blob);
-          } else {
-            // Fallback to getBase64
-            console.warn('[PDFMake] getBlob returned empty, trying getBase64...');
-            pdfDoc.getBase64((base64) => {
-              if (resolved) return;
-              
-              if (base64 && base64.length > 0) {
-                try {
-                  const binaryString = atob(base64);
-                  const bytes = new Uint8Array(binaryString.length);
-                  for (let i = 0; i < binaryString.length; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                  }
-                  const fallbackBlob = new Blob([bytes], { type: 'application/pdf' });
-                  handleSuccess(fallbackBlob);
-                } catch (err) {
-                  handleError(new Error('Failed to convert base64 to blob'));
-                }
-              } else {
-                handleError(new Error('PDF generation failed - empty result'));
-              }
-            });
+          if (resolved) {
+            console.log('[PDFMake] Already resolved, ignoring callback');
+            return;
           }
+          
+          if (!buffer) {
+            console.error('[PDFMake] Buffer is null/undefined');
+            handleError(new Error('PDF generation returned null buffer'));
+            return;
+          }
+          
+          if (buffer.byteLength === 0) {
+            console.error('[PDFMake] Buffer is empty (0 bytes)');
+            handleError(new Error('PDF generation returned empty buffer'));
+            return;
+          }
+          
+          console.log('[PDFMake] Buffer received:', buffer.byteLength, 'bytes');
+          
+          // Convert Uint8Array buffer to Blob - copy to new ArrayBuffer for type safety
+          const copy = new Uint8Array(buffer);
+          const blob = new Blob([copy.buffer as ArrayBuffer], { type: 'application/pdf' });
+          console.log('[PDFMake] Blob created:', blob.size, 'bytes');
+          handleSuccess(blob);
         });
+        
+        console.log('[PDFMake] getBuffer called, waiting for callback...');
       } catch (error) {
+        console.error('[PDFMake] Exception during PDF creation:', error);
         handleError(error);
       }
     });
