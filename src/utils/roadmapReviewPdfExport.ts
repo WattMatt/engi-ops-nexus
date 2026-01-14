@@ -452,18 +452,20 @@ function generateExecutiveSummaryPage(
       fontSize: PDF_TYPOGRAPHY.sizes.body, 
       fontStyle: 'bold',
       cellPadding: 3,
+      overflow: 'linebreak',
     },
     bodyStyles: { 
       fontSize: PDF_TYPOGRAPHY.sizes.small,
       cellPadding: 2.5,
+      overflow: 'linebreak',
     },
     alternateRowStyles: { fillColor: PDF_BRAND_COLORS.lightGray as any },
     margin: { left: startX, right: PDF_LAYOUT.margins.right },
     tableWidth: tableWidth,
     columnStyles: {
-      0: { cellWidth: tableWidth * 0.4 },
-      1: { cellWidth: tableWidth * 0.25, halign: 'center' },
-      2: { cellWidth: tableWidth * 0.35, halign: 'center' },
+      0: { cellWidth: tableWidth * 0.4, overflow: 'linebreak' },
+      1: { cellWidth: tableWidth * 0.25, halign: 'center', overflow: 'linebreak' },
+      2: { cellWidth: tableWidth * 0.35, halign: 'center', overflow: 'linebreak' },
     },
   });
   
@@ -492,13 +494,20 @@ function generateExecutiveSummaryPage(
         fillColor: PDF_BRAND_COLORS.primary as any, 
         fontSize: PDF_TYPOGRAPHY.sizes.small,
         cellPadding: 2.5,
+        overflow: 'linebreak',
       },
       bodyStyles: { 
         fontSize: PDF_TYPOGRAPHY.sizes.small,
         cellPadding: 2,
+        overflow: 'linebreak',
       },
       margin: { left: startX, right: PDF_LAYOUT.margins.right },
       tableWidth: priorityTableWidth,
+      columnStyles: {
+        0: { cellWidth: priorityTableWidth * 0.45, overflow: 'linebreak' },
+        1: { cellWidth: priorityTableWidth * 0.25, halign: 'center', overflow: 'linebreak' },
+        2: { cellWidth: priorityTableWidth * 0.30, halign: 'center', overflow: 'linebreak' },
+      },
     });
   }
 }
@@ -613,23 +622,18 @@ function generateProjectPages(
     // Check if we need a new page - ensure full project block stays together
     yPos = checkPageBreak(doc, yPos, requiredSpace, 'Project Details', companyLogo, companyName);
     
-    // Project header card with proper sizing
-    const cardHeight = 20;
-    drawCard(doc, startX, yPos, contentWidth, cardHeight, { shadow: true });
-    
-    // Project name - truncate if needed
+    // Project header card with proper sizing - expand height for wrapped text
     const maxNameWidth = contentWidth - 55;
-    let displayName = project.projectName;
     doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
     doc.setFont("helvetica", "bold");
-    if (doc.getTextWidth(displayName) > maxNameWidth) {
-      while (doc.getTextWidth(displayName + "...") > maxNameWidth && displayName.length > 10) {
-        displayName = displayName.slice(0, -1);
-      }
-      displayName += "...";
-    }
+    const nameLines = doc.splitTextToSize(project.projectName, maxNameWidth);
+    const cardHeight = nameLines.length > 1 ? 20 + (nameLines.length - 1) * 5 : 20;
+    
+    drawCard(doc, startX, yPos, contentWidth, cardHeight, { shadow: true });
+    
+    // Project name - wrapped text
     doc.setTextColor(...PDF_BRAND_COLORS.primary);
-    doc.text(displayName, startX + 5, yPos + 12);
+    doc.text(nameLines, startX + 5, yPos + 12);
     
     // Health badge - properly positioned within card
     const badgeY = yPos + 6;
@@ -704,7 +708,7 @@ function generateProjectPages(
         startY: yPos,
         head: [["Task", "Due", "Priority", "Status"]],
         body: project.upcomingItems.slice(0, 5).map((item) => [
-          item.title.length > 30 ? item.title.substring(0, 27) + "..." : item.title,
+          item.title, // Don't truncate - let autoTable wrap
           item.dueDate ? format(new Date(item.dueDate), "MMM d") : "-",
           (item.priority || "Normal").substring(0, 6),
           getDueDateStatus(item.dueDate) === "overdue" ? "LATE" : 
@@ -717,18 +721,21 @@ function generateProjectPages(
           fontSize: PDF_TYPOGRAPHY.sizes.tiny, 
           fontStyle: 'bold',
           cellPadding: 1.5,
+          overflow: 'linebreak',
         },
         bodyStyles: { 
           fontSize: PDF_TYPOGRAPHY.sizes.tiny,
           cellPadding: 1.5,
+          overflow: 'linebreak',
+          minCellHeight: 6,
         },
         margin: { left: startX + 3, right: PDF_LAYOUT.margins.right + 3 },
         tableWidth: contentWidth - 6,
         columnStyles: {
-          0: { cellWidth: (contentWidth - 6) * 0.45 },
-          1: { cellWidth: (contentWidth - 6) * 0.18, halign: 'center' },
-          2: { cellWidth: (contentWidth - 6) * 0.18, halign: 'center' },
-          3: { cellWidth: (contentWidth - 6) * 0.19, halign: 'center' },
+          0: { cellWidth: (contentWidth - 6) * 0.45, overflow: 'linebreak' },
+          1: { cellWidth: (contentWidth - 6) * 0.18, halign: 'center', overflow: 'linebreak' },
+          2: { cellWidth: (contentWidth - 6) * 0.18, halign: 'center', overflow: 'linebreak' },
+          3: { cellWidth: (contentWidth - 6) * 0.19, halign: 'center', overflow: 'linebreak' },
         },
       });
       yPos = (doc as any).lastAutoTable.finalY + 3;
