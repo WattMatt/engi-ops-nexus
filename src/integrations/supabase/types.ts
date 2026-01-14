@@ -10022,6 +10022,39 @@ export type Database = {
           },
         ]
       }
+      roadmap_pdf_exports: {
+        Row: {
+          created_at: string
+          exported_by: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          options: Json | null
+          report_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          exported_by?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          options?: Json | null
+          report_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          exported_by?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          options?: Json | null
+          report_type?: string | null
+        }
+        Relationships: []
+      }
       roadmap_review_sessions: {
         Row: {
           completed_at: string | null
