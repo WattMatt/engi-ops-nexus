@@ -58,18 +58,20 @@ export const captureChart = async (
   }
 
   try {
-    // Use race to timeout quickly
+    // Use aggressive compression for PDF embedding
     const capturePromise = captureElement(element, {
-      scale: 1, // Minimum scale for speed
+      scale: 0.75, // Reduced scale for smaller file size
       format: 'JPEG',
-      quality: 0.7, // Lower quality for speed
+      quality: 0.6, // Lower quality for smaller file size
       backgroundColor: '#ffffff',
-      timeout: 2000, // Very short timeout
+      timeout: 3000,
+      maxWidth: 600, // Limit max dimensions
+      maxHeight: 400,
       ...captureOptions,
     });
 
     const timeoutPromise = new Promise<null>((resolve) => 
-      setTimeout(() => resolve(null), 2000)
+      setTimeout(() => resolve(null), 3000)
     );
 
     const image = await Promise.race([capturePromise, timeoutPromise]);
@@ -77,6 +79,10 @@ export const captureChart = async (
       console.warn(`Chart capture timed out: ${config.elementId}`);
       return null;
     }
+
+    // Log image size for debugging
+    const sizeKB = Math.round(image.dataUrl.length * 0.75 / 1024);
+    console.log(`Chart captured: ${config.elementId} (${sizeKB}KB)`);
 
     return { config, image };
   } catch (error) {

@@ -26,6 +26,8 @@ export interface ImageCaptureOptions {
   quality?: number;
   backgroundColor?: string;
   timeout?: number;
+  maxWidth?: number;
+  maxHeight?: number;
 }
 
 export interface ProcessedImage {
@@ -203,9 +205,11 @@ export const captureElement = async (
     quality = 0.85,
     backgroundColor = '#ffffff',
     timeout = 15000,
+    maxWidth,
+    maxHeight,
   } = options;
 
-  const canvas = await html2canvas(element, {
+  let canvas = await html2canvas(element, {
     scale,
     useCORS: true,
     allowTaint: false,
@@ -214,6 +218,29 @@ export const captureElement = async (
     imageTimeout: timeout,
     removeContainer: true,
   });
+
+  // Resize if needed to stay within limits
+  if (maxWidth || maxHeight) {
+    const needsResize = 
+      (maxWidth && canvas.width > maxWidth) || 
+      (maxHeight && canvas.height > maxHeight);
+    
+    if (needsResize) {
+      const scaleX = maxWidth ? maxWidth / canvas.width : 1;
+      const scaleY = maxHeight ? maxHeight / canvas.height : 1;
+      const resizeScale = Math.min(scaleX, scaleY);
+      
+      const resizedCanvas = document.createElement('canvas');
+      resizedCanvas.width = Math.round(canvas.width * resizeScale);
+      resizedCanvas.height = Math.round(canvas.height * resizeScale);
+      
+      const ctx = resizedCanvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(canvas, 0, 0, resizedCanvas.width, resizedCanvas.height);
+        canvas = resizedCanvas;
+      }
+    }
+  }
 
   const dataUrl = format === 'JPEG'
     ? canvas.toDataURL('image/jpeg', quality)
