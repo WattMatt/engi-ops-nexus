@@ -31,6 +31,13 @@ import {
   RoadmapPDFExportOptions,
   DEFAULT_EXPORT_OPTIONS,
 } from "./roadmapReviewPdfStyles";
+import { 
+  captureCharts, 
+  buildChartSectionContent, 
+  type ChartConfig, 
+  type CapturedChartData,
+  waitForCharts,
+} from "./pdfmake/chartUtils";
 
 // ============================================================================
 // TYPES
@@ -581,12 +588,15 @@ const buildMeetingNotes = (): Content => {
 /**
  * Build table of contents
  */
-const buildTableOfContents = (options: RoadmapPDFExportOptions): Content => {
+const buildTableOfContents = (options: RoadmapPDFExportOptions, hasCharts: boolean): Content => {
   const entries: { title: string; page: string }[] = [];
   let pageNum = 2;
 
   if (options.includeAnalytics) {
     entries.push({ title: 'Executive Summary', page: String(pageNum++) });
+  }
+  if (options.includeCharts && hasCharts) {
+    entries.push({ title: 'Visual Summary', page: String(pageNum++) });
   }
   if (options.includeDetailedProjects) {
     entries.push({ title: 'Project Details', page: String(pageNum++) });
@@ -610,22 +620,83 @@ const buildTableOfContents = (options: RoadmapPDFExportOptions): Content => {
 };
 
 // ============================================================================
+// CHART CONFIGURATIONS
+// ============================================================================
+
+/**
+ * Roadmap review chart configurations
+ * These match the element IDs in the AdminRoadmapReview component
+ */
+export const ROADMAP_REVIEW_CHARTS: ChartConfig[] = [
+  {
+    elementId: 'portfolio-health-gauge',
+    title: 'Portfolio Health Score',
+    description: 'Overall portfolio health indicator',
+  },
+  {
+    elementId: 'project-comparison-chart',
+    title: 'Project Progress Comparison',
+    description: 'Progress and health metrics across all projects',
+  },
+  {
+    elementId: 'priority-heatmap-chart',
+    title: 'Priority Distribution Heatmap',
+    description: 'Task priority distribution across projects',
+  },
+  {
+    elementId: 'team-workload-chart',
+    title: 'Team Workload Analysis',
+    description: 'Team member assignment distribution',
+  },
+];
+
+/**
+ * Capture roadmap review charts from the DOM
+ */
+export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]> => {
+  // Wait for charts to fully render
+  await waitForCharts(1500);
+  
+  const charts = await captureCharts(ROADMAP_REVIEW_CHARTS, {
+    scale: 2,
+    format: 'PNG',
+    quality: 0.95,
+    backgroundColor: '#ffffff',
+  });
+  
+  return charts;
+};
+
+// ============================================================================
 // MAIN EXPORT FUNCTION
 // ============================================================================
 
 /**
  * Generate the roadmap review PDF using pdfmake
+ * @param capturedCharts - Pre-captured charts to include (optional, will capture if not provided)
  */
 export async function generateRoadmapPdfMake(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
   options: Partial<RoadmapPDFExportOptions> = {},
-  allRoadmapItems?: RoadmapItem[]
+  allRoadmapItems?: RoadmapItem[],
+  capturedCharts?: CapturedChartData[]
 ): Promise<Blob> {
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
     ...options,
   };
+
+  // Capture charts if requested and not pre-captured
+  let charts: CapturedChartData[] = capturedCharts || [];
+  if (config.includeCharts && !capturedCharts) {
+    try {
+      charts = await captureRoadmapReviewCharts();
+      console.log(`Captured ${charts.length} charts for PDF`);
+    } catch (error) {
+      console.error('Failed to capture charts:', error);
+    }
+  }
 
   // Create document builder
   const doc = createDocument()
@@ -660,7 +731,7 @@ export async function generateRoadmapPdfMake(
 
   // Add table of contents
   if (config.includeTableOfContents) {
-    doc.add(buildTableOfContents(config));
+    doc.add(buildTableOfContents(config, charts.length > 0));
     doc.addPageBreak();
   }
 
@@ -668,6 +739,19 @@ export async function generateRoadmapPdfMake(
   if (config.includeAnalytics) {
     doc.add(buildExecutiveSummary(metrics));
     doc.add(buildPriorityDistribution(metrics));
+    doc.addPageBreak();
+  }
+
+  // Add visual summary (charts) if captured
+  if (config.includeCharts && charts.length > 0) {
+    const chartContent = buildChartSectionContent(charts, {
+      title: 'Visual Summary',
+      subtitle: 'Portfolio Charts & Graphs',
+      layout: 'stacked',
+      showBorder: true,
+      pageBreakBefore: false,
+    });
+    doc.add(chartContent);
     doc.addPageBreak();
   }
 

@@ -40,7 +40,7 @@ export function PortfolioHealthGauge({
   const config = sizeConfig[size];
 
   return (
-    <Card className="relative">
+    <Card id="portfolio-health-gauge" className="relative">
       <CardHeader className="pb-0">
         <CardTitle className="text-sm font-medium text-muted-foreground text-center">
           {label}

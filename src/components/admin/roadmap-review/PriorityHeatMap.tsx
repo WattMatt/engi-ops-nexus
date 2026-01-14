@@ -58,7 +58,7 @@ export function PriorityHeatMap({ projects }: PriorityHeatMapProps) {
   };
 
   return (
-    <Card id="priority-heat-map">
+    <Card id="priority-heatmap-chart">
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Priority Distribution Heat Map</CardTitle>
       </CardHeader>
