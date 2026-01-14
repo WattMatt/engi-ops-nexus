@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, Zap, Image, CheckCircle2, RefreshCw, AlertTriangle } from "lucide-react";
+import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, CheckCircle2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS } from "@/utils/roadmapReviewPdfStyles";
 import type { PreCaptureStatus } from "@/hooks/useChartPreCapture";
@@ -79,19 +79,6 @@ export function PDFExportDialog({
     onOpenChange(false);
   };
 
-  // Quick export - no charts, minimal content for fast generation
-  const handleQuickExport = async () => {
-    const quickOptions: RoadmapPDFExportOptions = {
-      ...options,
-      includeCharts: false,
-      includeFullRoadmapItems: false,
-      includeMeetingNotes: false,
-      includeSummaryMinutes: false,
-    };
-    await onExport(quickOptions);
-    onOpenChange(false);
-  };
-
   const updateOption = <K extends keyof RoadmapPDFExportOptions>(
     key: K, 
     value: RoadmapPDFExportOptions[K]
@@ -108,7 +95,7 @@ export function PDFExportDialog({
             Export Report Settings
           </DialogTitle>
           <DialogDescription>
-            Configure your PDF export options. Quick export generates a lightweight report instantly.
+            Configure your PDF export options. The report will be saved to "Saved Reports" for review.
           </DialogDescription>
         </DialogHeader>
 
@@ -274,14 +261,6 @@ export function PDFExportDialog({
                   </RadioGroup>
                 </div>
               )}
-              {!options.includeCharts && (
-                <div className="col-span-2 pl-6">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Zap className="h-3 w-3" />
-                    Skip charts for instant export
-                  </p>
-                </div>
-              )}
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="projects"
@@ -375,15 +354,6 @@ export function PDFExportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isExporting}>
             Cancel
           </Button>
-          <Button 
-            variant="secondary" 
-            onClick={handleQuickExport} 
-            disabled={isExporting}
-            className="gap-2"
-          >
-            <Zap className="h-4 w-4" />
-            Quick Export
-          </Button>
           <Button onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
               <>
@@ -393,7 +363,7 @@ export function PDFExportDialog({
             ) : (
               <>
                 <Download className="h-4 w-4 mr-2" />
-                Full PDF
+                Export PDF
               </>
             )}
           </Button>
