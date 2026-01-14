@@ -80,22 +80,9 @@ serve(async (req) => {
     const recipientName = recipient.full_name || "there";
     const senderName = sender?.full_name || "Someone";
 
-    // Always use the production URL for email links
+    // Always direct users to login page - they navigate from there
     const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
-    let itemLink = appUrl;
-
-    const itemTypeRoutes: Record<string, string> = {
-      "Document": "documents",
-      "Report": "reports",
-      "File": "files",
-      "Project": "projects",
-      "BOQ": "boq",
-      "Cost Report": "cost-reports",
-      "Final Account": "final-accounts",
-    };
-
-    const route = itemTypeRoutes[itemType] || "shared";
-    itemLink = `${appUrl}/${route}/${itemId}`;
+    const itemLink = `${appUrl}/auth`;
 
     // Generate email HTML using template
     const emailHtml = itemSharedTemplate(

@@ -84,9 +84,9 @@ serve(async (req) => {
       // Continue anyway - email is more important
     }
 
-    // Always use the production URL for email links
+    // Always direct users to login page - they navigate from there
     const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
-    const conversationLink = `${appUrl}/messaging?conversation=${conversationId}`;
+    const conversationLink = `${appUrl}/auth`;
 
     // Prepare message preview (truncate if needed)
     const truncatedPreview = messagePreview.length > 150 
