@@ -251,6 +251,7 @@ export default function AdminRoadmapReview() {
           companyName: options?.companyName,
           confidentialNotice: options?.confidentialNotice ?? true,
           reportType: options?.reportType ?? 'meeting-review',
+          chartLayout: options?.chartLayout ?? 'stacked',
         },
         queryData?.allRoadmapItems,
         capturedCharts

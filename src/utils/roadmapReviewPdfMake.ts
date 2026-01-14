@@ -655,9 +655,21 @@ export const ROADMAP_REVIEW_CHARTS: ChartConfig[] = [
  */
 export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]> => {
   // Wait for charts to fully render
-  await waitForCharts(1500);
+  await waitForCharts(1000);
   
-  const charts = await captureCharts(ROADMAP_REVIEW_CHARTS, {
+  // Only capture charts that actually exist in the DOM
+  const availableCharts = ROADMAP_REVIEW_CHARTS.filter(
+    config => document.getElementById(config.elementId) !== null
+  );
+  
+  if (availableCharts.length === 0) {
+    console.log('No chart elements found in DOM');
+    return [];
+  }
+  
+  console.log(`Found ${availableCharts.length} charts to capture:`, availableCharts.map(c => c.elementId));
+  
+  const charts = await captureCharts(availableCharts, {
     scale: 2,
     format: 'PNG',
     quality: 0.95,
