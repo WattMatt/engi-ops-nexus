@@ -684,6 +684,7 @@ export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]>
 
 /**
  * Generate the roadmap review PDF using pdfmake
+ * Uses a progressive approach: tries with charts first, falls back to simpler version if needed
  * @param capturedCharts - Pre-captured charts to include (optional, will capture if not provided)
  */
 export async function generateRoadmapPdfMake(
@@ -700,7 +701,7 @@ export async function generateRoadmapPdfMake(
     ...options,
   };
 
-  // Capture charts if requested and not pre-captured
+  // Try with charts first, fall back to no charts if it fails
   let charts: CapturedChartData[] = capturedCharts || [];
   if (config.includeCharts && !capturedCharts) {
     try {
@@ -709,13 +710,49 @@ export async function generateRoadmapPdfMake(
       console.log(`generateRoadmapPdfMake: Captured ${charts.length} charts`);
     } catch (error) {
       console.error('Failed to capture charts:', error);
+      charts = [];
     }
   } else if (capturedCharts) {
     console.log('generateRoadmapPdfMake: Using', capturedCharts.length, 'pre-captured charts');
   }
 
-  // Create document builder
-  console.log('generateRoadmapPdfMake: Creating document...');
+  // First attempt: with charts
+  try {
+    console.log('generateRoadmapPdfMake: Building document with charts...');
+    const blob = await buildPdfDocument(projects, metrics, config, allRoadmapItems, charts);
+    console.log('generateRoadmapPdfMake: PDF generated successfully with charts, size:', blob.size);
+    return blob;
+  } catch (error) {
+    console.error('PDF generation with charts failed:', error);
+    
+    // Fallback: try without charts if we had charts
+    if (charts.length > 0) {
+      console.log('generateRoadmapPdfMake: Retrying without charts...');
+      try {
+        const blob = await buildPdfDocument(projects, metrics, config, allRoadmapItems, []);
+        console.log('generateRoadmapPdfMake: PDF generated successfully without charts, size:', blob.size);
+        return blob;
+      } catch (fallbackError) {
+        console.error('PDF generation without charts also failed:', fallbackError);
+      }
+    }
+    
+    // Final fallback: minimal PDF
+    console.log('generateRoadmapPdfMake: Creating minimal PDF...');
+    return buildMinimalPdf(projects, metrics);
+  }
+}
+
+/**
+ * Build the full PDF document
+ */
+async function buildPdfDocument(
+  projects: EnhancedProjectSummary[],
+  metrics: PortfolioMetrics,
+  config: RoadmapPDFExportOptions,
+  allRoadmapItems?: RoadmapItem[],
+  charts: CapturedChartData[] = []
+): Promise<Blob> {
   const doc = createDocument()
     .withStandardHeader('Roadmap Review Report', config.companyName)
     .withStandardFooter(config.confidentialNotice);
@@ -762,25 +799,34 @@ export async function generateRoadmapPdfMake(
     doc.addPageBreak();
   }
 
-  // Add visual summary (charts) if captured
+  // Add visual summary (charts) if captured - with size check
   if (config.includeCharts && charts.length > 0) {
-    console.log('generateRoadmapPdfMake: Adding', charts.length, 'charts...');
-    const chartContent = buildChartSectionContent(charts, {
-      title: 'Visual Summary',
-      subtitle: 'Portfolio Charts & Graphs',
-      layout: config.chartLayout || 'stacked',
-      chartsPerRow: 2,
-      showBorder: true,
-      pageBreakBefore: false,
-    });
-    doc.add(chartContent);
-    doc.addPageBreak();
+    // Check total chart data size - skip if too large
+    const totalChartSize = charts.reduce((acc, c) => acc + c.image.sizeBytes, 0);
+    const maxChartSize = 500 * 1024; // 500KB limit for all charts
+    
+    if (totalChartSize < maxChartSize) {
+      console.log('generateRoadmapPdfMake: Adding', charts.length, 'charts (', Math.round(totalChartSize / 1024), 'KB)...');
+      const chartContent = buildChartSectionContent(charts, {
+        title: 'Visual Summary',
+        subtitle: 'Portfolio Charts & Graphs',
+        layout: config.chartLayout || 'stacked',
+        chartsPerRow: 2,
+        showBorder: true,
+        pageBreakBefore: false,
+      });
+      doc.add(chartContent);
+      doc.addPageBreak();
+    } else {
+      console.log('generateRoadmapPdfMake: Skipping charts - too large (', Math.round(totalChartSize / 1024), 'KB)');
+    }
   }
 
-  // Add project details
+  // Add project details - limit to prevent huge documents
   if (config.includeDetailedProjects) {
     console.log('generateRoadmapPdfMake: Adding project details...');
-    doc.add(buildProjectDetails(projects));
+    const limitedProjects = projects.slice(0, 30); // Limit projects to prevent timeout
+    doc.add(buildProjectDetails(limitedProjects));
     doc.addPageBreak();
   }
 
@@ -791,10 +837,11 @@ export async function generateRoadmapPdfMake(
     doc.addPageBreak();
   }
 
-  // Add full roadmap pages for each project
+  // Add full roadmap pages for each project (limited)
   if (config.includeFullRoadmapItems && allRoadmapItems) {
     console.log('generateRoadmapPdfMake: Adding full roadmap pages...');
-    for (const project of projects) {
+    const limitedProjects = projects.slice(0, 20); // Limit for performance
+    for (const project of limitedProjects) {
       const pageContent = buildFullRoadmapPage(project, allRoadmapItems);
       if ((pageContent as any).stack && (pageContent as any).stack.length > 0) {
         doc.add(pageContent);
@@ -802,11 +849,57 @@ export async function generateRoadmapPdfMake(
     }
   }
 
-  // Generate and return blob
+  // Generate and return blob with extended timeout
   console.log('generateRoadmapPdfMake: Building PDF blob...');
-  const blob = await doc.toBlob();
-  console.log('generateRoadmapPdfMake: PDF blob created, size:', blob.size);
+  const blob = await doc.toBlob(120000); // 2 minute timeout for complex docs
   return blob;
+}
+
+/**
+ * Build a minimal PDF as a last resort fallback
+ */
+async function buildMinimalPdf(
+  projects: EnhancedProjectSummary[],
+  metrics: PortfolioMetrics
+): Promise<Blob> {
+  console.log('generateRoadmapPdfMake: Building minimal fallback PDF...');
+  
+  const doc = createDocument();
+  
+  // Simple title
+  doc.add([
+    { text: 'ROADMAP REVIEW REPORT', fontSize: 24, bold: true, alignment: 'center' as const, margin: [0, 40, 0, 20] as Margins },
+    { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
+  ]);
+  
+  // Simple summary table
+  doc.add([
+    { text: 'Portfolio Summary', fontSize: 16, bold: true, margin: [0, 20, 0, 10] as Margins },
+    {
+      table: {
+        widths: ['50%', '50%'],
+        body: [
+          ['Total Projects', String(metrics.totalProjects)],
+          ['Average Progress', `${metrics.averageProgress}%`],
+          ['Portfolio Health', `${metrics.totalHealthScore}%`],
+          ['Projects at Risk', String(metrics.projectsAtRisk)],
+          ['Overdue Items', String(metrics.totalOverdueItems)],
+        ],
+      },
+    },
+  ]);
+  
+  // Project list
+  doc.add([
+    { text: 'Projects', fontSize: 16, bold: true, margin: [0, 30, 0, 10] as Margins },
+    ...projects.slice(0, 15).map(p => ({
+      text: `• ${p.projectName} - ${p.progress}% complete (Health: ${p.healthScore}%)`,
+      fontSize: 10,
+      margin: [0, 2, 0, 2] as Margins,
+    })),
+  ]);
+  
+  return doc.toBlob(30000); // 30 second timeout for simple doc
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, Image, FileText, Download } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Image, FileText, Download, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -55,6 +55,9 @@ export function ExportProgressOverlay({
       ? 0 
       : Math.min(90, ((currentStepIndex + 1) / STEPS.length) * 100);
 
+  // Show a warning if generating is taking too long
+  const showSlowWarning = currentStep === 'generating' && elapsedTime > 30;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
@@ -74,6 +77,17 @@ export function ExportProgressOverlay({
 
         {/* Progress bar */}
         <Progress value={progress} className="mb-6" />
+
+        {/* Slow generation warning */}
+        {showSlowWarning && (
+          <div className="mb-4 p-3 rounded-md bg-amber-500/10 text-amber-600 flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium">Taking longer than expected...</p>
+              <p className="text-xs">Complex documents may take up to 2 minutes. If this continues, charts will be skipped automatically.</p>
+            </div>
+          </div>
+        )}
 
         {/* Steps */}
         <div className="space-y-3 mb-6">
@@ -128,7 +142,7 @@ export function ExportProgressOverlay({
             <XCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
             <div className="text-sm">
               <p className="font-medium">Export failed</p>
-              <p className="text-xs">{error || 'An unexpected error occurred'}</p>
+              <p className="text-xs">{error || 'An unexpected error occurred. Please try again with fewer options selected.'}</p>
             </div>
           </div>
         )}
