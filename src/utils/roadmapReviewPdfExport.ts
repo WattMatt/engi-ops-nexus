@@ -851,6 +851,7 @@ export async function generateEnhancedRoadmapPDF(
     companyName: options.companyName ?? 'Roadmap Review',
     confidentialNotice: options.confidentialNotice ?? true,
     reportType: options.reportType ?? 'meeting-review',
+    chartLayout: options.chartLayout ?? 'stacked',
   };
   
   const doc = new jsPDF({

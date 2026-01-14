@@ -747,7 +747,8 @@ export async function generateRoadmapPdfMake(
     const chartContent = buildChartSectionContent(charts, {
       title: 'Visual Summary',
       subtitle: 'Portfolio Charts & Graphs',
-      layout: 'stacked',
+      layout: config.chartLayout || 'stacked',
+      chartsPerRow: 2,
       showBorder: true,
       pageBreakBefore: false,
     });

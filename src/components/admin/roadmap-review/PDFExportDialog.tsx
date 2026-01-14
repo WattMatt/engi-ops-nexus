@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { FileText, Download, Loader2, Building2, FileCheck } from "lucide-react";
+import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS } from "@/utils/roadmapReviewPdfStyles";
 
@@ -159,6 +159,31 @@ export function PDFExportDialog({
                   Analytics Charts
                 </Label>
               </div>
+              {options.includeCharts && (
+                <div className="col-span-2 pl-6 space-y-2">
+                  <Label className="text-xs text-muted-foreground">Chart Layout</Label>
+                  <RadioGroup 
+                    value={options.chartLayout} 
+                    onValueChange={(v) => updateOption('chartLayout', v as 'stacked' | 'grid')}
+                    className="flex gap-4"
+                  >
+                    <div className="flex items-center space-x-2 p-2 rounded border hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value="stacked" id="stacked" />
+                      <Rows3 className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="stacked" className="text-xs cursor-pointer">
+                        Stacked (1 per row)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 p-2 rounded border hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value="grid" id="grid" />
+                      <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="grid" className="text-xs cursor-pointer">
+                        Grid (2 per row)
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="projects"
