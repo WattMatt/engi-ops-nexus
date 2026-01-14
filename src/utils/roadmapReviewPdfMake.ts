@@ -693,6 +693,8 @@ export async function generateRoadmapPdfMake(
   allRoadmapItems?: RoadmapItem[],
   capturedCharts?: CapturedChartData[]
 ): Promise<Blob> {
+  console.log('generateRoadmapPdfMake: Starting with', projects.length, 'projects');
+  
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
     ...options,
@@ -702,20 +704,25 @@ export async function generateRoadmapPdfMake(
   let charts: CapturedChartData[] = capturedCharts || [];
   if (config.includeCharts && !capturedCharts) {
     try {
+      console.log('generateRoadmapPdfMake: Capturing charts...');
       charts = await captureRoadmapReviewCharts();
-      console.log(`Captured ${charts.length} charts for PDF`);
+      console.log(`generateRoadmapPdfMake: Captured ${charts.length} charts`);
     } catch (error) {
       console.error('Failed to capture charts:', error);
     }
+  } else if (capturedCharts) {
+    console.log('generateRoadmapPdfMake: Using', capturedCharts.length, 'pre-captured charts');
   }
 
   // Create document builder
+  console.log('generateRoadmapPdfMake: Creating document...');
   const doc = createDocument()
     .withStandardHeader('Roadmap Review Report', config.companyName)
     .withStandardFooter(config.confidentialNotice);
 
   // Add cover page
   if (config.includeCoverPage) {
+    console.log('generateRoadmapPdfMake: Adding cover page...');
     try {
       const companyDetails = await fetchCompanyDetails();
       const coverContent = await generateCoverPageContent(
@@ -742,12 +749,14 @@ export async function generateRoadmapPdfMake(
 
   // Add table of contents
   if (config.includeTableOfContents) {
+    console.log('generateRoadmapPdfMake: Adding TOC...');
     doc.add(buildTableOfContents(config, charts.length > 0));
     doc.addPageBreak();
   }
 
   // Add executive summary
   if (config.includeAnalytics) {
+    console.log('generateRoadmapPdfMake: Adding executive summary...');
     doc.add(buildExecutiveSummary(metrics));
     doc.add(buildPriorityDistribution(metrics));
     doc.addPageBreak();
@@ -755,6 +764,7 @@ export async function generateRoadmapPdfMake(
 
   // Add visual summary (charts) if captured
   if (config.includeCharts && charts.length > 0) {
+    console.log('generateRoadmapPdfMake: Adding', charts.length, 'charts...');
     const chartContent = buildChartSectionContent(charts, {
       title: 'Visual Summary',
       subtitle: 'Portfolio Charts & Graphs',
@@ -769,18 +779,21 @@ export async function generateRoadmapPdfMake(
 
   // Add project details
   if (config.includeDetailedProjects) {
+    console.log('generateRoadmapPdfMake: Adding project details...');
     doc.add(buildProjectDetails(projects));
     doc.addPageBreak();
   }
 
   // Add meeting notes
   if (config.includeMeetingNotes) {
+    console.log('generateRoadmapPdfMake: Adding meeting notes...');
     doc.add(buildMeetingNotes());
     doc.addPageBreak();
   }
 
   // Add full roadmap pages for each project
   if (config.includeFullRoadmapItems && allRoadmapItems) {
+    console.log('generateRoadmapPdfMake: Adding full roadmap pages...');
     for (const project of projects) {
       const pageContent = buildFullRoadmapPage(project, allRoadmapItems);
       if ((pageContent as any).stack && (pageContent as any).stack.length > 0) {
@@ -790,7 +803,10 @@ export async function generateRoadmapPdfMake(
   }
 
   // Generate and return blob
-  return doc.toBlob();
+  console.log('generateRoadmapPdfMake: Building PDF blob...');
+  const blob = await doc.toBlob();
+  console.log('generateRoadmapPdfMake: PDF blob created, size:', blob.size);
+  return blob;
 }
 
 /**
