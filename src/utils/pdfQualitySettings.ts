@@ -1,28 +1,16 @@
 /**
- * Standardized high-quality PDF export settings
+ * PDF Quality Settings and Element Capture Utilities
  * 
  * ═══════════════════════════════════════════════════════════════════════════════
- * ⚠️  MIGRATION STATUS: PARTIALLY MIGRATED TO PDFMAKE
+ * MIGRATING TO PDFMAKE - jsPDF compatibility maintained for legacy code
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * This file provides quality presets and canvas capture utilities.
+ * This file provides:
+ * - Quality presets for image capture
+ * - Canvas capture utilities for charts and UI elements
+ * - Base64 conversion for pdfmake image embedding
+ * - Legacy jsPDF functions for backward compatibility
  * 
- * STILL USEFUL (kept for chart/element capture):
- * - captureElementAsCanvas() - Capture HTML elements
- * - captureChartAsCanvas() - Capture chart elements
- * - captureElementAsBase64() - Capture as base64 for pdfmake
- * - canvasToDataUrl() - Convert canvas to data URL
- * 
- * QUALITY PRESETS:
- * - DRAFT: Fast rendering, smaller files
- * - STANDARD: Balanced quality - DEFAULT  
- * - HIGH: Best quality, larger files
- * 
- * DEPRECATED (jsPDF-specific):
- * - addHighQualityImage() → use captureElementAsBase64() + pdfmake image()
- * - createHighQualityPDF() → use createDocument() from @/utils/pdfmake
- * 
- * @see src/utils/pdfmake/styles.ts for pdfmake quality presets
  * @see src/utils/pdfmake/imageUtils.ts for advanced image utilities
  */
 
@@ -221,7 +209,6 @@ export const addHighQualityImage = (
   format: 'PNG' | 'JPEG' = 'JPEG',
   quality: number = 0.85
 ) => {
-  console.warn('addHighQualityImage is deprecated. Use captureElementAsBase64() + pdfmake image() instead.');
   const imgData = canvasToDataUrl(canvas, format, quality);
   doc.addImage(imgData, format, x, y, width, height, undefined, 'FAST');
 };
