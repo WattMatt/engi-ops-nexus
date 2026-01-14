@@ -45,7 +45,7 @@ export const waitForCharts = (ms: number = 500): Promise<void> => {
 };
 
 /**
- * Capture a single chart by element ID (ultra-fast settings)
+ * Capture a single chart by element ID (optimized for speed and size)
  */
 export const captureChart = async (
   config: ChartConfig,
@@ -62,16 +62,16 @@ export const captureChart = async (
     const capturePromise = captureElement(element, {
       scale: 0.75, // Reduced scale for smaller file size
       format: 'JPEG',
-      quality: 0.6, // Lower quality for smaller file size
+      quality: 0.55, // Lower quality for smaller file size
       backgroundColor: '#ffffff',
-      timeout: 3000,
-      maxWidth: 600, // Limit max dimensions
-      maxHeight: 400,
+      timeout: 4000,
+      maxWidth: 500, // Limit max dimensions
+      maxHeight: 350,
       ...captureOptions,
     });
 
     const timeoutPromise = new Promise<null>((resolve) => 
-      setTimeout(() => resolve(null), 3000)
+      setTimeout(() => resolve(null), 4000)
     );
 
     const image = await Promise.race([capturePromise, timeoutPromise]);
@@ -83,6 +83,12 @@ export const captureChart = async (
     // Log image size for debugging
     const sizeKB = Math.round(image.dataUrl.length * 0.75 / 1024);
     console.log(`Chart captured: ${config.elementId} (${sizeKB}KB)`);
+
+    // Skip if chart is too large (over 100KB)
+    if (sizeKB > 100) {
+      console.warn(`Chart too large, skipping: ${config.elementId} (${sizeKB}KB)`);
+      return null;
+    }
 
     return { config, image };
   } catch (error) {

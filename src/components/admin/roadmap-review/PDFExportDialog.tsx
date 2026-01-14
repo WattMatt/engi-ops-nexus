@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, Zap, Image, CheckCircle2, RefreshCw } from "lucide-react";
+import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, Zap, Image, CheckCircle2, RefreshCw, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS } from "@/utils/roadmapReviewPdfStyles";
 import type { PreCaptureStatus } from "@/hooks/useChartPreCapture";
@@ -79,6 +79,19 @@ export function PDFExportDialog({
     onOpenChange(false);
   };
 
+  // Quick export - no charts, minimal content for fast generation
+  const handleQuickExport = async () => {
+    const quickOptions: RoadmapPDFExportOptions = {
+      ...options,
+      includeCharts: false,
+      includeFullRoadmapItems: false,
+      includeMeetingNotes: false,
+      includeSummaryMinutes: false,
+    };
+    await onExport(quickOptions);
+    onOpenChange(false);
+  };
+
   const updateOption = <K extends keyof RoadmapPDFExportOptions>(
     key: K, 
     value: RoadmapPDFExportOptions[K]
@@ -94,6 +107,9 @@ export function PDFExportDialog({
             <FileText className="h-5 w-5 text-primary" />
             Export Report Settings
           </DialogTitle>
+          <DialogDescription>
+            Configure your PDF export options. Quick export generates a lightweight report instantly.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -355,9 +371,18 @@ export function PDFExportDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isExporting}>
             Cancel
+          </Button>
+          <Button 
+            variant="secondary" 
+            onClick={handleQuickExport} 
+            disabled={isExporting}
+            className="gap-2"
+          >
+            <Zap className="h-4 w-4" />
+            Quick Export
           </Button>
           <Button onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
@@ -368,7 +393,7 @@ export function PDFExportDialog({
             ) : (
               <>
                 <Download className="h-4 w-4 mr-2" />
-                Generate PDF
+                Full PDF
               </>
             )}
           </Button>
