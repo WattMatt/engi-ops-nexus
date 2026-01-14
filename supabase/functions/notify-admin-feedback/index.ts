@@ -55,8 +55,8 @@ serve(async (req) => {
 
     const adminEmail = "arno@wmeng.co.za";
     const typeLabel = type === 'issue' ? 'Issue Report' : 'Suggestion';
-    const appUrl = Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "https://app.lovable.app";
-    const feedbackLink = `${appUrl}/admin/feedback`;
+    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
+    const feedbackLink = `${appUrl}/auth`;
 
     const priorityBadge = priority ? `
       <span style="display: inline-block; padding: 4px 8px; background: ${
@@ -145,9 +145,9 @@ serve(async (req) => {
                   ${description.replace(/\n/g, '<br>')}
                 </div>
                 
-                <p>Please review and respond to this ${type} in the admin panel:</p>
+                <p>Please log in to review and respond to this ${type}:</p>
                 <p style="text-align: center;">
-                  <a href="${feedbackLink}" class="button">View in Admin Panel</a>
+                  <a href="${feedbackLink}" class="button">Log In</a>
                 </p>
                 
                 <p style="color: #6b7280; font-size: 14px;">

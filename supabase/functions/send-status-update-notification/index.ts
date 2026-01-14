@@ -70,9 +70,9 @@ serve(async (req) => {
       .select()
       .single();
 
-    // Always use the production URL for email links
+    // Always direct users to login page - they navigate from there
     const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
-    const actionLink = link ? `${appUrl}${link}` : appUrl;
+    const actionLink = `${appUrl}/auth`;
 
     const getIconAndColor = (type: string) => {
       switch (type) {
@@ -123,12 +123,10 @@ serve(async (req) => {
                 <div class="notification-box">
                   <p>${description}</p>
                 </div>
-                ${link ? `
-                  <p>Click the button below to view details:</p>
-                  <p style="text-align: center;">
-                    <a href="${actionLink}" class="button">View Details</a>
-                  </p>
-                ` : ''}
+                <p>Please log in to view details and take action:</p>
+                <p style="text-align: center;">
+                  <a href="${actionLink}" class="button">Log In</a>
+                </p>
               </div>
               <div class="footer">
                 <p>Watson Mattheus Team</p>

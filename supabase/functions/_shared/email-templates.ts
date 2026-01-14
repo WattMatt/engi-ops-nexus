@@ -307,13 +307,13 @@ export const messageNotificationTemplate = (
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
     <tr>
       <td align="center">
-        ${createButton(conversationLink, 'View Conversation')}
+        ${createButton(conversationLink, 'Log In')}
       </td>
     </tr>
   </table>
   
   <p style="text-align: center; margin-top: 24px; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-    You received this email because you were mentioned in a conversation.
+    Log in to view the conversation and respond.
   </p>
 `, 'New Mention', 'You have a new mention');
 
@@ -337,10 +337,14 @@ export const newMessageTemplate = (
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
     <tr>
       <td align="center">
-        ${createButton(conversationLink, 'Reply Now')}
+        ${createButton(conversationLink, 'Log In')}
       </td>
     </tr>
   </table>
+  
+  <p style="text-align: center; margin-top: 24px; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    Log in to view the full message and respond.
+  </p>
 `, 'New Message', 'You have an unread message');
 
 /**
@@ -371,9 +375,14 @@ export const itemSharedTemplate = (
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
     <tr>
       <td align="center">
-        ${createButton(itemLink, `View ${itemType}`)}
+        ${createButton(itemLink, 'Log In')}
       </td>
     </tr>
+  </table>
+  
+  <p style="text-align: center; margin-top: 24px; font-size: 12px; color: ${TEXT_MUTED}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    Log in to view the ${itemType.toLowerCase()} and access your shared items.
+  </p>
   </table>
 `, 'Item Shared', `${senderName} shared something with you`);
 

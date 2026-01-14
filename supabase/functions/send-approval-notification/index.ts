@@ -67,9 +67,9 @@ serve(async (req) => {
         email_sent: false,
       });
 
-    // Always use the production URL for email links
+    // Always direct users to login page - they navigate from there
     const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
-    const approvalLink = `${appUrl}/approvals/${workflowId}`;
+    const approvalLink = `${appUrl}/auth`;
 
     await smtpClient.send({
       from: Deno.env.get("GMAIL_USER")!,
@@ -105,9 +105,9 @@ serve(async (req) => {
                   <p><strong>Title:</strong> ${documentTitle}</p>
                   <p><strong>Submitted By:</strong> ${submitterName}</p>
                 </div>
-                <p>Please review the document and provide your approval decision:</p>
+                <p>Please log in to review the document and provide your approval decision:</p>
                 <p style="text-align: center;">
-                  <a href="${approvalLink}" class="button">Review & Approve</a>
+                  <a href="${approvalLink}" class="button">Log In to Review</a>
                 </p>
               </div>
               <div class="footer">
