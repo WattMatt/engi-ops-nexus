@@ -22,6 +22,10 @@ interface PDFExportDialogProps {
   preCapturedChartCount?: number;
   /** Callback to re-capture charts */
   onRecaptureCharts?: () => Promise<void>;
+  /** How long ago charts were captured (e.g., "2m ago") */
+  capturedAgo?: string;
+  /** Whether charts are considered stale */
+  isStale?: boolean;
 }
 
 export function PDFExportDialog({ 
@@ -32,6 +36,8 @@ export function PDFExportDialog({
   preCaptureStatus = 'idle',
   preCapturedChartCount = 0,
   onRecaptureCharts,
+  capturedAgo = '',
+  isStale = false,
 }: PDFExportDialogProps) {
   const [isRecapturing, setIsRecapturing] = useState(false);
   const [options, setOptions] = useState<RoadmapPDFExportOptions>(DEFAULT_EXPORT_OPTIONS);
@@ -172,9 +178,17 @@ export function PDFExportDialog({
                   <Label htmlFor="charts" className="text-sm cursor-pointer flex items-center gap-2 flex-wrap">
                     Analytics Charts
                     {preCaptureStatus === 'ready' && preCapturedChartCount > 0 && options.includeCharts && (
-                      <Badge variant="secondary" className="text-xs gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      <Badge 
+                        variant="secondary" 
+                        className={`text-xs gap-1 ${
+                          isStale 
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' 
+                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        }`}
+                      >
                         <CheckCircle2 className="h-3 w-3" />
-                        {preCapturedChartCount} pre-captured
+                        {preCapturedChartCount} {isStale ? 'stale' : 'ready'}
+                        {capturedAgo && <span className="opacity-75">({capturedAgo})</span>}
                       </Badge>
                     )}
                     {(preCaptureStatus === 'capturing' || isRecapturing) && options.includeCharts && (
@@ -184,11 +198,11 @@ export function PDFExportDialog({
                       </Badge>
                     )}
                   </Label>
-                  {/* Re-capture button */}
+                  {/* Re-capture button - show prominently if stale */}
                   {options.includeCharts && onRecaptureCharts && (
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant={isStale ? "secondary" : "ghost"}
                       size="sm"
                       onClick={async () => {
                         setIsRecapturing(true);
@@ -199,10 +213,10 @@ export function PDFExportDialog({
                         }
                       }}
                       disabled={isRecapturing || isExporting || preCaptureStatus === 'capturing'}
-                      className="h-7 px-2 text-xs gap-1"
+                      className={`h-7 px-2 text-xs gap-1 ${isStale ? 'border-amber-300 dark:border-amber-700' : ''}`}
                     >
                       <RefreshCw className={`h-3 w-3 ${isRecapturing ? 'animate-spin' : ''}`} />
-                      Re-capture charts
+                      {isStale ? 'Refresh stale charts' : 'Re-capture charts'}
                     </Button>
                   )}
                 </div>
