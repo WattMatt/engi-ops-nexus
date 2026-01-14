@@ -656,29 +656,32 @@ export const ROADMAP_REVIEW_CHARTS: ChartConfig[] = [
  * Captures charts sequentially to avoid memory issues
  */
 export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]> => {
+  console.log('[RoadmapPDF] Starting chart capture...');
+  
   // Only capture charts that actually exist in the DOM
   const availableCharts = ROADMAP_REVIEW_CHARTS.filter(
     config => document.getElementById(config.elementId) !== null
   );
   
   if (availableCharts.length === 0) {
-    console.log('No chart elements found in DOM. Available IDs:', ROADMAP_REVIEW_CHARTS.map(c => c.elementId));
+    console.warn('[RoadmapPDF] No chart elements found. Expected IDs:', ROADMAP_REVIEW_CHARTS.map(c => c.elementId));
     return [];
   }
   
-  console.log(`Capturing ${availableCharts.length} charts...`);
+  console.log(`[RoadmapPDF] Found ${availableCharts.length} charts to capture:`, availableCharts.map(c => c.elementId));
   
-  // Capture with aggressive compression for smaller file size
+  // Capture with balanced settings
   const charts = await captureCharts(availableCharts, {
-    scale: 0.8, // Reduced scale
+    scale: 1.0,
     format: 'JPEG',
-    quality: 0.65, // Lower quality for smaller files
+    quality: 0.7,
     backgroundColor: '#ffffff',
-    timeout: 3000,
-    maxWidth: 550,
-    maxHeight: 350,
+    timeout: 8000,
+    maxWidth: 600,
+    maxHeight: 400,
   });
   
+  console.log(`[RoadmapPDF] Successfully captured ${charts.length}/${availableCharts.length} charts`);
   return charts;
 };
 
@@ -773,7 +776,7 @@ async function buildPdfDocument(
 
   // Add cover page
   if (config.includeCoverPage) {
-    console.log('generateRoadmapPdfMake: Adding cover page...');
+    console.log('[RoadmapPDF] Adding cover page...');
     try {
       const companyDetails = await fetchCompanyDetails();
       const coverContent = await generateCoverPageContent(
@@ -787,8 +790,7 @@ async function buildPdfDocument(
       );
       doc.add(coverContent);
     } catch (error) {
-      console.error('Failed to generate cover page:', error);
-      // Add simple cover page fallback
+      console.error('[RoadmapPDF] Cover page failed, using fallback:', error);
       doc.add([
         { text: 'ROADMAP REVIEW REPORT', fontSize: 28, bold: true, alignment: 'center' as const, margin: [0, 100, 0, 20] as Margins },
         { text: config.companyName || 'Portfolio Overview', fontSize: 18, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
@@ -800,59 +802,59 @@ async function buildPdfDocument(
 
   // Add table of contents
   if (config.includeTableOfContents) {
-    console.log('generateRoadmapPdfMake: Adding TOC...');
+    console.log('[RoadmapPDF] Adding TOC...');
     doc.add(buildTableOfContents(config, charts.length > 0));
     doc.addPageBreak();
   }
 
   // Add executive summary
   if (config.includeAnalytics) {
-    console.log('generateRoadmapPdfMake: Adding executive summary...');
+    console.log('[RoadmapPDF] Adding executive summary...');
     doc.add(buildExecutiveSummary(metrics));
     doc.add(buildPriorityDistribution(metrics));
     doc.addPageBreak();
   }
 
-  // Add visual summary (charts) if captured - with strict size check
+  // Add visual summary (charts) if captured - with size check
   if (config.includeCharts && charts.length > 0) {
-    // Check total chart data size - use smaller limit for faster generation
+    // Check total chart data size
     const totalChartSize = charts.reduce((acc, c) => acc + c.image.sizeBytes, 0);
-    const maxChartSize = 300 * 1024; // 300KB limit for faster processing
+    const maxChartSize = 500 * 1024; // 500KB limit (increased from 300KB)
     
     if (totalChartSize < maxChartSize) {
-      console.log('generateRoadmapPdfMake: Adding', charts.length, 'charts (', Math.round(totalChartSize / 1024), 'KB)...');
+      console.log(`[RoadmapPDF] Adding ${charts.length} charts (${Math.round(totalChartSize / 1024)}KB)...`);
       const chartContent = buildChartSectionContent(charts, {
         title: 'Visual Summary',
         subtitle: 'Portfolio Charts & Graphs',
         layout: config.chartLayout || 'stacked',
         chartsPerRow: 2,
-        showBorder: false, // Disable borders for faster rendering
+        showBorder: false,
         pageBreakBefore: false,
       });
       doc.add(chartContent);
       doc.addPageBreak();
     } else {
-      console.log('generateRoadmapPdfMake: Skipping charts - too large (', Math.round(totalChartSize / 1024), 'KB > 300KB limit)');
+      console.warn(`[RoadmapPDF] Skipping charts - too large (${Math.round(totalChartSize / 1024)}KB > 500KB limit)`);
     }
   }
 
   // Add project details - limit to prevent huge documents
   if (config.includeDetailedProjects) {
-    console.log('generateRoadmapPdfMake: Adding project details...');
+    console.log('[RoadmapPDF] Adding project details...');
     doc.add(buildProjectDetails(limitedProjects));
     doc.addPageBreak();
   }
 
   // Add meeting notes (lightweight)
   if (config.includeMeetingNotes) {
-    console.log('generateRoadmapPdfMake: Adding meeting notes...');
+    console.log('[RoadmapPDF] Adding meeting notes...');
     doc.add(buildMeetingNotes());
     doc.addPageBreak();
   }
 
   // Add full roadmap pages - LIMIT significantly for performance
   if (config.includeFullRoadmapItems && allRoadmapItems) {
-    console.log('generateRoadmapPdfMake: Adding full roadmap pages...');
+    console.log('[RoadmapPDF] Adding full roadmap pages...');
     const roadmapProjects = limitedProjects.slice(0, 10); // Max 10 projects with full roadmap
     for (const project of roadmapProjects) {
       const pageContent = buildFullRoadmapPage(project, allRoadmapItems);
@@ -862,9 +864,9 @@ async function buildPdfDocument(
     }
   }
 
-  // Generate and return blob with reasonable timeout
-  console.log('generateRoadmapPdfMake: Building PDF blob...');
-  const blob = await doc.toBlob(60000); // 60 second timeout (reduced from 120)
+  // Generate and return blob
+  console.log('[RoadmapPDF] Building PDF blob...');
+  const blob = await doc.toBlob(60000); // 60 second timeout
   return blob;
 }
 
@@ -875,7 +877,7 @@ async function buildMinimalPdf(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics
 ): Promise<Blob> {
-  console.log('generateRoadmapPdfMake: Building minimal fallback PDF...');
+  console.log('[RoadmapPDF] Building minimal fallback PDF...');
   
   const doc = createDocument();
   

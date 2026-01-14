@@ -10,17 +10,32 @@ import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 const initializePdfMake = () => {
   try {
     // Try different VFS structures (varies by pdfmake version)
-    const vfs = (pdfFonts as any).pdfMake?.vfs 
-      || (pdfFonts as any).vfs 
-      || (pdfFonts as any).default?.pdfMake?.vfs
-      || (pdfFonts as any).default?.vfs
-      || pdfFonts;
+    const vfsOptions = [
+      (pdfFonts as any).pdfMake?.vfs,
+      (pdfFonts as any).vfs,
+      (pdfFonts as any).default?.pdfMake?.vfs,
+      (pdfFonts as any).default?.vfs,
+      pdfFonts,
+    ];
     
-    if (vfs && typeof vfs === 'object' && Object.keys(vfs).length > 0) {
+    let vfs = null;
+    for (const option of vfsOptions) {
+      if (option && typeof option === 'object' && Object.keys(option).length > 0) {
+        // Check if it looks like a valid VFS (should have font files)
+        const keys = Object.keys(option);
+        if (keys.some(k => k.includes('.ttf') || k.includes('Roboto'))) {
+          vfs = option;
+          break;
+        }
+      }
+    }
+    
+    if (vfs) {
       pdfMake.vfs = vfs;
-      console.log('[PDFMake] VFS initialized successfully with', Object.keys(vfs).length, 'fonts');
+      const fontCount = Object.keys(vfs).filter(k => k.includes('.ttf')).length;
+      console.log(`[PDFMake] VFS initialized with ${fontCount} font files`);
     } else {
-      console.warn('[PDFMake] VFS appears empty or invalid, PDF generation may fail');
+      console.error('[PDFMake] VFS initialization failed - no valid font data found');
     }
   } catch (error) {
     console.error('[PDFMake] Failed to initialize VFS:', error);
@@ -40,9 +55,19 @@ const initializePdfMake = () => {
 // Initialize immediately
 initializePdfMake();
 
-// Verify VFS is ready
+// Verify VFS is ready with detailed check
 export const isPdfMakeReady = (): boolean => {
-  return pdfMake.vfs && typeof pdfMake.vfs === 'object' && Object.keys(pdfMake.vfs).length > 0;
+  if (!pdfMake.vfs || typeof pdfMake.vfs !== 'object') {
+    console.error('[PDFMake] VFS not set');
+    return false;
+  }
+  const keys = Object.keys(pdfMake.vfs);
+  const hasFonts = keys.some(k => k.includes('.ttf') || k.includes('Roboto'));
+  if (!hasFonts) {
+    console.error('[PDFMake] VFS has no font files');
+    return false;
+  }
+  return true;
 };
 
 export { pdfMake };
