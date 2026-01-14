@@ -238,24 +238,40 @@ export default function AdminRoadmapReview() {
     setShowProgressOverlay(true);
     setExportStep('capturing');
     
+    // Warn user if generating a complex report
+    const isComplexExport = options?.includeCharts !== false && 
+      options?.includeFullRoadmapItems === true && 
+      enhancedSummaries.length > 15;
+    
+    if (isComplexExport) {
+      toast.info("Generating complex report - this may take a minute...");
+    }
+    
     try {
-      // Step 1: Get charts (use pre-captured if available, otherwise capture now)
+      // Step 1: Get charts (use pre-captured if available, otherwise skip for speed)
       let capturedCharts = undefined;
-      let usedPreCaptured = false;
       
       if (options?.includeCharts !== false) {
         if (chartsPreCaptured && preCapturedCharts && preCapturedCharts.length > 0) {
           // Use pre-captured charts - instant!
           capturedCharts = preCapturedCharts;
-          usedPreCaptured = true;
           console.log(`Using ${preCapturedCharts.length} pre-captured charts`);
         } else {
-          // Capture now
+          // Try to capture now with a short timeout
+          console.log('Charts not pre-captured, attempting capture...');
           try {
-            capturedCharts = await captureRoadmapReviewCharts();
+            const capturePromise = captureRoadmapReviewCharts();
+            const timeoutPromise = new Promise<undefined>((resolve) => 
+              setTimeout(() => {
+                console.log('Chart capture timed out, proceeding without charts');
+                resolve(undefined);
+              }, 8000)
+            );
+            capturedCharts = await Promise.race([capturePromise, timeoutPromise]);
           } catch (chartError) {
             console.error("Chart capture error:", chartError);
             // Continue without charts
+            toast.warning("Charts could not be captured - generating text-only report");
           }
         }
       }
@@ -271,7 +287,7 @@ export default function AdminRoadmapReview() {
         throw new Error('Export cancelled');
       }
 
-      // Step 3: Generate PDF
+      // Step 3: Generate PDF with timeout handling
       setExportStep('generating');
       console.log('Starting PDF generation with', enhancedSummaries.length, 'projects');
       console.log('Options:', {
@@ -286,15 +302,15 @@ export default function AdminRoadmapReview() {
           includeCharts: options?.includeCharts ?? true,
           includeAnalytics: options?.includeAnalytics ?? true,
           includeDetailedProjects: options?.includeDetailedProjects ?? true,
-          includeMeetingNotes: options?.includeMeetingNotes ?? true,
-          includeSummaryMinutes: options?.includeSummaryMinutes ?? true,
+          includeMeetingNotes: options?.includeMeetingNotes ?? false, // Disabled by default for speed
+          includeSummaryMinutes: options?.includeSummaryMinutes ?? false,
           includeTableOfContents: options?.includeTableOfContents ?? true,
           includeCoverPage: options?.includeCoverPage ?? true,
           includeFullRoadmapItems: options?.includeFullRoadmapItems ?? false,
           companyLogo: options?.companyLogo,
           companyName: options?.companyName,
           confidentialNotice: options?.confidentialNotice ?? true,
-          reportType: options?.reportType ?? 'meeting-review',
+          reportType: options?.reportType ?? 'standard',
           chartLayout: options?.chartLayout ?? 'stacked',
         },
         queryData?.allRoadmapItems,
