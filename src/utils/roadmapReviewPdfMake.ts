@@ -690,21 +690,23 @@ export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]>
 // ============================================================================
 
 /**
- * Generate the roadmap review PDF using pdfmake
- * Uses a progressive approach: tries with charts first, falls back to simpler version if needed
+ * Generate the roadmap review PDF using pdfmake with DIRECT DOWNLOAD
+ * This bypasses all blob/base64 methods which hang in browsers
  * @param capturedCharts - Pre-captured charts to include (optional, will capture if not provided)
+ * @returns Promise that resolves when download is complete
  */
 export async function generateRoadmapPdfMake(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
   options: Partial<RoadmapPDFExportOptions> = {},
   allRoadmapItems?: RoadmapItem[],
-  capturedCharts?: CapturedChartData[]
-): Promise<Blob> {
+  capturedCharts?: CapturedChartData[],
+  filename?: string
+): Promise<string> {
   console.log('[RoadmapPDF] Starting generation with', projects.length, 'projects');
   
   // Import validation function
-  const { validatePdfMake } = await import('./pdfmake');
+  const { validatePdfMake, pdfMake } = await import('./pdfmake/config');
   
   // Validate pdfmake is properly configured
   const validation = validatePdfMake();
@@ -735,43 +737,46 @@ export async function generateRoadmapPdfMake(
     console.log('[RoadmapPDF] Using', capturedCharts.length, 'pre-captured charts');
   }
 
-  // First attempt: with charts
+  const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
+
+  // Build the document definition and download directly
   try {
-    console.log('[RoadmapPDF] Building document with charts...');
-    const blob = await buildPdfDocument(projects, metrics, config, allRoadmapItems, charts);
-    console.log('[RoadmapPDF] PDF generated successfully with charts, size:', blob.size);
-    return blob;
-  } catch (error) {
-    console.error('[RoadmapPDF] PDF generation with charts failed:', error);
+    console.log('[RoadmapPDF] Building document...');
+    const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
     
-    // Fallback: try without charts if we had charts
-    if (charts.length > 0) {
-      console.log('[RoadmapPDF] Retrying without charts...');
+    console.log('[RoadmapPDF] Starting direct download...');
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('PDF download timed out after 45s'));
+      }, 45000);
+      
       try {
-        const blob = await buildPdfDocument(projects, metrics, config, allRoadmapItems, []);
-        console.log('[RoadmapPDF] PDF generated successfully without charts, size:', blob.size);
-        return blob;
-      } catch (fallbackError) {
-        console.error('[RoadmapPDF] PDF generation without charts also failed:', fallbackError);
+        pdfMake.createPdf(docDefinition).download(finalFilename, () => {
+          clearTimeout(timeout);
+          console.log('[RoadmapPDF] Download completed:', finalFilename);
+          resolve(finalFilename);
+        });
+      } catch (error) {
+        clearTimeout(timeout);
+        reject(error);
       }
-    }
-    
-    // Final fallback: minimal PDF
-    console.log('[RoadmapPDF] Creating minimal PDF...');
-    return buildMinimalPdf(projects, metrics);
+    });
+  } catch (error) {
+    console.error('[RoadmapPDF] PDF generation failed:', error);
+    throw error;
   }
 }
 
 /**
- * Build the full PDF document
+ * Build the full PDF document definition (no blob - just the definition)
  */
-async function buildPdfDocument(
+async function buildPdfDocumentDefinition(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
   config: RoadmapPDFExportOptions,
   allRoadmapItems?: RoadmapItem[],
   charts: CapturedChartData[] = []
-): Promise<Blob> {
+): Promise<TDocumentDefinitions> {
   const doc = createDocument()
     .withStandardHeader('Roadmap Review Report', config.companyName)
     .withStandardFooter(config.confidentialNotice);
@@ -791,7 +796,7 @@ async function buildPdfDocument(
   }
 
   // Limit projects to prevent overly complex documents
-  const maxProjects = 20;
+  const maxProjects = 25;
   const limitedProjects = projects.slice(0, maxProjects);
 
   // Add cover page
@@ -883,96 +888,23 @@ async function buildPdfDocument(
     }
   }
 
-  // Generate and return blob with shorter timeout
-  console.log('[RoadmapPDF] Building PDF blob...');
-  const blob = await doc.toBlob(30000); // 30 second timeout - reduced for faster failure
-  console.log('[RoadmapPDF] PDF blob created, size:', blob.size, 'bytes');
-  return blob;
+  // Return document definition - NOT a blob
+  console.log('[RoadmapPDF] Document definition built successfully');
+  return doc.build();
 }
 
-/**
- * Build a minimal PDF as a last resort fallback
- */
-async function buildMinimalPdf(
-  projects: EnhancedProjectSummary[],
-  metrics: PortfolioMetrics
-): Promise<Blob> {
-  console.log('[RoadmapPDF] Building minimal fallback PDF...');
-  
-  const doc = createDocument();
-  
-  // Simple title
-  doc.add([
-    { text: 'ROADMAP REVIEW REPORT', fontSize: 24, bold: true, alignment: 'center' as const, margin: [0, 40, 0, 20] as Margins },
-    { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
-  ]);
-  
-  // Simple summary table
-  doc.add([
-    { text: 'Portfolio Summary', fontSize: 16, bold: true, margin: [0, 20, 0, 10] as Margins },
-    {
-      table: {
-        widths: ['50%', '50%'],
-        body: [
-          ['Total Projects', String(metrics.totalProjects)],
-          ['Average Progress', `${metrics.averageProgress}%`],
-          ['Portfolio Health', `${metrics.totalHealthScore}%`],
-          ['Projects at Risk', String(metrics.projectsAtRisk)],
-          ['Overdue Items', String(metrics.totalOverdueItems)],
-        ],
-      },
-    },
-  ]);
-  
-  // Project list
-  doc.add([
-    { text: 'Projects', fontSize: 16, bold: true, margin: [0, 30, 0, 10] as Margins },
-    ...projects.slice(0, 15).map(p => ({
-      text: `• ${p.projectName} - ${p.progress}% complete (Health: ${p.healthScore}%)`,
-      fontSize: 10,
-      margin: [0, 2, 0, 2] as Margins,
-    })),
-  ]);
-  
-  console.log('[RoadmapPDF] Building minimal PDF blob...');
-  return doc.toBlob(15000); // 15 second timeout for simple doc
-}
+// NOTE: buildMinimalPdf and downloadRoadmapPdfMake removed - use generateRoadmapPdfMake or quickDownloadRoadmapPdf instead
 
 /**
- * Download the roadmap review PDF
- */
-export async function downloadRoadmapPdfMake(
-  projects: EnhancedProjectSummary[],
-  metrics: PortfolioMetrics,
-  options?: Partial<RoadmapPDFExportOptions>,
-  allRoadmapItems?: RoadmapItem[],
-  filename?: string
-): Promise<Blob> {
-  const blob = await generateRoadmapPdfMake(projects, metrics, options, allRoadmapItems);
-  
-  // Create download
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  
-  return blob;
-}
-
-/**
- * Quick export using direct download - bypasses blob generation
- * This is more reliable when toBlob times out
+ * Quick export using direct download - includes ALL projects with full details
+ * More reliable than blob-based methods
  */
 export async function quickDownloadRoadmapPdf(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
   filename?: string
 ): Promise<void> {
-  console.log('[RoadmapPDF] Quick download starting...');
+  console.log('[RoadmapPDF] Quick download starting with', projects.length, 'projects...');
   
   const { pdfMake, validatePdfMake } = await import('./pdfmake/config');
   
@@ -981,37 +913,156 @@ export async function quickDownloadRoadmapPdf(
     throw new Error(`PDF library not ready: ${validation.error}`);
   }
   
-  // Build content array with proper types
-  const projectItems: Content[] = projects.slice(0, 20).map(p => ({
-    text: `• ${p.projectName} - ${p.progress}% complete (Health: ${p.healthScore}%)`,
-    fontSize: 10,
-    margin: [0, 2, 0, 2] as Margins,
-  }));
+  // Build ALL projects - not just 20
+  const projectRows = projects.map((p, idx) => [
+    { text: p.projectName, fontSize: 9, fillColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff' },
+    { text: `${p.progress}%`, fontSize: 9, alignment: 'center' as const, fillColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff' },
+    { text: `${p.healthScore}%`, fontSize: 9, alignment: 'center' as const, fillColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff',
+      color: p.healthScore >= 70 ? '#16a34a' : p.healthScore >= 40 ? '#ca8a04' : '#dc2626' },
+    { text: String(p.overdueCount), fontSize: 9, alignment: 'center' as const, fillColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff',
+      color: p.overdueCount > 0 ? '#dc2626' : '#6b7280' },
+    { text: `${p.completedItems}/${p.totalItems}`, fontSize: 9, alignment: 'center' as const, fillColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff' },
+  ]);
   
-  // Build a simple document definition directly
+  // Build a comprehensive document definition
   const docDefinition: TDocumentDefinitions = {
     pageSize: 'A4',
-    pageMargins: [40, 60, 40, 60],
+    pageMargins: [40, 60, 40, 60] as Margins,
     defaultStyle: { font: 'Roboto', fontSize: 10 },
+    header: (currentPage: number, pageCount: number): Content => {
+      if (currentPage === 1) return { text: '' } as Content;
+      return {
+        columns: [
+          { text: 'Roadmap Review Report', fontSize: 9, color: '#6b7280', margin: [40, 20, 0, 0] as Margins },
+          { text: `Page ${currentPage - 1} of ${pageCount - 1}`, fontSize: 9, color: '#6b7280', alignment: 'right' as const, margin: [0, 20, 40, 0] as Margins },
+        ],
+      } as Content;
+    },
     content: [
-      { text: 'ROADMAP REVIEW REPORT', fontSize: 24, bold: true, alignment: 'center', margin: [0, 40, 0, 20] as Margins } as Content,
-      { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center', margin: [0, 0, 0, 40] as Margins } as Content,
-      { text: 'Portfolio Summary', fontSize: 16, bold: true, margin: [0, 20, 0, 10] as Margins } as Content,
+      // Cover page
+      { text: 'ROADMAP REVIEW REPORT', fontSize: 28, bold: true, alignment: 'center', margin: [0, 120, 0, 20] as Margins },
+      { text: 'Portfolio Overview', fontSize: 18, alignment: 'center', color: '#6b7280', margin: [0, 0, 0, 40] as Margins },
+      { text: `Generated: ${format(new Date(), 'MMMM d, yyyy \'at\' h:mm a')}`, fontSize: 12, alignment: 'center', margin: [0, 0, 0, 20] as Margins },
+      { text: `Total Projects: ${metrics.totalProjects}`, fontSize: 12, alignment: 'center', color: '#6b7280' },
+      { text: '', pageBreak: 'after' },
+      
+      // Executive Summary
+      { text: 'Executive Summary', fontSize: 18, bold: true, color: '#1e40af', margin: [0, 0, 0, 15] as Margins },
+      {
+        canvas: [{ type: 'line', x1: 0, y1: 0, x2: 150, y2: 0, lineWidth: 2, lineColor: '#1e40af' }],
+        margin: [0, 0, 0, 15] as Margins,
+      },
       {
         table: {
-          widths: ['50%', '50%'],
+          headerRows: 1,
+          widths: ['40%', '25%', '35%'],
           body: [
-            [{ text: 'Metric', bold: true }, { text: 'Value', bold: true }],
-            ['Total Projects', String(metrics.totalProjects)],
-            ['Average Progress', `${metrics.averageProgress}%`],
-            ['Portfolio Health', `${metrics.totalHealthScore}%`],
-            ['Projects at Risk', String(metrics.projectsAtRisk)],
-            ['Overdue Items', String(metrics.totalOverdueItems)],
+            [
+              { text: 'Metric', bold: true, fillColor: '#1e40af', color: '#ffffff', fontSize: 10 },
+              { text: 'Value', bold: true, fillColor: '#1e40af', color: '#ffffff', fontSize: 10, alignment: 'center' },
+              { text: 'Status', bold: true, fillColor: '#1e40af', color: '#ffffff', fontSize: 10, alignment: 'center' },
+            ],
+            [
+              { text: 'Total Projects', fontSize: 10 },
+              { text: String(metrics.totalProjects), fontSize: 10, alignment: 'center' },
+              { text: 'Active', fontSize: 10, alignment: 'center' },
+            ],
+            [
+              { text: 'Average Progress', fontSize: 10, fillColor: '#f3f4f6' },
+              { text: `${metrics.averageProgress}%`, fontSize: 10, alignment: 'center', fillColor: '#f3f4f6' },
+              { text: metrics.averageProgress >= 60 ? 'On Track' : metrics.averageProgress >= 40 ? 'Attention' : 'Behind', 
+                fontSize: 10, alignment: 'center', fillColor: '#f3f4f6',
+                color: metrics.averageProgress >= 60 ? '#16a34a' : metrics.averageProgress >= 40 ? '#ca8a04' : '#dc2626' },
+            ],
+            [
+              { text: 'Portfolio Health', fontSize: 10 },
+              { text: `${metrics.totalHealthScore}%`, fontSize: 10, alignment: 'center' },
+              { text: metrics.totalHealthScore >= 70 ? 'Healthy' : metrics.totalHealthScore >= 50 ? 'Moderate' : 'Needs Attention',
+                fontSize: 10, alignment: 'center',
+                color: metrics.totalHealthScore >= 70 ? '#16a34a' : metrics.totalHealthScore >= 50 ? '#ca8a04' : '#dc2626' },
+            ],
+            [
+              { text: 'Projects at Risk', fontSize: 10, fillColor: '#f3f4f6' },
+              { text: String(metrics.projectsAtRisk), fontSize: 10, alignment: 'center', fillColor: '#f3f4f6' },
+              { text: metrics.projectsAtRisk === 0 ? 'None' : metrics.projectsAtRisk <= 2 ? 'Manageable' : 'High',
+                fontSize: 10, alignment: 'center', fillColor: '#f3f4f6',
+                color: metrics.projectsAtRisk === 0 ? '#16a34a' : metrics.projectsAtRisk <= 2 ? '#ca8a04' : '#dc2626' },
+            ],
+            [
+              { text: 'Critical Projects', fontSize: 10 },
+              { text: String(metrics.projectsCritical), fontSize: 10, alignment: 'center' },
+              { text: metrics.projectsCritical === 0 ? 'None' : 'Action Needed',
+                fontSize: 10, alignment: 'center',
+                color: metrics.projectsCritical === 0 ? '#16a34a' : '#dc2626' },
+            ],
+            [
+              { text: 'Overdue Items', fontSize: 10, fillColor: '#f3f4f6' },
+              { text: String(metrics.totalOverdueItems), fontSize: 10, alignment: 'center', fillColor: '#f3f4f6' },
+              { text: metrics.totalOverdueItems === 0 ? 'None' : metrics.totalOverdueItems <= 3 ? 'Low' : 'High',
+                fontSize: 10, alignment: 'center', fillColor: '#f3f4f6',
+                color: metrics.totalOverdueItems === 0 ? '#16a34a' : metrics.totalOverdueItems <= 3 ? '#ca8a04' : '#dc2626' },
+            ],
+            [
+              { text: 'Due This Week', fontSize: 10 },
+              { text: String(metrics.totalDueSoonItems), fontSize: 10, alignment: 'center' },
+              { text: '-', fontSize: 10, alignment: 'center' },
+            ],
+            [
+              { text: 'Team Members', fontSize: 10, fillColor: '#f3f4f6' },
+              { text: String(metrics.totalTeamMembers), fontSize: 10, alignment: 'center', fillColor: '#f3f4f6' },
+              { text: '-', fontSize: 10, alignment: 'center', fillColor: '#f3f4f6' },
+            ],
           ],
         },
-      } as Content,
-      { text: 'Projects', fontSize: 16, bold: true, margin: [0, 30, 0, 10] as Margins } as Content,
-      ...projectItems,
+        layout: {
+          hLineColor: () => '#e5e7eb',
+          vLineColor: () => '#e5e7eb',
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 6,
+          paddingBottom: () => 6,
+        },
+      },
+      { text: '', pageBreak: 'after' },
+      
+      // Project Details Table
+      { text: 'Project Details', fontSize: 18, bold: true, color: '#1e40af', margin: [0, 0, 0, 15] as Margins },
+      {
+        canvas: [{ type: 'line', x1: 0, y1: 0, x2: 150, y2: 0, lineWidth: 2, lineColor: '#1e40af' }],
+        margin: [0, 0, 0, 15] as Margins,
+      },
+      {
+        table: {
+          headerRows: 1,
+          widths: ['35%', '13%', '13%', '13%', '13%'],
+          body: [
+            [
+              { text: 'Project', bold: true, fillColor: '#1e40af', color: '#ffffff', fontSize: 9 },
+              { text: 'Progress', bold: true, fillColor: '#1e40af', color: '#ffffff', fontSize: 9, alignment: 'center' },
+              { text: 'Health', bold: true, fillColor: '#1e40af', color: '#ffffff', fontSize: 9, alignment: 'center' },
+              { text: 'Overdue', bold: true, fillColor: '#1e40af', color: '#ffffff', fontSize: 9, alignment: 'center' },
+              { text: 'Items', bold: true, fillColor: '#1e40af', color: '#ffffff', fontSize: 9, alignment: 'center' },
+            ],
+            ...projectRows,
+          ],
+        },
+        layout: {
+          hLineColor: () => '#e5e7eb',
+          vLineColor: () => '#e5e7eb',
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          paddingLeft: () => 6,
+          paddingRight: () => 6,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
+        },
+      },
+      
+      // Footer note
+      { text: `Report generated on ${format(new Date(), 'MMMM d, yyyy \'at\' h:mm:ss a')}`, 
+        fontSize: 9, color: '#9ca3af', margin: [0, 30, 0, 0] as Margins, alignment: 'center' },
     ],
   };
   
@@ -1019,12 +1070,18 @@ export async function quickDownloadRoadmapPdf(
   
   console.log('[RoadmapPDF] Creating PDF with direct download...');
   return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Quick download timed out after 30s'));
+    }, 30000);
+    
     try {
       pdfMake.createPdf(docDefinition).download(finalFilename, () => {
-        console.log('[RoadmapPDF] Quick download completed');
+        clearTimeout(timeout);
+        console.log('[RoadmapPDF] Quick download completed:', finalFilename);
         resolve();
       });
     } catch (error) {
+      clearTimeout(timeout);
       console.error('[RoadmapPDF] Quick download failed:', error);
       reject(error);
     }
