@@ -21,6 +21,7 @@ export interface ProjectRoadmapSummary {
 
 export interface EnhancedProjectSummary extends ProjectRoadmapSummary {
   healthScore: number;
+  healthTrend: 'improving' | 'declining' | 'stable';
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   overdueCount: number;
   dueSoonCount: number;
@@ -42,6 +43,8 @@ export interface PortfolioMetrics {
   totalDueSoonItems: number;
   totalTeamMembers: number;
   priorityBreakdown: { priority: string; count: number }[];
+  portfolioTrend: 'improving' | 'declining' | 'stable';
+  resourceBottlenecks: { memberName: string; taskCount: number; overdueCount: number }[];
 }
 
 export function getDueDateStatus(dueDate: string | null): 'overdue' | 'soon' | 'ok' | null {
@@ -161,9 +164,13 @@ export function enhanceProjectSummary(
       completedAt: item.updated_at,
     }));
 
+  // Calculate stability/trend based on velocity vs overdue
+  const healthTrend = velocityLast7Days > overdueCount ? 'improving' : overdueCount > 2 ? 'declining' : 'stable';
+
   return {
     ...summary,
     healthScore,
+    healthTrend,
     riskLevel,
     overdueCount,
     dueSoonCount,
@@ -212,6 +219,34 @@ export function calculatePortfolioMetrics(summaries: EnhancedProjectSummary[]): 
       return (order[a.priority as keyof typeof order] ?? 5) - (order[b.priority as keyof typeof order] ?? 5);
     });
 
+  // Calculate portfolio trend
+  const improvingCount = summaries.filter(s => s.healthTrend === 'improving').length;
+  const decliningCount = summaries.filter(s => s.healthTrend === 'declining').length;
+  const portfolioTrend = improvingCount > decliningCount ? 'improving' : decliningCount > improvingCount ? 'declining' : 'stable';
+
+  // Identify resource bottlenecks
+  const memberStats = new Map<string, { name: string; tasks: number; overdue: number }>();
+  summaries.forEach(s => {
+    s.teamMembers.forEach(m => {
+      const stats = memberStats.get(m.id) || { name: m.name, tasks: 0, overdue: 0 };
+      // This is a simplification; ideally we'd filter allItems by assigned user
+      // For now, we use a proxy based on project membership and project overdue count
+      stats.tasks += s.totalItems;
+      stats.overdue += s.overdueCount;
+      memberStats.set(m.id, stats);
+    });
+  });
+
+  const resourceBottlenecks = Array.from(memberStats.values())
+    .map(stats => ({
+      memberName: stats.name,
+      taskCount: stats.tasks,
+      overdueCount: stats.overdue
+    }))
+    .filter(stats => stats.overdueCount > 3 || stats.taskCount > 20)
+    .sort((a, b) => b.overdueCount - a.overdueCount)
+    .slice(0, 5);
+
   return {
     totalProjects,
     averageProgress,
@@ -222,6 +257,8 @@ export function calculatePortfolioMetrics(summaries: EnhancedProjectSummary[]): 
     totalDueSoonItems,
     totalTeamMembers,
     priorityBreakdown,
+    portfolioTrend,
+    resourceBottlenecks,
   };
 }
 

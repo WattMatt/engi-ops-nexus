@@ -7,12 +7,12 @@
 
 import type { Content, ContentTable, TableCell, Margins, TDocumentDefinitions } from "pdfmake/interfaces";
 import { format } from "date-fns";
-import { 
-  createDocument, 
-  heading, 
-  paragraph, 
-  dataTable, 
-  horizontalLine, 
+import {
+  createDocument,
+  heading,
+  paragraph,
+  dataTable,
+  horizontalLine,
   spacer,
   pageBreak,
   fetchCompanyDetails,
@@ -22,20 +22,20 @@ import {
   isPdfMakeReady,
 } from "./pdfmake";
 import type { PDFDocumentBuilder } from "./pdfmake";
-import { 
-  EnhancedProjectSummary, 
+import {
+  EnhancedProjectSummary,
   PortfolioMetrics,
-  getDueDateStatus 
+  getDueDateStatus
 } from "./roadmapReviewCalculations";
-import { 
+import {
   PDF_COLORS_HEX,
   RoadmapPDFExportOptions,
   DEFAULT_EXPORT_OPTIONS,
 } from "./roadmapReviewPdfStyles";
-import { 
-  captureCharts, 
-  buildChartSectionContent, 
-  type ChartConfig, 
+import {
+  captureCharts,
+  buildChartSectionContent,
+  type ChartConfig,
   type CapturedChartData,
   waitForCharts,
 } from "./pdfmake/chartUtils";
@@ -112,9 +112,9 @@ const buildExecutiveSummary = (metrics: PortfolioMetrics): Content => {
     [
       { text: 'Average Progress', fontSize: 10, fillColor: PDF_COLORS_HEX.lightGray },
       { text: `${metrics.averageProgress}%`, fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.lightGray },
-      { 
-        text: metrics.averageProgress >= 60 ? 'On Track' : metrics.averageProgress >= 40 ? 'Attention' : 'Behind', 
-        fontSize: 10, 
+      {
+        text: metrics.averageProgress >= 60 ? 'On Track' : metrics.averageProgress >= 40 ? 'Attention' : 'Behind',
+        fontSize: 10,
         alignment: 'center',
         fillColor: PDF_COLORS_HEX.lightGray,
         color: metrics.averageProgress >= 60 ? PDF_COLORS_HEX.success : metrics.averageProgress >= 40 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.danger,
@@ -123,9 +123,9 @@ const buildExecutiveSummary = (metrics: PortfolioMetrics): Content => {
     [
       { text: 'Portfolio Health', fontSize: 10 },
       { text: `${metrics.totalHealthScore}%`, fontSize: 10, alignment: 'center' },
-      { 
-        text: metrics.totalHealthScore >= 70 ? 'Healthy' : metrics.totalHealthScore >= 50 ? 'Moderate' : 'Needs Attention', 
-        fontSize: 10, 
+      {
+        text: metrics.totalHealthScore >= 70 ? 'Healthy' : metrics.totalHealthScore >= 50 ? 'Moderate' : 'Needs Attention',
+        fontSize: 10,
         alignment: 'center',
         color: getHealthColorHex(metrics.totalHealthScore),
       },
@@ -133,9 +133,9 @@ const buildExecutiveSummary = (metrics: PortfolioMetrics): Content => {
     [
       { text: 'Projects at Risk', fontSize: 10, fillColor: PDF_COLORS_HEX.lightGray },
       { text: String(metrics.projectsAtRisk), fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.lightGray },
-      { 
+      {
         text: metrics.projectsAtRisk === 0 ? 'None' : metrics.projectsAtRisk <= 2 ? 'Manageable' : 'High',
-        fontSize: 10, 
+        fontSize: 10,
         alignment: 'center',
         fillColor: PDF_COLORS_HEX.lightGray,
         color: metrics.projectsAtRisk === 0 ? PDF_COLORS_HEX.success : metrics.projectsAtRisk <= 2 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.danger,
@@ -144,9 +144,9 @@ const buildExecutiveSummary = (metrics: PortfolioMetrics): Content => {
     [
       { text: 'Critical Projects', fontSize: 10 },
       { text: String(metrics.projectsCritical), fontSize: 10, alignment: 'center' },
-      { 
+      {
         text: metrics.projectsCritical === 0 ? 'None' : 'Action Needed',
-        fontSize: 10, 
+        fontSize: 10,
         alignment: 'center',
         color: metrics.projectsCritical === 0 ? PDF_COLORS_HEX.success : PDF_COLORS_HEX.danger,
       },
@@ -154,9 +154,9 @@ const buildExecutiveSummary = (metrics: PortfolioMetrics): Content => {
     [
       { text: 'Overdue Items', fontSize: 10, fillColor: PDF_COLORS_HEX.lightGray },
       { text: String(metrics.totalOverdueItems), fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.lightGray },
-      { 
+      {
         text: metrics.totalOverdueItems === 0 ? 'None' : metrics.totalOverdueItems <= 3 ? 'Low' : 'High',
-        fontSize: 10, 
+        fontSize: 10,
         alignment: 'center',
         fillColor: PDF_COLORS_HEX.lightGray,
         color: metrics.totalOverdueItems === 0 ? PDF_COLORS_HEX.success : metrics.totalOverdueItems <= 3 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.danger,
@@ -166,6 +166,16 @@ const buildExecutiveSummary = (metrics: PortfolioMetrics): Content => {
       { text: 'Due This Week', fontSize: 10 },
       { text: String(metrics.totalDueSoonItems), fontSize: 10, alignment: 'center' },
       { text: '-', fontSize: 10, alignment: 'center' },
+    ],
+    [
+      { text: 'Portfolio Trend', fontSize: 10 },
+      { text: metrics.portfolioTrend.charAt(0).toUpperCase() + metrics.portfolioTrend.slice(1), fontSize: 10, alignment: 'center' },
+      {
+        text: metrics.portfolioTrend === 'improving' ? 'Positive' : metrics.portfolioTrend === 'declining' ? 'At Risk' : 'Maintain',
+        fontSize: 10,
+        alignment: 'center',
+        color: metrics.portfolioTrend === 'improving' ? PDF_COLORS_HEX.success : metrics.portfolioTrend === 'declining' ? PDF_COLORS_HEX.danger : PDF_COLORS_HEX.primary,
+      },
     ],
     [
       { text: 'Team Members', fontSize: 10, fillColor: PDF_COLORS_HEX.lightGray },
@@ -203,6 +213,55 @@ const buildExecutiveSummary = (metrics: PortfolioMetrics): Content => {
 };
 
 /**
+ * Build resource bottlenecks section
+ */
+const buildResourceBottlenecks = (metrics: PortfolioMetrics): Content => {
+  if (metrics.resourceBottlenecks.length === 0) {
+    return { text: '' };
+  }
+
+  const rows: TableCell[][] = [
+    [
+      { text: 'Resource Name', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10 },
+      { text: 'Task Load', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
+      { text: 'Overdue', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
+    ],
+    ...metrics.resourceBottlenecks.map((b, idx) => {
+      const fillColor = idx % 2 === 0 ? PDF_COLORS_HEX.lightGray : '#FFFFFF';
+      return [
+        { text: b.memberName, fontSize: 10, fillColor },
+        { text: String(b.taskCount), fontSize: 10, alignment: 'center' as const, fillColor },
+        { text: String(b.overdueCount), fontSize: 10, alignment: 'center' as const, fillColor, color: PDF_COLORS_HEX.danger, bold: b.overdueCount > 0 },
+      ];
+    }),
+  ];
+
+  return {
+    stack: [
+      { text: 'Resource Bottleneck Analysis', style: 'h2', margin: [0, 20, 0, 10] as Margins },
+      {
+        table: {
+          headerRows: 1,
+          widths: ['40%', '30%', '30%'],
+          body: rows,
+        },
+        layout: {
+          hLineColor: () => PDF_COLORS_HEX.tableBorder,
+          vLineColor: () => PDF_COLORS_HEX.tableBorder,
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 6,
+          paddingBottom: () => 6,
+        },
+      },
+      { text: 'Resources above are flagged based on high task volume or significant overdue items.', fontSize: 8, italics: true, color: PDF_COLORS_HEX.gray, margin: [0, 5, 0, 0] as Margins },
+    ],
+  };
+};
+
+/**
  * Build priority distribution content
  */
 const buildPriorityDistribution = (metrics: PortfolioMetrics): Content => {
@@ -211,7 +270,7 @@ const buildPriorityDistribution = (metrics: PortfolioMetrics): Content => {
   }
 
   const total = metrics.priorityBreakdown.reduce((acc, x) => acc + x.count, 0);
-  
+
   const rows: TableCell[][] = [
     [
       { text: 'Priority Level', bold: true, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', fontSize: 10 },
@@ -261,10 +320,10 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content => {
 
   projects.forEach((project, idx) => {
     const healthColor = getHealthColorHex(project.healthScore);
-    
+
     // Build the stack content for this project
     const stackContent: Content[] = [];
-    
+
     // Project section header (only on first project)
     if (idx === 0) {
       stackContent.push(
@@ -275,23 +334,23 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content => {
         }
       );
     }
-    
+
     // Project header
     stackContent.push({
       columns: [
-        { 
-          text: project.projectName, 
-          fontSize: 18, 
-          bold: true, 
+        {
+          text: project.projectName,
+          fontSize: 18,
+          bold: true,
           color: PDF_COLORS_HEX.primary,
           width: '*',
         },
         {
           stack: [
-            { 
-              text: `${project.healthScore}%`, 
-              fontSize: 14, 
-              bold: true, 
+            {
+              text: `${project.healthScore}%`,
+              fontSize: 14,
+              bold: true,
               color: '#FFFFFF',
               alignment: 'center' as const,
               background: healthColor,
@@ -302,7 +361,7 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content => {
       ],
       margin: [0, 0, 0, 10] as Margins,
     });
-    
+
     // Health indicator bar
     stackContent.push({
       canvas: [
@@ -311,32 +370,32 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content => {
       ],
       margin: [0, 0, 0, 15] as Margins,
     });
-    
+
     // Project stats in a clear grid
     stackContent.push({
       columns: [
-        { 
+        {
           stack: [
             { text: 'Progress', fontSize: 8, color: PDF_COLORS_HEX.gray },
             { text: `${project.progress}%`, fontSize: 14, bold: true, color: PDF_COLORS_HEX.text },
           ],
           width: '*',
         },
-        { 
+        {
           stack: [
             { text: 'Items Completed', fontSize: 8, color: PDF_COLORS_HEX.gray },
             { text: `${project.completedItems}/${project.totalItems}`, fontSize: 14, bold: true, color: PDF_COLORS_HEX.text },
           ],
           width: '*',
         },
-        { 
+        {
           stack: [
             { text: 'Overdue', fontSize: 8, color: PDF_COLORS_HEX.gray },
             { text: `${project.overdueCount}`, fontSize: 14, bold: true, color: project.overdueCount > 0 ? PDF_COLORS_HEX.danger : PDF_COLORS_HEX.success },
           ],
           width: '*',
         },
-        { 
+        {
           stack: [
             { text: 'Team Members', fontSize: 8, color: PDF_COLORS_HEX.gray },
             { text: `${project.teamMembers.length}`, fontSize: 14, bold: true, color: PDF_COLORS_HEX.text },
@@ -346,7 +405,7 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content => {
       ],
       margin: [0, 0, 0, 20] as Margins,
     });
-    
+
     // Upcoming items table
     if (project.upcomingItems.length > 0) {
       stackContent.push(
@@ -383,7 +442,7 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content => {
           paddingBottom: () => 6,
         },
       });
-      
+
       if (project.upcomingItems.length > 10) {
         stackContent.push({
           text: `+ ${project.upcomingItems.length - 10} more upcoming tasks`,
@@ -394,15 +453,15 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content => {
         });
       }
     } else {
-      stackContent.push({ 
-        text: 'No upcoming tasks scheduled', 
-        fontSize: 11, 
-        italics: true, 
+      stackContent.push({
+        text: 'No upcoming tasks scheduled',
+        fontSize: 11,
+        italics: true,
         color: PDF_COLORS_HEX.gray,
         margin: [0, 10, 0, 0] as Margins,
       });
     }
-    
+
     // Team members section if available
     if (project.teamMembers.length > 0) {
       stackContent.push(
@@ -414,13 +473,13 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content => {
         }
       );
     }
-    
+
     // Each project gets its own page (add page break before all except first)
     const projectContent: Content = {
       stack: stackContent,
       pageBreak: idx > 0 ? 'before' as const : undefined,
     };
-    
+
     content.push(projectContent);
   });
 
@@ -435,14 +494,14 @@ const buildFullRoadmapPage = (
   allItems: RoadmapItem[]
 ): Content => {
   const projectItems = allItems.filter(item => item.project_id === project.projectId);
-  
+
   if (projectItems.length === 0) {
     return { text: '' };
   }
 
   const pendingItems = projectItems.filter(item => !item.is_completed);
   const completedItems = projectItems.filter(item => item.is_completed);
-  
+
   // Sort pending items: overdue first, then by due date
   pendingItems.sort((a, b) => {
     const aStatus = getDueDateStatus(a.due_date || null);
@@ -460,10 +519,10 @@ const buildFullRoadmapPage = (
     // Project header
     {
       columns: [
-        { 
-          text: `${project.projectName} - Full Roadmap`, 
-          fontSize: 16, 
-          bold: true, 
+        {
+          text: `${project.projectName} - Full Roadmap`,
+          fontSize: 16,
+          bold: true,
           color: PDF_COLORS_HEX.primary,
           width: '*',
         },
@@ -734,19 +793,19 @@ export const ROADMAP_REVIEW_CHARTS: ChartConfig[] = [
  */
 export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]> => {
   console.log('[RoadmapPDF] Starting chart capture...');
-  
+
   // Only capture charts that actually exist in the DOM
   const availableCharts = ROADMAP_REVIEW_CHARTS.filter(
     config => document.getElementById(config.elementId) !== null
   );
-  
+
   if (availableCharts.length === 0) {
     console.warn('[RoadmapPDF] No chart elements found. Expected IDs:', ROADMAP_REVIEW_CHARTS.map(c => c.elementId));
     return [];
   }
-  
+
   console.log(`[RoadmapPDF] Found ${availableCharts.length} charts to capture:`, availableCharts.map(c => c.elementId));
-  
+
   // Capture with balanced settings
   const charts = await captureCharts(availableCharts, {
     scale: 1.0,
@@ -757,7 +816,7 @@ export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]>
     maxWidth: 600,
     maxHeight: 400,
   });
-  
+
   console.log(`[RoadmapPDF] Successfully captured ${charts.length}/${availableCharts.length} charts`);
   return charts;
 };
@@ -789,10 +848,10 @@ export async function generateRoadmapPdfMake(
   filename?: string
 ): Promise<PDFGenerationResult> {
   console.log('[RoadmapPDF] Starting generation with', projects.length, 'projects');
-  
+
   // Import validation function
   const { validatePdfMake, pdfMake } = await import('./pdfmake/config');
-  
+
   // Validate pdfmake is properly configured
   const validation = validatePdfMake();
   if (!validation.valid) {
@@ -801,7 +860,7 @@ export async function generateRoadmapPdfMake(
     throw new Error(`PDF library not properly initialized: ${validation.error}`);
   }
   console.log('[RoadmapPDF] PDFMake validation passed');
-  
+
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
     ...options,
@@ -828,13 +887,13 @@ export async function generateRoadmapPdfMake(
   try {
     console.log('[RoadmapPDF] Building document...');
     const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
-    
+
     console.log('[RoadmapPDF] Generating PDF via base64...');
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('PDF generation timed out after 60s'));
       }, 60000);
-      
+
       try {
         // Use getBase64 which is more reliable in browsers, then convert to blob
         pdfMake.createPdf(docDefinition).getBase64((base64: string) => {
@@ -848,7 +907,7 @@ export async function generateRoadmapPdfMake(
             }
             const byteArray = new Uint8Array(byteNumbers);
             const blob = new Blob([byteArray], { type: 'application/pdf' });
-            
+
             console.log('[RoadmapPDF] PDF generated via base64:', finalFilename, 'size:', blob.size);
             resolve({ blob, filename: finalFilename });
           } catch (conversionError) {
@@ -886,8 +945,8 @@ async function buildPdfDocumentDefinition(
     const imageDict: Record<string, string> = {};
     charts.forEach(chart => {
       // Ensure the data URL is properly formatted
-      const dataUrl = chart.image.dataUrl.startsWith('data:') 
-        ? chart.image.dataUrl 
+      const dataUrl = chart.image.dataUrl.startsWith('data:')
+        ? chart.image.dataUrl
         : `data:image/jpeg;base64,${chart.image.dataUrl}`;
       imageDict[chart.config.elementId] = dataUrl;
     });
@@ -937,6 +996,7 @@ async function buildPdfDocumentDefinition(
     console.log('[RoadmapPDF] Adding executive summary...');
     doc.add(buildExecutiveSummary(metrics));
     doc.add(buildPriorityDistribution(metrics));
+    doc.add(buildResourceBottlenecks(metrics));
     doc.addPageBreak();
   }
 
@@ -944,7 +1004,7 @@ async function buildPdfDocumentDefinition(
   if (config.includeCharts && charts.length > 0) {
     const totalChartSize = charts.reduce((acc, c) => acc + c.image.sizeBytes, 0);
     const maxChartSize = 500 * 1024;
-    
+
     if (totalChartSize < maxChartSize) {
       console.log(`[RoadmapPDF] Adding ${charts.length} charts (${Math.round(totalChartSize / 1024)}KB)...`);
       const chartContent = buildChartSectionContent(charts, {

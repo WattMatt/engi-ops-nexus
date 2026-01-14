@@ -1409,6 +1409,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       {/* Circuit Schedule View */}
       {topLevelView === 'circuits' && renderCircuitScheduleView()}
       {/* Project Overview View */}
+      {/* Project Overview View */}
       {topLevelView === 'overview' && (
         <>
           <div className='p-4 flex-shrink-0'>
@@ -1503,380 +1504,309 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                         <span className="font-bold text-green-400">R {totalCableCost.toFixed(2)}</span>
                       </div>
                     )}
-=======
-      {/* Project Overview View */}
-                    {topLevelView === 'overview' && (
-                      <>
-                        <div className='p-4 flex-shrink-0'>
-                          {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
-                          {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
-                          {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
-                          {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} projectId={projectId} floorPlanId={floorPlanId} currentCircuitId={selectedLine.dbCircuitId} />}
-                          {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} projectId={projectId} floorPlanId={floorPlanId} />}
-                        </div>
+                  </div>
 
-                        <div className="border-b border-border px-2 flex-shrink-0">
-                          <nav className="-mb-px flex flex-wrap" aria-label="Tabs">
-                            <TabButton tabId="summary" label="Summary" />
-                            <TabButton tabId="equipment" label="Equipment" />
-                            <TabButton tabId="cables" label="Cables" disabled={!hasCables} />
-                            <TabButton tabId="containment" label="Containment" />
-                            <TabButton tabId="zones" label="Zones" />
-                            <TabButton tabId="tasks" label="Tasks" count={tasks.length} />
-                          </nav>
-                        </div>
-
-                        <div className="flex-grow overflow-y-auto p-4">
-                          <div style={{ display: activeTab === 'summary' ? 'block' : 'none' }}>{renderSummaryTab()}</div>
-                          <div style={{ display: activeTab === 'equipment' ? 'block' : 'none' }}>
-                            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Equipment Quantities</h3>
-                            <div className="space-y-1.5 text-sm max-h-[60vh] overflow-y-auto pr-1">
-                              {equipmentCounts.filter(([, count]) => count > 0).map(([type, count]) => (
-                                <div key={type} className="flex justify-between items-center bg-gray-700/50 p-2 rounded-md">
-                                  <div className="flex items-center gap-3">
-                                    <EquipmentIcon type={type} className="h-5 w-5 text-amber-400" />
-                                    <span className="text-gray-300 text-xs flex-1">{type}</span>
->>>>>>> Stashed changes
-                                  </div>
-                                  <span className="font-mono font-bold text-indigo-400 bg-indigo-900/50 px-2 py-0.5 rounded">{count}</span>
-                                </div>
-                              ))}
-                              {equipmentCounts.filter(([_, count]) => count > 0).length === 0 && <p className="text-gray-500 text-xs text-center p-4">No equipment placed.</p>}
-                            </div>
+                  {/* Cable Type Breakdown */}
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Breakdown by Type & Size</h4>
+                    {cableSummary.map((summary) => (
+                      <div key={`${summary.type}_${summary.size}`} className="bg-gray-700/50 p-2.5 rounded-md">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <div className="font-semibold text-sm text-gray-200">{summary.type}</div>
+                            <div className="text-[10px] text-gray-400">Size: {summary.size}</div>
                           </div>
-                          <div style={{ display: activeTab === 'cables' ? 'block' : 'none' }}>
-                            <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cable Schedule</h3>
-                              {lines.filter(l => l.cableType && l.points.length >= 2).length > 0 && (
-                                <button
-                                  onClick={() => setShow3DModal(true)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors"
-                                >
-                                  <Box size={14} />
-                                  3D Analysis
-                                </button>
-                              )}
-                            </div>
-                            {loadingCables ? (
-                              <p className="text-gray-500 text-xs text-center p-4">Loading cables...</p>
-                            ) : cableEntries.length > 0 ? (
-                              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                                {/* Summary Totals Card */}
-                                <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 space-y-2">
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-gray-300 font-medium">Total Cables:</span>
-                                    <span className="font-bold text-primary">{cableEntries.length}</span>
-                                  </div>
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-gray-300 font-medium">Total Length:</span>
-                                    <span className="font-bold text-amber-400">{totalCableLength.toFixed(2)}m</span>
-                                  </div>
-                                  {totalCableCost > 0 && (
-                                    <div className="flex justify-between items-center text-xs">
-                                      <span className="text-gray-300 font-medium">Total Cost:</span>
-                                      <span className="font-bold text-green-400">R {totalCableCost.toFixed(2)}</span>
-                                    </div>
-                                  )}
-                                </div>
+                          <div className="text-right">
+                            <div className="text-xs font-bold text-amber-400">{summary.count} cables</div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-gray-400">
+                          <span>Total Length: <span className="text-gray-300 font-mono">{summary.totalLength.toFixed(2)}m</span></span>
+                          {summary.totalCost > 0 && (
+                            <span>Cost: <span className="text-green-400 font-mono">R {summary.totalCost.toFixed(2)}</span></span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-                                {/* Cable Type Breakdown */}
-                                <div className="space-y-2">
-                                  <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Breakdown by Type & Size</h4>
-                                  {cableSummary.map((summary) => (
-                                    <div key={`${summary.type}_${summary.size}`} className="bg-gray-700/50 p-2.5 rounded-md">
-                                      <div className="flex justify-between items-start mb-2">
-                                        <div className="flex-1">
-                                          <div className="font-semibold text-sm text-gray-200">{summary.type}</div>
-                                          <div className="text-[10px] text-gray-400">Size: {summary.size}</div>
-                                        </div>
-                                        <div className="text-right">
-                                          <div className="text-xs font-bold text-amber-400">{summary.count} cables</div>
-                                        </div>
-                                      </div>
-                                      <div className="flex justify-between items-center text-[10px] text-gray-400">
-                                        <span>Total Length: <span className="text-gray-300 font-mono">{summary.totalLength.toFixed(2)}m</span></span>
-                                        {summary.totalCost > 0 && (
-                                          <span>Cost: <span className="text-green-400 font-mono">R {summary.totalCost.toFixed(2)}</span></span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-
-                                {/* Individual Entries */}
-                                <div className="space-y-2">
-                                  <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Individual Cables ({cableEntries.length})</h4>
-                                  {cableEntries.map(entry => (
-                                    <div key={entry.id} className="bg-gray-700/30 p-2 rounded-md space-y-1 border border-gray-600/30">
-                                      <div className="flex justify-between items-center">
-                                        <span className="font-semibold text-amber-400 text-xs">{entry.cable_tag}</span>
-                                        <span className="text-gray-400 font-mono text-[10px]">{entry.cable_type} {entry.cable_size || 'N/A'}</span>
-                                      </div>
-                                      <div className="text-gray-400 text-[10px] space-y-0.5">
-                                        <div>From: <span className="text-gray-300">{entry.from_location}</span></div>
-                                        <div>To: <span className="text-gray-300">{entry.to_location}</span></div>
-                                        <div className="flex justify-between items-center pt-1 border-t border-gray-600/30">
-                                          <span>Length: <span className="text-gray-300 font-mono">{entry.total_length?.toFixed(2) || 0}m</span></span>
-                                          {entry.total_cost && entry.total_cost > 0 && (
-                                            <span>Cost: <span className="text-green-400 font-mono">R {entry.total_cost.toFixed(2)}</span></span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-gray-500 text-xs text-center p-4">No cables in schedule for this project.</p>
+                  {/* Individual Entries */}
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Individual Cables ({cableEntries.length})</h4>
+                    {cableEntries.map(entry => (
+                      <div key={entry.id} className="bg-gray-700/30 p-2 rounded-md space-y-1 border border-gray-600/30">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-amber-400 text-xs">{entry.cable_tag}</span>
+                          <span className="text-gray-400 font-mono text-[10px]">{entry.cable_type} {entry.cable_size || 'N/A'}</span>
+                        </div>
+                        <div className="text-gray-400 text-[10px] space-y-0.5">
+                          <div>From: <span className="text-gray-300">{entry.from_location}</span></div>
+                          <div>To: <span className="text-gray-300">{entry.to_location}</span></div>
+                          <div className="flex justify-between items-center pt-1 border-t border-gray-600/30">
+                            <span>Length: <span className="text-gray-300 font-mono">{entry.total_length?.toFixed(2) || 0}m</span></span>
+                            {entry.total_cost && entry.total_cost > 0 && (
+                              <span>Cost: <span className="text-green-400 font-mono">R {entry.total_cost.toFixed(2)}</span></span>
                             )}
                           </div>
-                          <div style={{ display: activeTab === 'containment' ? 'block' : 'none' }}>
-                            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Containment Schedule</h3>
-                            <div className="space-y-4">
-                              {containmentSummary.length > 0 ? containmentSummary.map(({ type, sizes }) => (
-                                <div key={type}><h4 className="font-bold text-sm text-gray-300 mb-2">{type}</h4><div className="space-y-1.5 text-xs">
-                                  {sizes.map(({ size, totalLength }) => {
-                                    const style = getContainmentStyle(type, size);
-                                    return (<div key={size} className="flex justify-between items-center bg-gray-700/50 p-2 rounded-md"><div className="flex items-center gap-3">
-                                      <svg width="24" height="4" className="flex-shrink-0"><line x1="0" y1="2" x2="24" y2="2" style={{ stroke: style.color, strokeWidth: 2, strokeDasharray: style.dash.map(d => d * 2).join(' '), strokeLinecap: 'round' }} /></svg>
-                                      <span className="text-gray-300 w-32">{size}</span></div>
-                                      <span className="font-mono font-bold text-indigo-400">{totalLength.toFixed(2)}m</span></div>)
-                                  })}</div></div>
-                              )) : <p className="text-gray-500 text-xs text-center p-4">No containment systems drawn.</p>}
-                            </div>
-                          </div>
-                          <div style={{ display: activeTab === 'zones' ? 'block' : 'none' }}>
-                            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Supply Zones ({zones.length})</h3>
-                            <div className="space-y-1.5 text-sm max-h-[60vh] overflow-y-auto pr-2">
-                              {zones.length > 0 ? zones.map(zone => (
-                                <div key={zone.id}
-                                  className={`w-full text-left p-2 rounded-md transition-colors ${selectedItemId === zone.id ? 'bg-indigo-600/30 ring-1 ring-indigo-400' : 'bg-gray-700/50'}`}>
-                                  <div className="flex justify-between items-center">
-                                    <button
-                                      onClick={() => setSelectedItemId(zone.id)}
-                                      className="flex items-center gap-3 flex-1 text-left hover:opacity-80 transition-opacity"
-                                    >
-                                      <div className="w-4 h-4 rounded" style={{ backgroundColor: zone.color }}></div>
-                                      <span className="text-gray-300 font-medium">{zone.name}</span>
-                                    </button>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono font-bold text-yellow-400">{zone.area > 0 ? `${zone.area.toFixed(2)}m²` : '--'}</span>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onJumpToZone(zone);
-                                        }}
-                                        className="p-1 hover:bg-indigo-500/30 rounded transition-colors"
-                                        title="Jump to zone in drawing"
-                                      >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
-                                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                          <circle cx="12" cy="12" r="3" />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )) : <p className="text-gray-500 text-xs text-center p-4">No supply zones defined.</p>}
-                            </div>
-                          </div>
-                          <div style={{ display: activeTab === 'tasks' ? 'block' : 'none' }}>
-                            <div className="mb-6">
-                              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tasks by Assignee</h3>
-                              <div className="space-y-2">
-                                {Object.keys(tasksByAssignee).sort((a, b) => { if (a === 'Unassigned') return 1; if (b === 'Unassigned') return -1; return a.localeCompare(b); }).map(assignee => (
-                                  <div key={assignee} className="bg-gray-700/50 rounded-md overflow-hidden">
-                                    <button onClick={() => toggleAssigneeExpansion(assignee)} className="w-full flex justify-between items-center p-2 text-left hover:bg-gray-700 transition-colors">
-                                      <span className="font-semibold text-sm text-gray-200">{assignee}</span>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs bg-gray-600 text-indigo-300 font-bold px-2 py-0.5 rounded-full">{tasksByAssignee[assignee].length}</span>
-                                        <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedAssignees[assignee] ? 'rotate-180' : ''}`} />
-                                      </div>
-                                    </button>
-                                    {expandedAssignees[assignee] && (
-                                      <div className="p-2 border-t border-gray-600/50 space-y-1.5">
-                                        {tasksByAssignee[assignee].map(task => (
-                                          <button key={task.id} onClick={() => onOpenTaskModal(task)} className="w-full text-left bg-gray-900/40 p-2 rounded-md hover:bg-gray-900/80 transition-colors">
-                                            <div className="flex justify-between items-center">
-                                              <p className="font-semibold text-gray-200 text-xs truncate">{task.title}</p>
-                                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${task.status === TaskStatus.DONE ? 'bg-green-500/20 text-green-400' :
-                                                task.status === TaskStatus.IN_PROGRESS ? 'bg-amber-500/20 text-amber-400' :
-                                                  'bg-gray-600 text-gray-300'
-                                                }`}>{task.status}</span>
-                                            </div>
-                                            <p className="text-gray-400 text-[10px] truncate mt-1">For: {itemDictionary.get(task.linkedItemId) || 'Unknown Item'}</p>
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-xs text-center p-4">No cables in schedule for this project.</p>
+              )}
+            </div>
+
+            <div style={{ display: activeTab === 'containment' ? 'block' : 'none' }}>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Containment Schedule</h3>
+              <div className="space-y-4">
+                {containmentSummary.length > 0 ? containmentSummary.map(({ type, sizes }) => (
+                  <div key={type}><h4 className="font-bold text-sm text-gray-300 mb-2">{type}</h4><div className="space-y-1.5 text-xs">
+                    {sizes.map(({ size, totalLength }) => {
+                      const style = getContainmentStyle(type as any, size);
+                      return (<div key={size} className="flex justify-between items-center bg-gray-700/50 p-2 rounded-md"><div className="flex items-center gap-3">
+                        <svg width="24" height="4" className="flex-shrink-0"><line x1="0" y1="2" x2="24" y2="2" style={{ stroke: style.color, strokeWidth: 2, strokeDasharray: style.dash.map(d => d * 2).join(' '), strokeLinecap: 'round' }} /></svg>
+                        <span className="text-gray-300 w-32">{size}</span></div>
+                        <span className="font-mono font-bold text-indigo-400">{totalLength.toFixed(2)}m</span></div>)
+                    })}</div></div>
+                )) : <p className="text-gray-500 text-xs text-center p-4">No containment systems drawn.</p>}
+              </div>
+            </div>
+
+            <div style={{ display: activeTab === 'zones' ? 'block' : 'none' }}>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Supply Zones ({zones.length})</h3>
+              <div className="space-y-1.5 text-sm max-h-[60vh] overflow-y-auto pr-2">
+                {zones.length > 0 ? zones.map(zone => (
+                  <div key={zone.id}
+                    className={`w-full text-left p-2 rounded-md transition-colors ${selectedItemId === zone.id ? 'bg-indigo-600/30 ring-1 ring-indigo-400' : 'bg-gray-700/50'}`}>
+                    <div className="flex justify-between items-center">
+                      <button
+                        onClick={() => setSelectedItemId(zone.id)}
+                        className="flex items-center gap-3 flex-1 text-left hover:opacity-80 transition-opacity"
+                      >
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: zone.color }}></div>
+                        <span className="text-gray-300 font-medium">{zone.name}</span>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-yellow-400">{zone.area > 0 ? `${zone.area.toFixed(2)}m²` : '--'}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onJumpToZone(zone);
+                          }}
+                          className="p-1 hover:bg-indigo-500/30 rounded transition-colors"
+                          title="Jump to zone in drawing"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )) : <p className="text-gray-500 text-xs text-center p-4">No supply zones defined.</p>}
+              </div>
+            </div>
+
+            <div style={{ display: activeTab === 'tasks' ? 'block' : 'none' }}>
+              <div className="mb-6">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tasks by Assignee</h3>
+                <div className="space-y-2">
+                  {Object.keys(tasksByAssignee).sort((a, b) => { if (a === 'Unassigned') return 1; if (b === 'Unassigned') return -1; return a.localeCompare(b); }).map(assignee => (
+                    <div key={assignee} className="bg-gray-700/50 rounded-md overflow-hidden">
+                      <button onClick={() => toggleAssigneeExpansion(assignee)} className="w-full flex justify-between items-center p-2 text-left hover:bg-gray-700 transition-colors">
+                        <span className="font-semibold text-sm text-gray-200">{assignee}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-gray-600 text-indigo-300 font-bold px-2 py-0.5 rounded-full">{tasksByAssignee[assignee].length}</span>
+                          <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedAssignees[assignee] ? 'rotate-180' : ''}`} />
+                        </div>
+                      </button>
+                      {expandedAssignees[assignee] && (
+                        <div className="p-2 border-t border-gray-600/50 space-y-1.5">
+                          {tasksByAssignee[assignee].map(task => (
+                            <button key={task.id} onClick={() => onOpenTaskModal(task)} className="w-full text-left bg-gray-900/40 p-2 rounded-md hover:bg-gray-900/80 transition-colors">
+                              <div className="flex justify-between items-center">
+                                <p className="font-semibold text-gray-200 text-xs truncate">{task.title}</p>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${task.status === TaskStatus.DONE ? 'bg-green-500/20 text-green-400' :
+                                  task.status === TaskStatus.IN_PROGRESS ? 'bg-amber-500/20 text-amber-400' :
+                                    'bg-gray-600 text-gray-300'
+                                  }`}>{task.status}</span>
                               </div>
-                            </div>
-
-                            <hr className="border-gray-700 my-4" />
-
-                            {Object.entries(tasksByStatus).map(([status, tasksInStatus]) => (
-                              <div key={status} className="mb-6">
-                                <div className="flex items-center gap-2 mb-2">
-                                  {status === TaskStatus.TODO && <Circle size={14} className="text-gray-400" />}
-                                  {status === TaskStatus.IN_PROGRESS && <Clock size={14} className="text-amber-400" />}
-                                  {status === TaskStatus.DONE && <CheckCircle size={14} className="text-green-400" />}
-                                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{status} ({tasksInStatus.length})</h3>
-                                </div>
-                                <div className="space-y-1.5 text-sm">
-                                  {tasksInStatus.length > 0 ? tasksInStatus.map(task => (
-                                    <button key={task.id} onClick={() => onOpenTaskModal(task)} className="w-full text-left bg-gray-700/50 p-2 rounded-md hover:bg-gray-700 transition-colors">
-                                      <p className="font-semibold text-gray-200 text-xs truncate">{task.title}</p>
-                                      <div className="flex justify-between items-center mt-1">
-                                        <p className="text-gray-400 text-[10px] truncate">For: {itemDictionary.get(task.linkedItemId) || 'Unknown Item'}</p>
-                                        {task.assignedTo && <p className="text-gray-400 text-[10px]">@{task.assignedTo}</p>}
-                                      </div>
-                                    </button>
-                                  )) : <p className="text-gray-500 text-xs text-center p-2">No tasks in this category.</p>}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                              <p className="text-gray-400 text-[10px] truncate mt-1">For: {itemDictionary.get(task.linkedItemId) || 'Unknown Item'}</p>
+                            </button>
+                          ))}
                         </div>
-                      </>
-                    )}
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                    {/* 3D Cable Route Analysis Modal */}
-                    {/* 3D Floor Plan Visualization (Replaces Cable Route Analysis) */}
-                    <FloorPlan3DDialog
-                      open={show3DModal}
-                      onOpenChange={setShow3DModal}
-                      lines={lines}
-                      equipment={equipment}
-                      containment={containment}
-                      scaleInfo={scaleInfo || { pixelDistance: null, realDistance: null, ratio: 0.05 }}
-                    />
+              <hr className="border-gray-700 my-4" />
 
-                    {/* Add Distribution Board Dialog */}
-                    <Dialog open={showAddBoardDialog} onOpenChange={setShowAddBoardDialog}>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Create Distribution Board</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="db-name">Name *</Label>
-                            <Input
-                              id="db-name"
-                              placeholder="e.g., DB-1, DB-1A"
-                              value={boardFormData.name}
-                              onChange={(e) => setBoardFormData(prev => ({ ...prev, name: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="db-location">Location</Label>
-                            <Input
-                              id="db-location"
-                              placeholder="e.g., Shop 1, Common Area"
-                              value={boardFormData.location}
-                              onChange={(e) => setBoardFormData(prev => ({ ...prev, location: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="db-desc">Description</Label>
-                            <Input
-                              id="db-desc"
-                              placeholder="Optional description"
-                              value={boardFormData.description}
-                              onChange={(e) => setBoardFormData(prev => ({ ...prev, description: e.target.value }))}
-                            />
-                          </div>
+              {Object.entries(tasksByStatus).map(([status, tasksInStatus]) => (
+                <div key={status} className="mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    {status === TaskStatus.TODO && <Circle size={14} className="text-gray-400" />}
+                    {status === TaskStatus.IN_PROGRESS && <Clock size={14} className="text-amber-400" />}
+                    {status === TaskStatus.DONE && <CheckCircle size={14} className="text-green-400" />}
+                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{status} ({tasksInStatus.length})</h3>
+                  </div>
+                  <div className="space-y-1.5 text-sm">
+                    {tasksInStatus.length > 0 ? tasksInStatus.map(task => (
+                      <button key={task.id} onClick={() => onOpenTaskModal(task)} className="w-full text-left bg-gray-700/50 p-2 rounded-md hover:bg-gray-700 transition-colors">
+                        <p className="font-semibold text-gray-200 text-xs truncate">{task.title}</p>
+                        <div className="flex justify-between items-center mt-1">
+                          <p className="text-gray-400 text-[10px] truncate">For: {itemDictionary.get(task.linkedItemId) || 'Unknown Item'}</p>
+                          {task.assignedTo && <p className="text-gray-400 text-[10px]">@{task.assignedTo}</p>}
                         </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setShowAddBoardDialog(false)}>Cancel</Button>
-                          <Button onClick={handleCreateBoard} disabled={!boardFormData.name.trim() || createBoard.isPending}>
-                            Create
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                      </button>
+                    )) : <p className="text-gray-500 text-xs text-center p-2">No tasks in this category.</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
-                    {/* Add Circuit Dialog */}
-                    <Dialog open={showAddCircuitDialog} onOpenChange={(open) => {
-                      setShowAddCircuitDialog(open);
-                      if (!open) setAddCircuitBoardId(null);
-                    }}>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add Circuit</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="circuit-ref">Circuit Reference *</Label>
-                            <Input
-                              id="circuit-ref"
-                              placeholder="e.g., L1, P1, AC-1"
-                              value={circuitFormData.circuit_ref}
-                              onChange={(e) => setCircuitFormData(prev => ({ ...prev, circuit_ref: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="circuit-type">Circuit Type</Label>
-                            <Select
-                              value={circuitFormData.circuit_type}
-                              onValueChange={(value) => setCircuitFormData(prev => ({ ...prev, circuit_type: value }))}
-                            >
-                              <SelectTrigger id="circuit-type">
-                                <SelectValue placeholder="Select type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="lighting">Lighting</SelectItem>
-                                <SelectItem value="power">Power</SelectItem>
-                                <SelectItem value="hvac">HVAC</SelectItem>
-                                <SelectItem value="motor">Motor</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="circuit-desc">Description</Label>
-                            <Input
-                              id="circuit-desc"
-                              placeholder="e.g., Lighting circuit 1"
-                              value={circuitFormData.description}
-                              onChange={(e) => setCircuitFormData(prev => ({ ...prev, description: e.target.value }))}
-                            />
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => {
-                            setShowAddCircuitDialog(false);
-                            setAddCircuitBoardId(null);
-                          }}>Cancel</Button>
-                          <Button onClick={handleCreateCircuit} disabled={!circuitFormData.circuit_ref.trim() || createCircuit.isPending}>
-                            Add Circuit
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+      {/* 3D Cable Route Analysis Modal */}
+      {/* 3D Floor Plan Visualization (Replaces Cable Route Analysis) */}
+      <FloorPlan3DDialog
+        open={show3DModal}
+        onOpenChange={setShow3DModal}
+        lines={lines}
+        equipment={equipment}
+        containment={containment}
+        scaleInfo={scaleInfo || { pixelDistance: null, realDistance: null, ratio: 0.05 }}
+      />
 
-                    {/* Templates Dialog */}
-                    <CircuitTemplatesDialog
-                      open={showTemplatesDialog}
-                      onOpenChange={setShowTemplatesDialog}
-                      circuitId={selectedCircuit?.id !== 'unassigned' ? selectedCircuit?.id : undefined}
-                      circuitRef={selectedCircuit?.circuit_ref}
-                      projectId={projectId}
-                      floorPlanId={floorPlanId}
-                    />
+      {/* Add Distribution Board Dialog */}
+      <Dialog open={showAddBoardDialog} onOpenChange={setShowAddBoardDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Distribution Board</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="db-name">Name *</Label>
+              <Input
+                id="db-name"
+                placeholder="e.g., DB-1, DB-1A"
+                value={boardFormData.name}
+                onChange={(e) => setBoardFormData(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="db-location">Location</Label>
+              <Input
+                id="db-location"
+                placeholder="e.g., Shop 1, Common Area"
+                value={boardFormData.location}
+                onChange={(e) => setBoardFormData(prev => ({ ...prev, location: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="db-desc">Description</Label>
+              <Input
+                id="db-desc"
+                placeholder="Optional description"
+                value={boardFormData.description}
+                onChange={(e) => setBoardFormData(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddBoardDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreateBoard} disabled={!boardFormData.name.trim() || createBoard.isPending}>
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-                    {/* Bulk Assembly Editor */}
-                    <BulkAssemblyEditor
-                      equipment={equipment}
-                      zones={zones}
-                      open={showBulkAssemblyEditor}
-                      onOpenChange={setShowBulkAssemblyEditor}
-                      onBulkUpdate={handleBulkAssemblyUpdate}
-                      projectId={projectId}
-                    />
-                  </aside>
-                  );
+      {/* Add Circuit Dialog */}
+      <Dialog open={showAddCircuitDialog} onOpenChange={(open) => {
+        setShowAddCircuitDialog(open);
+        if (!open) setAddCircuitBoardId(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Circuit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="circuit-ref">Circuit Reference *</Label>
+              <Input
+                id="circuit-ref"
+                placeholder="e.g., L1, P1, AC-1"
+                value={circuitFormData.circuit_ref}
+                onChange={(e) => setCircuitFormData(prev => ({ ...prev, circuit_ref: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="circuit-type">Circuit Type</Label>
+              <Select
+                value={circuitFormData.circuit_type}
+                onValueChange={(value) => setCircuitFormData(prev => ({ ...prev, circuit_type: value }))}
+              >
+                <SelectTrigger id="circuit-type">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lighting">Lighting</SelectItem>
+                  <SelectItem value="power">Power</SelectItem>
+                  <SelectItem value="hvac">HVAC</SelectItem>
+                  <SelectItem value="motor">Motor</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="circuit-desc">Description</Label>
+              <Input
+                id="circuit-desc"
+                placeholder="e.g., Lighting circuit 1"
+                value={circuitFormData.description}
+                onChange={(e) => setCircuitFormData(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowAddCircuitDialog(false);
+              setAddCircuitBoardId(null);
+            }}>Cancel</Button>
+            <Button onClick={handleCreateCircuit} disabled={!circuitFormData.circuit_ref.trim() || createCircuit.isPending}>
+              Add Circuit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Templates Dialog */}
+      <CircuitTemplatesDialog
+        open={showTemplatesDialog}
+        onOpenChange={setShowTemplatesDialog}
+        circuitId={selectedCircuit?.id !== 'unassigned' ? selectedCircuit?.id : undefined}
+        circuitRef={selectedCircuit?.circuit_ref}
+        projectId={projectId}
+        floorPlanId={floorPlanId}
+      />
+
+      {/* Bulk Assembly Editor */}
+      <BulkAssemblyEditor
+        equipment={equipment}
+        zones={zones}
+        open={showBulkAssemblyEditor}
+        onOpenChange={setShowBulkAssemblyEditor}
+        onBulkUpdate={handleBulkAssemblyUpdate}
+        projectId={projectId}
+      />
+    </aside>
+  );
 };
 
-                  export default EquipmentPanel;
+export default EquipmentPanel;

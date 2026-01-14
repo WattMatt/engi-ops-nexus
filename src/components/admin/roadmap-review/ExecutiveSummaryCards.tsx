@@ -1,13 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { 
-  FolderKanban, 
-  TrendingUp, 
-  AlertTriangle, 
-  Clock, 
-  Users, 
-  CheckCircle2 
+import {
+  FolderKanban,
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  Users,
+  CheckCircle2,
+  TrendingDown,
+  Activity
 } from "lucide-react";
 import { PortfolioMetrics } from "@/utils/roadmapReviewCalculations";
 
@@ -123,13 +125,47 @@ export function ExecutiveSummaryCards({ metrics }: ExecutiveSummaryCardsProps) {
           <CheckCircle2 className={`h-4 w-4 ${metrics.totalHealthScore >= 70 ? "text-green-500" : metrics.totalHealthScore >= 50 ? "text-yellow-500" : "text-destructive"}`} />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{metrics.totalHealthScore}%</div>
-          <Progress 
-            value={metrics.totalHealthScore} 
+          <div className="flex items-center gap-2">
+            <div className="text-2xl font-bold">{metrics.totalHealthScore}%</div>
+            {metrics.portfolioTrend === 'improving' && <TrendingUp className="h-4 w-4 text-green-500" />}
+            {metrics.portfolioTrend === 'declining' && <TrendingDown className="h-4 w-4 text-destructive" />}
+            {metrics.portfolioTrend === 'stable' && <Activity className="h-4 w-4 text-blue-500" />}
+          </div>
+          <Progress
+            value={metrics.totalHealthScore}
             className="mt-2 h-2"
           />
         </CardContent>
       </Card>
+
+      {/* Resource Bottlenecks */}
+      {metrics.resourceBottlenecks.length > 0 && (
+        <Card className="lg:col-span-2 border-orange-500/50 bg-orange-500/5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-orange-600">
+              Potential Resource Bottlenecks
+            </CardTitle>
+            <Users className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {metrics.resourceBottlenecks.map((b, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{b.memberName}</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] h-5">
+                      {b.taskCount} tasks
+                    </Badge>
+                    <Badge variant="destructive" className="text-[10px] h-5">
+                      {b.overdueCount} overdue
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
