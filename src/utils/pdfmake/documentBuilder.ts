@@ -178,56 +178,86 @@ export class PDFDocumentBuilder {
 
   /**
    * Generate PDF as a Blob with comprehensive error handling
+   * Uses getBase64 as fallback if getBlob fails
    */
   async toBlob(timeoutMs: number = 60000): Promise<Blob> {
     // Verify pdfmake is ready
     if (!isPdfMakeReady()) {
-      console.error('[PDFMake] VFS not initialized - PDF generation will fail');
-      throw new Error('PDF library not initialized. Please refresh the page and try again.');
+      console.error('[PDFMake] VFS not initialized');
+      throw new Error('PDF library not initialized. Please refresh the page.');
     }
     
     const docDefinition = this.build();
     
     const contentCount = Array.isArray(this.content) ? this.content.length : 1;
     const imageCount = Object.keys(docDefinition.images || {}).length;
-    console.log(`[PDFMake] Building PDF: ${contentCount} content items, ${imageCount} images`);
+    console.log(`[PDFMake] Building: ${contentCount} items, ${imageCount} images`);
     
+    // Try getBlob first, then fallback to getBase64
     return new Promise((resolve, reject) => {
       let resolved = false;
       
-      // Set timeout to prevent infinite hang
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.error(`[PDFMake] Generation timed out after ${timeoutMs}ms`);
-          reject(new Error(`PDF generation timed out after ${timeoutMs / 1000} seconds. Try Quick Export.`));
+          console.error(`[PDFMake] Timed out after ${timeoutMs}ms`);
+          reject(new Error(`PDF timed out after ${timeoutMs / 1000}s. Try Quick Export.`));
         }
       }, timeoutMs);
+      
+      const handleSuccess = (blob: Blob) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        console.log(`[PDFMake] Success: ${Math.round(blob.size / 1024)}KB`);
+        resolve(blob);
+      };
+      
+      const handleError = (error: any) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        console.error('[PDFMake] Error:', error);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
       
       try {
         console.log('[PDFMake] Creating document...');
         const pdfDoc = pdfMake.createPdf(docDefinition);
         
+        // Primary method: getBlob
         console.log('[PDFMake] Generating blob...');
         pdfDoc.getBlob((blob) => {
-          if (resolved) return; // Already timed out
-          resolved = true;
-          clearTimeout(timeout);
+          if (resolved) return;
           
           if (blob && blob.size > 0) {
-            console.log(`[PDFMake] Success: ${Math.round(blob.size / 1024)}KB`);
-            resolve(blob);
+            handleSuccess(blob);
           } else {
-            console.error('[PDFMake] Generated empty blob');
-            reject(new Error('Failed to generate PDF - empty result. Try Quick Export.'));
+            // Fallback to getBase64
+            console.warn('[PDFMake] getBlob returned empty, trying getBase64...');
+            pdfDoc.getBase64((base64) => {
+              if (resolved) return;
+              
+              if (base64 && base64.length > 0) {
+                try {
+                  const binaryString = atob(base64);
+                  const bytes = new Uint8Array(binaryString.length);
+                  for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                  }
+                  const fallbackBlob = new Blob([bytes], { type: 'application/pdf' });
+                  handleSuccess(fallbackBlob);
+                } catch (err) {
+                  handleError(new Error('Failed to convert base64 to blob'));
+                }
+              } else {
+                handleError(new Error('PDF generation failed - empty result'));
+              }
+            });
           }
         });
       } catch (error) {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(timeout);
-        console.error('[PDFMake] Sync error:', error);
-        reject(error instanceof Error ? error : new Error(String(error)));
+        handleError(error);
       }
     });
   }

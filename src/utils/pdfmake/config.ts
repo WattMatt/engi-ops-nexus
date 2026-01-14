@@ -4,38 +4,23 @@
  */
 
 import pdfMake from 'pdfmake/build/pdfmake';
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
 
-// Initialize pdfmake with fonts - handle multiple VFS formats
+// Initialize pdfmake with fonts - direct assignment pattern
 const initializePdfMake = () => {
   try {
-    // Try different VFS structures (varies by pdfmake version)
-    const vfsOptions = [
-      (pdfFonts as any).pdfMake?.vfs,
-      (pdfFonts as any).vfs,
-      (pdfFonts as any).default?.pdfMake?.vfs,
-      (pdfFonts as any).default?.vfs,
-      pdfFonts,
-    ];
+    // Direct VFS assignment - the standard pattern for pdfmake
+    const vfs = (pdfFonts as any).pdfMake?.vfs || 
+                (pdfFonts as any).vfs || 
+                (pdfFonts as any).default?.pdfMake?.vfs ||
+                (pdfFonts as any).default?.vfs ||
+                pdfFonts;
     
-    let vfs = null;
-    for (const option of vfsOptions) {
-      if (option && typeof option === 'object' && Object.keys(option).length > 0) {
-        // Check if it looks like a valid VFS (should have font files)
-        const keys = Object.keys(option);
-        if (keys.some(k => k.includes('.ttf') || k.includes('Roboto'))) {
-          vfs = option;
-          break;
-        }
-      }
-    }
-    
-    if (vfs) {
+    if (vfs && typeof vfs === 'object') {
       pdfMake.vfs = vfs;
-      const fontCount = Object.keys(vfs).filter(k => k.includes('.ttf')).length;
-      console.log(`[PDFMake] VFS initialized with ${fontCount} font files`);
+      console.log('[PDFMake] VFS initialized successfully');
     } else {
-      console.error('[PDFMake] VFS initialization failed - no valid font data found');
+      console.error('[PDFMake] VFS initialization failed - invalid font data');
     }
   } catch (error) {
     console.error('[PDFMake] Failed to initialize VFS:', error);
@@ -55,19 +40,57 @@ const initializePdfMake = () => {
 // Initialize immediately
 initializePdfMake();
 
-// Verify VFS is ready with detailed check
+// Verify VFS is ready
 export const isPdfMakeReady = (): boolean => {
   if (!pdfMake.vfs || typeof pdfMake.vfs !== 'object') {
-    console.error('[PDFMake] VFS not set');
     return false;
   }
-  const keys = Object.keys(pdfMake.vfs);
-  const hasFonts = keys.some(k => k.includes('.ttf') || k.includes('Roboto'));
-  if (!hasFonts) {
-    console.error('[PDFMake] VFS has no font files');
+  return Object.keys(pdfMake.vfs).length > 0;
+};
+
+/**
+ * Test PDF generation with a minimal document
+ * Returns true if pdfmake can generate PDFs successfully
+ */
+export const testPdfGeneration = async (): Promise<boolean> => {
+  try {
+    if (!isPdfMakeReady()) {
+      console.error('[PDFMake] Test failed - VFS not ready');
+      return false;
+    }
+    
+    const testDoc = {
+      content: [{ text: 'Test', fontSize: 12 }],
+      defaultStyle: { font: 'Roboto' }
+    };
+    
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.error('[PDFMake] Test timed out');
+        resolve(false);
+      }, 5000);
+      
+      try {
+        pdfMake.createPdf(testDoc).getBlob((blob) => {
+          clearTimeout(timeout);
+          if (blob && blob.size > 0) {
+            console.log('[PDFMake] Test passed - can generate PDFs');
+            resolve(true);
+          } else {
+            console.error('[PDFMake] Test failed - empty blob');
+            resolve(false);
+          }
+        });
+      } catch (err) {
+        clearTimeout(timeout);
+        console.error('[PDFMake] Test failed:', err);
+        resolve(false);
+      }
+    });
+  } catch (error) {
+    console.error('[PDFMake] Test error:', error);
     return false;
   }
-  return true;
 };
 
 export { pdfMake };

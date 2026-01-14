@@ -770,6 +770,20 @@ async function buildPdfDocument(
     .withStandardHeader('Roadmap Review Report', config.companyName)
     .withStandardFooter(config.confidentialNotice);
 
+  // CRITICAL: Register chart images BEFORE adding chart content
+  if (charts.length > 0) {
+    const imageDict: Record<string, string> = {};
+    charts.forEach(chart => {
+      // Ensure the data URL is properly formatted
+      const dataUrl = chart.image.dataUrl.startsWith('data:') 
+        ? chart.image.dataUrl 
+        : `data:image/jpeg;base64,${chart.image.dataUrl}`;
+      imageDict[chart.config.elementId] = dataUrl;
+    });
+    doc.addImages(imageDict);
+    console.log(`[RoadmapPDF] Registered ${Object.keys(imageDict).length} chart images`);
+  }
+
   // Limit projects to prevent overly complex documents
   const maxProjects = 20;
   const limitedProjects = projects.slice(0, maxProjects);
@@ -817,9 +831,8 @@ async function buildPdfDocument(
 
   // Add visual summary (charts) if captured - with size check
   if (config.includeCharts && charts.length > 0) {
-    // Check total chart data size
     const totalChartSize = charts.reduce((acc, c) => acc + c.image.sizeBytes, 0);
-    const maxChartSize = 500 * 1024; // 500KB limit (increased from 300KB)
+    const maxChartSize = 500 * 1024;
     
     if (totalChartSize < maxChartSize) {
       console.log(`[RoadmapPDF] Adding ${charts.length} charts (${Math.round(totalChartSize / 1024)}KB)...`);
@@ -834,28 +847,28 @@ async function buildPdfDocument(
       doc.add(chartContent);
       doc.addPageBreak();
     } else {
-      console.warn(`[RoadmapPDF] Skipping charts - too large (${Math.round(totalChartSize / 1024)}KB > 500KB limit)`);
+      console.warn(`[RoadmapPDF] Charts too large: ${Math.round(totalChartSize / 1024)}KB`);
     }
   }
 
-  // Add project details - limit to prevent huge documents
+  // Add project details
   if (config.includeDetailedProjects) {
     console.log('[RoadmapPDF] Adding project details...');
     doc.add(buildProjectDetails(limitedProjects));
     doc.addPageBreak();
   }
 
-  // Add meeting notes (lightweight)
+  // Add meeting notes
   if (config.includeMeetingNotes) {
     console.log('[RoadmapPDF] Adding meeting notes...');
     doc.add(buildMeetingNotes());
     doc.addPageBreak();
   }
 
-  // Add full roadmap pages - LIMIT significantly for performance
+  // Add full roadmap pages - limited for performance
   if (config.includeFullRoadmapItems && allRoadmapItems) {
     console.log('[RoadmapPDF] Adding full roadmap pages...');
-    const roadmapProjects = limitedProjects.slice(0, 10); // Max 10 projects with full roadmap
+    const roadmapProjects = limitedProjects.slice(0, 10);
     for (const project of roadmapProjects) {
       const pageContent = buildFullRoadmapPage(project, allRoadmapItems);
       if ((pageContent as any).stack && (pageContent as any).stack.length > 0) {
@@ -864,9 +877,9 @@ async function buildPdfDocument(
     }
   }
 
-  // Generate and return blob
+  // Generate and return blob with shorter timeout
   console.log('[RoadmapPDF] Building PDF blob...');
-  const blob = await doc.toBlob(60000); // 60 second timeout
+  const blob = await doc.toBlob(45000); // 45 second timeout
   return blob;
 }
 
