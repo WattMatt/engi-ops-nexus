@@ -39,11 +39,8 @@ import {
   calculatePortfolioMetrics,
 } from "@/utils/roadmapReviewCalculations";
 
-// Import PDF export utilities
-import { 
-  generateEnhancedRoadmapPDF, 
-  downloadPDF 
-} from "@/utils/roadmapReviewPdfExport";
+// Import PDF export utilities - using pdfmake for better text quality
+import { generateRoadmapPdfMake } from "@/utils/roadmapReviewPdfMake";
 import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
 
 interface SavedPdfExport {
@@ -218,42 +215,11 @@ export default function AdminRoadmapReview() {
     }
 
     setIsGeneratingPDF(true);
-    toast.info("Preparing charts for PDF export...", { duration: 2000 });
+    toast.info("Generating PDF report with pdfmake...", { duration: 2000 });
 
     try {
-      // Mount the printable charts container to render all charts off-screen
-      setShowPrintableCharts(true);
-      
-      // Wait for charts to render in the hidden container
-      await new Promise<void>((resolve) => {
-        let attempts = 0;
-        const maxAttempts = 20;
-        
-        const checkReady = () => {
-          attempts++;
-          // Check if all chart elements exist in DOM
-          const chart1 = document.getElementById('project-comparison-chart');
-          const chart2 = document.getElementById('priority-heat-map');
-          const chart3 = document.getElementById('team-workload-chart');
-          
-          if (chart1 && chart2 && chart3) {
-            // Additional wait for recharts to finish rendering animations
-            setTimeout(resolve, 800);
-          } else if (attempts < maxAttempts) {
-            setTimeout(checkReady, 200);
-          } else {
-            // Timeout fallback
-            console.warn('Chart render timeout - proceeding anyway');
-            resolve();
-          }
-        };
-        
-        // Start checking after initial mount
-        setTimeout(checkReady, 300);
-      });
-
-      // Generate the enhanced PDF with ALL options from export dialog
-      const doc = await generateEnhancedRoadmapPDF(
+      // Generate PDF using pdfmake (better text quality, no chart capture needed)
+      const pdfBlob = await generateRoadmapPdfMake(
         enhancedSummaries,
         portfolioMetrics,
         {
@@ -270,21 +236,29 @@ export default function AdminRoadmapReview() {
           confidentialNotice: options?.confidentialNotice ?? true,
           reportType: options?.reportType ?? 'meeting-review',
         },
-        queryData?.allRoadmapItems // Pass roadmap items for full roadmap pages
+        queryData?.allRoadmapItems
       );
 
-      // Hide the printable charts container
-      setShowPrintableCharts(false);
-
-      // Get the PDF as blob for storage
-      const pdfBlob = doc.output('blob');
       const fileName = `Roadmap_Review_${format(new Date(), "yyyy-MM-dd_HHmmss")}.pdf`;
       
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Create download helper
+      const downloadBlob = (blob: Blob, name: string) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
       if (!user) {
         // Just download if not authenticated
-        downloadPDF(doc);
+        downloadBlob(pdfBlob, fileName);
         toast.success("PDF report downloaded!");
         return;
       }
@@ -301,7 +275,7 @@ export default function AdminRoadmapReview() {
       if (uploadError) {
         console.error("Storage upload error:", uploadError);
         // Fall back to direct download
-        downloadPDF(doc);
+        downloadBlob(pdfBlob, fileName);
         toast.warning("PDF downloaded but couldn't save to storage");
         return;
       }
@@ -323,7 +297,7 @@ export default function AdminRoadmapReview() {
       }
 
       // Download the PDF
-      downloadPDF(doc);
+      downloadBlob(pdfBlob, fileName);
       
       // Refresh the saved exports list
       queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
@@ -331,7 +305,6 @@ export default function AdminRoadmapReview() {
       toast.success("PDF report saved and downloaded!");
     } catch (error) {
       console.error("Error generating PDF:", error);
-      setShowPrintableCharts(false);
       toast.error("Failed to generate report. Please try again.");
     } finally {
       setIsGeneratingPDF(false);
