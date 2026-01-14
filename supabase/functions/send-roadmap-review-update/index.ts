@@ -126,8 +126,9 @@ Deno.serve(async (req) => {
       const recipient = recipients[i];
       const recipientName = recipient.name || "Team Member";
       
-      // Generate a view link to the project roadmap
-      const reviewLink = `${origin}/projects/${projectId}/roadmap`;
+      // Generate a view link with redirect to project roadmap after login
+      const redirectPath = `/projects/${projectId}/roadmap`;
+      const reviewLink = `${origin}/auth?redirect=${encodeURIComponent(redirectPath)}`;
       
       const html = roadmapReviewUpdateTemplate(
         recipientName,

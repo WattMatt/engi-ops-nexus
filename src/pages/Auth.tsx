@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,23 @@ import { StoicQuote } from "@/components/StoicQuote";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Get redirect URL from query params (for email links that need post-login redirect)
+  const redirectTo = useMemo(() => {
+    const redirect = searchParams.get("redirect");
+    // Validate redirect is a relative path to prevent open redirect vulnerabilities
+    if (redirect && redirect.startsWith("/")) {
+      return redirect;
+    }
+    return "/projects";
+  }, [searchParams]);
 
   const { data: companySettings } = useQuery({
     queryKey: ["company-settings"],
@@ -42,7 +53,7 @@ const Auth = () => {
       (event, newSession) => {
         setSession(newSession);
         if (newSession) {
-          navigate("/projects");
+          navigate(redirectTo);
         }
       }
     );
@@ -51,12 +62,12 @@ const Auth = () => {
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
       setSession(existingSession);
       if (existingSession) {
-        navigate("/projects");
+        navigate(redirectTo);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, redirectTo]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +102,7 @@ const Auth = () => {
         navigate("/auth/set-password");
       } else {
         toast.success("Logged in successfully");
-        navigate("/projects");
+        navigate(redirectTo);
       }
     } catch (error: any) {
       console.error("Login error:", error);
