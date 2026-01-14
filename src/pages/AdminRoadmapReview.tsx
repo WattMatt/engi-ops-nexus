@@ -41,7 +41,7 @@ import {
 } from "@/utils/roadmapReviewCalculations";
 
 // Import PDF export utilities - using pdfmake for better text quality
-import { generateRoadmapPdfMake, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
+import { generateRoadmapPdfMake, captureRoadmapReviewCharts, quickDownloadRoadmapPdf } from "@/utils/roadmapReviewPdfMake";
 import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
 
 // Import pre-capture hook
@@ -393,6 +393,25 @@ export default function AdminRoadmapReview() {
       if (error?.message === 'Export cancelled') {
         toast.info("Export cancelled");
         setShowProgressOverlay(false);
+      } else if (error?.message?.includes('timed out')) {
+        // Timeout - try quick download as fallback
+        console.log('[RoadmapPDF] Primary method timed out, trying quick download...');
+        toast.info("Full export timed out, generating quick report...");
+        try {
+          await quickDownloadRoadmapPdf(enhancedSummaries, portfolioMetrics);
+          setExportStep('complete');
+          toast.success("Quick report generated successfully");
+          setTimeout(() => {
+            setShowProgressOverlay(false);
+          }, 1500);
+        } catch (quickError: any) {
+          console.error("Quick download also failed:", quickError);
+          toast.error(`PDF generation failed completely: ${quickError?.message || 'Unknown error'}`);
+          setExportStep('error');
+          setTimeout(() => {
+            setShowProgressOverlay(false);
+          }, 3000);
+        }
       } else {
         const errorMessage = error?.message || 'Unknown error occurred';
         console.error("PDF generation error details:", errorMessage);

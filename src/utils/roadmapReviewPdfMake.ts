@@ -5,7 +5,7 @@
  * Uses the pdfmake library for better quality output.
  */
 
-import type { Content, ContentTable, TableCell, Margins } from "pdfmake/interfaces";
+import type { Content, ContentTable, TableCell, Margins, TDocumentDefinitions } from "pdfmake/interfaces";
 import { format } from "date-fns";
 import { 
   createDocument, 
@@ -961,4 +961,72 @@ export async function downloadRoadmapPdfMake(
   URL.revokeObjectURL(url);
   
   return blob;
+}
+
+/**
+ * Quick export using direct download - bypasses blob generation
+ * This is more reliable when toBlob times out
+ */
+export async function quickDownloadRoadmapPdf(
+  projects: EnhancedProjectSummary[],
+  metrics: PortfolioMetrics,
+  filename?: string
+): Promise<void> {
+  console.log('[RoadmapPDF] Quick download starting...');
+  
+  const { pdfMake, validatePdfMake } = await import('./pdfmake/config');
+  
+  const validation = validatePdfMake();
+  if (!validation.valid) {
+    throw new Error(`PDF library not ready: ${validation.error}`);
+  }
+  
+  // Build content array with proper types
+  const projectItems: Content[] = projects.slice(0, 20).map(p => ({
+    text: `• ${p.projectName} - ${p.progress}% complete (Health: ${p.healthScore}%)`,
+    fontSize: 10,
+    margin: [0, 2, 0, 2] as Margins,
+  }));
+  
+  // Build a simple document definition directly
+  const docDefinition: TDocumentDefinitions = {
+    pageSize: 'A4',
+    pageMargins: [40, 60, 40, 60],
+    defaultStyle: { font: 'Roboto', fontSize: 10 },
+    content: [
+      { text: 'ROADMAP REVIEW REPORT', fontSize: 24, bold: true, alignment: 'center', margin: [0, 40, 0, 20] as Margins } as Content,
+      { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center', margin: [0, 0, 0, 40] as Margins } as Content,
+      { text: 'Portfolio Summary', fontSize: 16, bold: true, margin: [0, 20, 0, 10] as Margins } as Content,
+      {
+        table: {
+          widths: ['50%', '50%'],
+          body: [
+            [{ text: 'Metric', bold: true }, { text: 'Value', bold: true }],
+            ['Total Projects', String(metrics.totalProjects)],
+            ['Average Progress', `${metrics.averageProgress}%`],
+            ['Portfolio Health', `${metrics.totalHealthScore}%`],
+            ['Projects at Risk', String(metrics.projectsAtRisk)],
+            ['Overdue Items', String(metrics.totalOverdueItems)],
+          ],
+        },
+      } as Content,
+      { text: 'Projects', fontSize: 16, bold: true, margin: [0, 30, 0, 10] as Margins } as Content,
+      ...projectItems,
+    ],
+  };
+  
+  const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+  
+  console.log('[RoadmapPDF] Creating PDF with direct download...');
+  return new Promise((resolve, reject) => {
+    try {
+      pdfMake.createPdf(docDefinition).download(finalFilename, () => {
+        console.log('[RoadmapPDF] Quick download completed');
+        resolve();
+      });
+    } catch (error) {
+      console.error('[RoadmapPDF] Quick download failed:', error);
+      reject(error);
+    }
+  });
 }
