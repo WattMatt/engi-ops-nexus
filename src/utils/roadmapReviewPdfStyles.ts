@@ -73,6 +73,7 @@ export const PDF_BRAND_COLORS = {
 
 
 // Typography settings - Per PDF_DESIGN_STANDARDS.md Section 4
+// IMPROVED: Increased font sizes for better readability
 export const PDF_TYPOGRAPHY = {
   fonts: {
     heading: 'helvetica' as const,  // Helvetica Bold for headings
@@ -83,11 +84,11 @@ export const PDF_TYPOGRAPHY = {
     title: 28,       // Cover page main title
     h1: 18,          // Section headings (Bold, 1.3 line height)
     h2: 14,          // Subsection headings (Bold, 1.4 line height)
-    h3: 12,          // Card headers (Bold, 1.4 line height) - FIXED: was 11
+    h3: 12,          // Card headers (Bold, 1.4 line height)
     body: 10,        // Standard body text (Normal, 1.5 line height)
-    caption: 8,      // Caption text (Normal, 1.4 line height)
-    small: 7,        // Small text (Normal, 1.3 line height)
-    tiny: 6,         // Micro text
+    caption: 9,      // Caption text - INCREASED from 8
+    small: 8,        // Small text - INCREASED from 7
+    tiny: 7,         // Table text - INCREASED from 6 for readability
   },
   lineHeight: 1.5,   // Default line height for body text
   letterSpacing: 0.02,

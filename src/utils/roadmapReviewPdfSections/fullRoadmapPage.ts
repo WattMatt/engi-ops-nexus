@@ -70,25 +70,25 @@ export const buildRoadmapTableContent = (
 
       return [
         { 
-          text: item.title, // Full title - pdfmake handles wrapping automatically
-          fontSize: PDF_TYPOGRAPHY.sizes.tiny,
+          text: item.title,
+          fontSize: PDF_TYPOGRAPHY.sizes.small,
           fillColor: rowFill,
         },
         { 
           text: item.due_date ? format(new Date(item.due_date), 'MMM d, yyyy') : '-', 
-          fontSize: PDF_TYPOGRAPHY.sizes.tiny, 
+          fontSize: PDF_TYPOGRAPHY.sizes.small, 
           alignment: 'center' as const,
           fillColor: rowFill,
         },
         { 
           text: (item.priority || 'Normal').charAt(0).toUpperCase() + (item.priority || 'normal').slice(1), 
-          fontSize: PDF_TYPOGRAPHY.sizes.tiny, 
+          fontSize: PDF_TYPOGRAPHY.sizes.small, 
           alignment: 'center' as const,
           fillColor: rowFill,
         },
         { 
           text: statusLabel, 
-          fontSize: PDF_TYPOGRAPHY.sizes.tiny, 
+          fontSize: PDF_TYPOGRAPHY.sizes.small, 
           alignment: 'center' as const,
           color: statusColor,
           bold: dueStatus === 'overdue',
@@ -307,47 +307,29 @@ export function generateFullRoadmapPage(
       headStyles: { 
         fillColor: PDF_BRAND_COLORS.primary as any, 
         textColor: [255, 255, 255],
-        fontSize: PDF_TYPOGRAPHY.sizes.small, 
+        fontSize: PDF_TYPOGRAPHY.sizes.body, 
         fontStyle: 'bold',
-        cellPadding: 3,
-        overflow: 'linebreak',
+        cellPadding: 4,
+        minCellHeight: 10,
       },
       bodyStyles: { 
-        fontSize: PDF_TYPOGRAPHY.sizes.tiny,
-        cellPadding: 2.5,
-        overflow: 'linebreak',
-        minCellHeight: 6,
+        fontSize: PDF_TYPOGRAPHY.sizes.small,
+        cellPadding: 3,
+        minCellHeight: 8,
+        textColor: PDF_BRAND_COLORS.text as any,
       },
       alternateRowStyles: { fillColor: PDF_BRAND_COLORS.lightGray as any },
       margin: { left: startX, right: PDF_LAYOUT.margins.right },
       tableWidth: contentWidth,
       columnStyles: {
-        0: { cellWidth: contentWidth * 0.45, overflow: 'linebreak' },
-        1: { cellWidth: contentWidth * 0.20, halign: 'center', overflow: 'linebreak' },
-        2: { cellWidth: contentWidth * 0.15, halign: 'center', overflow: 'linebreak' },
-        3: { cellWidth: contentWidth * 0.20, halign: 'center', overflow: 'linebreak' },
+        0: { cellWidth: contentWidth * 0.45 },
+        1: { cellWidth: contentWidth * 0.20, halign: 'center' },
+        2: { cellWidth: contentWidth * 0.15, halign: 'center' },
+        3: { cellWidth: contentWidth * 0.20, halign: 'center' },
       },
-      didDrawCell: (data) => {
-        // Color the status column based on status
-        if (data.column.index === 3 && data.section === 'body') {
-          const cellValue = data.cell.raw as string;
-          if (cellValue === 'OVERDUE') {
-            doc.setTextColor(...PDF_BRAND_COLORS.danger);
-          } else if (cellValue === 'Due Soon') {
-            doc.setTextColor(...PDF_BRAND_COLORS.warning);
-          }
-        }
-      },
-      willDrawCell: (data) => {
-        // Style overdue rows differently
-        if (data.section === 'body') {
-          const rowData = pendingTableData[data.row.index];
-          if (rowData && rowData[3] === 'OVERDUE') {
-            data.cell.styles.textColor = data.column.index === 3 
-              ? PDF_BRAND_COLORS.danger 
-              : [80, 80, 80];
-          }
-        }
+      styles: {
+        lineColor: PDF_BRAND_COLORS.tableBorder as any,
+        lineWidth: 0.3,
       },
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.index === 3) {
@@ -390,25 +372,28 @@ export function generateFullRoadmapPage(
       headStyles: { 
         fillColor: PDF_BRAND_COLORS.success as any, 
         textColor: [255, 255, 255],
-        fontSize: PDF_TYPOGRAPHY.sizes.small, 
+        fontSize: PDF_TYPOGRAPHY.sizes.body, 
         fontStyle: 'bold',
-        cellPadding: 3,
-        overflow: 'linebreak',
+        cellPadding: 4,
+        minCellHeight: 10,
       },
       bodyStyles: { 
-        fontSize: PDF_TYPOGRAPHY.sizes.tiny,
-        cellPadding: 2,
+        fontSize: PDF_TYPOGRAPHY.sizes.small,
+        cellPadding: 3,
         textColor: [100, 100, 100],
-        overflow: 'linebreak',
-        minCellHeight: 6,
+        minCellHeight: 8,
       },
       alternateRowStyles: { fillColor: [245, 255, 245] as any },
       margin: { left: startX, right: PDF_LAYOUT.margins.right },
       tableWidth: contentWidth,
       columnStyles: {
-        0: { cellWidth: contentWidth * 0.60, overflow: 'linebreak' },
-        1: { cellWidth: contentWidth * 0.20, halign: 'center', overflow: 'linebreak' },
-        2: { cellWidth: contentWidth * 0.20, halign: 'center', overflow: 'linebreak' },
+        0: { cellWidth: contentWidth * 0.60 },
+        1: { cellWidth: contentWidth * 0.20, halign: 'center' },
+        2: { cellWidth: contentWidth * 0.20, halign: 'center' },
+      },
+      styles: {
+        lineColor: PDF_BRAND_COLORS.tableBorder as any,
+        lineWidth: 0.2,
       },
     });
     
