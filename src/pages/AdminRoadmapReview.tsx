@@ -76,7 +76,9 @@ export default function AdminRoadmapReview() {
     charts: preCapturedCharts, 
     chartCount: preCapturedChartCount,
     recapture: recaptureCharts,
-    isReady: chartsPreCaptured 
+    isReady: chartsPreCaptured,
+    capturedAgo,
+    isStale: chartsAreStale,
   } = useChartPreCapture(3000, true);
 
   // Handle opening preview
@@ -494,6 +496,8 @@ export default function AdminRoadmapReview() {
         preCaptureStatus={preCaptureStatus}
         preCapturedChartCount={preCapturedChartCount}
         onRecaptureCharts={recaptureCharts}
+        capturedAgo={capturedAgo}
+        isStale={chartsAreStale}
       />
 
       {/* Export Progress Overlay */}
