@@ -772,6 +772,14 @@ export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]>
  * @param capturedCharts - Pre-captured charts to include (optional, will capture if not provided)
  * @returns Promise that resolves when download is complete
  */
+/**
+ * Result from PDF generation
+ */
+export interface PDFGenerationResult {
+  blob: Blob;
+  filename: string;
+}
+
 export async function generateRoadmapPdfMake(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
@@ -779,7 +787,7 @@ export async function generateRoadmapPdfMake(
   allRoadmapItems?: RoadmapItem[],
   capturedCharts?: CapturedChartData[],
   filename?: string
-): Promise<string> {
+): Promise<PDFGenerationResult> {
   console.log('[RoadmapPDF] Starting generation with', projects.length, 'projects');
   
   // Import validation function
@@ -816,22 +824,36 @@ export async function generateRoadmapPdfMake(
 
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build the document definition and download directly
+  // Build the document definition and return as blob for storage
   try {
     console.log('[RoadmapPDF] Building document...');
     const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
     
-    console.log('[RoadmapPDF] Starting direct download...');
+    console.log('[RoadmapPDF] Generating PDF via base64...');
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error('PDF download timed out after 45s'));
-      }, 45000);
+        reject(new Error('PDF generation timed out after 60s'));
+      }, 60000);
       
       try {
-        pdfMake.createPdf(docDefinition).download(finalFilename, () => {
+        // Use getBase64 which is more reliable in browsers, then convert to blob
+        pdfMake.createPdf(docDefinition).getBase64((base64: string) => {
           clearTimeout(timeout);
-          console.log('[RoadmapPDF] Download completed:', finalFilename);
-          resolve(finalFilename);
+          try {
+            // Convert base64 to blob
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+            
+            console.log('[RoadmapPDF] PDF generated via base64:', finalFilename, 'size:', blob.size);
+            resolve({ blob, filename: finalFilename });
+          } catch (conversionError) {
+            reject(conversionError);
+          }
         });
       } catch (error) {
         clearTimeout(timeout);
@@ -843,6 +865,7 @@ export async function generateRoadmapPdfMake(
     throw error;
   }
 }
+
 
 /**
  * Build the full PDF document definition (no blob - just the definition)
