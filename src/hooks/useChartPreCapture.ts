@@ -96,6 +96,27 @@ export function useChartPreCapture(
     };
   }, [autoCapture, captureDelay, capture]);
 
+  // Auto-recapture when tab becomes visible after being hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && status === 'ready') {
+        // Small delay to ensure DOM is fully rendered after tab switch
+        captureTimeoutRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            console.log('Tab visible again - recapturing charts');
+            capture();
+          }
+        }, 500);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [status, capture]);
+
   return {
     status,
     charts,
