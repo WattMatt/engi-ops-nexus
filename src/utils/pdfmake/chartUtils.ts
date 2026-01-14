@@ -40,12 +40,12 @@ export interface ChartSectionOptions {
 /**
  * Wait for charts to be fully rendered
  */
-export const waitForCharts = (ms: number = 1500): Promise<void> => {
+export const waitForCharts = (ms: number = 500): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
 
 /**
- * Capture a single chart by element ID
+ * Capture a single chart by element ID (fast, no extra wait)
  */
 export const captureChart = async (
   config: ChartConfig,
@@ -57,15 +57,13 @@ export const captureChart = async (
     return null;
   }
 
-  // Wait for chart animations
-  await waitForCharts(500);
-
   try {
     const image = await captureElement(element, {
-      scale: 2,
-      format: 'PNG',
-      quality: 0.95,
+      scale: 1.5, // Reduced from 2 for faster capture
+      format: 'JPEG', // JPEG is faster than PNG
+      quality: 0.85,
       backgroundColor: '#ffffff',
+      timeout: 5000, // Shorter timeout
       ...captureOptions,
     });
 
@@ -80,14 +78,13 @@ export const captureChart = async (
 };
 
 /**
- * Capture multiple charts in parallel
+ * Capture multiple charts in parallel (single wait, then parallel capture)
  */
 export const captureCharts = async (
   configs: ChartConfig[],
   captureOptions: ImageCaptureOptions = {}
 ): Promise<CapturedChartData[]> => {
-  // Wait for all charts to render
-  await waitForCharts(1000);
+  if (configs.length === 0) return [];
 
   const results = await Promise.all(
     configs.map(config => captureChart(config, captureOptions))
