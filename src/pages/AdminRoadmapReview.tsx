@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import { EnhancedProjectCard } from "@/components/admin/roadmap-review/EnhancedP
 import { TeamWorkloadChart } from "@/components/admin/roadmap-review/TeamWorkloadChart";
 import { PDFExportDialog } from "@/components/admin/roadmap-review/PDFExportDialog";
 import { PrintableChartContainer } from "@/components/admin/roadmap-review/PrintableChartContainer";
+import { ExportProgressOverlay, ExportStep } from "@/components/admin/roadmap-review/ExportProgressOverlay";
 
 // Import calculation utilities
 import { 
@@ -42,6 +43,9 @@ import {
 // Import PDF export utilities - using pdfmake for better text quality
 import { generateRoadmapPdfMake, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
 import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
+
+// Import pre-capture hook
+import { useChartPreCapture } from "@/hooks/useChartPreCapture";
 
 interface SavedPdfExport {
   id: string;
@@ -56,12 +60,24 @@ interface SavedPdfExport {
 
 export default function AdminRoadmapReview() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [exportStep, setExportStep] = useState<ExportStep>('capturing');
+  const [showProgressOverlay, setShowProgressOverlay] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [previewExport, setPreviewExport] = useState<SavedPdfExport | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const cancelExportRef = useRef(false);
   const queryClient = useQueryClient();
+
+  // Pre-capture charts in background (3s delay to let charts render)
+  const { 
+    status: preCaptureStatus, 
+    charts: preCapturedCharts, 
+    chartCount: preCapturedChartCount,
+    recapture: recaptureCharts,
+    isReady: chartsPreCaptured 
+  } = useChartPreCapture(3000, true);
 
   // Handle opening preview
   const handlePreviewExport = async (exportItem: SavedPdfExport) => {
@@ -214,27 +230,48 @@ export default function AdminRoadmapReview() {
       return;
     }
 
+    // Reset cancel flag and show progress overlay
+    cancelExportRef.current = false;
     setIsGeneratingPDF(true);
+    setShowProgressOverlay(true);
+    setExportStep('capturing');
     
     try {
-      // First, capture charts if the option is enabled
+      // Step 1: Get charts (use pre-captured if available, otherwise capture now)
       let capturedCharts = undefined;
+      let usedPreCaptured = false;
+      
       if (options?.includeCharts !== false) {
-        toast.info("Capturing charts...", { duration: 1500 });
-        try {
-          capturedCharts = await captureRoadmapReviewCharts();
-          if (capturedCharts.length > 0) {
-            toast.success(`Captured ${capturedCharts.length} charts`, { duration: 1500 });
+        if (chartsPreCaptured && preCapturedCharts && preCapturedCharts.length > 0) {
+          // Use pre-captured charts - instant!
+          capturedCharts = preCapturedCharts;
+          usedPreCaptured = true;
+          console.log(`Using ${preCapturedCharts.length} pre-captured charts`);
+        } else {
+          // Capture now
+          try {
+            capturedCharts = await captureRoadmapReviewCharts();
+          } catch (chartError) {
+            console.error("Chart capture error:", chartError);
+            // Continue without charts
           }
-        } catch (chartError) {
-          console.error("Chart capture error:", chartError);
-          toast.warning("Could not capture charts, continuing without them");
         }
       }
 
-      toast.info("Generating PDF report...", { duration: 2000 });
+      if (cancelExportRef.current) {
+        throw new Error('Export cancelled');
+      }
 
-      // Generate PDF using pdfmake with captured charts
+      // Step 2: Building document
+      setExportStep('building');
+
+      if (cancelExportRef.current) {
+        throw new Error('Export cancelled');
+      }
+
+      // Step 3: Generate PDF
+      setExportStep('generating');
+      
       const pdfBlob = await generateRoadmapPdfMake(
         enhancedSummaries,
         portfolioMetrics,
@@ -257,6 +294,13 @@ export default function AdminRoadmapReview() {
         capturedCharts
       );
 
+      if (cancelExportRef.current) {
+        throw new Error('Export cancelled');
+      }
+
+      // Step 4: Save and download
+      setExportStep('saving');
+
       const fileName = `Roadmap_Review_${format(new Date(), "yyyy-MM-dd_HHmmss")}.pdf`;
       
       // Get current user
@@ -275,9 +319,8 @@ export default function AdminRoadmapReview() {
       };
 
       if (!user) {
-        // Just download if not authenticated
         downloadBlob(pdfBlob, fileName);
-        toast.success("PDF report downloaded!");
+        setExportStep('complete');
         return;
       }
 
@@ -292,9 +335,8 @@ export default function AdminRoadmapReview() {
 
       if (uploadError) {
         console.error("Storage upload error:", uploadError);
-        // Fall back to direct download
         downloadBlob(pdfBlob, fileName);
-        toast.warning("PDF downloaded but couldn't save to storage");
+        setExportStep('complete');
         return;
       }
 
@@ -320,10 +362,15 @@ export default function AdminRoadmapReview() {
       // Refresh the saved exports list
       queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
       
-      toast.success("PDF report saved and downloaded!");
-    } catch (error) {
+      setExportStep('complete');
+    } catch (error: any) {
       console.error("Error generating PDF:", error);
-      toast.error("Failed to generate report. Please try again.");
+      if (error?.message === 'Export cancelled') {
+        toast.info("Export cancelled");
+        setShowProgressOverlay(false);
+      } else {
+        setExportStep('error');
+      }
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -437,6 +484,21 @@ export default function AdminRoadmapReview() {
         onOpenChange={setShowExportDialog}
         onExport={generatePDFReport}
         isExporting={isGeneratingPDF}
+        preCaptureStatus={preCaptureStatus}
+        preCapturedChartCount={preCapturedChartCount}
+      />
+
+      {/* Export Progress Overlay */}
+      <ExportProgressOverlay
+        isVisible={showProgressOverlay}
+        currentStep={exportStep}
+        chartCount={preCapturedChartCount}
+        usingPreCaptured={chartsPreCaptured}
+        onCancel={() => {
+          cancelExportRef.current = true;
+          setShowProgressOverlay(false);
+          setIsGeneratingPDF(false);
+        }}
       />
 
       {/* Hidden Printable Charts Container - renders all charts for PDF capture */}
