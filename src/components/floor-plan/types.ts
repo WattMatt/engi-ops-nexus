@@ -82,7 +82,7 @@ export enum Tool {
   LINE_DC = 'line_dc',
   ZONE = 'zone',
   TOOL_WALKWAY = 'tool_walkway',
-  
+
   // General Equipment
   PLACE_RMU = 'place_rmu',
   PLACE_SUBSTATION = 'place_substation',
@@ -98,7 +98,7 @@ export enum Tool {
   PLACE_INVERTER = 'place_inverter',
   PLACE_DC_COMBINER = 'place_dc_combiner',
   PLACE_AC_DISCONNECT = 'place_ac_disconnect',
-  
+
   // Containment
   TOOL_TELKOM_BASKET = 'tool_telkom_basket',
   TOOL_SECURITY_BASKET = 'tool_security_basket',
@@ -191,6 +191,7 @@ export interface AssemblyModification {
   excluded: boolean;
   quantityOverride?: number;
   notes?: string;
+  selectedVariantId?: string; // Added from assemblies.ts version
 }
 
 export interface EquipmentItem {
@@ -200,10 +201,11 @@ export interface EquipmentItem {
   rotation: number; // in degrees
   name?: string;
   assemblyModifications?: AssemblyModification[]; // Per-item assembly customizations
+  assemblyId?: string; // ID of the AssemblyDefinition used (from stashed changes)
 }
 
 export interface SupplyLine {
-  id:string;
+  id: string;
   name: string;
   label?: string;
   type: 'mv' | 'lv' | 'dc';
@@ -244,39 +246,39 @@ export interface Walkway {
 }
 
 export interface ViewState {
-    zoom: number;
-    offset: Point;
+  zoom: number;
+  offset: Point;
 }
 
 export interface ScaleInfo {
-    pixelDistance: number | null;
-    realDistance: number | null;
-    ratio: number | null; // meters per pixel
-    labelPosition?: Point | null; // Optional custom position for the scale label
+  pixelDistance: number | null;
+  realDistance: number | null;
+  ratio: number | null; // meters per pixel
+  labelPosition?: Point | null; // Optional custom position for the scale label
 }
 
 export interface PVPanelConfig {
-    width: number;  // in meters
-    length: number; // in meters
-    wattage: number; // in watts peak
+  width: number;  // in meters
+  length: number; // in meters
+  wattage: number; // in watts peak
 }
 
 export interface RoofMask {
-    id: string;
-    points: Point[];
-    pitch: number;    // in degrees
-    direction: number; // in degrees (azimuth)
+  id: string;
+  points: Point[];
+  pitch: number;    // in degrees
+  direction: number; // in degrees (azimuth)
 }
 
 export type PanelOrientation = 'portrait' | 'landscape';
 
 export interface PVArrayItem {
-    id: string;
-    position: Point;
-    rows: number;
-    columns: number;
-    orientation: PanelOrientation;
-    rotation: number; // in degrees, overall rotation of the array
+  id: string;
+  position: Point;
+  rows: number;
+  columns: number;
+  orientation: PanelOrientation;
+  rotation: number; // in degrees, overall rotation of the array
 }
 
 export enum TaskStatus {
