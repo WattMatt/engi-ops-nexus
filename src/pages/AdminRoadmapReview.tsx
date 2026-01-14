@@ -287,7 +287,7 @@ export default function AdminRoadmapReview() {
         throw new Error('Export cancelled');
       }
 
-      // Step 3: Generate and download PDF directly (no blob)
+      // Step 3: Generate PDF blob
       setExportStep('generating');
       console.log('Starting PDF generation with', enhancedSummaries.length, 'projects');
       console.log('Options:', {
@@ -295,15 +295,15 @@ export default function AdminRoadmapReview() {
         chartsCount: capturedCharts?.length ?? 0,
       });
       
-      // This now returns filename and downloads directly
-      const filename = await generateRoadmapPdfMake(
+      // Generate the PDF blob
+      const { blob, filename } = await generateRoadmapPdfMake(
         enhancedSummaries,
         portfolioMetrics,
         {
           includeCharts: options?.includeCharts ?? true,
           includeAnalytics: options?.includeAnalytics ?? true,
           includeDetailedProjects: options?.includeDetailedProjects ?? true,
-          includeMeetingNotes: options?.includeMeetingNotes ?? false, // Disabled by default for speed
+          includeMeetingNotes: options?.includeMeetingNotes ?? false,
           includeSummaryMinutes: options?.includeSummaryMinutes ?? false,
           includeTableOfContents: options?.includeTableOfContents ?? true,
           includeCoverPage: options?.includeCoverPage ?? true,
@@ -318,41 +318,98 @@ export default function AdminRoadmapReview() {
         capturedCharts
       );
       
-      console.log('PDF downloaded:', filename);
+      console.log('PDF blob generated:', filename, 'size:', blob.size);
 
-      // Export complete - close overlay immediately since download has started
+      if (cancelExportRef.current) {
+        throw new Error('Export cancelled');
+      }
+
+      // Step 4: Save to storage
+      setExportStep('saving');
+      const storagePath = `reports/${Date.now()}_${filename}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('roadmap-exports')
+        .upload(storagePath, blob, {
+          contentType: 'application/pdf',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        throw new Error(`Failed to save report: ${uploadError.message}`);
+      }
+
+      // Save to database
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: dbError } = await supabase
+        .from('roadmap_pdf_exports')
+        .insert({
+          file_name: filename,
+          file_path: storagePath,
+          file_size: blob.size,
+          report_type: options?.reportType ?? 'standard',
+          exported_by: user?.id || null,
+          options: options || {},
+        });
+
+      if (dbError) {
+        console.error('Database insert error:', dbError);
+        // Try to clean up the uploaded file
+        await supabase.storage.from('roadmap-exports').remove([storagePath]);
+        throw new Error(`Failed to save report metadata: ${dbError.message}`);
+      }
+
+      // Refresh saved exports list
+      queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
+      
+      // Show complete state briefly
       setExportStep('complete');
-      toast.success(`Report downloaded: ${filename}`);
-      setIsGeneratingPDF(false);
-      setShowProgressOverlay(false);
+      toast.success(`Report saved to "Saved Reports": ${filename}`);
+      
+      // Close overlay after brief delay to show "Complete!"
+      setTimeout(() => {
+        setShowProgressOverlay(false);
+        setIsGeneratingPDF(false);
+        // Switch to saved reports tab
+        setActiveTab('saved');
+      }, 1200);
       
     } catch (error: any) {
       console.error("Error generating PDF:", error);
       if (error?.message === 'Export cancelled') {
         toast.info("Export cancelled");
       } else if (error?.message?.includes('timed out')) {
-        // Timeout - try quick download as fallback
+        // Timeout - try quick download as fallback (direct download)
         console.log('[RoadmapPDF] Primary method timed out, trying quick download...');
         toast.info("Full export timed out, generating quick report...");
         try {
           await quickDownloadRoadmapPdf(enhancedSummaries, portfolioMetrics);
           setExportStep('complete');
-          toast.success("Quick report generated successfully");
+          toast.success("Quick report downloaded (not saved)");
+          setTimeout(() => {
+            setShowProgressOverlay(false);
+            setIsGeneratingPDF(false);
+          }, 1200);
         } catch (quickError: any) {
           console.error("Quick download also failed:", quickError);
           toast.error(`PDF generation failed: ${quickError?.message || 'Unknown error'}`);
           setExportStep('error');
+          setTimeout(() => {
+            setShowProgressOverlay(false);
+            setIsGeneratingPDF(false);
+          }, 2500);
         }
       } else {
         const errorMessage = error?.message || 'Unknown error occurred';
         console.error("PDF generation error details:", errorMessage);
         toast.error(`PDF generation failed: ${errorMessage.substring(0, 100)}`);
         setExportStep('error');
+        setTimeout(() => {
+          setShowProgressOverlay(false);
+          setIsGeneratingPDF(false);
+        }, 2500);
       }
-    } finally {
-      // Always clean up state
-      setIsGeneratingPDF(false);
-      setShowProgressOverlay(false);
     }
   }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts]);
 

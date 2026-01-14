@@ -149,9 +149,10 @@ export function ExportProgressOverlay({
 
         {/* Complete state */}
         {currentStep === 'complete' && (
-          <div className="mb-4 p-3 rounded-md bg-green-500/10 text-green-600 flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            <span className="text-sm font-medium">PDF downloaded successfully!</span>
+          <div className="mb-4 p-4 rounded-md bg-green-500/10 text-green-600 flex flex-col items-center gap-2">
+            <CheckCircle className="h-8 w-8" />
+            <span className="text-base font-semibold">Complete!</span>
+            <span className="text-sm text-muted-foreground">Report saved to "Saved Reports"</span>
           </div>
         )}
 
