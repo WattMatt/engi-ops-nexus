@@ -2,13 +2,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 import { toast } from "sonner";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, Calculator, RefreshCw } from "lucide-react";
 
 interface RunningRecoveryCalculatorProps {
   projectId: string;
@@ -32,6 +33,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   const [zoneSettings, setZoneSettings] = useState<Map<string, ZoneSettings>>(new Map());
   const [localInputs, setLocalInputs] = useState<Map<string, Partial<ZoneSettings>>>(new Map());
   const [pendingSaves, setPendingSaves] = useState<Set<string>>(new Set());
+  const [isCalculating, setIsCalculating] = useState(false);
   const saveTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Memoized function to get fuel consumption from sizing table
@@ -271,6 +273,63 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     }
   };
 
+  // Calculate and save defaults for all zones
+  const calculateAndSaveDefaults = async () => {
+    if (zones.length === 0) {
+      toast.error("No generator zones configured");
+      return;
+    }
+
+    setIsCalculating(true);
+    
+    try {
+      const settingsToUpsert = zones.map(zone => {
+        const existingSetting = allSettings.find(s => s.generator_zone_id === zone.id);
+        
+        // Get kVA from generator size or use default
+        const sizeMatch = zone.generator_size?.match(/(\d+)/);
+        const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200;
+        
+        // Get fuel rate from sizing table or estimate
+        let fuelRate = getFuelConsumption(zone.generator_size || "", 75);
+        if (fuelRate === 0) {
+          fuelRate = kvaValue * 0.15;
+        }
+
+        return {
+          project_id: projectId,
+          generator_zone_id: zone.id,
+          plant_name: existingSetting?.plant_name || zone.zone_name,
+          running_load: existingSetting?.running_load ?? 75,
+          net_energy_kva: existingSetting?.net_energy_kva ?? kvaValue,
+          kva_to_kwh_conversion: existingSetting?.kva_to_kwh_conversion ?? 0.95,
+          fuel_consumption_rate: existingSetting?.fuel_consumption_rate ?? fuelRate,
+          diesel_price_per_litre: existingSetting?.diesel_price_per_litre ?? 23.00,
+          servicing_cost_per_year: existingSetting?.servicing_cost_per_year ?? 18800.00,
+          servicing_cost_per_250_hours: existingSetting?.servicing_cost_per_250_hours ?? 18800.00,
+          expected_hours_per_month: existingSetting?.expected_hours_per_month ?? 100,
+        };
+      });
+
+      const { error } = await supabase
+        .from("running_recovery_settings")
+        .upsert(settingsToUpsert, {
+          onConflict: "project_id,generator_zone_id"
+        });
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-all", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-overview", projectId] });
+
+      toast.success(`Calculated defaults for ${zones.length} zone${zones.length !== 1 ? 's' : ''}`);
+    } catch (error) {
+      console.error("Failed to calculate defaults:", error);
+      toast.error("Failed to calculate defaults");
+    } finally {
+      setIsCalculating(false);
+    }
+  };
 
   // Memoize tariff calculation for a specific zone
   const calculateZoneTariff = useCallback((zoneId: string): number => {
@@ -327,11 +386,32 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               <CardTitle>Running Recovery Calculator</CardTitle>
               <CardDescription>Enter values and they'll save automatically after you stop typing</CardDescription>
             </div>
-            {pendingSaves.size > 0 && (
-              <Badge variant="secondary" className="animate-pulse">
-                Saving...
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {pendingSaves.size > 0 && (
+                <Badge variant="secondary" className="animate-pulse">
+                  Saving...
+                </Badge>
+              )}
+              <Button
+                onClick={calculateAndSaveDefaults}
+                disabled={isCalculating || zones.length === 0}
+                size="sm"
+                variant="outline"
+                className="gap-2"
+              >
+                {isCalculating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="h-4 w-4" />
+                    Calculate Defaults
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -692,6 +772,26 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               per kWh (including 10% contingency)
             </div>
             <p className="text-xs text-muted-foreground mt-1 italic">Based on actual running load settings</p>
+            {averageTariff === 0 && zones.length > 0 && (
+              <Button
+                onClick={calculateAndSaveDefaults}
+                disabled={isCalculating}
+                size="sm"
+                className="mt-4 gap-2"
+              >
+                {isCalculating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="h-4 w-4" />
+                    Calculate Defaults
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
