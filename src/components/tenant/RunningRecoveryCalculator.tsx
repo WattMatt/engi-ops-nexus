@@ -113,8 +113,15 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
       } else {
         // Initialize with defaults
         const sizeMatch = zone.generator_size?.match(/(\d+)/);
-        const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 1200;
-        const fuelRate = getFuelConsumption(zone.generator_size || "", 75);
+        const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200; // Default to 200 kVA if no size set
+        let fuelRate = getFuelConsumption(zone.generator_size || "", 75);
+        
+        // If no fuel rate found (generator size not in table), estimate based on kVA
+        // Typical fuel consumption is approximately 0.25-0.35 L/kWh at 75% load
+        if (fuelRate === 0) {
+          // Use a conservative estimate: ~0.15 L per kVA at 75% load
+          fuelRate = kvaValue * 0.15;
+        }
         
         initialSettings.set(zone.id, {
           generator_zone_id: zone.id,
