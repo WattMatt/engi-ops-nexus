@@ -885,60 +885,79 @@ export async function generateRoadmapPdfBlob(
   capturedCharts?: CapturedChartData[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Generating PDF blob with', projects.length, 'projects');
+  console.log('[RoadmapPDF] Starting FAST PDF generation with', projects.length, 'projects');
+  const startTime = Date.now();
 
-  // PERFORMANCE: Limit projects to prevent timeout
-  const maxProjects = 8;
+  // PERFORMANCE: Limit to 5 projects max for reliable generation
+  const maxProjects = 5;
   const limitedProjects = projects.slice(0, maxProjects);
   if (projects.length > maxProjects) {
-    console.log(`[RoadmapPDF] Limited from ${projects.length} to ${maxProjects} projects for performance`);
-  }
-
-  // PERFORMANCE: Force-disable expensive options to prevent timeout
-  const config: RoadmapPDFExportOptions = {
-    ...DEFAULT_EXPORT_OPTIONS,
-    ...options,
-    // Override expensive options
-    includeFullRoadmapItems: false, // This causes most timeouts
-  };
-
-  // PERFORMANCE: Limit chart data
-  let charts: CapturedChartData[] = [];
-  if (capturedCharts && capturedCharts.length > 0) {
-    const totalChartSize = capturedCharts.reduce((acc, c) => acc + c.image.sizeBytes, 0);
-    if (totalChartSize < 200 * 1024) { // 200KB limit (reduced from 300KB)
-      charts = capturedCharts.slice(0, 4); // Max 4 charts
-    } else {
-      console.log('[RoadmapPDF] Skipping charts - too large:', Math.round(totalChartSize / 1024), 'KB');
-    }
+    console.log(`[RoadmapPDF] Limited from ${projects.length} to ${maxProjects} projects`);
   }
 
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build document definition with limited data
-  console.log('[RoadmapPDF] Building document definition...');
-  const docDefinition = await buildPdfDocumentDefinition(limitedProjects, metrics, config, undefined, charts);
+  // Build a SIMPLE document directly - no complex helpers
+  console.log('[RoadmapPDF] Building simple document...');
+  
+  const docDefinition: TDocumentDefinitions = {
+    pageSize: 'A4',
+    pageMargins: [40, 60, 40, 60],
+    info: {
+      title: 'Roadmap Review Report',
+      author: options.companyName || 'System',
+      subject: 'Portfolio Review',
+      creator: 'Lovable Platform',
+    },
+    header: {
+      text: 'Roadmap Review Report',
+      alignment: 'center',
+      margin: [0, 20, 0, 0],
+      fontSize: 10,
+      color: '#666666',
+    },
+    footer: (currentPage: number, pageCount: number) => ({
+      text: `Page ${currentPage} of ${pageCount}`,
+      alignment: 'center',
+      margin: [0, 20, 0, 0],
+      fontSize: 9,
+      color: '#888888',
+    }),
+    content: buildFastContent(limitedProjects, metrics, options),
+    styles: {
+      header: { fontSize: 22, bold: true, color: '#1a1a2e' },
+      subheader: { fontSize: 14, bold: true, color: '#4a4a6a', margin: [0, 10, 0, 5] },
+      tableHeader: { bold: true, fontSize: 10, fillColor: '#2563eb', color: '#ffffff' },
+    },
+    defaultStyle: {
+      fontSize: 10,
+      color: '#333333',
+    },
+  };
 
-  // Generate blob with proper error handling
-  console.log('[RoadmapPDF] Generating PDF blob...');
+  console.log('[RoadmapPDF] Document built in', Date.now() - startTime, 'ms, generating PDF...');
+  
   const pdfDoc = pdfMake.createPdf(docDefinition);
   
   return new Promise((resolve, reject) => {
     let resolved = false;
     
+    // 30 second timeout for simpler document
     const timeout = setTimeout(() => {
       if (!resolved) {
         resolved = true;
-        reject(new Error('PDF generation timed out after 45 seconds'));
+        console.error('[RoadmapPDF] Timed out after 30 seconds');
+        reject(new Error('PDF generation timed out after 30 seconds'));
       }
-    }, 45000); // Reduced to 45s for faster feedback
+    }, 30000);
 
     try {
       pdfDoc.getBlob((blob: Blob) => {
         if (!resolved) {
           resolved = true;
           clearTimeout(timeout);
-          console.log('[RoadmapPDF] PDF blob generated:', finalFilename, `(${(blob.size / 1024).toFixed(1)} KB)`);
+          const elapsed = Date.now() - startTime;
+          console.log(`[RoadmapPDF] PDF complete: ${finalFilename} (${(blob.size / 1024).toFixed(1)} KB) in ${elapsed}ms`);
           resolve({ blob, filename: finalFilename });
         }
       });
@@ -951,6 +970,143 @@ export async function generateRoadmapPdfBlob(
       }
     }
   });
+}
+
+/**
+ * Build FAST, simple content - no async, no complex nesting
+ */
+function buildFastContent(
+  projects: EnhancedProjectSummary[],
+  metrics: PortfolioMetrics,
+  options: Partial<RoadmapPDFExportOptions>
+): Content[] {
+  const content: Content[] = [];
+
+  // Title
+  content.push({
+    text: 'ROADMAP REVIEW REPORT',
+    style: 'header',
+    alignment: 'center',
+    margin: [0, 20, 0, 10] as Margins,
+  });
+
+  if (options.companyName) {
+    content.push({
+      text: options.companyName,
+      fontSize: 14,
+      alignment: 'center',
+      color: '#666666',
+      margin: [0, 0, 0, 5] as Margins,
+    });
+  }
+
+  content.push({
+    text: `Generated: ${format(new Date(), 'MMMM d, yyyy HH:mm')}`,
+    fontSize: 11,
+    alignment: 'center',
+    color: '#888888',
+    margin: [0, 0, 0, 30] as Margins,
+  });
+
+  // Calculate averageHealth from totalHealthScore
+  const avgHealth = metrics.totalProjects > 0 ? Math.round(metrics.totalHealthScore / metrics.totalProjects) : 0;
+  const projectsOnTrack = metrics.totalProjects - metrics.projectsAtRisk - metrics.projectsCritical;
+
+  // Portfolio Summary Box
+  content.push({
+    text: 'PORTFOLIO SUMMARY',
+    style: 'subheader',
+  });
+
+  content.push({
+    table: {
+      widths: ['*', '*', '*', '*'],
+      body: [
+        [
+          { text: 'Total Projects', bold: true, alignment: 'center' },
+          { text: 'Avg Health', bold: true, alignment: 'center' },
+          { text: 'On Track', bold: true, alignment: 'center' },
+          { text: 'At Risk', bold: true, alignment: 'center' },
+        ],
+        [
+          { text: String(metrics.totalProjects), alignment: 'center', fontSize: 16, bold: true },
+          { text: `${avgHealth}%`, alignment: 'center', fontSize: 16, bold: true, color: avgHealth >= 70 ? '#22c55e' : avgHealth >= 40 ? '#eab308' : '#ef4444' },
+          { text: String(projectsOnTrack), alignment: 'center', fontSize: 16, bold: true, color: '#22c55e' },
+          { text: String(metrics.projectsAtRisk), alignment: 'center', fontSize: 16, bold: true, color: '#ef4444' },
+        ],
+      ],
+    },
+    layout: {
+      hLineWidth: () => 1,
+      vLineWidth: () => 1,
+      hLineColor: () => '#e5e7eb',
+      vLineColor: () => '#e5e7eb',
+      paddingTop: () => 8,
+      paddingBottom: () => 8,
+    },
+    margin: [0, 0, 0, 20] as Margins,
+  });
+
+  // Projects Table
+  content.push({
+    text: 'PROJECT STATUS',
+    style: 'subheader',
+    margin: [0, 20, 0, 10] as Margins,
+  });
+
+  const tableBody: TableCell[][] = [
+    [
+      { text: 'Project', style: 'tableHeader' },
+      { text: 'Health', style: 'tableHeader', alignment: 'center' },
+      { text: 'Progress', style: 'tableHeader', alignment: 'center' },
+      { text: 'Risk', style: 'tableHeader', alignment: 'center' },
+      { text: 'Overdue', style: 'tableHeader', alignment: 'center' },
+    ],
+  ];
+
+  projects.forEach((project, idx) => {
+    const healthColor = project.healthScore >= 70 ? '#22c55e' : project.healthScore >= 40 ? '#eab308' : '#ef4444';
+    const fillColor = idx % 2 === 0 ? '#f9fafb' : '#ffffff';
+    
+    tableBody.push([
+      { text: project.projectName.substring(0, 40), fillColor },
+      { text: `${project.healthScore}%`, alignment: 'center', color: healthColor, bold: true, fillColor },
+      { text: `${project.completedItems}/${project.totalItems}`, alignment: 'center', fillColor },
+      { text: project.riskLevel.charAt(0).toUpperCase() + project.riskLevel.slice(1), alignment: 'center', fillColor },
+      { text: String(project.overdueCount), alignment: 'center', color: project.overdueCount > 0 ? '#ef4444' : '#22c55e', fillColor },
+    ]);
+  });
+
+  content.push({
+    table: {
+      headerRows: 1,
+      widths: ['*', 60, 70, 70, 60],
+      body: tableBody,
+    },
+    layout: {
+      hLineWidth: () => 0.5,
+      vLineWidth: () => 0.5,
+      hLineColor: () => '#d1d5db',
+      vLineColor: () => '#d1d5db',
+      paddingTop: () => 6,
+      paddingBottom: () => 6,
+      paddingLeft: () => 8,
+      paddingRight: () => 8,
+    },
+  });
+
+  // Note about limited data
+  if (projects.length === 5) {
+    content.push({
+      text: 'Note: Report limited to first 5 projects for performance.',
+      fontSize: 9,
+      italics: true,
+      color: '#9ca3af',
+      margin: [0, 10, 0, 0] as Margins,
+    });
+  }
+
+  return content;
 }
 
 /**
