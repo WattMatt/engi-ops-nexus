@@ -42,6 +42,7 @@ import {
   type CapturedChartData,
   waitForCharts,
 } from "./pdfmake/chartUtils";
+import { buildSummaryMinutesContent } from "./roadmapReviewPdfSections/summaryMinutes";
 
 // ============================================================================
 // TYPES
@@ -743,6 +744,7 @@ const buildTableOfContents = (options: RoadmapPDFExportOptions, hasCharts: boole
   const entries: { title: string; page: string }[] = [];
   let pageNum = 2;
 
+  // Executive summary always included unless executive-summary-only mode
   if (options.includeAnalytics) {
     entries.push({ title: 'Executive Summary', page: String(pageNum++) });
   }
@@ -752,13 +754,21 @@ const buildTableOfContents = (options: RoadmapPDFExportOptions, hasCharts: boole
   if (options.includeDetailedProjects) {
     entries.push({ title: 'Project Details', page: String(pageNum++) });
   }
-  if (options.includeMeetingNotes) {
+  // Meeting notes and summary only for meeting-review type
+  if (options.includeMeetingNotes && options.reportType === 'meeting-review') {
     entries.push({ title: 'Meeting Notes', page: String(pageNum++) });
+  }
+  if (options.includeSummaryMinutes && options.reportType === 'meeting-review') {
+    entries.push({ title: 'Summary Minutes', page: String(pageNum++) });
+  }
+  if (options.includeFullRoadmapItems) {
+    entries.push({ title: 'Full Roadmap Items', page: String(pageNum++) });
   }
 
   return {
     stack: [
       { text: 'Table of Contents', style: 'h1', margin: [0, 0, 0, 15] as Margins },
+      { text: `Report Type: ${formatReportType(options.reportType)}`, fontSize: 9, color: PDF_COLORS_HEX.textMuted, margin: [0, 0, 0, 10] as Margins },
       ...entries.map(entry => ({
         columns: [
           { text: entry.title, fontSize: 11, width: '*' },
@@ -768,6 +778,15 @@ const buildTableOfContents = (options: RoadmapPDFExportOptions, hasCharts: boole
       })),
     ],
   };
+};
+
+// Helper to format report type for display
+const formatReportType = (type: string): string => {
+  switch (type) {
+    case 'meeting-review': return 'Meeting Review Format';
+    case 'executive-summary': return 'Executive Summary Only';
+    default: return 'Standard Report';
+  }
 };
 
 // ============================================================================
@@ -924,13 +943,13 @@ export async function generateRoadmapPdfForStorage(
       { text: 'ROADMAP REVIEW REPORT', fontSize: 28, bold: true, alignment: 'center' as const, margin: [0, 100, 0, 20] as Margins },
       { text: config.companyName || 'Portfolio Overview', fontSize: 18, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
       { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center' as const, color: PDF_COLORS_HEX.gray },
-      { text: `Report Type: ${config.reportType || 'standard'}`, fontSize: 10, alignment: 'center' as const, color: PDF_COLORS_HEX.gray, margin: [0, 10, 0, 0] as Margins },
+      { text: `Report Type: ${formatReportType(config.reportType)}`, fontSize: 10, alignment: 'center' as const, color: PDF_COLORS_HEX.gray, margin: [0, 10, 0, 0] as Margins },
       { text: '', pageBreak: 'after' as const },
     ]);
   }
 
-  // Add table of contents if enabled
-  if (config.includeTableOfContents) {
+  // Add table of contents if enabled (skip for executive-summary)
+  if (config.includeTableOfContents && config.reportType !== 'executive-summary') {
     doc.add(buildTableOfContents(config, false)); // No charts in storage
     doc.addPageBreak();
   }
@@ -943,20 +962,31 @@ export async function generateRoadmapPdfForStorage(
     doc.addPageBreak();
   }
 
-  // Add project details if enabled
-  if (config.includeDetailedProjects) {
+  // Add project details if enabled (skip for executive-summary)
+  if (config.includeDetailedProjects && config.reportType !== 'executive-summary') {
     doc.add(buildProjectDetails(limitedProjects));
     doc.addPageBreak();
   }
 
-  // Add meeting notes section if enabled
-  if (config.includeMeetingNotes) {
+  // Add meeting notes section if enabled (only for meeting-review)
+  if (config.includeMeetingNotes && config.reportType === 'meeting-review') {
     doc.add(buildMeetingNotes());
     doc.addPageBreak();
   }
 
-  // Add full roadmap items if enabled (limit for storage)
-  if (config.includeFullRoadmapItems && allRoadmapItems) {
+  // Add summary minutes if enabled (only for meeting-review)
+  if (config.includeSummaryMinutes && config.reportType === 'meeting-review') {
+    doc.add(buildSummaryMinutesContent({
+      companyLogo: config.companyLogo,
+      companyName: config.companyName,
+      generationDate: format(new Date(), 'MMMM d, yyyy'),
+      projectCount: limitedProjects.length,
+    }));
+    doc.addPageBreak();
+  }
+
+  // Add full roadmap items if enabled (skip for executive-summary)
+  if (config.includeFullRoadmapItems && allRoadmapItems && config.reportType !== 'executive-summary') {
     const maxRoadmapProjects = 8;
     const roadmapProjects = limitedProjects.slice(0, maxRoadmapProjects);
     for (const project of roadmapProjects) {
@@ -1104,7 +1134,7 @@ async function buildPdfDocumentDefinition(
         {
           title: 'Roadmap Review Report',
           projectName: config.companyName || 'Portfolio Overview',
-          subtitle: `Generated ${format(new Date(), 'MMMM d, yyyy')}`,
+          subtitle: `${formatReportType(config.reportType)} • Generated ${format(new Date(), 'MMMM d, yyyy')}`,
           revision: 'Rev 1.0',
         },
         companyDetails
@@ -1115,14 +1145,15 @@ async function buildPdfDocumentDefinition(
       doc.add([
         { text: 'ROADMAP REVIEW REPORT', fontSize: 28, bold: true, alignment: 'center' as const, margin: [0, 100, 0, 20] as Margins },
         { text: config.companyName || 'Portfolio Overview', fontSize: 18, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
+        { text: formatReportType(config.reportType), fontSize: 12, alignment: 'center' as const, color: PDF_COLORS_HEX.primary, margin: [0, 0, 0, 10] as Margins },
         { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center' as const, color: PDF_COLORS_HEX.gray },
         { text: '', pageBreak: 'after' as const },
       ]);
     }
   }
 
-  // Add table of contents
-  if (config.includeTableOfContents) {
+  // Add table of contents (skip for executive-summary-only mode)
+  if (config.includeTableOfContents && config.reportType !== 'executive-summary') {
     console.log('[RoadmapPDF] Adding TOC...');
     doc.add(buildTableOfContents(config, charts.length > 0));
     doc.addPageBreak();
@@ -1167,22 +1198,34 @@ async function buildPdfDocumentDefinition(
     }
   }
 
-  // Add project details
-  if (config.includeDetailedProjects) {
+  // Add project details (skip for executive-summary-only mode)
+  if (config.includeDetailedProjects && config.reportType !== 'executive-summary') {
     console.log('[RoadmapPDF] Adding project details...');
     doc.add(buildProjectDetails(limitedProjects));
     doc.addPageBreak();
   }
 
-  // Add meeting notes
-  if (config.includeMeetingNotes) {
+  // Add meeting notes (only for meeting-review type)
+  if (config.includeMeetingNotes && config.reportType === 'meeting-review') {
     console.log('[RoadmapPDF] Adding meeting notes...');
     doc.add(buildMeetingNotes());
     doc.addPageBreak();
   }
 
-  // Add full roadmap pages - strictly limited for performance
-  if (config.includeFullRoadmapItems && allRoadmapItems) {
+  // Add summary minutes page (only for meeting-review type)
+  if (config.includeSummaryMinutes && config.reportType === 'meeting-review') {
+    console.log('[RoadmapPDF] Adding summary minutes...');
+    doc.add(buildSummaryMinutesContent({
+      companyLogo: config.companyLogo,
+      companyName: config.companyName,
+      generationDate: format(new Date(), 'MMMM d, yyyy'),
+      projectCount: limitedProjects.length,
+    }));
+    doc.addPageBreak();
+  }
+
+  // Add full roadmap pages (skip for executive-summary-only mode)
+  if (config.includeFullRoadmapItems && allRoadmapItems && config.reportType !== 'executive-summary') {
     const maxRoadmapProjects = 6; // Reduced for performance
     const roadmapProjects = limitedProjects.slice(0, maxRoadmapProjects);
     console.log(`[RoadmapPDF] Adding ${roadmapProjects.length} full roadmap pages...`);
