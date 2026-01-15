@@ -311,12 +311,17 @@ export function FinalAccountExcelImport({
         continue;
       }
       
+      // Detect P&G (Preliminaries & General) items first - these are NOT Prime Cost
+      const isPandG = /preliminar|p\s*&\s*g|p\.?&\.?g|firm\s*and\s*fixed|attendance|general\s*requirement|setting\s*out|site\s*establishment|water\s*for\s*works|temporary|removal\s*of\s*rubbish|protection|cleaning/i.test(description);
+      
       // Detect Prime Cost items - common patterns in BOQ
-      const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for/i.test(description) 
-        || unitRaw.toLowerCase() === 'sum' && /supply|delivery|cost|amount/i.test(description);
+      // Must explicitly mention "prime cost" or start with "PC " - NOT just "allowance for" which is too broad
+      const isPrimeCost = !isPandG && (
+        /prime\s*cost|^pc\s|p\.?c\.?\s*sum|p\.?c\.?\s*amount|pc\s*rate|prime\s*cost\s*amount/i.test(description)
+      );
       
       // Detect Provisional Sum items
-      const isProvisionalSum = /provisional\s*sum|^ps\s/i.test(description);
+      const isProvisionalSum = /provisional\s*sum|^ps\s|prov\.?\s*sum/i.test(description);
       
       // Use database-valid item_type values: 'MEASURED', 'PC', 'PS'
       const itemType: 'MEASURED' | 'PC' | 'PS' = 
