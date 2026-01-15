@@ -157,6 +157,13 @@ export type {
   ChartSectionOptions,
 } from './chartUtils';
 
+// Roadmap Review Builder
+export {
+  generateRoadmapReviewPDF,
+  downloadRoadmapReviewPDF,
+} from './roadmapReviewBuilder';
+export type { PDFGenerationResult } from './roadmapReviewBuilder';
+
 // HR Export utilities
 export {
   buildPayslipContent,
