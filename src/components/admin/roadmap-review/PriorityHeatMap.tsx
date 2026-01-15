@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { EnhancedProjectSummary } from "@/utils/roadmapReviewCalculations";
 
 interface PriorityHeatMapProps {
@@ -8,28 +9,31 @@ interface PriorityHeatMapProps {
 const priorityOrder = ['critical', 'high', 'medium', 'normal', 'low'];
 
 export function PriorityHeatMap({ projects }: PriorityHeatMapProps) {
-  // Build priority matrix
-  const priorityMatrix = projects.slice(0, 8).map((project) => {
-    const counts: Record<string, number> = {};
-    priorityOrder.forEach((p) => (counts[p] = 0));
-    
-    project.priorityDistribution.forEach((pd) => {
-      const normalizedPriority = pd.priority.toLowerCase();
-      if (priorityOrder.includes(normalizedPriority)) {
-        counts[normalizedPriority] = pd.count;
-      } else {
-        counts['normal'] += pd.count;
-      }
-    });
-    
-    return {
-      name: project.projectName,
-      shortName: project.projectName.length > 15 
-        ? project.projectName.substring(0, 12) + "..." 
-        : project.projectName,
-      ...counts,
-    };
-  });
+  // Show ALL projects, sorted by total priority items
+  const priorityMatrix = projects
+    .map((project) => {
+      const counts: Record<string, number> = {};
+      priorityOrder.forEach((p) => (counts[p] = 0));
+      
+      project.priorityDistribution.forEach((pd) => {
+        const normalizedPriority = pd.priority.toLowerCase();
+        if (priorityOrder.includes(normalizedPriority)) {
+          counts[normalizedPriority] = pd.count;
+        } else {
+          counts['normal'] += pd.count;
+        }
+      });
+      
+      return {
+        name: project.projectName,
+        shortName: project.projectName.length > 15 
+          ? project.projectName.substring(0, 12) + "..." 
+          : project.projectName,
+        totalPriority: (counts.critical * 4) + (counts.high * 3) + (counts.medium * 2) + counts.normal + counts.low,
+        ...counts,
+      };
+    })
+    .sort((a, b) => b.totalPriority - a.totalPriority);
 
   const getHeatColor = (count: number, priority: string) => {
     if (count === 0) return 'bg-muted/30';
@@ -57,17 +61,31 @@ export function PriorityHeatMap({ projects }: PriorityHeatMapProps) {
     low: 'Low',
   };
 
+  // Calculate row height and max visible rows
+  const rowHeight = 44;
+  const maxVisibleRows = 8;
+  const headerHeight = 40;
+  const containerHeight = priorityMatrix.length > maxVisibleRows 
+    ? (maxVisibleRows * rowHeight) + headerHeight
+    : (priorityMatrix.length * rowHeight) + headerHeight;
+
   return (
     <Card id="priority-heatmap-chart">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold">Priority Distribution Heat Map</CardTitle>
+      <CardHeader className="pb-3 border-b bg-muted/30">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-lg font-semibold">Priority Distribution Heat Map</CardTitle>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+            {priorityMatrix.length} projects
+          </span>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         <div className="overflow-x-auto">
+          {/* Sticky header */}
           <table className="w-full text-sm">
             <thead>
               <tr>
-                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Project</th>
+                <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[140px]">Project</th>
                 {priorityOrder.map((priority) => (
                   <th key={priority} className="text-center py-2 px-3 font-medium text-muted-foreground">
                     {priorityLabels[priority]}
@@ -75,29 +93,35 @@ export function PriorityHeatMap({ projects }: PriorityHeatMapProps) {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {priorityMatrix.map((row, idx) => (
-                <tr key={idx} className="border-t border-border/50">
-                  <td className="py-2 px-3 font-medium" title={row.name}>
-                    {row.shortName}
-                  </td>
-              {priorityOrder.map((priority) => {
-                    const count = (row as Record<string, string | number>)[priority] as number || 0;
-                    return (
-                      <td key={priority} className="py-2 px-3 text-center">
-                        <div 
-                          className={`inline-flex items-center justify-center w-10 h-8 rounded text-xs font-medium ${getHeatColor(count, priority)} ${count > 5 ? 'text-white' : ''}`}
-                          title={`${count} ${priority} priority items`}
-                        >
-                          {count > 0 ? count : '-'}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
           </table>
+          
+          {/* Scrollable body */}
+          <ScrollArea style={{ height: `${containerHeight}px` }}>
+            <table className="w-full text-sm">
+              <tbody>
+                {priorityMatrix.map((row, idx) => (
+                  <tr key={idx} className="border-t border-border/50">
+                    <td className="py-2 px-3 font-medium w-[140px]" title={row.name}>
+                      {row.shortName}
+                    </td>
+                    {priorityOrder.map((priority) => {
+                      const count = (row as Record<string, string | number>)[priority] as number || 0;
+                      return (
+                        <td key={priority} className="py-2 px-3 text-center">
+                          <div 
+                            className={`inline-flex items-center justify-center w-10 h-8 rounded text-xs font-medium ${getHeatColor(count, priority)} ${count > 5 ? 'text-white' : ''}`}
+                            title={`${count} ${priority} priority items`}
+                          >
+                            {count > 0 ? count : '-'}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollArea>
         </div>
         
         {/* Legend */}
