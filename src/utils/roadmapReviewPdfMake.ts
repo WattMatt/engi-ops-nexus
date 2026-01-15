@@ -1000,6 +1000,9 @@ export async function generateRoadmapPdfBlob(
   };
 
   let currentPage = 0;
+  
+  // Track section titles for each page (for headers)
+  const pageSectionMap: Map<number, string> = new Map();
 
   // ========== PRE-LOAD LOGO FOR PAGE HEADERS (if no cover page) ==========
   if (!config.includeCoverPage && config.companyLogo) {
@@ -1015,6 +1018,7 @@ export async function generateRoadmapPdfBlob(
   // ========== COVER PAGE ==========
   if (config.includeCoverPage) {
     currentPage++;
+    pageSectionMap.set(currentPage, 'Cover');
     console.log('[RoadmapPDF] Adding cover page...');
     
     // Blue header band
@@ -1098,6 +1102,7 @@ export async function generateRoadmapPdfBlob(
   if (config.includeTableOfContents && config.reportType !== 'executive-summary') {
     doc.addPage();
     currentPage++;
+    pageSectionMap.set(currentPage, 'Contents');
     console.log('[RoadmapPDF] Adding table of contents...');
     
     let yPos = 25;
@@ -1155,6 +1160,7 @@ export async function generateRoadmapPdfBlob(
   if (config.includeAnalytics) {
     doc.addPage();
     currentPage++;
+    pageSectionMap.set(currentPage, 'Executive Summary');
     console.log('[RoadmapPDF] Adding executive summary...');
     
     let yPos = 25;
@@ -1277,6 +1283,7 @@ export async function generateRoadmapPdfBlob(
     if (totalChartSize < maxChartSize && capturedCharts.length <= maxCharts) {
       doc.addPage();
       currentPage++;
+      pageSectionMap.set(currentPage, 'Visual Analytics');
       
       let yPos = 25;
       yPos = addSectionHeader('Visual Summary', yPos);
@@ -1350,6 +1357,7 @@ export async function generateRoadmapPdfBlob(
     limitedProjects.forEach((project, idx) => {
       doc.addPage();
       currentPage++;
+      pageSectionMap.set(currentPage, `Project: ${project.projectName.substring(0, 25)}`);
       
       let yPos = 25;
       
@@ -1441,6 +1449,7 @@ export async function generateRoadmapPdfBlob(
   if (config.includeMeetingNotes && config.reportType === 'meeting-review') {
     doc.addPage();
     currentPage++;
+    pageSectionMap.set(currentPage, 'Meeting Notes');
     console.log('[RoadmapPDF] Adding meeting notes...');
     
     let yPos = 25;
@@ -1512,6 +1521,7 @@ export async function generateRoadmapPdfBlob(
   if (config.includeSummaryMinutes && config.reportType === 'meeting-review') {
     doc.addPage();
     currentPage++;
+    pageSectionMap.set(currentPage, 'Meeting Minutes');
     console.log('[RoadmapPDF] Adding summary minutes...');
     
     let yPos = 25;
@@ -1636,6 +1646,7 @@ export async function generateRoadmapPdfBlob(
       
       doc.addPage();
       currentPage++;
+      pageSectionMap.set(currentPage, `Roadmap: ${project.projectName.substring(0, 20)}`);
       
       let yPos = 25;
       
@@ -1739,7 +1750,8 @@ export async function generateRoadmapPdfBlob(
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    addPageHeader(i); // Add header with logo (skips cover page)
+    const sectionTitle = pageSectionMap.get(i);
+    addPageHeader(i, sectionTitle); // Add header with logo and section title
     addPageFooter(i, totalPages);
   }
 
