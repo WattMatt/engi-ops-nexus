@@ -181,6 +181,7 @@ export const CreateBulkServicesDialog = ({
                 <div>Capacity: {projectData.connection_size || "Not set"}</div>
                 <div>Authority: {projectData.supply_authority || "Not set"}</div>
                 <div>Standard: {projectData.electrical_standard || "SANS 10142-1"}</div>
+                <div>Location: {projectData.city || "Not set"} {projectData.latitude && projectData.longitude ? `(${projectData.latitude.toFixed(4)}, ${projectData.longitude.toFixed(4)})` : ""}</div>
               </div>
             </div>
           )}
