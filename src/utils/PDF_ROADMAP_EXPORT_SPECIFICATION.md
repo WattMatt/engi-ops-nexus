@@ -33,6 +33,7 @@ interface RoadmapPDFExportOptions {
   chartLayout: 'stacked' | 'grid';     // Default: 'stacked'
   
   // Branding
+  includeBranding?: boolean;           // Default: true (enable/disable all branding)
   companyLogo?: string | null;         // URL to company logo
   companyName?: string;                // Default: 'Roadmap Review'
   confidentialNotice?: boolean;        // Default: true (footer notice)
@@ -320,21 +321,21 @@ All pages (except cover page) should include:
 
 ## 8. Implementation Checklist
 
-- [ ] `includeCoverPage` - Cover page generation
-- [ ] `includeTableOfContents` - Dynamic TOC with page numbers
-- [ ] `includeAnalytics` - Executive summary metrics
-- [ ] `includeCharts` - Chart image embedding
-- [ ] `chartLayout` - Stacked vs Grid layout
-- [ ] `includeDetailedProjects` - Per-project detail pages
-- [ ] `includeFullRoadmapItems` - Complete task listings
-- [ ] `includeMeetingNotes` - Writable notes sections
-- [ ] `includeSummaryMinutes` - Meeting summary page
-- [ ] `companyLogo` - Logo on cover/headers
-- [ ] `companyName` - Branding text
-- [ ] `confidentialNotice` - Footer notice
-- [ ] `reportType: 'standard'` - Exclude meeting sections
-- [ ] `reportType: 'meeting-review'` - Include all sections
-- [ ] `reportType: 'executive-summary'` - Condensed format
+- [x] `includeCoverPage` - Cover page generation ✅
+- [x] `includeTableOfContents` - Dynamic TOC with page numbers ✅
+- [x] `includeAnalytics` - Executive summary metrics ✅
+- [x] `includeCharts` - Chart image embedding ✅
+- [x] `chartLayout` - Stacked vs Grid layout ✅
+- [x] `includeDetailedProjects` - Per-project detail pages ✅
+- [x] `includeFullRoadmapItems` - Complete task listings ✅
+- [x] `includeMeetingNotes` - Writable notes sections ✅
+- [x] `includeSummaryMinutes` - Meeting summary page ✅
+- [x] `companyLogo` - Logo on cover page ✅ (FIXED 2025-01-15)
+- [x] `companyName` - Branding text ✅
+- [x] `confidentialNotice` - Footer notice ✅
+- [x] `reportType: 'standard'` - Exclude meeting sections ✅
+- [x] `reportType: 'meeting-review'` - Include all sections ✅
+- [x] `reportType: 'executive-summary'` - Condensed format ✅
 
 ---
 
