@@ -105,19 +105,48 @@ export function FinalAccountExcelImport({
       };
     }
     
-    // Pattern: "3 ASJ", "4 Boxer" -> SEPARATE BILL (Bill 3, Bill 4) with ONE section
+    // Pattern: "3 ASJ", "4 Boxer", "2 SUPERSPAR", "3 TOPS", "4 CLICKS" -> SEPARATE BILL with ONE section
     const standalonePattern = trimmed.match(/^(\d+)\s+(.+)$/);
     if (standalonePattern) {
       const billNum = parseInt(standalonePattern[1]);
       const name = standalonePattern[2].trim();
       return {
         billNumber: billNum,
-        billName: name, // "ASJ", "Boxer", etc.
+        billName: name, // "SUPERSPAR", "TOPS", "CLICKS", etc.
         sectionCode: String(billNum),
         sectionName: name,
         sectionNumber: 1, // Only section in this bill
         isBillHeader: false,
       };
+    }
+    
+    // Pattern: Standalone tenant names without leading numbers (e.g., "SUPERSPAR", "TOPS", "CLICKS", "Shoprite")
+    // These are assigned sequential bill numbers starting from 2
+    const knownTenantPatterns: Record<string, number> = {
+      'superspar': 2,
+      'spar': 2,
+      'tops': 3,
+      'clicks': 4,
+      'shoprite': 5,
+      'boxer': 6,
+      'woolworths': 7,
+      'checkers': 8,
+      'pick n pay': 9,
+      'game': 10,
+    };
+    
+    const lowerTrimmed = trimmed.toLowerCase();
+    for (const [pattern, billNum] of Object.entries(knownTenantPatterns)) {
+      if (lowerTrimmed.includes(pattern)) {
+        return {
+          billNumber: billNum,
+          billName: trimmed, // Use original name
+          sectionCode: String(billNum),
+          sectionName: trimmed,
+          sectionNumber: 1,
+          isBillHeader: false,
+        };
+      }
     }
     
     // Pattern: "P&G" standalone -> Bill 1, Section 1.1
@@ -132,7 +161,33 @@ export function FinalAccountExcelImport({
       };
     }
     
-    // Unrecognized pattern - skip
+    // Pattern: Single letter section name like "A", "B", "C" - could be a section within a bill
+    // These are typically subsections and should be handled by the calling context
+    if (/^[A-Z]$/i.test(trimmed)) {
+      return {
+        billNumber: 0,
+        billName: "",
+        sectionCode: trimmed.toUpperCase(),
+        sectionName: `Section ${trimmed.toUpperCase()}`,
+        sectionNumber: trimmed.charCodeAt(0) - 64, // A=1, B=2, etc.
+        isBillHeader: true, // Skip single letters
+      };
+    }
+    
+    // Unrecognized pattern - try to use as standalone bill
+    // Check if it looks like a valid tenant/section name (not a system sheet)
+    if (trimmed.length > 2 && !/^(sheet|data|config|temp)/i.test(trimmed)) {
+      return {
+        billNumber: 100, // High number to appear at end
+        billName: trimmed,
+        sectionCode: "100",
+        sectionName: trimmed,
+        sectionNumber: 1,
+        isBillHeader: false, // Try to include it
+      };
+    }
+    
+    // Truly unrecognized - skip
     return {
       billNumber: 0,
       billName: "",
@@ -326,14 +381,22 @@ export function FinalAccountExcelImport({
         /^index$/i,          // Skip index sheets
       ];
 
+      console.log("Excel sheet names found:", workbook.SheetNames);
+      
       for (const sheetName of workbook.SheetNames) {
         const shouldSkip = skipPatterns.some(pattern => pattern.test(sheetName.trim()));
-        if (shouldSkip) continue;
+        if (shouldSkip) {
+          console.log(`Skipping sheet (matched skip pattern): "${sheetName}"`);
+          continue;
+        }
         
+        console.log(`Processing sheet: "${sheetName}"`);
         const worksheet = workbook.Sheets[sheetName];
         const result = parseSheet(worksheet, sheetName);
+        
         if (result) {
           const { section, billNumber, billName } = result;
+          console.log(`  -> Parsed as Bill ${billNumber}: "${billName}", Section: "${section.sectionCode}" with ${section.items.length} items`);
           
           if (!billsMap.has(billNumber)) {
             billsMap.set(billNumber, {
@@ -343,6 +406,8 @@ export function FinalAccountExcelImport({
             });
           }
           billsMap.get(billNumber)!.sections.push(section);
+        } else {
+          console.log(`  -> Sheet skipped (parseSheet returned null)`);
         }
       }
 
