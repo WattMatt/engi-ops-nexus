@@ -919,6 +919,48 @@ export async function generateRoadmapPdfBlob(
   const maxProjects = config.reportType === 'executive-summary' ? 10 : 20;
   const limitedProjects = projects.slice(0, maxProjects);
 
+  // Store logo base64 for page headers
+  let logoBase64Cache: string | null = null;
+
+  // Helper: Add page header with logo (for non-cover pages)
+  const addPageHeader = (pageNum: number, sectionTitle?: string) => {
+    if (pageNum === 1 && config.includeCoverPage) return; // Skip cover page
+    
+    const headerHeight = 12;
+    
+    // Header band
+    doc.setFillColor(primaryColor);
+    doc.rect(0, 0, pageWidth, headerHeight, 'F');
+    
+    // Logo (if available)
+    if (logoBase64Cache) {
+      try {
+        const logoMaxWidth = 20;
+        const logoMaxHeight = 8;
+        doc.addImage(logoBase64Cache, 'PNG', margin, 2, logoMaxWidth, logoMaxHeight);
+      } catch {
+        // Fallback - just show company name
+        doc.setTextColor('#ffffff');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text(config.companyName || 'Roadmap Review', margin, 7);
+      }
+    } else if (config.companyName) {
+      doc.setTextColor('#ffffff');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text(config.companyName, margin, 7);
+    }
+    
+    // Section title on the right
+    if (sectionTitle) {
+      doc.setTextColor('#ffffff');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(sectionTitle, pageWidth - margin, 7, { align: 'right' });
+    }
+  };
+
   // Helper: Add page footer
   const addPageFooter = (pageNum: number, totalPages: number) => {
     doc.setFontSize(8);
@@ -959,6 +1001,17 @@ export async function generateRoadmapPdfBlob(
 
   let currentPage = 0;
 
+  // ========== PRE-LOAD LOGO FOR PAGE HEADERS (if no cover page) ==========
+  if (!config.includeCoverPage && config.companyLogo) {
+    try {
+      console.log('[RoadmapPDF] Pre-loading company logo for headers...');
+      logoBase64Cache = await imageToBase64(config.companyLogo);
+      console.log('[RoadmapPDF] Logo cached for page headers');
+    } catch (error) {
+      console.warn('[RoadmapPDF] Failed to pre-load company logo:', error);
+    }
+  }
+
   // ========== COVER PAGE ==========
   if (config.includeCoverPage) {
     currentPage++;
@@ -974,13 +1027,15 @@ export async function generateRoadmapPdfBlob(
       try {
         console.log('[RoadmapPDF] Loading company logo...');
         const logoBase64 = await imageToBase64(config.companyLogo);
+        // Cache for page headers
+        logoBase64Cache = logoBase64;
         // Calculate logo dimensions - max width 50, maintain aspect ratio
         const logoMaxWidth = 50;
         const logoMaxHeight = 25;
         // Add logo to the left of the header
         doc.addImage(logoBase64, 'PNG', margin + 5, 12, logoMaxWidth, logoMaxHeight);
         logoAdded = true;
-        console.log('[RoadmapPDF] Company logo added successfully');
+        console.log('[RoadmapPDF] Company logo added and cached for headers');
       } catch (error) {
         console.warn('[RoadmapPDF] Failed to load company logo:', error);
       }
@@ -1680,10 +1735,11 @@ export async function generateRoadmapPdfBlob(
     });
   }
 
-  // ========== ADD PAGE NUMBERS TO ALL PAGES ==========
+  // ========== ADD PAGE HEADERS AND FOOTERS TO ALL PAGES ==========
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
+    addPageHeader(i); // Add header with logo (skips cover page)
     addPageFooter(i, totalPages);
   }
 
