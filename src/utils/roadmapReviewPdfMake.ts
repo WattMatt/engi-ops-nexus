@@ -936,25 +936,37 @@ export async function generateRoadmapPdfForStorage(
   // Build the document definition
   const docDefinition = doc.build();
 
-  // Use getBlob with timeout
+  // Use getBlob with timeout - increased to 30 seconds for reliability
   const pdfDoc = pdfMake.createPdf(docDefinition);
   
   return new Promise<PDFGenerationResult>((resolve, reject) => {
-    // Set a hard timeout of 10 seconds for minimal doc
+    let resolved = false;
+    
+    // Set a hard timeout of 30 seconds for minimal doc
     const timeout = setTimeout(() => {
-      reject(new Error('PDF generation timed out for storage version'));
-    }, 10000);
+      if (!resolved) {
+        resolved = true;
+        console.error('[RoadmapPDF] Storage generation timed out after 30 seconds');
+        reject(new Error('PDF generation timed out for storage version'));
+      }
+    }, 30000);
 
     try {
       pdfDoc.getBlob((blob) => {
-        clearTimeout(timeout);
-        console.log('[RoadmapPDF] Storage PDF generated:', finalFilename, 'size:', Math.round(blob.size / 1024), 'KB');
-        resolve({ blob, filename: finalFilename });
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          console.log('[RoadmapPDF] Storage PDF generated:', finalFilename, 'size:', Math.round(blob.size / 1024), 'KB');
+          resolve({ blob, filename: finalFilename });
+        }
       });
     } catch (error) {
-      clearTimeout(timeout);
-      console.error('[RoadmapPDF] getBlob failed:', error);
-      reject(error);
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        console.error('[RoadmapPDF] getBlob failed:', error);
+        reject(error);
+      }
     }
   });
 }
