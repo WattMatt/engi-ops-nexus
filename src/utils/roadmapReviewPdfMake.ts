@@ -1045,13 +1045,14 @@ export async function generateRoadmapPdfBlob(
     yPos += 15;
 
     // Build TOC entries based on options
+    const reportType = config.reportType as string;
     const tocEntries: { title: string; included: boolean }[] = [
       { title: 'Executive Summary', included: config.includeAnalytics },
       { title: 'Visual Summary (Charts)', included: config.includeCharts && (capturedCharts?.length || 0) > 0 },
-      { title: 'Project Details', included: config.includeDetailedProjects && (config.reportType as string) !== 'executive-summary' },
-      { title: 'Meeting Notes', included: config.includeMeetingNotes && config.reportType === 'meeting-review' },
-      { title: 'Summary Minutes', included: config.includeSummaryMinutes && config.reportType === 'meeting-review' },
-      { title: 'Full Roadmap Items', included: config.includeFullRoadmapItems && (config.reportType as string) !== 'executive-summary' },
+      { title: 'Project Details', included: config.includeDetailedProjects && reportType !== 'executive-summary' },
+      { title: 'Meeting Notes', included: config.includeMeetingNotes && reportType === 'meeting-review' },
+      { title: 'Summary Minutes', included: config.includeSummaryMinutes && reportType === 'meeting-review' },
+      { title: 'Full Roadmap Items', included: config.includeFullRoadmapItems && reportType !== 'executive-summary' },
     ];
 
     let pageRef = config.includeCoverPage ? 3 : 2;
@@ -1224,23 +1225,25 @@ export async function generateRoadmapPdfBlob(
           
           // First chart
           const chart1 = chartsToRender[i];
+          const chartTitle1 = chart1.config?.title || 'Chart';
           try {
             doc.addImage(chart1.image.dataUrl, 'JPEG', margin, yPos, chartWidth, chartHeight);
             doc.setFontSize(8);
             doc.setTextColor(mutedColor);
-            doc.text(chart1.config.title, margin, yPos + chartHeight + 5);
+            doc.text(chartTitle1, margin, yPos + chartHeight + 5);
           } catch (e) {
-            console.warn('[RoadmapPDF] Failed to add chart:', chart1.config.title);
+            console.warn('[RoadmapPDF] Failed to add chart:', chartTitle1);
           }
           
           // Second chart (if exists)
           if (i + 1 < chartsToRender.length) {
             const chart2 = chartsToRender[i + 1];
+            const chartTitle2 = chart2.config?.title || 'Chart';
             try {
               doc.addImage(chart2.image.dataUrl, 'JPEG', margin + chartWidth + 10, yPos, chartWidth, chartHeight);
-              doc.text(chart2.config.title, margin + chartWidth + 10, yPos + chartHeight + 5);
+              doc.text(chartTitle2, margin + chartWidth + 10, yPos + chartHeight + 5);
             } catch (e) {
-              console.warn('[RoadmapPDF] Failed to add chart:', chart2.config.title);
+              console.warn('[RoadmapPDF] Failed to add chart:', chartTitle2);
             }
           }
           
@@ -1253,14 +1256,15 @@ export async function generateRoadmapPdfBlob(
         
         chartsToRender.forEach(chart => {
           yPos = checkPageBreak(yPos, chartHeight + 20);
+          const chartTitle = chart.config?.title || 'Chart';
           
           try {
             doc.addImage(chart.image.dataUrl, 'JPEG', margin, yPos, chartWidth, chartHeight);
             doc.setFontSize(8);
             doc.setTextColor(mutedColor);
-            doc.text(chart.config.title, margin, yPos + chartHeight + 5);
+            doc.text(chartTitle, margin, yPos + chartHeight + 5);
           } catch (e) {
-            console.warn('[RoadmapPDF] Failed to add chart:', chart.config.title);
+            console.warn('[RoadmapPDF] Failed to add chart:', chartTitle);
           }
           
           yPos += chartHeight + 15;
