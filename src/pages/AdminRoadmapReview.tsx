@@ -277,7 +277,7 @@ export default function AdminRoadmapReview() {
         includeSummaryMinutes: options?.includeSummaryMinutes ?? false,
         includeTableOfContents: options?.includeTableOfContents ?? true,
         includeCoverPage: options?.includeCoverPage ?? true,
-        includeFullRoadmapItems: false, // Disabled for performance
+        includeFullRoadmapItems: options?.includeFullRoadmapItems ?? false, // Respect user selection
         companyLogo: options?.companyLogo,
         companyName: options?.companyName,
         confidentialNotice: options?.confidentialNotice ?? true,
