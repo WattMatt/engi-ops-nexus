@@ -41,7 +41,7 @@ import {
 } from "@/utils/roadmapReviewCalculations";
 
 // Import PDF export utilities - using pdfmake for better text quality
-import { downloadRoadmapPdfDirect, generateRoadmapPdfForStorage, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
+import { generateRoadmapPdfBlob, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
 import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
 
 // Import pre-capture hook
@@ -82,7 +82,7 @@ export default function AdminRoadmapReview() {
   } = useChartPreCapture(3000, true);
 
   // Handle opening preview
-  const handlePreviewExport = async (exportItem: SavedPdfExport) => {
+  const handlePreviewExport = useCallback(async (exportItem: SavedPdfExport) => {
     try {
       const { data, error } = await supabase.storage
         .from('roadmap-exports')
@@ -96,7 +96,7 @@ export default function AdminRoadmapReview() {
       console.error("Preview error:", error);
       toast.error("Failed to load preview");
     }
-  };
+  }, []);
 
   // Close preview
   const handleClosePreview = () => {
@@ -265,9 +265,9 @@ export default function AdminRoadmapReview() {
         throw new Error('Export cancelled');
       }
 
-      // Step 3: Direct download using streaming (INSTANT - no timeout)
+      // Step 3: Generate FULL PDF as blob (save for preview, no direct download)
       setExportStep('generating');
-      console.log('Starting direct PDF download with', enhancedSummaries.length, 'projects');
+      console.log('Generating PDF blob with', enhancedSummaries.length, 'projects');
       
       const exportOptions = {
         includeCharts: capturedCharts ? (options?.includeCharts ?? true) : false,
@@ -277,7 +277,7 @@ export default function AdminRoadmapReview() {
         includeSummaryMinutes: options?.includeSummaryMinutes ?? false,
         includeTableOfContents: options?.includeTableOfContents ?? true,
         includeCoverPage: options?.includeCoverPage ?? true,
-        includeFullRoadmapItems: options?.includeFullRoadmapItems ?? false, // Respect user selection
+        includeFullRoadmapItems: options?.includeFullRoadmapItems ?? false,
         companyLogo: options?.companyLogo,
         companyName: options?.companyName,
         confidentialNotice: options?.confidentialNotice ?? true,
@@ -285,8 +285,8 @@ export default function AdminRoadmapReview() {
         chartLayout: options?.chartLayout ?? 'stacked',
       };
 
-      // Use direct download - streams to file instantly, no timeout
-      const filename = await downloadRoadmapPdfDirect(
+      // Generate FULL PDF blob (not minimal version)
+      const { blob, filename } = await generateRoadmapPdfBlob(
         enhancedSummaries,
         portfolioMetrics,
         exportOptions,
@@ -294,72 +294,69 @@ export default function AdminRoadmapReview() {
         capturedCharts,
       );
       
-      console.log('PDF download initiated:', filename);
+      console.log('PDF blob generated:', filename, `(${(blob.size / 1024).toFixed(1)} KB)`);
 
       if (cancelExportRef.current) {
         throw new Error('Export cancelled');
       }
 
-      // Step 4: Save to storage in background (simplified version without charts)
+      // Step 4: Save to cloud storage
       setExportStep('saving');
       
-      try {
-        // Generate a simpler version for storage (runs in background)
-        const { blob, filename: storageFilename } = await generateRoadmapPdfForStorage(
-          enhancedSummaries,
-          portfolioMetrics,
-          {
-            ...exportOptions,
-            includeCharts: false, // No charts for storage version
-          },
-          queryData?.allRoadmapItems,
-        );
+      const storagePath = `reports/${Date.now()}_${filename}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('roadmap-exports')
+        .upload(storagePath, blob, {
+          contentType: 'application/pdf',
+          upsert: false,
+        });
 
-        const storagePath = `reports/${Date.now()}_${storageFilename}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('roadmap-exports')
-          .upload(storagePath, blob, {
-            contentType: 'application/pdf',
-            upsert: false,
-          });
-
-        if (!uploadError) {
-          // Save to database
-          const { data: { user } } = await supabase.auth.getUser();
-          await supabase
-            .from('roadmap_pdf_exports')
-            .insert({
-              file_name: storageFilename,
-              file_path: storagePath,
-              file_size: blob.size,
-              report_type: options?.reportType ?? 'standard',
-              exported_by: user?.id || null,
-              options: options || {},
-            });
-
-          // Refresh saved exports list
-          queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
-          console.log('PDF saved to cloud storage successfully');
-        } else {
-          console.warn('Storage upload failed (download still succeeded):', uploadError);
-          toast.warning("PDF downloaded but cloud save failed");
-        }
-      } catch (storageError) {
-        // Storage save failed but download succeeded - just log it
-        console.warn('Background storage save failed:', storageError);
-        toast.warning("PDF downloaded but cloud save failed");
+      if (uploadError) {
+        throw new Error(`Failed to save PDF: ${uploadError.message}`);
       }
+
+      // Save to database
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: insertedExport, error: dbError } = await supabase
+        .from('roadmap_pdf_exports')
+        .insert({
+          file_name: filename,
+          file_path: storagePath,
+          file_size: blob.size,
+          report_type: options?.reportType ?? 'standard',
+          exported_by: user?.id || null,
+          options: options || {},
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        throw new Error(`Failed to save export record: ${dbError.message}`);
+      }
+
+      // Refresh saved exports list
+      queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
+      console.log('PDF saved to cloud storage successfully');
       
       // Show complete state briefly
       setExportStep('complete');
-      toast.success(`PDF downloaded: ${filename}`);
+      toast.success(`PDF saved! Opening preview...`);
       
-      // Close overlay after brief delay to show "Complete!"
-      setTimeout(() => {
+      // Auto-open preview after successful save
+      setTimeout(async () => {
         setShowProgressOverlay(false);
         setIsGeneratingPDF(false);
-      }, 1200);
+        
+        // Auto-navigate to saved reports and open preview
+        if (insertedExport) {
+          setActiveTab('saved');
+          // Small delay to let the tab switch, then open preview
+          setTimeout(() => {
+            handlePreviewExport(insertedExport as SavedPdfExport);
+          }, 300);
+        }
+      }, 800);
       
     } catch (error: any) {
       console.error("Error generating PDF:", error);
@@ -380,7 +377,7 @@ export default function AdminRoadmapReview() {
         setIsGeneratingPDF(false);
       }, 2500);
     }
-  }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts]);
+  }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts, handlePreviewExport]);
 
   // Delete a saved export
   const handleDeleteExport = async (exportItem: SavedPdfExport) => {
@@ -477,9 +474,9 @@ export default function AdminRoadmapReview() {
             {isGeneratingPDF ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <Download className="h-4 w-4 mr-2" />
+              <FileText className="h-4 w-4 mr-2" />
             )}
-            {isGeneratingPDF ? "Generating Report..." : "Export PDF"}
+            {isGeneratingPDF ? "Generating Report..." : "Generate Report"}
           </Button>
         </div>
       </div>

@@ -867,20 +867,20 @@ export interface PDFGenerationResult {
 }
 
 /**
- * Download the roadmap review PDF directly using pdfmake's streaming download.
- * This is the PRIMARY export method - it streams directly to file without memory issues.
+ * Generate the FULL roadmap review PDF as a blob for storage/preview.
+ * This is the PRIMARY export method - generates complete PDF with all selected options.
  * 
- * @returns Promise that resolves when download is initiated (not when complete)
+ * @returns Promise that resolves with the PDF blob and filename
  */
-export async function downloadRoadmapPdfDirect(
+export async function generateRoadmapPdfBlob(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
   options: Partial<RoadmapPDFExportOptions> = {},
   allRoadmapItems?: RoadmapItem[],
   capturedCharts?: CapturedChartData[],
   filename?: string
-): Promise<string> {
-  console.log('[RoadmapPDF] Starting direct download with', projects.length, 'projects');
+): Promise<PDFGenerationResult> {
+  console.log('[RoadmapPDF] Generating FULL PDF blob with', projects.length, 'projects');
 
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
@@ -890,25 +890,63 @@ export async function downloadRoadmapPdfDirect(
   const charts: CapturedChartData[] = capturedCharts || [];
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build document definition
-  console.log('[RoadmapPDF] Building document definition...');
+  // Build FULL document definition with all user-selected options
+  console.log('[RoadmapPDF] Building full document definition...');
   const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
 
-  // Use native download - streams directly to file, no memory issues
-  console.log('[RoadmapPDF] Initiating streaming download...');
+  // Generate blob
+  console.log('[RoadmapPDF] Generating PDF blob...');
+  const pdfDoc = pdfMake.createPdf(docDefinition);
+  
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('PDF generation timed out after 60 seconds'));
+    }, 60000); // 60 second timeout for full PDF
+
+    pdfDoc.getBlob((blob: Blob) => {
+      clearTimeout(timeout);
+      console.log('[RoadmapPDF] PDF blob generated:', finalFilename, `(${(blob.size / 1024).toFixed(1)} KB)`);
+      resolve({ blob, filename: finalFilename });
+    });
+  });
+}
+
+/**
+ * @deprecated Use generateRoadmapPdfBlob instead - direct download is no longer used.
+ * Download the roadmap review PDF directly using pdfmake's streaming download.
+ */
+export async function downloadRoadmapPdfDirect(
+  projects: EnhancedProjectSummary[],
+  metrics: PortfolioMetrics,
+  options: Partial<RoadmapPDFExportOptions> = {},
+  allRoadmapItems?: RoadmapItem[],
+  capturedCharts?: CapturedChartData[],
+  filename?: string
+): Promise<string> {
+  console.log('[RoadmapPDF] DEPRECATED: Using direct download - consider using generateRoadmapPdfBlob instead');
+
+  const config: RoadmapPDFExportOptions = {
+    ...DEFAULT_EXPORT_OPTIONS,
+    ...options,
+  };
+
+  const charts: CapturedChartData[] = capturedCharts || [];
+  const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
+
+  const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
+
   const pdfDoc = pdfMake.createPdf(docDefinition);
   pdfDoc.download(finalFilename);
   
-  console.log('[RoadmapPDF] Download initiated:', finalFilename);
   return finalFilename;
 }
 
 /**
- * Generate PDF blob for storage (ULTRA-MINIMAL version for reliability)
- * This is used ONLY for saving to cloud storage after the user already got their download.
+ * @deprecated Use generateRoadmapPdfBlob instead - this minimal version is no longer needed.
  * 
- * Creates a very simple 1-page PDF summary to ensure INSTANT generation (< 2 seconds).
- * The full report was already downloaded directly - this is just for record-keeping.
+ * Generate PDF blob for storage (ULTRA-MINIMAL version for reliability)
+ * This was used for saving to cloud storage after the user got their download.
+ * Now we save the FULL PDF to storage via generateRoadmapPdfBlob.
  */
 export async function generateRoadmapPdfForStorage(
   projects: EnhancedProjectSummary[],
