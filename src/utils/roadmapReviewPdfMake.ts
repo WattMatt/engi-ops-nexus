@@ -1,8 +1,8 @@
 /**
  * Roadmap Review PDF Export - PDFMake Implementation
  * 
- * Complete replacement for jsPDF with proper text rendering and table support.
- * Uses the pdfmake library for better quality output.
+ * Professional PDF generation with polished styling, modern tables,
+ * and refined typography for engineering-grade reports.
  */
 
 import type { Content, ContentTable, TableCell, Margins, TDocumentDefinitions } from "pdfmake/interfaces";
@@ -29,6 +29,8 @@ import {
 } from "./roadmapReviewCalculations";
 import {
   PDF_COLORS_HEX,
+  ROADMAP_PDF_STYLES,
+  ROADMAP_TABLE_LAYOUTS,
   RoadmapPDFExportOptions,
   DEFAULT_EXPORT_OPTIONS,
 } from "./roadmapReviewPdfStyles";
@@ -65,6 +67,12 @@ const getHealthColorHex = (score: number): string => {
   return PDF_COLORS_HEX.danger;
 };
 
+const getHealthBackground = (score: number): string => {
+  if (score >= 70) return PDF_COLORS_HEX.successLight;
+  if (score >= 40) return PDF_COLORS_HEX.warningLight;
+  return PDF_COLORS_HEX.dangerLight;
+};
+
 const getPriorityColorHex = (priority: string): string => {
   switch (priority?.toLowerCase()) {
     case 'critical': return PDF_COLORS_HEX.riskCritical;
@@ -72,22 +80,39 @@ const getPriorityColorHex = (priority: string): string => {
     case 'medium': return PDF_COLORS_HEX.riskMedium;
     case 'normal':
     case 'low': return PDF_COLORS_HEX.success;
-    default: return PDF_COLORS_HEX.gray;
+    default: return PDF_COLORS_HEX.darkGray;
   }
 };
 
-const getStatusInfo = (item: RoadmapItem): { label: string; color: string } => {
+const getStatusInfo = (item: RoadmapItem): { label: string; color: string; bg?: string } => {
   if (item.is_completed) {
-    return { label: '✓ Complete', color: PDF_COLORS_HEX.success };
+    return { label: '✓ Complete', color: PDF_COLORS_HEX.success, bg: PDF_COLORS_HEX.successLight };
   }
   const status = getDueDateStatus(item.due_date || null);
   if (status === 'overdue') {
-    return { label: 'OVERDUE', color: PDF_COLORS_HEX.danger };
+    return { label: 'OVERDUE', color: PDF_COLORS_HEX.danger, bg: PDF_COLORS_HEX.dangerLight };
   }
   if (status === 'soon') {
-    return { label: 'Due Soon', color: PDF_COLORS_HEX.warning };
+    return { label: 'Due Soon', color: PDF_COLORS_HEX.warning, bg: PDF_COLORS_HEX.warningLight };
   }
-  return { label: 'Pending', color: PDF_COLORS_HEX.text };
+  return { label: 'Pending', color: PDF_COLORS_HEX.darkGray };
+};
+
+// Section header with underline
+const buildSectionHeader = (title: string, subtitle?: string): Content => {
+  return {
+    stack: [
+      { text: title, fontSize: 18, bold: true, color: PDF_COLORS_HEX.primary, margin: [0, 0, 0, 4] as Margins },
+      subtitle ? { text: subtitle, fontSize: 10, color: PDF_COLORS_HEX.textMuted, margin: [0, 0, 0, 8] as Margins } : null,
+      {
+        canvas: [
+          { type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 2, lineColor: PDF_COLORS_HEX.primary },
+          { type: 'line', x1: 0, y1: 3, x2: 180, y2: 3, lineWidth: 1, lineColor: PDF_COLORS_HEX.accent },
+        ],
+        margin: [0, 0, 0, 15] as Margins,
+      },
+    ].filter(Boolean) as Content[],
+  };
 };
 
 // ============================================================================
@@ -95,125 +120,118 @@ const getStatusInfo = (item: RoadmapItem): { label: string; color: string } => {
 // ============================================================================
 
 /**
- * Build executive summary content
+ * Build executive summary content - Enhanced with KPI cards
  */
 const buildExecutiveSummary = (metrics: PortfolioMetrics): Content => {
+  // Build KPI cards row
+  const kpiCards: Content = {
+    columns: [
+      {
+        stack: [
+          { text: String(metrics.totalProjects), fontSize: 28, bold: true, color: PDF_COLORS_HEX.primary, alignment: 'center' as const },
+          { text: 'Total Projects', fontSize: 9, color: PDF_COLORS_HEX.textMuted, alignment: 'center' as const },
+        ],
+        width: '*',
+        margin: [0, 0, 5, 0] as Margins,
+      },
+      {
+        stack: [
+          { text: `${metrics.averageProgress}%`, fontSize: 28, bold: true, color: metrics.averageProgress >= 60 ? PDF_COLORS_HEX.success : metrics.averageProgress >= 40 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.danger, alignment: 'center' as const },
+          { text: 'Avg Progress', fontSize: 9, color: PDF_COLORS_HEX.textMuted, alignment: 'center' as const },
+        ],
+        width: '*',
+        margin: [5, 0, 5, 0] as Margins,
+      },
+      {
+        stack: [
+          { text: `${metrics.totalHealthScore}%`, fontSize: 28, bold: true, color: getHealthColorHex(metrics.totalHealthScore), alignment: 'center' as const },
+          { text: 'Portfolio Health', fontSize: 9, color: PDF_COLORS_HEX.textMuted, alignment: 'center' as const },
+        ],
+        width: '*',
+        margin: [5, 0, 5, 0] as Margins,
+      },
+      {
+        stack: [
+          { text: String(metrics.projectsAtRisk), fontSize: 28, bold: true, color: metrics.projectsAtRisk === 0 ? PDF_COLORS_HEX.success : PDF_COLORS_HEX.danger, alignment: 'center' as const },
+          { text: 'At Risk', fontSize: 9, color: PDF_COLORS_HEX.textMuted, alignment: 'center' as const },
+        ],
+        width: '*',
+        margin: [5, 0, 0, 0] as Margins,
+      },
+    ],
+    margin: [0, 0, 0, 20] as Margins,
+  };
+
+  // Build detailed metrics table
   const rows: TableCell[][] = [
     [
-      { text: 'Metric', bold: true, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', fontSize: 10 },
-      { text: 'Value', bold: true, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
-      { text: 'Status', bold: true, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
+      { text: 'Metric', bold: true, fillColor: PDF_COLORS_HEX.tableHeader, color: '#FFFFFF', fontSize: 10 },
+      { text: 'Value', bold: true, fillColor: PDF_COLORS_HEX.tableHeader, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
+      { text: 'Assessment', bold: true, fillColor: PDF_COLORS_HEX.tableHeader, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
     ],
     [
-      { text: 'Total Projects', fontSize: 10 },
-      { text: String(metrics.totalProjects), fontSize: 10, alignment: 'center' },
-      { text: 'Active', fontSize: 10, alignment: 'center' },
-    ],
-    [
-      { text: 'Average Progress', fontSize: 10, fillColor: PDF_COLORS_HEX.lightGray },
-      { text: `${metrics.averageProgress}%`, fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.lightGray },
+      { text: 'Critical Projects', fontSize: 10, fillColor: PDF_COLORS_HEX.offWhite },
+      { text: String(metrics.projectsCritical), fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.offWhite },
       {
-        text: metrics.averageProgress >= 60 ? 'On Track' : metrics.averageProgress >= 40 ? 'Attention' : 'Behind',
+        text: metrics.projectsCritical === 0 ? '✓ None' : '⚠ Action Required',
         fontSize: 10,
         alignment: 'center',
-        fillColor: PDF_COLORS_HEX.lightGray,
-        color: metrics.averageProgress >= 60 ? PDF_COLORS_HEX.success : metrics.averageProgress >= 40 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.danger,
-      },
-    ],
-    [
-      { text: 'Portfolio Health', fontSize: 10 },
-      { text: `${metrics.totalHealthScore}%`, fontSize: 10, alignment: 'center' },
-      {
-        text: metrics.totalHealthScore >= 70 ? 'Healthy' : metrics.totalHealthScore >= 50 ? 'Moderate' : 'Needs Attention',
-        fontSize: 10,
-        alignment: 'center',
-        color: getHealthColorHex(metrics.totalHealthScore),
-      },
-    ],
-    [
-      { text: 'Projects at Risk', fontSize: 10, fillColor: PDF_COLORS_HEX.lightGray },
-      { text: String(metrics.projectsAtRisk), fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.lightGray },
-      {
-        text: metrics.projectsAtRisk === 0 ? 'None' : metrics.projectsAtRisk <= 2 ? 'Manageable' : 'High',
-        fontSize: 10,
-        alignment: 'center',
-        fillColor: PDF_COLORS_HEX.lightGray,
-        color: metrics.projectsAtRisk === 0 ? PDF_COLORS_HEX.success : metrics.projectsAtRisk <= 2 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.danger,
-      },
-    ],
-    [
-      { text: 'Critical Projects', fontSize: 10 },
-      { text: String(metrics.projectsCritical), fontSize: 10, alignment: 'center' },
-      {
-        text: metrics.projectsCritical === 0 ? 'None' : 'Action Needed',
-        fontSize: 10,
-        alignment: 'center',
+        fillColor: PDF_COLORS_HEX.offWhite,
         color: metrics.projectsCritical === 0 ? PDF_COLORS_HEX.success : PDF_COLORS_HEX.danger,
+        bold: metrics.projectsCritical > 0,
       },
     ],
     [
-      { text: 'Overdue Items', fontSize: 10, fillColor: PDF_COLORS_HEX.lightGray },
-      { text: String(metrics.totalOverdueItems), fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.lightGray },
+      { text: 'Overdue Items', fontSize: 10 },
+      { text: String(metrics.totalOverdueItems), fontSize: 10, alignment: 'center' },
       {
-        text: metrics.totalOverdueItems === 0 ? 'None' : metrics.totalOverdueItems <= 3 ? 'Low' : 'High',
+        text: metrics.totalOverdueItems === 0 ? '✓ On Track' : metrics.totalOverdueItems <= 3 ? 'Manageable' : '⚠ High',
         fontSize: 10,
         alignment: 'center',
-        fillColor: PDF_COLORS_HEX.lightGray,
         color: metrics.totalOverdueItems === 0 ? PDF_COLORS_HEX.success : metrics.totalOverdueItems <= 3 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.danger,
       },
     ],
     [
-      { text: 'Due This Week', fontSize: 10 },
-      { text: String(metrics.totalDueSoonItems), fontSize: 10, alignment: 'center' },
-      { text: '-', fontSize: 10, alignment: 'center' },
+      { text: 'Due This Week', fontSize: 10, fillColor: PDF_COLORS_HEX.offWhite },
+      { text: String(metrics.totalDueSoonItems), fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.offWhite },
+      { text: metrics.totalDueSoonItems > 5 ? 'Busy Week' : 'Normal', fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.offWhite, color: PDF_COLORS_HEX.darkGray },
     ],
     [
       { text: 'Portfolio Trend', fontSize: 10 },
       { text: metrics.portfolioTrend.charAt(0).toUpperCase() + metrics.portfolioTrend.slice(1), fontSize: 10, alignment: 'center' },
       {
-        text: metrics.portfolioTrend === 'improving' ? 'Positive' : metrics.portfolioTrend === 'declining' ? 'At Risk' : 'Maintain',
+        text: metrics.portfolioTrend === 'improving' ? '↑ Positive' : metrics.portfolioTrend === 'declining' ? '↓ Declining' : '→ Stable',
         fontSize: 10,
         alignment: 'center',
         color: metrics.portfolioTrend === 'improving' ? PDF_COLORS_HEX.success : metrics.portfolioTrend === 'declining' ? PDF_COLORS_HEX.danger : PDF_COLORS_HEX.primary,
+        bold: true,
       },
     ],
     [
-      { text: 'Team Members', fontSize: 10, fillColor: PDF_COLORS_HEX.lightGray },
-      { text: String(metrics.totalTeamMembers), fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.lightGray },
-      { text: '-', fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.lightGray },
+      { text: 'Team Members', fontSize: 10, fillColor: PDF_COLORS_HEX.offWhite },
+      { text: String(metrics.totalTeamMembers), fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.offWhite },
+      { text: '-', fontSize: 10, alignment: 'center', fillColor: PDF_COLORS_HEX.offWhite },
     ],
   ];
 
   return {
     stack: [
-      { text: 'Executive Summary', style: 'h1', margin: [0, 0, 0, 10] as Margins },
-      {
-        canvas: [{ type: 'line', x1: 0, y1: 0, x2: 150, y2: 0, lineWidth: 2, lineColor: PDF_COLORS.primary }],
-        margin: [0, 0, 0, 15] as Margins,
-      },
+      buildSectionHeader('Executive Summary', 'Portfolio performance overview and key metrics'),
+      kpiCards,
       {
         table: {
           headerRows: 1,
           widths: ['40%', '25%', '35%'],
           body: rows,
         },
-        layout: {
-          hLineColor: () => PDF_COLORS_HEX.tableBorder,
-          vLineColor: () => PDF_COLORS_HEX.tableBorder,
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          paddingLeft: () => 8,
-          paddingRight: () => 8,
-          paddingTop: () => 6,
-          paddingBottom: () => 6,
-        },
+        layout: ROADMAP_TABLE_LAYOUTS.professional,
       },
     ],
   };
 };
 
 /**
- * Build resource bottlenecks section
+ * Build resource bottlenecks section - Enhanced styling
  */
 const buildResourceBottlenecks = (metrics: PortfolioMetrics): Content => {
   if (metrics.resourceBottlenecks.length === 0) {
@@ -222,47 +240,42 @@ const buildResourceBottlenecks = (metrics: PortfolioMetrics): Content => {
 
   const rows: TableCell[][] = [
     [
-      { text: 'Resource Name', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10 },
-      { text: 'Task Load', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
+      { text: 'Team Member', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10 },
+      { text: 'Active Tasks', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
       { text: 'Overdue', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
+      { text: 'Status', bold: true, fillColor: PDF_COLORS_HEX.riskCritical, color: '#FFFFFF', fontSize: 10, alignment: 'center' },
     ],
     ...metrics.resourceBottlenecks.map((b, idx) => {
       const fillColor = idx % 2 === 0 ? PDF_COLORS_HEX.lightGray : '#FFFFFF';
+      const workloadStatus = b.taskCount > 10 ? 'Overloaded' : b.taskCount > 5 ? 'High' : 'Normal';
+      const statusColor = b.taskCount > 10 ? PDF_COLORS_HEX.danger : b.taskCount > 5 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.success;
       return [
-        { text: b.memberName, fontSize: 10, fillColor },
+        { text: b.memberName, fontSize: 10, fillColor, bold: true },
         { text: String(b.taskCount), fontSize: 10, alignment: 'center' as const, fillColor },
-        { text: String(b.overdueCount), fontSize: 10, alignment: 'center' as const, fillColor, color: PDF_COLORS_HEX.danger, bold: b.overdueCount > 0 },
+        { text: String(b.overdueCount), fontSize: 10, alignment: 'center' as const, fillColor, color: b.overdueCount > 0 ? PDF_COLORS_HEX.danger : PDF_COLORS_HEX.darkGray, bold: b.overdueCount > 0 },
+        { text: workloadStatus, fontSize: 9, alignment: 'center' as const, fillColor, color: statusColor, bold: true },
       ];
     }),
   ];
 
   return {
     stack: [
-      { text: 'Resource Bottleneck Analysis', style: 'h2', margin: [0, 20, 0, 10] as Margins },
+      { text: 'Resource Bottleneck Analysis', fontSize: 14, bold: true, color: PDF_COLORS_HEX.riskCritical, margin: [0, 20, 0, 5] as Margins },
+      { text: 'Team members with high workload or overdue items requiring attention', fontSize: 9, color: PDF_COLORS_HEX.textMuted, italics: true, margin: [0, 0, 0, 10] as Margins },
       {
         table: {
           headerRows: 1,
-          widths: ['40%', '30%', '30%'],
+          widths: ['35%', '20%', '20%', '25%'],
           body: rows,
         },
-        layout: {
-          hLineColor: () => PDF_COLORS_HEX.tableBorder,
-          vLineColor: () => PDF_COLORS_HEX.tableBorder,
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          paddingLeft: () => 8,
-          paddingRight: () => 8,
-          paddingTop: () => 6,
-          paddingBottom: () => 6,
-        },
+        layout: ROADMAP_TABLE_LAYOUTS.zebra,
       },
-      { text: 'Resources above are flagged based on high task volume or significant overdue items.', fontSize: 8, italics: true, color: PDF_COLORS_HEX.gray, margin: [0, 5, 0, 0] as Margins },
     ],
   };
 };
 
 /**
- * Build priority distribution content
+ * Build priority distribution content - Enhanced with visual indicators
  */
 const buildPriorityDistribution = (metrics: PortfolioMetrics): Content => {
   if (metrics.priorityBreakdown.length === 0) {
