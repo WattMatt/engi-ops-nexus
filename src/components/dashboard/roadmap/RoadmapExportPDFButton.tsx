@@ -259,28 +259,35 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
 
       // === MEETING HEADER ===
       if (options.includeMeetingHeader) {
+        // Enhanced meeting header card with better spacing
+        const meetingHeaderHeight = 42;
         doc.setFillColor(...PDF_BRAND_COLORS.lightGray);
-        doc.roundedRect(margins.left, yPos, contentWidth, 35, 3, 3, "F");
+        doc.roundedRect(margins.left, yPos, contentWidth, meetingHeaderHeight, 4, 4, "F");
         
+        // Title with more vertical padding
         doc.setTextColor(...PDF_BRAND_COLORS.text);
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.h1);
         doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
-        doc.text("Project Roadmap Review Meeting", margins.left + 5, yPos + 10);
+        doc.text("Project Roadmap Review Meeting", margins.left + 8, yPos + 12);
         
+        // Date on its own line with proper spacing
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
         doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
         doc.setTextColor(...PDF_BRAND_COLORS.darkGray);
-        doc.text(`Date: ${format(new Date(), "PPPP")}`, margins.left + 5, yPos + 18);
+        doc.text(`Date: ${format(new Date(), "PPPP")}`, margins.left + 8, yPos + 23);
         
-        doc.text("Attendees: _______________________________________", margins.left + 5, yPos + 26);
-        doc.text("Chairperson: ____________________", pageWidth - margins.right - 60, yPos + 26);
+        // Attendees and Chairperson on same line with better alignment
+        const attendeesY = yPos + 34;
+        doc.text("Attendees: ________________________________________", margins.left + 8, attendeesY);
+        doc.text("Chairperson: ______________________", pageWidth - margins.right - 75, attendeesY);
         
-        yPos += 42;
+        yPos += meetingHeaderHeight + 12; // 12mm gap after meeting header
       }
 
       // === PROJECT HEADER ===
+      const projectHeaderHeight = 30;
       doc.setFillColor(...PDF_BRAND_COLORS.primary);
-      doc.roundedRect(margins.left, yPos, contentWidth, 25, 3, 3, "F");
+      doc.roundedRect(margins.left, yPos, contentWidth, projectHeaderHeight, 4, 4, "F");
       
       doc.setTextColor(...PDF_BRAND_COLORS.white);
       doc.setFontSize(PDF_TYPOGRAPHY.sizes.h1);
@@ -288,27 +295,30 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       const projectName = project.name.length > 40 
         ? project.name.substring(0, 37) + "..." 
         : project.name;
-      doc.text(projectName, margins.left + 5, yPos + 10);
+      doc.text(projectName, margins.left + 8, yPos + 12);
       
       doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
       doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
-      doc.text("Project Roadmap Flow Diagram", margins.left + 5, yPos + 18);
+      doc.text("Project Roadmap Flow Diagram", margins.left + 8, yPos + 22);
 
-      // Progress circle
-      const circleX = pageWidth - margins.right - 15;
-      const circleY = yPos + 12.5;
+      // Progress circle - larger and better positioned
+      const circleRadius = 12;
+      const circleX = pageWidth - margins.right - circleRadius - 5;
+      const circleY = yPos + projectHeaderHeight / 2;
       const progressColor = getHealthColor(progress);
       doc.setFillColor(...progressColor);
-      doc.circle(circleX, circleY, 10, "F");
+      doc.circle(circleX, circleY, circleRadius, "F");
       doc.setTextColor(...PDF_BRAND_COLORS.white);
-      doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.h2);
       doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
-      doc.text(`${progress}%`, circleX, circleY + 1, { align: "center" });
+      doc.text(`${progress}%`, circleX, circleY + 2, { align: "center" });
       
-      yPos += 32;
+      yPos += projectHeaderHeight + 10; // 10mm gap after project header
 
       // === QUICK STATS ROW ===
-      const statsBoxWidth = contentWidth / 4 - 3;
+      const statsGap = 6; // Gap between stat cards
+      const statsBoxWidth = (contentWidth - (statsGap * 3)) / 4;
+      const statsBoxHeight = 18; // Taller cards for better readability
       const overdueCount = pendingItems.filter(i => getDueDateStatus(i.due_date) === "overdue").length;
       const stats = [
         { label: "Total", value: items.length, color: PDF_BRAND_COLORS.primary },
@@ -318,19 +328,23 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
       ];
       
       stats.forEach((stat, i) => {
-        const boxX = margins.left + i * (statsBoxWidth + 4);
+        const boxX = margins.left + i * (statsBoxWidth + statsGap);
         doc.setFillColor(...stat.color);
-        doc.roundedRect(boxX, yPos, statsBoxWidth, 12, 2, 2, "F");
+        doc.roundedRect(boxX, yPos, statsBoxWidth, statsBoxHeight, 3, 3, "F");
+        
+        // Label at top with padding
         doc.setTextColor(...PDF_BRAND_COLORS.white);
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
         doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
-        doc.text(stat.label, boxX + 3, yPos + 4);
-        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+        doc.text(stat.label, boxX + 6, yPos + 6);
+        
+        // Value - larger and centered vertically
+        doc.setFontSize(PDF_TYPOGRAPHY.sizes.h2);
         doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
-        doc.text(String(stat.value), boxX + statsBoxWidth - 4, yPos + 9, { align: "right" });
+        doc.text(String(stat.value), boxX + statsBoxWidth - 6, yPos + 14, { align: "right" });
       });
       
-      yPos += 20;
+      yPos += statsBoxHeight + 12; // 12mm gap after stats
 
       // === WYSIWYG LIST FORMAT (Matching UI exactly) ===
       
@@ -457,35 +471,44 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         node.children.forEach(child => renderItem(child, level + 1));
       };
 
-      // Draw main header (matching UI)
+      // Draw main header (Project Roadmap bar with progress)
+      const mainHeaderHeight = 18;
       doc.setFillColor(...UI_COLORS.phaseHeader);
-      doc.roundedRect(margins.left, yPos, contentWidth, 14, 2, 2, "F");
+      doc.roundedRect(margins.left, yPos, contentWidth, mainHeaderHeight, 3, 3, "F");
       
-      // Progress bar background
-      const progressBarWidth = contentWidth * 0.4;
-      const progressBarX = margins.left + 5;
-      doc.setFillColor(255, 255, 255, 0.3);
-      doc.roundedRect(progressBarX, yPos + 9, progressBarWidth, 3, 1, 1, "F");
+      // Title on the left
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
+      doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
+      doc.text("Project Roadmap", margins.left + 8, yPos + 8);
+      
+      // Progress bar - positioned below title
+      const progressBarWidth = contentWidth * 0.45;
+      const progressBarX = margins.left + 8;
+      const progressBarY = yPos + 12;
+      const progressBarHeight = 4;
+      
+      // Progress bar background (white with transparency effect)
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight, 2, 2, "F");
       
       // Progress bar fill
       const totalItems = items.length;
       const completedCount = items.filter(i => i.is_completed).length;
       const progressPct = totalItems > 0 ? completedCount / totalItems : 0;
-      doc.setFillColor(...UI_COLORS.completed);
-      doc.roundedRect(progressBarX, yPos + 9, progressBarWidth * progressPct, 3, 1, 1, "F");
+      if (progressPct > 0) {
+        doc.setFillColor(...UI_COLORS.completed);
+        doc.roundedRect(progressBarX, progressBarY, progressBarWidth * progressPct, progressBarHeight, 2, 2, "F");
+      }
       
-      // Title and stats
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(PDF_TYPOGRAPHY.sizes.h3);
-      doc.setFont(PDF_TYPOGRAPHY.fonts.heading, "bold");
-      doc.text("Project Roadmap", margins.left + 5, yPos + 7);
-      
+      // Stats on the right
       doc.setFontSize(PDF_TYPOGRAPHY.sizes.small);
       doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
+      doc.setTextColor(255, 255, 255);
       doc.text(`${completedCount}/${totalItems} completed (${Math.round(progressPct * 100)}%)`, 
-        pageWidth - margins.right - 5, yPos + 7, { align: "right" });
+        pageWidth - margins.right - 8, yPos + 11, { align: "right" });
       
-      yPos += 20;
+      yPos += mainHeaderHeight + 8; // 8mm gap after main header
 
       // Render each phase
       for (const phase of phases) {
@@ -502,40 +525,44 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         const phaseTotal = countItems(phaseNodes);
         const phaseCompleted = countCompleted(phaseNodes);
         
-        // Check for page break
-        if (yPos + 20 > contentArea.endY) {
+        // Check for page break (need space for header + at least one item)
+        if (yPos + 25 > contentArea.endY) {
           doc.addPage();
           yPos = contentArea.startY;
         }
         
-        // Phase header (collapsible style like UI)
+        // Phase header with improved styling
+        const phaseHeaderHeight = 12;
         doc.setFillColor(...UI_COLORS.phaseHeaderBg);
         doc.setDrawColor(...UI_COLORS.border);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(margins.left, yPos, contentWidth, 10, 2, 2, "FD");
+        doc.setLineWidth(0.4);
+        doc.roundedRect(margins.left, yPos, contentWidth, phaseHeaderHeight, 3, 3, "FD");
         
-        // Collapse icon (chevron)
+        // Collapse icon (chevron) - better centered
         doc.setTextColor(...UI_COLORS.phaseHeader);
-        doc.setFontSize(8);
-        doc.text("▼", margins.left + 5, yPos + 6.5);
+        doc.setFontSize(9);
+        doc.text("▼", margins.left + 6, yPos + 8);
         
-        // Phase name
+        // Phase name with better positioning
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.body);
         doc.setFont(PDF_TYPOGRAPHY.fonts.body, "bold");
-        doc.text(phase, margins.left + 12, yPos + 7);
+        doc.text(phase, margins.left + 14, yPos + 8);
         
-        // Phase count
+        // Phase count - properly aligned
         doc.setFontSize(PDF_TYPOGRAPHY.sizes.tiny);
         doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
         doc.setTextColor(...UI_COLORS.subText);
-        doc.text(`(${phaseCompleted}/${phaseTotal})`, margins.left + 12 + doc.getTextWidth(phase) + 3, yPos + 7);
+        const phaseNameWidth = doc.getTextWidth(phase);
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "bold"); // Reset for accurate width
+        doc.setFont(PDF_TYPOGRAPHY.fonts.body, "normal");
+        doc.text(`(${phaseCompleted}/${phaseTotal})`, margins.left + 14 + phaseNameWidth + 4, yPos + 8);
         
-        yPos += 14;
+        yPos += phaseHeaderHeight + 4; // 4mm gap after phase header
         
         // Render items in this phase
         phaseNodes.forEach(node => renderItem(node, 0));
         
-        yPos += 6; // Gap between phases
+        yPos += 8; // 8mm gap between phases
       }
       
       yPos += 10;
