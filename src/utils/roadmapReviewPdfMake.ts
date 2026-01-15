@@ -939,10 +939,11 @@ export async function generateRoadmapPdfBlob(
   
   const pdfDoc = pdfMake.createPdf(docDefinition);
   
+  // CRITICAL FIX: Use getBase64() instead of getBlob() - it's more reliable!
+  // This is the same approach used by cost reports and PDFDocumentBuilder
   return new Promise((resolve, reject) => {
     let resolved = false;
     
-    // 30 second timeout for simpler document
     const timeout = setTimeout(() => {
       if (!resolved) {
         resolved = true;
@@ -952,20 +953,43 @@ export async function generateRoadmapPdfBlob(
     }, 30000);
 
     try {
-      pdfDoc.getBlob((blob: Blob) => {
-        if (!resolved) {
+      // Use getBase64 which is MORE RELIABLE than getBlob in browsers
+      pdfDoc.getBase64((base64: string) => {
+        if (resolved) return;
+        
+        if (!base64 || base64.length === 0) {
+          resolved = true;
+          clearTimeout(timeout);
+          reject(new Error('PDF generation returned empty result'));
+          return;
+        }
+        
+        try {
+          // Convert base64 to blob
+          const binaryString = atob(base64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          
           resolved = true;
           clearTimeout(timeout);
           const elapsed = Date.now() - startTime;
           console.log(`[RoadmapPDF] PDF complete: ${finalFilename} (${(blob.size / 1024).toFixed(1)} KB) in ${elapsed}ms`);
           resolve({ blob, filename: finalFilename });
+        } catch (conversionError) {
+          resolved = true;
+          clearTimeout(timeout);
+          console.error('[RoadmapPDF] Base64 to blob conversion failed:', conversionError);
+          reject(conversionError);
         }
       });
     } catch (error) {
       if (!resolved) {
         resolved = true;
         clearTimeout(timeout);
-        console.error('[RoadmapPDF] getBlob failed:', error);
+        console.error('[RoadmapPDF] getBase64 failed:', error);
         reject(error);
       }
     }
@@ -1290,25 +1314,58 @@ export async function generateRoadmapPdfMake(
   console.log('[RoadmapPDF] Building document...');
   const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
 
-  console.log('[RoadmapPDF] Generating PDF blob...');
+  console.log('[RoadmapPDF] Generating PDF via base64 (more reliable)...');
   const pdfDoc = pdfMake.createPdf(docDefinition);
   
-  // Use getBlob with timeout
+  // CRITICAL: Use getBase64 instead of getBlob - it's more reliable in browsers!
   return new Promise<PDFGenerationResult>((resolve, reject) => {
+    let resolved = false;
+    
     const timeout = setTimeout(() => {
-      reject(new Error('PDF generation timed out - document too complex'));
+      if (!resolved) {
+        resolved = true;
+        reject(new Error('PDF generation timed out - document too complex'));
+      }
     }, 30000);
 
     try {
-      pdfDoc.getBlob((blob) => {
-        clearTimeout(timeout);
-        console.log('[RoadmapPDF] PDF generated:', finalFilename, 'size:', Math.round(blob.size / 1024), 'KB');
-        resolve({ blob, filename: finalFilename });
+      pdfDoc.getBase64((base64: string) => {
+        if (resolved) return;
+        
+        if (!base64 || base64.length === 0) {
+          resolved = true;
+          clearTimeout(timeout);
+          reject(new Error('PDF generation returned empty result'));
+          return;
+        }
+        
+        try {
+          // Convert base64 to blob
+          const binaryString = atob(base64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          
+          resolved = true;
+          clearTimeout(timeout);
+          console.log('[RoadmapPDF] PDF generated:', finalFilename, 'size:', Math.round(blob.size / 1024), 'KB');
+          resolve({ blob, filename: finalFilename });
+        } catch (conversionError) {
+          resolved = true;
+          clearTimeout(timeout);
+          console.error('[RoadmapPDF] Base64 conversion failed:', conversionError);
+          reject(conversionError);
+        }
       });
     } catch (error) {
-      clearTimeout(timeout);
-      console.error('[RoadmapPDF] getBlob failed:', error);
-      reject(error);
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        console.error('[RoadmapPDF] getBase64 failed:', error);
+        reject(error);
+      }
     }
   });
 }
