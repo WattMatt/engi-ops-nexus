@@ -904,10 +904,11 @@ export async function downloadRoadmapPdfDirect(
 }
 
 /**
- * Generate PDF blob for storage (MINIMAL version for reliability)
+ * Generate PDF blob for storage (ULTRA-MINIMAL version for reliability)
  * This is used ONLY for saving to cloud storage after the user already got their download.
  * 
- * Creates a very simple PDF with just executive summary to ensure fast generation.
+ * Creates a very simple 1-page PDF summary to ensure INSTANT generation (< 2 seconds).
+ * The full report was already downloaded directly - this is just for record-keeping.
  */
 export async function generateRoadmapPdfForStorage(
   projects: EnhancedProjectSummary[],
@@ -916,104 +917,92 @@ export async function generateRoadmapPdfForStorage(
   allRoadmapItems?: RoadmapItem[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Generating storage version with user options');
+  console.log('[RoadmapPDF] Generating MINIMAL storage version (1-page summary)');
 
-  // RESPECT user options - only disable charts (binary data too large for storage)
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
     ...options,
-    // Only force charts off - they're too large for reliable storage
-    includeCharts: false,
   };
-
-  // Limit projects for storage (reasonable limit, not too restrictive)
-  const maxProjects = 15;
-  const limitedProjects = projects.slice(0, maxProjects);
 
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build document using the same logic as direct download (respecting options)
+  // Build ULTRA-MINIMAL document - just a summary page for storage/record
   const doc = createDocument()
     .withStandardHeader('Roadmap Review Report', config.companyName)
     .withStandardFooter(config.confidentialNotice);
 
-  // Add cover page if enabled
-  if (config.includeCoverPage) {
-    doc.add([
-      { text: 'ROADMAP REVIEW REPORT', fontSize: 28, bold: true, alignment: 'center' as const, margin: [0, 100, 0, 20] as Margins },
-      { text: config.companyName || 'Portfolio Overview', fontSize: 18, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
-      { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center' as const, color: PDF_COLORS_HEX.gray },
-      { text: `Report Type: ${formatReportType(config.reportType)}`, fontSize: 10, alignment: 'center' as const, color: PDF_COLORS_HEX.gray, margin: [0, 10, 0, 0] as Margins },
-      { text: '', pageBreak: 'after' as const },
-    ]);
-  }
+  // Single page with report metadata and key stats only
+  doc.add([
+    { text: 'ROADMAP REVIEW REPORT', fontSize: 24, bold: true, alignment: 'center' as const, margin: [0, 40, 0, 15] as Margins },
+    { text: config.companyName || 'Portfolio Overview', fontSize: 14, alignment: 'center' as const, margin: [0, 0, 0, 10] as Margins },
+    { text: `Report Type: ${formatReportType(config.reportType)}`, fontSize: 11, alignment: 'center' as const, color: PDF_COLORS_HEX.primary },
+    { text: `Generated: ${format(new Date(), 'MMMM d, yyyy HH:mm')}`, fontSize: 10, alignment: 'center' as const, color: PDF_COLORS_HEX.gray, margin: [0, 5, 0, 30] as Margins },
+    
+    // Quick stats table
+    {
+      table: {
+        widths: ['*', '*', '*', '*'],
+        body: [
+          [
+            { text: 'Total Projects', alignment: 'center' as const, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', bold: true },
+            { text: 'At Risk', alignment: 'center' as const, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', bold: true },
+            { text: 'Overdue Items', alignment: 'center' as const, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', bold: true },
+            { text: 'Avg Progress', alignment: 'center' as const, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', bold: true },
+          ],
+          [
+            { text: String(metrics.totalProjects), alignment: 'center' as const, fontSize: 16, bold: true },
+            { text: String(metrics.projectsAtRisk), alignment: 'center' as const, fontSize: 16, bold: true },
+            { text: String(metrics.totalOverdueItems), alignment: 'center' as const, fontSize: 16, bold: true },
+            { text: `${Math.round(metrics.averageProgress || 0)}%`, alignment: 'center' as const, fontSize: 16, bold: true },
+          ],
+        ],
+      },
+      layout: 'lightHorizontalLines',
+      margin: [0, 0, 0, 25] as Margins,
+    },
+    
+    // Report options used
+    buildSectionHeader('Report Configuration', 'Options selected for this export'),
+    {
+      ul: [
+        `Table of Contents: ${config.includeTableOfContents ? 'Yes' : 'No'}`,
+        `Executive Summary: ${config.includeAnalytics ? 'Yes' : 'No'}`,
+        `Visual Charts: ${config.includeCharts ? 'Yes' : 'No'}`,
+        `Project Details: ${config.includeDetailedProjects ? 'Yes' : 'No'}`,
+        `Meeting Notes: ${config.includeMeetingNotes ? 'Yes' : 'No'}`,
+        `Summary Minutes: ${config.includeSummaryMinutes ? 'Yes' : 'No'}`,
+        `Full Roadmap Items: ${config.includeFullRoadmapItems ? 'Yes' : 'No'}`,
+      ],
+      margin: [20, 5, 0, 25] as Margins,
+    },
+    
+    // Project list (compact)
+    buildSectionHeader('Projects Included', `${projects.length} projects in this report`),
+    {
+      ul: projects.slice(0, 20).map(p => `${p.projectName} (${p.status || 'Unknown'}) - ${Math.round(p.progress)}%`),
+      margin: [20, 5, 0, 20] as Margins,
+      fontSize: 9,
+    },
+    projects.length > 20 ? { text: `... and ${projects.length - 20} more projects`, italics: true, fontSize: 9, margin: [20, 0, 0, 20] as Margins } : { text: '' },
+    
+    // Footer note
+    { text: 'This is a storage summary. The full detailed report was downloaded directly.', alignment: 'center' as const, fontSize: 8, color: PDF_COLORS_HEX.gray, margin: [0, 30, 0, 0] as Margins },
+  ]);
 
-  // Add table of contents if enabled (skip for executive-summary)
-  if (config.includeTableOfContents && config.reportType !== 'executive-summary') {
-    doc.add(buildTableOfContents(config, false)); // No charts in storage
-    doc.addPageBreak();
-  }
-
-  // Add executive summary if enabled
-  if (config.includeAnalytics) {
-    doc.add(buildExecutiveSummary(metrics));
-    doc.add(buildPriorityDistribution(metrics));
-    doc.add(buildResourceBottlenecks(metrics));
-    doc.addPageBreak();
-  }
-
-  // Add project details if enabled (skip for executive-summary)
-  if (config.includeDetailedProjects && config.reportType !== 'executive-summary') {
-    doc.add(buildProjectDetails(limitedProjects));
-    doc.addPageBreak();
-  }
-
-  // Add meeting notes section if enabled (only for meeting-review)
-  if (config.includeMeetingNotes && config.reportType === 'meeting-review') {
-    doc.add(buildMeetingNotes());
-    doc.addPageBreak();
-  }
-
-  // Add summary minutes if enabled (only for meeting-review)
-  if (config.includeSummaryMinutes && config.reportType === 'meeting-review') {
-    doc.add(buildSummaryMinutesContent({
-      companyLogo: config.companyLogo,
-      companyName: config.companyName,
-      generationDate: format(new Date(), 'MMMM d, yyyy'),
-      projectCount: limitedProjects.length,
-    }));
-    doc.addPageBreak();
-  }
-
-  // Add full roadmap items if enabled (skip for executive-summary)
-  if (config.includeFullRoadmapItems && allRoadmapItems && config.reportType !== 'executive-summary') {
-    const maxRoadmapProjects = 8;
-    const roadmapProjects = limitedProjects.slice(0, maxRoadmapProjects);
-    for (const project of roadmapProjects) {
-      const pageContent = buildFullRoadmapPage(project, allRoadmapItems);
-      if ((pageContent as any).stack && (pageContent as any).stack.length > 0) {
-        doc.add(pageContent);
-      }
-    }
-  }
-
-  // Build the document definition
+  // Build and convert to blob with SHORT timeout (5 seconds max for 1 page)
   const docDefinition = doc.build();
-
-  // Use getBlob with timeout - increased to 30 seconds for reliability
   const pdfDoc = pdfMake.createPdf(docDefinition);
   
   return new Promise<PDFGenerationResult>((resolve, reject) => {
     let resolved = false;
     
-    // Set a hard timeout of 30 seconds for minimal doc
     const timeout = setTimeout(() => {
       if (!resolved) {
         resolved = true;
-        console.error('[RoadmapPDF] Storage generation timed out after 30 seconds');
+        console.error('[RoadmapPDF] Storage generation timed out after 5 seconds');
         reject(new Error('PDF generation timed out for storage version'));
       }
-    }, 30000);
+    }, 5000); // 5 second timeout - should be plenty for 1 page
 
     try {
       pdfDoc.getBlob((blob) => {
