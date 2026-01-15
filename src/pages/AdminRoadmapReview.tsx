@@ -41,7 +41,7 @@ import {
 } from "@/utils/roadmapReviewCalculations";
 
 // Import PDF export utilities - using pdfmake for better text quality
-import { generateRoadmapPdfMake, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
+import { downloadRoadmapPdfDirect, generateRoadmapPdfForStorage, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
 import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
 
 // Import pre-capture hook
@@ -238,15 +238,6 @@ export default function AdminRoadmapReview() {
     setShowProgressOverlay(true);
     setExportStep('capturing');
     
-    // Warn user if generating a complex report
-    const isComplexExport = options?.includeCharts !== false && 
-      options?.includeFullRoadmapItems === true && 
-      enhancedSummaries.length > 15;
-    
-    if (isComplexExport) {
-      toast.info("Generating complex report - this may take a minute...");
-    }
-    
     try {
       // Step 1: Get charts (use pre-captured if available, otherwise skip for speed)
       let capturedCharts = undefined;
@@ -257,22 +248,9 @@ export default function AdminRoadmapReview() {
           capturedCharts = preCapturedCharts;
           console.log(`Using ${preCapturedCharts.length} pre-captured charts`);
         } else {
-          // Try to capture now with a short timeout
-          console.log('Charts not pre-captured, attempting capture...');
-          try {
-            const capturePromise = captureRoadmapReviewCharts();
-            const timeoutPromise = new Promise<undefined>((resolve) => 
-              setTimeout(() => {
-                console.log('Chart capture timed out, proceeding without charts');
-                resolve(undefined);
-              }, 8000)
-            );
-            capturedCharts = await Promise.race([capturePromise, timeoutPromise]);
-          } catch (chartError) {
-            console.error("Chart capture error:", chartError);
-            // Continue without charts
-            toast.warning("Charts could not be captured - generating text-only report");
-          }
+          // Skip chart capture to avoid timeout - proceed without
+          console.log('Charts not pre-captured, skipping for speed');
+          toast.info("Charts will be skipped - refresh page first for chart capture");
         }
       }
 
@@ -287,92 +265,97 @@ export default function AdminRoadmapReview() {
         throw new Error('Export cancelled');
       }
 
-      // Step 3: Generate PDF blob
+      // Step 3: Direct download using streaming (INSTANT - no timeout)
       setExportStep('generating');
-      console.log('Starting PDF generation with', enhancedSummaries.length, 'projects');
-      console.log('Options:', {
-        includeCharts: options?.includeCharts ?? true,
-        chartsCount: capturedCharts?.length ?? 0,
-      });
+      console.log('Starting direct PDF download with', enhancedSummaries.length, 'projects');
       
-      // Generate the PDF blob
-      const { blob, filename } = await generateRoadmapPdfMake(
+      const exportOptions = {
+        includeCharts: capturedCharts ? (options?.includeCharts ?? true) : false,
+        includeAnalytics: options?.includeAnalytics ?? true,
+        includeDetailedProjects: options?.includeDetailedProjects ?? true,
+        includeMeetingNotes: options?.includeMeetingNotes ?? false,
+        includeSummaryMinutes: options?.includeSummaryMinutes ?? false,
+        includeTableOfContents: options?.includeTableOfContents ?? true,
+        includeCoverPage: options?.includeCoverPage ?? true,
+        includeFullRoadmapItems: false, // Disabled for performance
+        companyLogo: options?.companyLogo,
+        companyName: options?.companyName,
+        confidentialNotice: options?.confidentialNotice ?? true,
+        reportType: options?.reportType ?? 'standard',
+        chartLayout: options?.chartLayout ?? 'stacked',
+      };
+
+      // Use direct download - streams to file instantly, no timeout
+      const filename = await downloadRoadmapPdfDirect(
         enhancedSummaries,
         portfolioMetrics,
-        {
-          includeCharts: options?.includeCharts ?? true,
-          includeAnalytics: options?.includeAnalytics ?? true,
-          includeDetailedProjects: options?.includeDetailedProjects ?? true,
-          includeMeetingNotes: options?.includeMeetingNotes ?? false,
-          includeSummaryMinutes: options?.includeSummaryMinutes ?? false,
-          includeTableOfContents: options?.includeTableOfContents ?? true,
-          includeCoverPage: options?.includeCoverPage ?? true,
-          includeFullRoadmapItems: options?.includeFullRoadmapItems ?? false,
-          companyLogo: options?.companyLogo,
-          companyName: options?.companyName,
-          confidentialNotice: options?.confidentialNotice ?? true,
-          reportType: options?.reportType ?? 'standard',
-          chartLayout: options?.chartLayout ?? 'stacked',
-        },
+        exportOptions,
         queryData?.allRoadmapItems,
-        capturedCharts
+        capturedCharts,
       );
       
-      console.log('PDF blob generated:', filename, 'size:', blob.size);
+      console.log('PDF download initiated:', filename);
 
       if (cancelExportRef.current) {
         throw new Error('Export cancelled');
       }
 
-      // Step 4: Save to storage
+      // Step 4: Save to storage in background (simplified version without charts)
       setExportStep('saving');
-      const storagePath = `reports/${Date.now()}_${filename}`;
       
-      const { error: uploadError } = await supabase.storage
-        .from('roadmap-exports')
-        .upload(storagePath, blob, {
-          contentType: 'application/pdf',
-          upsert: false,
-        });
+      try {
+        // Generate a simpler version for storage (runs in background)
+        const { blob, filename: storageFilename } = await generateRoadmapPdfForStorage(
+          enhancedSummaries,
+          portfolioMetrics,
+          {
+            ...exportOptions,
+            includeCharts: false, // No charts for storage version
+          },
+          queryData?.allRoadmapItems,
+        );
 
-      if (uploadError) {
-        console.error('Storage upload error:', uploadError);
-        throw new Error(`Failed to save report: ${uploadError.message}`);
+        const storagePath = `reports/${Date.now()}_${storageFilename}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('roadmap-exports')
+          .upload(storagePath, blob, {
+            contentType: 'application/pdf',
+            upsert: false,
+          });
+
+        if (!uploadError) {
+          // Save to database
+          const { data: { user } } = await supabase.auth.getUser();
+          await supabase
+            .from('roadmap_pdf_exports')
+            .insert({
+              file_name: storageFilename,
+              file_path: storagePath,
+              file_size: blob.size,
+              report_type: options?.reportType ?? 'standard',
+              exported_by: user?.id || null,
+              options: options || {},
+            });
+
+          // Refresh saved exports list
+          queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
+        } else {
+          console.warn('Storage upload failed (download still succeeded):', uploadError);
+        }
+      } catch (storageError) {
+        // Storage save failed but download succeeded - just log it
+        console.warn('Background storage save failed:', storageError);
       }
-
-      // Save to database
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error: dbError } = await supabase
-        .from('roadmap_pdf_exports')
-        .insert({
-          file_name: filename,
-          file_path: storagePath,
-          file_size: blob.size,
-          report_type: options?.reportType ?? 'standard',
-          exported_by: user?.id || null,
-          options: options || {},
-        });
-
-      if (dbError) {
-        console.error('Database insert error:', dbError);
-        // Try to clean up the uploaded file
-        await supabase.storage.from('roadmap-exports').remove([storagePath]);
-        throw new Error(`Failed to save report metadata: ${dbError.message}`);
-      }
-
-      // Refresh saved exports list
-      queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
       
       // Show complete state briefly
       setExportStep('complete');
-      toast.success(`Report saved to "Saved Reports": ${filename}`);
+      toast.success(`PDF downloaded: ${filename}`);
       
       // Close overlay after brief delay to show "Complete!"
       setTimeout(() => {
         setShowProgressOverlay(false);
         setIsGeneratingPDF(false);
-        // Switch to saved reports tab
-        setActiveTab('saved');
       }, 1200);
       
     } catch (error: any) {
