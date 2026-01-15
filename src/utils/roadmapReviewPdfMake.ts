@@ -885,10 +885,10 @@ export async function downloadRoadmapPdfDirect(
 }
 
 /**
- * Generate PDF blob for storage (simplified version without charts for reliability)
+ * Generate PDF blob for storage (MINIMAL version for reliability)
  * This is used ONLY for saving to cloud storage after the user already got their download.
  * 
- * Uses a smaller timeout and simpler content to ensure completion.
+ * Creates a very simple PDF with just executive summary to ensure fast generation.
  */
 export async function generateRoadmapPdfForStorage(
   projects: EnhancedProjectSummary[],
@@ -897,39 +897,53 @@ export async function generateRoadmapPdfForStorage(
   allRoadmapItems?: RoadmapItem[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Generating storage version (no charts for reliability)');
+  console.log('[RoadmapPDF] Generating minimal storage version');
 
+  // Create a MINIMAL document for storage - just cover + summary
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
     ...options,
-    // Force simpler settings for storage version
-    includeCharts: false, // Charts cause timeouts
-    includeFullRoadmapItems: false, // Too much content
+    // Force minimal settings for storage version
+    includeCharts: false,
+    includeFullRoadmapItems: false,
+    includeDetailedProjects: false, // Skip detailed project pages
+    includeMeetingNotes: false,
+    includeTableOfContents: false, // Skip TOC
   };
 
   // Limit projects strictly for storage
-  const maxProjects = 8;
+  const maxProjects = 5;
   const limitedProjects = projects.slice(0, maxProjects);
 
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build simplified document
-  const docDefinition = await buildPdfDocumentDefinition(
-    limitedProjects, 
-    metrics, 
-    config, 
-    allRoadmapItems, 
-    [] // No charts
-  );
+  // Build minimal document - just cover page + executive summary
+  const doc = createDocument()
+    .withStandardHeader('Roadmap Review Report', config.companyName)
+    .withStandardFooter(config.confidentialNotice);
 
-  // Use getBlob with a short timeout
+  // Simple cover page
+  doc.add([
+    { text: 'ROADMAP REVIEW REPORT', fontSize: 28, bold: true, alignment: 'center' as const, margin: [0, 100, 0, 20] as Margins },
+    { text: config.companyName || 'Portfolio Overview', fontSize: 18, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
+    { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center' as const, color: PDF_COLORS_HEX.gray },
+    { text: '', pageBreak: 'after' as const },
+  ]);
+
+  // Add just executive summary
+  doc.add(buildExecutiveSummary(metrics));
+
+  // Build the document definition
+  const docDefinition = doc.build();
+
+  // Use getBlob with timeout
   const pdfDoc = pdfMake.createPdf(docDefinition);
   
   return new Promise<PDFGenerationResult>((resolve, reject) => {
-    // Set a hard timeout of 15 seconds
+    // Set a hard timeout of 10 seconds for minimal doc
     const timeout = setTimeout(() => {
       reject(new Error('PDF generation timed out for storage version'));
-    }, 15000);
+    }, 10000);
 
     try {
       pdfDoc.getBlob((blob) => {
