@@ -59,6 +59,20 @@ export type { DocumentBuilderOptions } from './documentBuilder';
 export { fetchCompanyDetails, generateCoverPageContent } from './coverPage';
 export type { CoverPageOptions, CompanyDetails, ContactDetails } from './coverPage';
 
+// Project roadmap builder
+export {
+  buildMeetingHeader,
+  buildProjectHeader,
+  buildPhaseSection,
+  buildActionItemsSection,
+  buildProjectRoadmapContent,
+} from './projectRoadmapBuilder';
+export type {
+  ProjectRoadmapData,
+  RoadmapItem as ProjectRoadmapItem,
+  RoadmapExportOptions,
+} from './projectRoadmapBuilder';
+
 // Cost report builder
 export { 
   generateCostReportPDF, 
