@@ -24,6 +24,7 @@ import {
   FONT_SIZES,
   isPdfMakeReady,
   pdfMake,
+  imageToBase64,
 } from "./pdfmake";
 import type { PDFDocumentBuilder } from "./pdfmake";
 import {
@@ -967,10 +968,22 @@ export async function generateRoadmapPdfBlob(
     doc.setFillColor(primaryColor);
     doc.rect(0, 0, pageWidth, 80, 'F');
 
-    // Company logo placeholder (if provided)
+    // Company logo (if provided and branding enabled)
+    let logoAdded = false;
     if (config.companyLogo) {
-      // Note: For a real implementation, we'd need to load the image
-      // For now, just show company name prominently
+      try {
+        console.log('[RoadmapPDF] Loading company logo...');
+        const logoBase64 = await imageToBase64(config.companyLogo);
+        // Calculate logo dimensions - max width 50, maintain aspect ratio
+        const logoMaxWidth = 50;
+        const logoMaxHeight = 25;
+        // Add logo to the left of the header
+        doc.addImage(logoBase64, 'PNG', margin + 5, 12, logoMaxWidth, logoMaxHeight);
+        logoAdded = true;
+        console.log('[RoadmapPDF] Company logo added successfully');
+      } catch (error) {
+        console.warn('[RoadmapPDF] Failed to load company logo:', error);
+      }
     }
 
     // Report title
