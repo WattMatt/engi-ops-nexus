@@ -1,13 +1,14 @@
 /**
- * Roadmap Review PDF Export - PDFMake Implementation
+ * Roadmap Review PDF Export - Server-Side Generation
  * 
- * Uses pdfmake library with reliable getBase64() -> Blob conversion.
- * Delegates to roadmapReviewBuilder.ts for clean, declarative PDF generation.
+ * Uses edge function for reliable server-side PDF generation with pdfmake.
+ * Falls back to client-side generation if the edge function fails.
  */
 
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  generateRoadmapReviewPDF,
+  generateRoadmapReviewPDF as clientGeneratePDF,
   downloadRoadmapReviewPDF,
 } from "./pdfmake/roadmapReviewBuilder";
 import type { PDFGenerationResult } from "./pdfmake/roadmapReviewBuilder";
@@ -29,7 +30,7 @@ import {
 } from "./pdfmake/chartUtils";
 
 // Re-export for backwards compatibility
-export { generateRoadmapReviewPDF, downloadRoadmapReviewPDF };
+export { downloadRoadmapReviewPDF };
 export type { PDFGenerationResult };
 
 // ============================================================================
@@ -127,16 +128,41 @@ export async function generateRoadmapPdfBlob(
   capturedCharts?: CapturedChartData[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Delegating to pdfmake implementation...');
+  console.log('[RoadmapPDF] Attempting server-side generation...');
   
-  return generateRoadmapReviewPDF(
-    projects,
-    metrics,
-    options,
-    allRoadmapItems,
-    capturedCharts,
-    filename
-  );
+  try {
+    // Try server-side generation first
+    const { data, error } = await supabase.functions.invoke('generate-roadmap-pdf', {
+      body: {
+        projects,
+        metrics,
+        options,
+        allRoadmapItems,
+        capturedCharts,
+        filename,
+      },
+    });
+
+    if (error) throw error;
+    if (!data?.success || !data?.pdfBase64) throw new Error(data?.error || 'No PDF data returned');
+
+    console.log(`[RoadmapPDF] Server-side generation succeeded: ${data.sizeKB}KB in ${data.generationTimeMs}ms`);
+
+    // Convert base64 to blob
+    const binaryString = atob(data.pdfBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+
+    return { blob, filename: data.filename };
+  } catch (serverError) {
+    console.warn('[RoadmapPDF] Server-side generation failed, falling back to client-side:', serverError);
+    
+    // Fall back to client-side generation
+    return clientGeneratePDF(projects, metrics, options, allRoadmapItems, capturedCharts, filename);
+  }
 }
 
 /**
