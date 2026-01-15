@@ -867,8 +867,13 @@ export interface PDFGenerationResult {
 }
 
 /**
- * Generate the FULL roadmap review PDF as a blob for storage/preview.
- * This is the PRIMARY export method - generates complete PDF with all selected options.
+ * Generate the roadmap review PDF as a blob for storage/preview.
+ * This is the PRIMARY export method - generates a balanced PDF with good content and reliability.
+ * 
+ * PERFORMANCE OPTIMIZATIONS:
+ * - Limits projects to 8 for reliability (was causing 60s timeouts)
+ * - Skip full roadmap items (most expensive operation)
+ * - Use moderate chart size limits
  * 
  * @returns Promise that resolves with the PDF blob and filename
  */
@@ -880,34 +885,71 @@ export async function generateRoadmapPdfBlob(
   capturedCharts?: CapturedChartData[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Generating FULL PDF blob with', projects.length, 'projects');
+  console.log('[RoadmapPDF] Generating PDF blob with', projects.length, 'projects');
 
+  // PERFORMANCE: Limit projects to prevent timeout
+  const maxProjects = 8;
+  const limitedProjects = projects.slice(0, maxProjects);
+  if (projects.length > maxProjects) {
+    console.log(`[RoadmapPDF] Limited from ${projects.length} to ${maxProjects} projects for performance`);
+  }
+
+  // PERFORMANCE: Force-disable expensive options to prevent timeout
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
     ...options,
+    // Override expensive options
+    includeFullRoadmapItems: false, // This causes most timeouts
   };
 
-  const charts: CapturedChartData[] = capturedCharts || [];
+  // PERFORMANCE: Limit chart data
+  let charts: CapturedChartData[] = [];
+  if (capturedCharts && capturedCharts.length > 0) {
+    const totalChartSize = capturedCharts.reduce((acc, c) => acc + c.image.sizeBytes, 0);
+    if (totalChartSize < 200 * 1024) { // 200KB limit (reduced from 300KB)
+      charts = capturedCharts.slice(0, 4); // Max 4 charts
+    } else {
+      console.log('[RoadmapPDF] Skipping charts - too large:', Math.round(totalChartSize / 1024), 'KB');
+    }
+  }
+
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build FULL document definition with all user-selected options
-  console.log('[RoadmapPDF] Building full document definition...');
-  const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
+  // Build document definition with limited data
+  console.log('[RoadmapPDF] Building document definition...');
+  const docDefinition = await buildPdfDocumentDefinition(limitedProjects, metrics, config, undefined, charts);
 
-  // Generate blob
+  // Generate blob with proper error handling
   console.log('[RoadmapPDF] Generating PDF blob...');
   const pdfDoc = pdfMake.createPdf(docDefinition);
   
   return new Promise((resolve, reject) => {
+    let resolved = false;
+    
     const timeout = setTimeout(() => {
-      reject(new Error('PDF generation timed out after 60 seconds'));
-    }, 60000); // 60 second timeout for full PDF
+      if (!resolved) {
+        resolved = true;
+        reject(new Error('PDF generation timed out after 45 seconds'));
+      }
+    }, 45000); // Reduced to 45s for faster feedback
 
-    pdfDoc.getBlob((blob: Blob) => {
-      clearTimeout(timeout);
-      console.log('[RoadmapPDF] PDF blob generated:', finalFilename, `(${(blob.size / 1024).toFixed(1)} KB)`);
-      resolve({ blob, filename: finalFilename });
-    });
+    try {
+      pdfDoc.getBlob((blob: Blob) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          console.log('[RoadmapPDF] PDF blob generated:', finalFilename, `(${(blob.size / 1024).toFixed(1)} KB)`);
+          resolve({ blob, filename: finalFilename });
+        }
+      });
+    } catch (error) {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        console.error('[RoadmapPDF] getBlob failed:', error);
+        reject(error);
+      }
+    }
   });
 }
 
@@ -1144,13 +1186,17 @@ async function buildPdfDocumentDefinition(
     console.log(`[RoadmapPDF] Registered ${Object.keys(imageDict).length} chart images`);
   }
 
-  // Limit projects to prevent overly complex documents (reduced for performance)
-  const maxProjects = Math.min(projects.length, 12);
+  // Limit projects to prevent overly complex documents (REDUCED to prevent timeout)
+  const maxProjects = Math.min(projects.length, 8);
   const limitedProjects = projects.slice(0, maxProjects);
   
   if (projects.length > maxProjects) {
     console.log(`[RoadmapPDF] Limiting from ${projects.length} to ${maxProjects} projects for performance`);
   }
+  
+  console.log(`[RoadmapPDF] Building document with ${limitedProjects.length} projects, charts: ${charts.length}`);
+  console.log(`[RoadmapPDF] Options: cover=${config.includeCoverPage}, toc=${config.includeTableOfContents}, charts=${config.includeCharts}, details=${config.includeDetailedProjects}`);
+
 
   // Add cover page
   if (config.includeCoverPage) {
@@ -1195,14 +1241,16 @@ async function buildPdfDocumentDefinition(
     doc.addPageBreak();
   }
 
-  // Add visual summary (charts) if captured - with stricter size check for performance
+  // Add visual summary (charts) if captured - with STRICT size check for performance
   if (config.includeCharts && charts.length > 0) {
     const totalChartSize = charts.reduce((acc, c) => acc + c.image.sizeBytes, 0);
-    const maxChartSize = 300 * 1024; // Reduced from 500KB for better performance
+    const maxChartSize = 150 * 1024; // Reduced to 150KB for better performance
+    const maxCharts = 3; // Limit to 3 charts max
 
-    if (totalChartSize < maxChartSize) {
+    // Only include if small enough
+    if (totalChartSize < maxChartSize && charts.length <= maxCharts) {
       console.log(`[RoadmapPDF] Adding ${charts.length} charts (${Math.round(totalChartSize / 1024)}KB)...`);
-      const chartContent = buildChartSectionContent(charts, {
+      const chartContent = buildChartSectionContent(charts.slice(0, maxCharts), {
         title: 'Visual Summary',
         subtitle: 'Portfolio Charts & Graphs',
         layout: config.chartLayout || 'stacked',
@@ -1213,15 +1261,8 @@ async function buildPdfDocumentDefinition(
       doc.add(chartContent);
       doc.addPageBreak();
     } else {
-      console.warn(`[RoadmapPDF] Charts too large (${Math.round(totalChartSize / 1024)}KB > ${maxChartSize / 1024}KB), skipping`);
-      // Add placeholder text instead
-      doc.add({
-        stack: [
-          buildSectionHeader('Visual Summary', 'Charts omitted due to size'),
-          { text: 'Charts were too large to include in this PDF. View them in the application.', style: 'body', margin: [0, 10, 0, 20] as Margins },
-        ]
-      });
-      doc.addPageBreak();
+      console.warn(`[RoadmapPDF] Charts skipped (${Math.round(totalChartSize / 1024)}KB/${maxChartSize / 1024}KB, ${charts.length}/${maxCharts} charts)`);
+      // Skip charts entirely for performance - no placeholder
     }
   }
 
