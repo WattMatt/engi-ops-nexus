@@ -897,41 +897,75 @@ export async function generateRoadmapPdfForStorage(
   allRoadmapItems?: RoadmapItem[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Generating minimal storage version');
+  console.log('[RoadmapPDF] Generating storage version with user options');
 
-  // Create a MINIMAL document for storage - just cover + summary
+  // RESPECT user options - only disable charts (binary data too large for storage)
   const config: RoadmapPDFExportOptions = {
     ...DEFAULT_EXPORT_OPTIONS,
     ...options,
-    // Force minimal settings for storage version
+    // Only force charts off - they're too large for reliable storage
     includeCharts: false,
-    includeFullRoadmapItems: false,
-    includeDetailedProjects: false, // Skip detailed project pages
-    includeMeetingNotes: false,
-    includeTableOfContents: false, // Skip TOC
   };
 
-  // Limit projects strictly for storage
-  const maxProjects = 5;
+  // Limit projects for storage (reasonable limit, not too restrictive)
+  const maxProjects = 15;
   const limitedProjects = projects.slice(0, maxProjects);
 
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build minimal document - just cover page + executive summary
+  // Build document using the same logic as direct download (respecting options)
   const doc = createDocument()
     .withStandardHeader('Roadmap Review Report', config.companyName)
     .withStandardFooter(config.confidentialNotice);
 
-  // Simple cover page
-  doc.add([
-    { text: 'ROADMAP REVIEW REPORT', fontSize: 28, bold: true, alignment: 'center' as const, margin: [0, 100, 0, 20] as Margins },
-    { text: config.companyName || 'Portfolio Overview', fontSize: 18, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
-    { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center' as const, color: PDF_COLORS_HEX.gray },
-    { text: '', pageBreak: 'after' as const },
-  ]);
+  // Add cover page if enabled
+  if (config.includeCoverPage) {
+    doc.add([
+      { text: 'ROADMAP REVIEW REPORT', fontSize: 28, bold: true, alignment: 'center' as const, margin: [0, 100, 0, 20] as Margins },
+      { text: config.companyName || 'Portfolio Overview', fontSize: 18, alignment: 'center' as const, margin: [0, 0, 0, 40] as Margins },
+      { text: `Generated: ${format(new Date(), 'MMMM d, yyyy')}`, fontSize: 12, alignment: 'center' as const, color: PDF_COLORS_HEX.gray },
+      { text: `Report Type: ${config.reportType || 'standard'}`, fontSize: 10, alignment: 'center' as const, color: PDF_COLORS_HEX.gray, margin: [0, 10, 0, 0] as Margins },
+      { text: '', pageBreak: 'after' as const },
+    ]);
+  }
 
-  // Add just executive summary
-  doc.add(buildExecutiveSummary(metrics));
+  // Add table of contents if enabled
+  if (config.includeTableOfContents) {
+    doc.add(buildTableOfContents(config, false)); // No charts in storage
+    doc.addPageBreak();
+  }
+
+  // Add executive summary if enabled
+  if (config.includeAnalytics) {
+    doc.add(buildExecutiveSummary(metrics));
+    doc.add(buildPriorityDistribution(metrics));
+    doc.add(buildResourceBottlenecks(metrics));
+    doc.addPageBreak();
+  }
+
+  // Add project details if enabled
+  if (config.includeDetailedProjects) {
+    doc.add(buildProjectDetails(limitedProjects));
+    doc.addPageBreak();
+  }
+
+  // Add meeting notes section if enabled
+  if (config.includeMeetingNotes) {
+    doc.add(buildMeetingNotes());
+    doc.addPageBreak();
+  }
+
+  // Add full roadmap items if enabled (limit for storage)
+  if (config.includeFullRoadmapItems && allRoadmapItems) {
+    const maxRoadmapProjects = 8;
+    const roadmapProjects = limitedProjects.slice(0, maxRoadmapProjects);
+    for (const project of roadmapProjects) {
+      const pageContent = buildFullRoadmapPage(project, allRoadmapItems);
+      if ((pageContent as any).stack && (pageContent as any).stack.length > 0) {
+        doc.add(pageContent);
+      }
+    }
+  }
 
   // Build the document definition
   const docDefinition = doc.build();
