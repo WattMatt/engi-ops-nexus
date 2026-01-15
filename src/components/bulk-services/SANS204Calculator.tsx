@@ -3,10 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ClimaticZoneMap } from "./ClimaticZoneMap";
 import { toast } from "sonner";
 import { findClosestCity } from "@/data/saCitiesZones";
-import { MapPin, Building2 } from "lucide-react";
+import { MapPin, Building2, RefreshCw } from "lucide-react";
 
 interface SANS204CalculatorProps {
   documentId: string;
@@ -118,6 +119,41 @@ export const SANS204Calculator = ({ documentId, onZoneSelect, onMunicipalityDete
     }
   }, [project]);
 
+  const handleSyncFromProject = async () => {
+    if (!project?.latitude || !project?.longitude) {
+      toast.error("Project has no location set. Please set the location in the Projects tab first.");
+      return;
+    }
+
+    const closestCity = findClosestCity(project.longitude, project.latitude);
+    if (closestCity) {
+      try {
+        const { error } = await supabase
+          .from("bulk_services_documents")
+          .update({ 
+            climatic_zone: closestCity.zone,
+            climatic_zone_city: project.city || closestCity.city,
+            climatic_zone_lat: project.latitude,
+            climatic_zone_lng: project.longitude,
+          })
+          .eq("id", documentId);
+        
+        if (error) throw error;
+        
+        setSelectedZone(closestCity.zone);
+        setProjectLocation({ city: project.city, lat: project.latitude, lng: project.longitude });
+        toast.success(`Synced from project: ${project.city || closestCity.city} (Zone ${closestCity.zone})`);
+        refetchDocument();
+        onZoneSelect?.(closestCity.zone, project.city || closestCity.city, [project.longitude, project.latitude]);
+      } catch (error: any) {
+        console.error("Error syncing from project:", error);
+        toast.error("Failed to sync location from project");
+      }
+    } else {
+      toast.error("Could not determine climatic zone from project location");
+    }
+  };
+
   const handleZoneSelect = async (zone: string, city?: string, coordinates?: [number, number]) => {
     setSelectedZone(zone);
     onZoneSelect?.(zone, city, coordinates);
@@ -159,12 +195,25 @@ export const SANS204Calculator = ({ documentId, onZoneSelect, onMunicipalityDete
               </CardDescription>
             )}
           </div>
-          {document?.climatic_zone_city && (
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {document.climatic_zone_city}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {project?.latitude && project?.longitude && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncFromProject}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Sync from Project
+              </Button>
+            )}
+            {document?.climatic_zone_city && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {document.climatic_zone_city}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
