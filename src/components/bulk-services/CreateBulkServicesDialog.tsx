@@ -58,7 +58,7 @@ export const CreateBulkServicesDialog = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Create the document with auto-populated baseline data
+      // Create the document with auto-populated baseline data including project location
       const { data: document, error: docError } = await supabase
         .from("bulk_services_documents")
         .insert({
@@ -73,6 +73,10 @@ export const CreateBulkServicesDialog = ({
           load_category: projectData?.load_category,
           tariff_structure: projectData?.tariff_structure,
           building_calculation_type: projectData?.building_calculation_type || 'commercial',
+          // Transfer project location to climatic zone fields
+          climatic_zone_lat: projectData?.latitude,
+          climatic_zone_lng: projectData?.longitude,
+          climatic_zone_city: projectData?.city,
         })
         .select()
         .single();
