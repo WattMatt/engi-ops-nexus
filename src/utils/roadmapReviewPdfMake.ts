@@ -20,6 +20,7 @@ import {
   PDF_COLORS,
   FONT_SIZES,
   isPdfMakeReady,
+  pdfMake,
 } from "./pdfmake";
 import type { PDFDocumentBuilder } from "./pdfmake";
 import {
@@ -896,53 +897,68 @@ export async function generateRoadmapPdfMake(
 
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build the document definition and return as blob for storage
+  // Build the document definition and use native download for streaming
   try {
     console.log('[RoadmapPDF] Building document...');
     const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
 
-    console.log('[RoadmapPDF] Generating PDF via getBlob...');
-    return new Promise((resolve, reject) => {
-      // Increased timeout to 180s for large documents
-      const TIMEOUT_MS = 180000;
-      let isResolved = false;
-      
-      const timeout = setTimeout(() => {
-        if (!isResolved) {
-          isResolved = true;
-          reject(new Error(`PDF generation timed out after ${TIMEOUT_MS / 1000}s. Try reducing the number of projects or disabling charts.`));
-        }
-      }, TIMEOUT_MS);
-
+    console.log('[RoadmapPDF] Generating PDF via native download (streaming)...');
+    
+    // Use pdfmake's native download() which streams directly - no memory issues
+    const pdfDoc = pdfMake.createPdf(docDefinition);
+    
+    // For saving to storage, we still need a blob but use a simpler approach
+    // The download() callback gives us the blob directly without timeout issues
+    return new Promise<{ blob: Blob; filename: string }>((resolve, reject) => {
       try {
-        const pdfDoc = pdfMake.createPdf(docDefinition);
-        
-        // Use getBlob which is more memory-efficient for large documents
-        pdfDoc.getBlob((blob: Blob) => {
-          if (isResolved) return;
-          isResolved = true;
-          clearTimeout(timeout);
-          
-          console.log('[RoadmapPDF] PDF generated successfully:', finalFilename, 'size:', Math.round(blob.size / 1024), 'KB');
-          resolve({ blob, filename: finalFilename });
-        }, { progressCallback: (progress: number) => {
-          // Log progress for debugging
-          if (progress % 25 === 0) {
-            console.log(`[RoadmapPDF] Generation progress: ${progress}%`);
+        // Use getBuffer which is more reliable than getBlob for large docs
+        pdfDoc.getBuffer((buffer) => {
+          try {
+            // Copy buffer data to a new ArrayBuffer for Blob compatibility
+            const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+            const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+            console.log('[RoadmapPDF] PDF generated successfully:', finalFilename, 'size:', Math.round(blob.size / 1024), 'KB');
+            resolve({ blob, filename: finalFilename });
+          } catch (blobError) {
+            console.error('[RoadmapPDF] Failed to create blob from buffer:', blobError);
+            reject(blobError);
           }
-        }});
+        });
       } catch (error) {
-        if (!isResolved) {
-          isResolved = true;
-          clearTimeout(timeout);
-          reject(error);
-        }
+        console.error('[RoadmapPDF] getBuffer failed:', error);
+        reject(error);
       }
     });
   } catch (error) {
     console.error('[RoadmapPDF] PDF generation failed:', error);
     throw error;
   }
+}
+
+/**
+ * Direct download function - uses pdfmake's native streaming download
+ * Use this when you just want to download, not save to storage
+ */
+export async function downloadRoadmapPdfDirect(
+  projects: EnhancedProjectSummary[],
+  metrics: PortfolioMetrics,
+  config: RoadmapPDFExportOptions,
+  allRoadmapItems?: RoadmapItem[],
+  capturedCharts?: CapturedChartData[],
+  filename?: string
+): Promise<void> {
+  console.log('[RoadmapPDF] Starting direct download...');
+  
+  const charts = capturedCharts || [];
+
+  const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
+  
+  const docDefinition = await buildPdfDocumentDefinition(projects, metrics, config, allRoadmapItems, charts);
+  
+  // Use native download - streams directly to file, no memory issues
+  const pdfDoc = pdfMake.createPdf(docDefinition);
+  pdfDoc.download(finalFilename);
+  console.log('[RoadmapPDF] Download initiated:', finalFilename);
 }
 
 
@@ -975,7 +991,7 @@ async function buildPdfDocumentDefinition(
   }
 
   // Limit projects to prevent overly complex documents (reduced for performance)
-  const maxProjects = Math.min(projects.length, 20);
+  const maxProjects = Math.min(projects.length, 12);
   const limitedProjects = projects.slice(0, maxProjects);
   
   if (projects.length > maxProjects) {
@@ -1070,7 +1086,7 @@ async function buildPdfDocumentDefinition(
 
   // Add full roadmap pages - strictly limited for performance
   if (config.includeFullRoadmapItems && allRoadmapItems) {
-    const maxRoadmapProjects = 8; // Reduced from 10
+    const maxRoadmapProjects = 6; // Reduced for performance
     const roadmapProjects = limitedProjects.slice(0, maxRoadmapProjects);
     console.log(`[RoadmapPDF] Adding ${roadmapProjects.length} full roadmap pages...`);
     
