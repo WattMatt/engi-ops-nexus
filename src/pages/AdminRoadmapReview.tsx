@@ -340,12 +340,15 @@ export default function AdminRoadmapReview() {
 
           // Refresh saved exports list
           queryClient.invalidateQueries({ queryKey: ["roadmap-pdf-exports"] });
+          console.log('PDF saved to cloud storage successfully');
         } else {
           console.warn('Storage upload failed (download still succeeded):', uploadError);
+          toast.warning("PDF downloaded but cloud save failed");
         }
       } catch (storageError) {
         // Storage save failed but download succeeded - just log it
         console.warn('Background storage save failed:', storageError);
+        toast.warning("PDF downloaded but cloud save failed");
       }
       
       // Show complete state briefly
