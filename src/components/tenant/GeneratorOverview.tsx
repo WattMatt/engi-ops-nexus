@@ -1,16 +1,42 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
-import { TrendingUp, Zap, DollarSign, Activity, Gauge, BarChart3, HelpCircle } from "lucide-react";
+import { TrendingUp, Zap, DollarSign, Activity, Gauge, BarChart3, HelpCircle, Calculator, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface GeneratorOverviewProps {
   projectId: string;
 }
 
 export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
+  const queryClient = useQueryClient();
+  const [isCalculating, setIsCalculating] = useState(false);
+
+  // Helper function to get fuel consumption from sizing table
+  const getFuelConsumption = useCallback((generatorSize: string, loadPercentage: number): number => {
+    const sizingData = GENERATOR_SIZING_TABLE.find(g => g.rating === generatorSize);
+    if (!sizingData) return 0;
+
+    if (loadPercentage <= 25) return sizingData.load25;
+    if (loadPercentage <= 50) {
+      const ratio = (loadPercentage - 25) / 25;
+      return sizingData.load25 + ratio * (sizingData.load50 - sizingData.load25);
+    }
+    if (loadPercentage <= 75) {
+      const ratio = (loadPercentage - 50) / 25;
+      return sizingData.load50 + ratio * (sizingData.load75 - sizingData.load50);
+    }
+    if (loadPercentage <= 100) {
+      const ratio = (loadPercentage - 75) / 25;
+      return sizingData.load75 + ratio * (sizingData.load100 - sizingData.load75);
+    }
+    return sizingData.load100;
+  }, []);
+
   // Fetch generator zones
   const { data: zones = [], refetch: refetchZones } = useQuery({
     queryKey: ["generator-zones-overview", projectId],
@@ -56,6 +82,68 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
     },
     enabled: !!projectId,
   });
+
+  // Calculate and save default settings for all zones
+  const calculateAndSaveDefaults = async () => {
+    if (zones.length === 0) {
+      toast.error("No generator zones configured");
+      return;
+    }
+
+    setIsCalculating(true);
+    
+    try {
+      const settingsToUpsert = zones.map(zone => {
+        const existingSetting = allSettings.find(s => s.generator_zone_id === zone.id);
+        
+        // Get kVA from generator size or use default
+        const sizeMatch = zone.generator_size?.match(/(\d+)/);
+        const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200;
+        
+        // Get fuel rate from sizing table or estimate
+        let fuelRate = getFuelConsumption(zone.generator_size || "", 75);
+        if (fuelRate === 0) {
+          // Estimate: ~0.15 L per kVA at 75% load
+          fuelRate = kvaValue * 0.15;
+        }
+
+        return {
+          project_id: projectId,
+          generator_zone_id: zone.id,
+          plant_name: existingSetting?.plant_name || zone.zone_name,
+          running_load: existingSetting?.running_load ?? 75,
+          net_energy_kva: existingSetting?.net_energy_kva ?? kvaValue,
+          kva_to_kwh_conversion: existingSetting?.kva_to_kwh_conversion ?? 0.95,
+          fuel_consumption_rate: existingSetting?.fuel_consumption_rate ?? fuelRate,
+          diesel_price_per_litre: existingSetting?.diesel_price_per_litre ?? 23.00,
+          servicing_cost_per_year: existingSetting?.servicing_cost_per_year ?? 18800.00,
+          servicing_cost_per_250_hours: existingSetting?.servicing_cost_per_250_hours ?? 18800.00,
+          expected_hours_per_month: existingSetting?.expected_hours_per_month ?? 100,
+        };
+      });
+
+      const { error } = await supabase
+        .from("running_recovery_settings")
+        .upsert(settingsToUpsert, {
+          onConflict: "project_id,generator_zone_id"
+        });
+
+      if (error) throw error;
+
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-overview", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-all", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings", projectId] });
+
+      toast.success(`Calculated defaults for ${zones.length} zone${zones.length !== 1 ? 's' : ''}`);
+      await refetchSettings();
+    } catch (error) {
+      console.error("Failed to calculate defaults:", error);
+      toast.error("Failed to calculate defaults");
+    } finally {
+      setIsCalculating(false);
+    }
+  };
 
   // Memoize expensive KPI calculations to prevent recalculation on unrelated renders
   const metrics = useMemo(() => {
@@ -228,14 +316,31 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
       {hasZonesWithoutSettings && (
         <div className="flex items-start gap-3 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
           <TrendingUp className="h-5 w-5 text-yellow-600 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="font-semibold text-yellow-900 dark:text-yellow-100">Running Recovery Settings Required</p>
             <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
               You have {zones.length} generator zone{zones.length !== 1 ? 's' : ''} configured, but no running recovery settings have been set up yet.
             </p>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
-              Please go to the <strong>Costs → Running Recovery</strong> tab to configure diesel prices, fuel consumption rates, and servicing costs for each zone to see accurate calculations.
-            </p>
+            <div className="mt-3">
+              <Button
+                onClick={calculateAndSaveDefaults}
+                disabled={isCalculating}
+                size="sm"
+                className="gap-2"
+              >
+                {isCalculating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="h-4 w-4" />
+                    Calculate Defaults
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -243,14 +348,31 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
       {hasZonesWithPartialSettings && (
         <div className="flex items-start gap-3 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
           <TrendingUp className="h-5 w-5 text-yellow-600 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="font-semibold text-yellow-900 dark:text-yellow-100">Some Zones Missing Settings</p>
             <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
               You have {zones.length} generator zone{zones.length !== 1 ? 's' : ''} but only {allSettings.length} {allSettings.length === 1 ? 'has' : 'have'} running recovery settings configured.
             </p>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
-              Please configure running recovery settings for all zones in the <strong>Costs → Running Recovery</strong> tab for accurate calculations.
-            </p>
+            <div className="mt-3">
+              <Button
+                onClick={calculateAndSaveDefaults}
+                disabled={isCalculating}
+                size="sm"
+                className="gap-2"
+              >
+                {isCalculating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="h-4 w-4" />
+                    Calculate Missing Defaults
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -281,6 +403,26 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
             </div>
             <p className="text-sm text-muted-foreground">per kWh (including 10% contingency)</p>
             <p className="text-xs text-muted-foreground mt-1 italic">Based on 100% generator capacity</p>
+            {(hasZonesWithoutSettings || hasZonesWithPartialSettings || metrics.averageTariff === 0) && (
+              <Button
+                onClick={calculateAndSaveDefaults}
+                disabled={isCalculating}
+                size="sm"
+                className="mt-4 gap-2"
+              >
+                {isCalculating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="h-4 w-4" />
+                    Calculate Defaults
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
