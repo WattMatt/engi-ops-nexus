@@ -1,12 +1,15 @@
 /**
- * Roadmap Review PDF Export - PDFMake Implementation
+ * Roadmap Review PDF Export - jsPDF Implementation
  * 
- * Professional PDF generation with polished styling, modern tables,
- * and refined typography for engineering-grade reports.
+ * Switched from pdfmake to jsPDF for RELIABLE blob generation.
+ * pdfmake's getBlob/getBase64 methods timeout on complex documents.
+ * jsPDF uses synchronous doc.output("blob") which never fails.
  */
 
 import type { Content, ContentTable, TableCell, Margins, TDocumentDefinitions } from "pdfmake/interfaces";
 import { format } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   createDocument,
   heading,
@@ -868,12 +871,9 @@ export interface PDFGenerationResult {
 
 /**
  * Generate the roadmap review PDF as a blob for storage/preview.
- * This is the PRIMARY export method - generates a balanced PDF with good content and reliability.
  * 
- * PERFORMANCE OPTIMIZATIONS:
- * - Limits projects to 8 for reliability (was causing 60s timeouts)
- * - Skip full roadmap items (most expensive operation)
- * - Use moderate chart size limits
+ * CRITICAL: Uses jsPDF with synchronous doc.output("blob") - NEVER times out!
+ * pdfmake's getBlob/getBase64 methods were timing out on complex documents.
  * 
  * @returns Promise that resolves with the PDF blob and filename
  */
@@ -885,115 +885,168 @@ export async function generateRoadmapPdfBlob(
   capturedCharts?: CapturedChartData[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Starting FAST PDF generation with', projects.length, 'projects');
+  console.log('[RoadmapPDF] Starting jsPDF generation with', projects.length, 'projects');
   const startTime = Date.now();
-
-  // PERFORMANCE: Limit to 5 projects max for reliable generation
-  const maxProjects = 5;
-  const limitedProjects = projects.slice(0, maxProjects);
-  if (projects.length > maxProjects) {
-    console.log(`[RoadmapPDF] Limited from ${projects.length} to ${maxProjects} projects`);
-  }
 
   const finalFilename = filename || `Roadmap_Review_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
 
-  // Build a SIMPLE document directly - no complex helpers
-  console.log('[RoadmapPDF] Building simple document...');
-  
-  const docDefinition: TDocumentDefinitions = {
-    pageSize: 'A4',
-    pageMargins: [40, 60, 40, 60],
-    info: {
-      title: 'Roadmap Review Report',
-      author: options.companyName || 'System',
-      subject: 'Portfolio Review',
-      creator: 'Lovable Platform',
-    },
-    header: {
-      text: 'Roadmap Review Report',
-      alignment: 'center',
-      margin: [0, 20, 0, 0],
-      fontSize: 10,
-      color: '#666666',
-    },
-    footer: (currentPage: number, pageCount: number) => ({
-      text: `Page ${currentPage} of ${pageCount}`,
-      alignment: 'center',
-      margin: [0, 20, 0, 0],
-      fontSize: 9,
-      color: '#888888',
-    }),
-    content: buildFastContent(limitedProjects, metrics, options),
-    styles: {
-      header: { fontSize: 22, bold: true, color: '#1a1a2e' },
-      subheader: { fontSize: 14, bold: true, color: '#4a4a6a', margin: [0, 10, 0, 5] },
-      tableHeader: { bold: true, fontSize: 10, fillColor: '#2563eb', color: '#ffffff' },
-    },
-    defaultStyle: {
-      fontSize: 10,
-      color: '#333333',
-    },
-  };
-
-  console.log('[RoadmapPDF] Document built in', Date.now() - startTime, 'ms, generating PDF...');
-  
-  const pdfDoc = pdfMake.createPdf(docDefinition);
-  
-  // CRITICAL FIX: Use getBase64() instead of getBlob() - it's more reliable!
-  // This is the same approach used by cost reports and PDFDocumentBuilder
-  return new Promise((resolve, reject) => {
-    let resolved = false;
-    
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        console.error('[RoadmapPDF] Timed out after 30 seconds');
-        reject(new Error('PDF generation timed out after 30 seconds'));
-      }
-    }, 30000);
-
-    try {
-      // Use getBase64 which is MORE RELIABLE than getBlob in browsers
-      pdfDoc.getBase64((base64: string) => {
-        if (resolved) return;
-        
-        if (!base64 || base64.length === 0) {
-          resolved = true;
-          clearTimeout(timeout);
-          reject(new Error('PDF generation returned empty result'));
-          return;
-        }
-        
-        try {
-          // Convert base64 to blob
-          const binaryString = atob(base64);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: 'application/pdf' });
-          
-          resolved = true;
-          clearTimeout(timeout);
-          const elapsed = Date.now() - startTime;
-          console.log(`[RoadmapPDF] PDF complete: ${finalFilename} (${(blob.size / 1024).toFixed(1)} KB) in ${elapsed}ms`);
-          resolve({ blob, filename: finalFilename });
-        } catch (conversionError) {
-          resolved = true;
-          clearTimeout(timeout);
-          console.error('[RoadmapPDF] Base64 to blob conversion failed:', conversionError);
-          reject(conversionError);
-        }
-      });
-    } catch (error) {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        console.error('[RoadmapPDF] getBase64 failed:', error);
-        reject(error);
-      }
-    }
+  // Create jsPDF document - A4 portrait with compression
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    compress: true,
   });
+
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 15;
+  const contentWidth = pageWidth - (margin * 2);
+
+  // Colors
+  const primaryColor = '#2563eb';
+  const textColor = '#333333';
+  const mutedColor = '#666666';
+  const successColor = '#22c55e';
+  const warningColor = '#eab308';
+  const dangerColor = '#ef4444';
+
+  // ========== COVER / TITLE ==========
+  doc.setFillColor(primaryColor);
+  doc.rect(0, 0, pageWidth, 50, 'F');
+
+  doc.setTextColor('#ffffff');
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ROADMAP REVIEW REPORT', pageWidth / 2, 30, { align: 'center' });
+
+  if (options.companyName) {
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text(options.companyName, pageWidth / 2, 42, { align: 'center' });
+  }
+
+  doc.setTextColor(mutedColor);
+  doc.setFontSize(10);
+  doc.text(`Generated: ${format(new Date(), 'MMMM d, yyyy HH:mm')}`, pageWidth / 2, 60, { align: 'center' });
+
+  // ========== PORTFOLIO SUMMARY ==========
+  let yPos = 75;
+
+  doc.setTextColor(textColor);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Portfolio Summary', margin, yPos);
+  yPos += 10;
+
+  // Calculate metrics
+  const avgHealth = metrics.totalProjects > 0 ? Math.round(metrics.totalHealthScore / metrics.totalProjects) : 0;
+  const projectsOnTrack = metrics.totalProjects - metrics.projectsAtRisk - metrics.projectsCritical;
+
+  // Summary table using autoTable
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Total Projects', 'Avg Health', 'On Track', 'At Risk', 'Critical']],
+    body: [[
+      String(metrics.totalProjects),
+      `${avgHealth}%`,
+      String(projectsOnTrack),
+      String(metrics.projectsAtRisk),
+      String(metrics.projectsCritical),
+    ]],
+    theme: 'grid',
+    headStyles: { 
+      fillColor: primaryColor, 
+      textColor: '#ffffff',
+      fontStyle: 'bold',
+      halign: 'center',
+    },
+    bodyStyles: { 
+      halign: 'center',
+      fontSize: 12,
+      fontStyle: 'bold',
+    },
+    columnStyles: {
+      1: { textColor: avgHealth >= 70 ? successColor : avgHealth >= 40 ? warningColor : dangerColor },
+      2: { textColor: successColor },
+      3: { textColor: warningColor },
+      4: { textColor: dangerColor },
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 15;
+
+  // ========== PROJECTS TABLE ==========
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(textColor);
+  doc.text('Project Status', margin, yPos);
+  yPos += 8;
+
+  // Limit projects for performance but include more since jsPDF is fast
+  const maxProjects = 20;
+  const limitedProjects = projects.slice(0, maxProjects);
+
+  const projectRows = limitedProjects.map(project => {
+    const healthColor = project.healthScore >= 70 ? successColor : project.healthScore >= 40 ? warningColor : dangerColor;
+    return [
+      project.projectName.substring(0, 35),
+      `${project.healthScore}%`,
+      `${project.completedItems}/${project.totalItems}`,
+      project.riskLevel.charAt(0).toUpperCase() + project.riskLevel.slice(1),
+      String(project.overdueCount),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Project Name', 'Health', 'Progress', 'Risk', 'Overdue']],
+    body: projectRows,
+    theme: 'striped',
+    headStyles: { 
+      fillColor: primaryColor, 
+      textColor: '#ffffff',
+      fontStyle: 'bold',
+    },
+    styles: {
+      fontSize: 9,
+      cellPadding: 3,
+    },
+    columnStyles: {
+      0: { cellWidth: 70 },
+      1: { halign: 'center', cellWidth: 25 },
+      2: { halign: 'center', cellWidth: 30 },
+      3: { halign: 'center', cellWidth: 25 },
+      4: { halign: 'center', cellWidth: 25 },
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  if (projects.length > maxProjects) {
+    yPos = (doc as any).lastAutoTable.finalY + 5;
+    doc.setFontSize(9);
+    doc.setTextColor(mutedColor);
+    doc.text(`Showing ${maxProjects} of ${projects.length} projects`, margin, yPos);
+  }
+
+  // ========== ADD PAGE NUMBERS ==========
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(9);
+    doc.setTextColor(mutedColor);
+    doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+  }
+
+  // ========== GENERATE BLOB - SYNCHRONOUS, NEVER TIMES OUT! ==========
+  console.log('[RoadmapPDF] Generating blob synchronously...');
+  const blob = doc.output('blob');
+  
+  const elapsed = Date.now() - startTime;
+  console.log(`[RoadmapPDF] PDF complete: ${finalFilename} (${(blob.size / 1024).toFixed(1)} KB) in ${elapsed}ms`);
+  
+  return { blob, filename: finalFilename };
 }
 
 /**
