@@ -971,22 +971,77 @@ async function generatePDF(
     content.push(...buildFullRoadmapItems(limitedProjects, allRoadmapItems));
   }
 
-  // Document definition
+  // Document definition with pdfmake 0.3 best practices
   const docDefinition = {
-    pageSize: 'A4',
-    pageOrientation: 'portrait',
-    pageMargins: [40, 60, 40, 60],
+    pageSize: 'A4' as const,
+    pageOrientation: 'portrait' as const,
+    pageMargins: [40, 60, 40, 60] as [number, number, number, number],
     content,
+    // Improved default style with proper line height
     defaultStyle: {
       font: 'Roboto',
       fontSize: 10,
-      lineHeight: 1.3,
+      lineHeight: 1.35,
+      color: PDF_COLORS_HEX.text,
     },
+    // Enhanced named styles for better reuse
     styles: {
-      header: { fontSize: 18, bold: true, color: PDF_COLORS_HEX.primary },
-      subheader: { fontSize: 14, bold: true, color: PDF_COLORS_HEX.secondary },
-      small: { fontSize: 8 },
+      header: { 
+        fontSize: 18, 
+        bold: true, 
+        color: PDF_COLORS_HEX.primary,
+        margin: [0, 0, 0, 8] as [number, number, number, number],
+      },
+      subheader: { 
+        fontSize: 14, 
+        bold: true, 
+        color: PDF_COLORS_HEX.secondary,
+        margin: [0, 0, 0, 6] as [number, number, number, number],
+      },
+      sectionTitle: {
+        fontSize: 16,
+        bold: true,
+        color: PDF_COLORS_HEX.primary,
+        margin: [0, 15, 0, 10] as [number, number, number, number],
+      },
+      tableHeader: {
+        fontSize: 10,
+        bold: true,
+        color: '#FFFFFF',
+        fillColor: PDF_COLORS_HEX.primary,
+      },
+      tableCell: {
+        fontSize: 9,
+      },
+      small: { 
+        fontSize: 8,
+        color: PDF_COLORS_HEX.textMuted,
+      },
+      caption: {
+        fontSize: 8,
+        italics: true,
+        color: PDF_COLORS_HEX.textMuted,
+      },
+      kpiValue: {
+        fontSize: 24,
+        bold: true,
+        alignment: 'center' as const,
+      },
+      kpiLabel: {
+        fontSize: 8,
+        color: PDF_COLORS_HEX.textMuted,
+        alignment: 'center' as const,
+      },
     },
+    // Document metadata
+    info: {
+      title: `Roadmap Review - ${config.companyName || 'Portfolio Report'}`,
+      author: config.companyName || 'Portfolio Management',
+      subject: 'Roadmap Portfolio Review',
+      keywords: 'roadmap, review, portfolio, projects',
+      creator: 'PDFMake Generator',
+    },
+    // Headers and footers using function callbacks
     header: (currentPage: number, pageCount: number) => {
       if (currentPage === 1) return { text: '' };
       return {
@@ -995,14 +1050,14 @@ async function generatePDF(
             text: `Roadmap Review${config.companyName ? ` - ${config.companyName}` : ''}`,
             fontSize: 8,
             color: PDF_COLORS_HEX.textLight,
-            margin: [40, 20, 0, 0],
+            margin: [40, 20, 0, 0] as [number, number, number, number],
           },
           {
             text: formatDate(new Date()),
             fontSize: 8,
             color: PDF_COLORS_HEX.textLight,
-            alignment: 'right',
-            margin: [0, 20, 40, 0],
+            alignment: 'right' as const,
+            margin: [0, 20, 40, 0] as [number, number, number, number],
           },
         ],
       };
@@ -1014,17 +1069,40 @@ async function generatePDF(
       return {
         columns: [
           config.confidentialNotice
-            ? { text: 'CONFIDENTIAL', fontSize: 8, color: PDF_COLORS_HEX.textLight, margin: [40, 0, 0, 20] }
+            ? { text: 'CONFIDENTIAL', fontSize: 8, color: PDF_COLORS_HEX.textLight, margin: [40, 0, 0, 20] as [number, number, number, number] }
             : { text: '', width: '*' },
           {
             text: `Page ${pageNum} of ${totalPages}`,
             fontSize: 8,
             color: PDF_COLORS_HEX.textLight,
-            alignment: 'right',
-            margin: [0, 0, 40, 20],
+            alignment: 'right' as const,
+            margin: [0, 0, 40, 20] as [number, number, number, number],
           },
         ],
       };
+    },
+    // Table layout definitions for reuse
+    tableLayouts: {
+      professional: {
+        hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 0.75 : 0.25,
+        vLineWidth: () => 0.25,
+        hLineColor: (i: number) => i === 0 || i === 1 ? PDF_COLORS_HEX.primary : PDF_COLORS_HEX.tableBorder,
+        vLineColor: () => PDF_COLORS_HEX.tableBorder,
+        paddingLeft: () => 8,
+        paddingRight: () => 8,
+        paddingTop: () => 6,
+        paddingBottom: () => 6,
+      },
+      zebra: {
+        hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 0.5 : 0,
+        vLineWidth: () => 0,
+        hLineColor: () => PDF_COLORS_HEX.tableBorder,
+        fillColor: (rowIndex: number) => rowIndex % 2 === 0 ? PDF_COLORS_HEX.lightGray : null,
+        paddingLeft: () => 8,
+        paddingRight: () => 8,
+        paddingTop: () => 5,
+        paddingBottom: () => 5,
+      },
     },
   };
 
@@ -1072,13 +1150,22 @@ Deno.serve(async (req) => {
 
     const finalFilename = filename || defaultFilename;
 
-    // Import pdfmake from esm.sh - use any type to avoid TS issues
+    // Import pdfmake from esm.sh - using v0.2.10 for Deno compatibility
+    // Note: pdfmake 0.3.x is TypeScript-first but 0.2.x works better in Deno edge runtime
     const pdfMakeModule = await import("https://esm.sh/pdfmake@0.2.10/build/pdfmake.min.js");
     const pdfFontsModule = await import("https://esm.sh/pdfmake@0.2.10/build/vfs_fonts.js");
     
     const pdfMake: any = pdfMakeModule.default || pdfMakeModule;
-    // Set virtual file system for fonts
-    pdfMake.vfs = (pdfFontsModule as any).pdfMake?.vfs || (pdfFontsModule as any).default?.pdfMake?.vfs || (pdfFontsModule as any).vfs;
+    
+    // Set virtual file system for fonts - handle multiple module export patterns
+    const vfs = (pdfFontsModule as any).pdfMake?.vfs 
+      || (pdfFontsModule as any).default?.pdfMake?.vfs 
+      || (pdfFontsModule as any).vfs;
+    
+    if (!vfs) {
+      console.warn('[generate-roadmap-pdf] Font VFS not found, using empty VFS');
+    }
+    pdfMake.vfs = vfs || {};
 
     console.log("[generate-roadmap-pdf] Creating PDF...");
 
