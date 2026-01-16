@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { FolderOpen, Calendar, Loader, MoreVertical, Pencil, Trash2, Archive, ChevronRight, ChevronDown, Folder, FolderPlus, Settings, Move } from 'lucide-react';
+import { FolderOpen, Calendar, Loader, MoreVertical, Pencil, Trash2, Archive, ChevronRight, ChevronDown, Folder, FolderPlus, Settings, Move, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Building } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { deleteDesign, updateDesignName } from '../utils/supabase';
+import { deleteDesign, updateDesignName, duplicateDesign } from '../utils/supabase';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useFolders } from '../hooks/useFolders';
 import { FolderManagementPanel, type FolderNode } from './FolderManagementPanel';
@@ -192,6 +192,17 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     toast.info('Archive functionality coming soon');
   };
 
+  const handleDuplicate = async (design: SavedDesign) => {
+    try {
+      const { name: newName } = await duplicateDesign(design.id);
+      toast.success(`Created copy: "${newName}"`);
+      fetchDesigns();
+    } catch (error) {
+      console.error('Error duplicating design:', error);
+      toast.error('Failed to duplicate design');
+    }
+  };
+
   const handleMoveDesign = (design: SavedDesign) => {
     setSelectedDesign(design);
     setMoveDialogOpen(true);
@@ -351,6 +362,10 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
                   <Pencil className="h-4 w-4 mr-2" />
                   Rename
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDuplicate(design)}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Duplicate
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleMoveDesign(design)}>
                   <Move className="h-4 w-4 mr-2" />
                   Move to Folder
@@ -400,6 +415,10 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
         <ContextMenuItem onClick={() => handleRename(design)}>
           <Pencil className="h-4 w-4 mr-2" />
           Rename
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => handleDuplicate(design)}>
+          <Copy className="h-4 w-4 mr-2" />
+          Duplicate
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuSub>
