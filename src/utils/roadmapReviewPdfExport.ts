@@ -852,6 +852,7 @@ export async function generateEnhancedRoadmapPDF(
     confidentialNotice: options.confidentialNotice ?? true,
     reportType: options.reportType ?? 'meeting-review',
     chartLayout: options.chartLayout ?? 'stacked',
+    pdfEngine: options.pdfEngine ?? 'jspdf',
   };
   
   const doc = new jsPDF({

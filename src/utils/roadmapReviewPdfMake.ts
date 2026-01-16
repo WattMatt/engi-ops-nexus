@@ -1,14 +1,15 @@
 /**
- * Roadmap Review PDF Export - Server-Side Generation
+ * Roadmap Review PDF Export - Dual Engine Support
  * 
- * Uses edge function for reliable server-side PDF generation with pdfmake.
- * Falls back to client-side generation if the edge function fails.
+ * Supports two PDF generation engines:
+ * - jsPDF (client-side): Higher quality, proven, recommended
+ * - pdfmake (server-side): Faster, experimental, uses edge function
  */
 
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  generateRoadmapReviewPDF as clientGeneratePDF,
+  generateRoadmapReviewPDF as pdfmakeClientGenerate,
   downloadRoadmapReviewPDF,
 } from "./pdfmake/roadmapReviewBuilder";
 import type { PDFGenerationResult } from "./pdfmake/roadmapReviewBuilder";
@@ -16,18 +17,17 @@ import type {
   EnhancedProjectSummary,
   PortfolioMetrics,
 } from "./roadmapReviewCalculations";
-import { getDueDateStatus } from "./roadmapReviewCalculations";
 import {
-  PDF_COLORS_HEX,
   RoadmapPDFExportOptions,
-  DEFAULT_EXPORT_OPTIONS,
+  PDFEngine,
 } from "./roadmapReviewPdfStyles";
 import {
   captureCharts,
   type ChartConfig,
   type CapturedChartData,
-  waitForCharts,
 } from "./pdfmake/chartUtils";
+// jsPDF implementation
+import { generateEnhancedRoadmapPDF, downloadPDF } from "./roadmapReviewPdfExport";
 
 // Re-export for backwards compatibility
 export { downloadRoadmapReviewPDF };
@@ -111,16 +111,49 @@ export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]>
 };
 
 // ============================================================================
-// MAIN EXPORT FUNCTION (Wrapper for backwards compatibility)
+// JSPDF GENERATION (Client-Side - Recommended)
 // ============================================================================
 
 /**
- * Generate the roadmap review PDF as a blob for storage/preview.
- * This is the main entry point - delegates to pdfmake implementation.
- * 
- * @returns Promise that resolves with the PDF blob and filename
+ * Generate PDF using jsPDF (client-side, better quality)
  */
-export async function generateRoadmapPdfBlob(
+async function generateWithJsPDF(
+  projects: EnhancedProjectSummary[],
+  metrics: PortfolioMetrics,
+  options: Partial<RoadmapPDFExportOptions> = {},
+  allRoadmapItems?: RoadmapItem[],
+  filename?: string
+): Promise<PDFGenerationResult> {
+  console.log('[RoadmapPDF] Using jsPDF engine (client-side)...');
+  
+  const startTime = Date.now();
+  
+  // Generate PDF document
+  const doc = await generateEnhancedRoadmapPDF(
+    projects,
+    metrics,
+    options,
+    allRoadmapItems
+  );
+  
+  // Get blob from jsPDF
+  const blob = doc.output('blob');
+  const generatedFilename = filename || `Roadmap_Review_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+  
+  const elapsed = Date.now() - startTime;
+  console.log(`[RoadmapPDF] jsPDF generation completed: ${(blob.size / 1024).toFixed(1)}KB in ${elapsed}ms`);
+  
+  return { blob, filename: generatedFilename };
+}
+
+// ============================================================================
+// PDFMAKE GENERATION (Server-Side - Experimental)
+// ============================================================================
+
+/**
+ * Generate PDF using pdfmake via edge function (server-side, faster but experimental)
+ */
+async function generateWithPdfmake(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
   options: Partial<RoadmapPDFExportOptions> = {},
@@ -128,7 +161,7 @@ export async function generateRoadmapPdfBlob(
   capturedCharts?: CapturedChartData[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Attempting server-side generation...');
+  console.log('[RoadmapPDF] Using pdfmake engine (server-side)...');
   
   try {
     // Try server-side generation first
@@ -146,7 +179,7 @@ export async function generateRoadmapPdfBlob(
     if (error) throw error;
     if (!data?.success || !data?.pdfBase64) throw new Error(data?.error || 'No PDF data returned');
 
-    console.log(`[RoadmapPDF] Server-side generation succeeded: ${data.sizeKB}KB in ${data.generationTimeMs}ms`);
+    console.log(`[RoadmapPDF] Server-side pdfmake generation succeeded: ${data.sizeKB}KB in ${data.generationTimeMs}ms`);
 
     // Convert base64 to blob
     const binaryString = atob(data.pdfBase64);
@@ -158,11 +191,42 @@ export async function generateRoadmapPdfBlob(
 
     return { blob, filename: data.filename };
   } catch (serverError) {
-    console.warn('[RoadmapPDF] Server-side generation failed, falling back to client-side:', serverError);
+    console.warn('[RoadmapPDF] Server-side pdfmake failed, falling back to client-side pdfmake:', serverError);
     
-    // Fall back to client-side generation
-    return clientGeneratePDF(projects, metrics, options, allRoadmapItems, capturedCharts, filename);
+    // Fall back to client-side pdfmake generation
+    return pdfmakeClientGenerate(projects, metrics, options, allRoadmapItems, capturedCharts, filename);
   }
+}
+
+// ============================================================================
+// MAIN EXPORT FUNCTION (Dual Engine Support)
+// ============================================================================
+
+/**
+ * Generate the roadmap review PDF as a blob for storage/preview.
+ * Supports two engines: jsPDF (recommended) and pdfmake (experimental).
+ * 
+ * @param options.pdfEngine - 'jspdf' (default, recommended) or 'pdfmake' (experimental)
+ * @returns Promise that resolves with the PDF blob and filename
+ */
+export async function generateRoadmapPdfBlob(
+  projects: EnhancedProjectSummary[],
+  metrics: PortfolioMetrics,
+  options: Partial<RoadmapPDFExportOptions> = {},
+  allRoadmapItems?: RoadmapItem[],
+  capturedCharts?: CapturedChartData[],
+  filename?: string
+): Promise<PDFGenerationResult> {
+  const engine: PDFEngine = options.pdfEngine || 'jspdf';
+  
+  console.log(`[RoadmapPDF] Starting PDF generation with engine: ${engine}`);
+  
+  if (engine === 'pdfmake') {
+    return generateWithPdfmake(projects, metrics, options, allRoadmapItems, capturedCharts, filename);
+  }
+  
+  // Default to jsPDF (recommended)
+  return generateWithJsPDF(projects, metrics, options, allRoadmapItems, filename);
 }
 
 /**
@@ -176,14 +240,27 @@ export async function quickExportRoadmapPdf(
   capturedCharts?: CapturedChartData[],
   filename?: string
 ): Promise<void> {
-  console.log('[RoadmapPDF] Using quick export (direct download)...');
+  const engine: PDFEngine = options.pdfEngine || 'jspdf';
   
-  await downloadRoadmapReviewPDF(
-    projects,
-    metrics,
-    options,
-    allRoadmapItems,
-    capturedCharts,
-    filename
-  );
+  console.log(`[RoadmapPDF] Quick export with engine: ${engine}`);
+  
+  if (engine === 'pdfmake') {
+    await downloadRoadmapReviewPDF(
+      projects,
+      metrics,
+      options,
+      allRoadmapItems,
+      capturedCharts,
+      filename
+    );
+  } else {
+    // jsPDF direct download
+    const doc = await generateEnhancedRoadmapPDF(
+      projects,
+      metrics,
+      options,
+      allRoadmapItems
+    );
+    downloadPDF(doc, filename);
+  }
 }
