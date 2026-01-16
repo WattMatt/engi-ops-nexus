@@ -2,6 +2,7 @@
  * PDFMake Analysis Dialog
  * 
  * UI for running Abacus AI analysis on pdfmake implementation
+ * with developer prompt generation for copy/paste use
  */
 
 import { useState } from 'react';
@@ -27,14 +28,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Sparkles, Code, BookOpen, Lightbulb, ExternalLink, Zap } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { 
+  Loader2, 
+  Sparkles, 
+  Code, 
+  BookOpen, 
+  Lightbulb, 
+  ExternalLink, 
+  Zap,
+  Copy,
+  Check,
+  FileText,
+  Wand2
+} from 'lucide-react';
 import { usePdfMakeAnalysis, AnalysisType } from '@/hooks/usePdfMakeAnalysis';
+import { toast } from 'sonner';
 
 interface PdfMakeAnalysisDialogProps {
   trigger?: React.ReactNode;
 }
 
 const ANALYSIS_TYPES: { value: AnalysisType; label: string; description: string }[] = [
+  { value: 'generate-prompt', label: '🚀 Generate Developer Prompt', description: 'Create comprehensive prompt for AI assistants' },
   { value: 'full', label: 'Full Analysis', description: 'Comprehensive review of entire implementation' },
   { value: 'best-practices', label: 'Best Practices', description: 'Check adherence to pdfmake conventions' },
   { value: 'performance', label: 'Performance', description: 'Identify optimization opportunities' },
@@ -45,18 +61,26 @@ const ANALYSIS_TYPES: { value: AnalysisType; label: string; description: string 
 
 export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [analysisType, setAnalysisType] = useState<AnalysisType>('full');
+  const [analysisType, setAnalysisType] = useState<AnalysisType>('generate-prompt');
   const [specificQuestion, setSpecificQuestion] = useState('');
   const [codeSnippet, setCodeSnippet] = useState('');
+  const [generatePrompt, setGeneratePrompt] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState('analyze');
   
   const { isAnalyzing, result, analyze, clearResult } = usePdfMakeAnalysis();
 
   const handleAnalyze = async () => {
-    await analyze({
+    const analysisResult = await analyze({
       analysisType,
       specificQuestion: specificQuestion || undefined,
       codeSnippet: codeSnippet || undefined,
+      generateDeveloperPrompt: generatePrompt || analysisType === 'generate-prompt',
     });
+    
+    if (analysisResult) {
+      setActiveTab('results');
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -65,6 +89,34 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
       clearResult();
       setSpecificQuestion('');
       setCodeSnippet('');
+      setCopied(false);
+      setActiveTab('analyze');
+    }
+  };
+
+  const handleCopyPrompt = async () => {
+    if (!result?.developerPrompt) return;
+    
+    try {
+      await navigator.clipboard.writeText(result.developerPrompt);
+      setCopied(true);
+      toast.success('Developer prompt copied!', {
+        description: 'Paste it into any AI assistant to get implementation help'
+      });
+      setTimeout(() => setCopied(false), 3000);
+    } catch (err) {
+      toast.error('Failed to copy', { description: 'Please try selecting and copying manually' });
+    }
+  };
+
+  const handleCopyAnalysis = async () => {
+    if (!result?.analysis) return;
+    
+    try {
+      await navigator.clipboard.writeText(result.analysis);
+      toast.success('Analysis copied to clipboard');
+    } catch (err) {
+      toast.error('Failed to copy');
     }
   };
 
@@ -78,19 +130,19 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-5xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
             PDFMake Implementation Analysis
           </DialogTitle>
           <DialogDescription>
-            Use Abacus AI to analyze our pdfmake implementation and get recommendations based on official documentation
+            Analyze implementation and generate developer prompts with code examples for AI assistants
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="analyze" className="mt-4">
-          <TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+          <TabsList className="grid grid-cols-3 w-full max-w-md">
             <TabsTrigger value="analyze" className="gap-2">
               <Sparkles className="h-4 w-4" />
               Analyze
@@ -103,6 +155,10 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
                   {result.recommendations.length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="prompt" className="gap-2" disabled={!result?.developerPrompt}>
+              <Wand2 className="h-4 w-4" />
+              Dev Prompt
             </TabsTrigger>
           </TabsList>
 
@@ -128,7 +184,19 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
               </div>
 
               <div className="space-y-2">
-                <Label>Specific Question (Optional)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Specific Question (Optional)</Label>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="generate-prompt"
+                      checked={generatePrompt}
+                      onCheckedChange={setGeneratePrompt}
+                    />
+                    <Label htmlFor="generate-prompt" className="text-xs text-muted-foreground">
+                      Include dev prompt
+                    </Label>
+                  </div>
+                </div>
                 <Textarea
                   placeholder="E.g., How can we improve table performance with large datasets?"
                   value={specificQuestion}
@@ -161,7 +229,7 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Run Analysis
+                    {analysisType === 'generate-prompt' ? 'Generate Prompt' : 'Run Analysis'}
                   </>
                 )}
               </Button>
@@ -171,26 +239,52 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
           <TabsContent value="results" className="mt-4">
             {result && (
               <div className="space-y-4">
+                {/* Quick Actions */}
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleCopyAnalysis}
+                    className="gap-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy Analysis
+                  </Button>
+                  {result.developerPrompt && (
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={handleCopyPrompt}
+                      className="gap-2"
+                    >
+                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copied ? 'Copied!' : 'Copy Developer Prompt'}
+                    </Button>
+                  )}
+                </div>
+
                 {/* Recommendations */}
                 {result.recommendations.length > 0 && (
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2">
                         <Lightbulb className="h-4 w-4 text-yellow-500" />
-                        Key Recommendations
+                        Key Recommendations ({result.recommendations.length})
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ul className="space-y-2">
-                        {result.recommendations.map((rec, idx) => (
-                          <li key={idx} className="flex items-start gap-2 text-sm">
-                            <Badge variant="outline" className="shrink-0 mt-0.5">
-                              {idx + 1}
-                            </Badge>
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      <ScrollArea className="h-[200px]">
+                        <ul className="space-y-2">
+                          {result.recommendations.map((rec, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm">
+                              <Badge variant="outline" className="shrink-0 mt-0.5">
+                                {idx + 1}
+                              </Badge>
+                              <span>{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </ScrollArea>
                     </CardContent>
                   </Card>
                 )}
@@ -204,8 +298,8 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-[300px]">
-                      <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                    <ScrollArea className="h-[250px]">
+                      <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm">
                         {result.analysis}
                       </div>
                     </ScrollArea>
@@ -218,20 +312,22 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2">
                         <Code className="h-4 w-4 text-primary" />
-                        Code Examples
+                        Code Examples ({result.codeExamples.length})
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3">
-                        {result.codeExamples.map((code, idx) => (
-                          <pre
-                            key={idx}
-                            className="p-3 bg-muted rounded-md text-xs font-mono overflow-x-auto"
-                          >
-                            {code}
-                          </pre>
-                        ))}
-                      </div>
+                      <ScrollArea className="h-[200px]">
+                        <div className="space-y-3">
+                          {result.codeExamples.map((code, idx) => (
+                            <pre
+                              key={idx}
+                              className="p-3 bg-muted rounded-md text-xs font-mono overflow-x-auto"
+                            >
+                              {code}
+                            </pre>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     </CardContent>
                   </Card>
                 )}
@@ -253,7 +349,7 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
                             href={ref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                            className="text-xs text-primary hover:underline flex items-center gap-1 bg-primary/5 px-2 py-1 rounded"
                           >
                             <ExternalLink className="h-3 w-3" />
                             {ref.replace('https://pdfmake.github.io/docs/0.3/', '')}
@@ -263,6 +359,82 @@ export const PdfMakeAnalysisDialog = ({ trigger }: PdfMakeAnalysisDialogProps) =
                     </CardContent>
                   </Card>
                 )}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="prompt" className="mt-4">
+            {result?.developerPrompt && (
+              <div className="space-y-4">
+                {/* Copy Button - Prominent */}
+                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Developer Prompt Ready</p>
+                      <p className="text-sm text-muted-foreground">
+                        Copy and paste into ChatGPT, Claude, or any AI assistant
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleCopyPrompt}
+                    size="lg"
+                    className="gap-2"
+                  >
+                    {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                    {copied ? 'Copied!' : 'Copy Prompt'}
+                  </Button>
+                </div>
+
+                {/* Preview */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Wand2 className="h-4 w-4 text-primary" />
+                      Prompt Preview
+                    </CardTitle>
+                    <CardDescription>
+                      This prompt includes architecture details, code examples, and implementation guidelines
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[400px]">
+                      <pre className="p-4 bg-muted rounded-md text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                        {result.developerPrompt}
+                      </pre>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+
+                {/* Usage Tips */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">How to Use This Prompt</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="text-sm space-y-2 text-muted-foreground">
+                      <li className="flex items-start gap-2">
+                        <Badge variant="outline" className="shrink-0">1</Badge>
+                        <span>Copy the prompt using the button above</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Badge variant="outline" className="shrink-0">2</Badge>
+                        <span>Paste it into ChatGPT, Claude, or your preferred AI assistant</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Badge variant="outline" className="shrink-0">3</Badge>
+                        <span>Add your specific task after the prompt (e.g., "Create a new PDF builder for invoices")</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Badge variant="outline" className="shrink-0">4</Badge>
+                        <span>The AI will use the architecture and patterns from this codebase</span>
+                      </li>
+                    </ul>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </TabsContent>
