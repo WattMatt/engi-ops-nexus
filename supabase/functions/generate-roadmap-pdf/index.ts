@@ -13,39 +13,64 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// TYPES
+// TYPES - Matching client-side EnhancedProjectSummary from roadmapReviewCalculations.ts
 // ============================================================================
+
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface UpcomingItem {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  priority: string | null;
+  isCompleted: boolean;
+}
 
 interface EnhancedProjectSummary {
   projectId: string;
   projectName: string;
-  projectNumber?: string | null;
+  projectNumber?: string;
+  city?: string | null;
+  province?: string | null;
+  status?: string;
   totalItems: number;
   completedItems: number;
-  overdueItems: number;
-  dueSoonItems: number;
   progress: number;
   healthScore: number;
-  priorityBreakdown: { priority: string; count: number }[];
-  memberWorkload: { member: string; taskCount: number }[];
-  trend: 'improving' | 'stable' | 'declining';
-  criticalItems?: Array<{ id: string; title: string; priority: string; dueDate?: string }>;
+  healthTrend?: 'improving' | 'declining' | 'stable';
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  overdueCount: number;
+  dueSoonCount: number;
+  priorityDistribution?: { priority: string; count: number }[];
+  phaseBreakdown?: { phase: string; completed: number; total: number }[];
+  criticalMilestones?: { title: string; dueDate: string; daysUntil: number }[];
+  recentCompletions?: { title: string; completedAt: string }[];
+  velocityLast7Days?: number;
+  velocityLast30Days?: number;
+  teamMembers: TeamMember[];
+  upcomingItems: UpcomingItem[];
+  // Legacy fields for backward compatibility
+  overdueItems?: number;
+  dueSoonItems?: number;
 }
 
 interface PortfolioMetrics {
   totalProjects: number;
-  totalItems: number;
-  totalCompletedItems: number;
-  totalOverdueItems: number;
-  totalDueSoonItems: number;
   averageProgress: number;
   totalHealthScore: number;
   projectsAtRisk: number;
   projectsCritical: number;
+  totalOverdueItems: number;
+  totalDueSoonItems: number;
   totalTeamMembers: number;
   priorityBreakdown: { priority: string; count: number }[];
+  portfolioTrend: 'improving' | 'declining' | 'stable';
   resourceBottlenecks: { memberName: string; taskCount: number; overdueCount: number }[];
-  portfolioTrend: 'improving' | 'stable' | 'declining';
 }
 
 interface RoadmapItem {
@@ -518,41 +543,174 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): any[] => {
   content.push(buildSectionHeader('Project Details', `Detailed breakdown of ${projects.length} projects`));
 
   projects.forEach((project, index) => {
-    // Project header
+    const overdueCount = project.overdueCount ?? project.overdueItems ?? 0;
+    const dueSoonCount = project.dueSoonCount ?? project.dueSoonItems ?? 0;
+    const healthColor = getHealthColorHex(project.healthScore);
+
+    // Project header with health badge
     content.push({
       columns: [
-        { text: project.projectName, fontSize: 14, bold: true, color: PDF_COLORS_HEX.primary, width: '*' },
-        { text: `${project.progress}%`, fontSize: 14, bold: true, color: project.progress >= 75 ? PDF_COLORS_HEX.success : project.progress >= 50 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.danger, width: 60, alignment: 'right' },
+        { text: project.projectName, fontSize: 16, bold: true, color: PDF_COLORS_HEX.primary, width: '*' },
+        { 
+          table: {
+            body: [[{ text: `${project.healthScore}%`, fontSize: 11, bold: true, color: '#FFFFFF', alignment: 'center' }]],
+          },
+          layout: {
+            hLineWidth: () => 0,
+            vLineWidth: () => 0,
+            fillColor: () => healthColor,
+            paddingLeft: () => 8,
+            paddingRight: () => 8,
+            paddingTop: () => 4,
+            paddingBottom: () => 4,
+          },
+          width: 55,
+        },
       ],
-      margin: [0, index > 0 ? 15 : 0, 0, 5],
+      margin: [0, index > 0 ? 20 : 0, 0, 8],
     });
 
-    // Project number if available
-    if (project.projectNumber) {
+    // Project number and location if available
+    const subInfo: string[] = [];
+    if (project.projectNumber) subInfo.push(`#${project.projectNumber}`);
+    if (project.city && project.province) subInfo.push(`${project.city}, ${project.province}`);
+    else if (project.city) subInfo.push(project.city);
+    
+    if (subInfo.length > 0) {
       content.push({
-        text: `Project #: ${project.projectNumber}`,
+        text: subInfo.join(' • '),
         fontSize: 9,
         color: PDF_COLORS_HEX.textMuted,
-        margin: [0, 0, 0, 8],
+        margin: [0, 0, 0, 10],
       });
     }
 
-    // Stats row
+    // Health bar visualization
     content.push({
-      columns: [
-        { text: `Total: ${project.totalItems}`, fontSize: 9, color: PDF_COLORS_HEX.darkGray, width: 'auto' },
-        { text: `Completed: ${project.completedItems}`, fontSize: 9, color: PDF_COLORS_HEX.success, width: 'auto', margin: [15, 0, 0, 0] },
-        { text: `Overdue: ${project.overdueItems}`, fontSize: 9, color: project.overdueItems > 0 ? PDF_COLORS_HEX.danger : PDF_COLORS_HEX.darkGray, width: 'auto', margin: [15, 0, 0, 0] },
-        { text: `Due Soon: ${project.dueSoonItems}`, fontSize: 9, color: project.dueSoonItems > 0 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.darkGray, width: 'auto', margin: [15, 0, 0, 0] },
-        { text: `Health: ${project.healthScore}%`, fontSize: 9, bold: true, color: getHealthColorHex(project.healthScore), width: '*', alignment: 'right' },
+      canvas: [
+        { type: 'rect', x: 0, y: 0, w: 515, h: 6, color: PDF_COLORS_HEX.lightGray, r: 3 },
+        { type: 'rect', x: 0, y: 0, w: Math.min(515 * (project.healthScore / 100), 515), h: 6, color: healthColor, r: 3 },
       ],
-      margin: [0, 0, 0, 8],
+      margin: [0, 0, 0, 12],
     });
 
-    // Separator
+    // KPI Stats row with cards
+    content.push({
+      columns: [
+        {
+          stack: [
+            { text: 'Progress', fontSize: 8, color: PDF_COLORS_HEX.textMuted, alignment: 'center' },
+            { text: `${project.progress}%`, fontSize: 18, bold: true, alignment: 'center' },
+          ],
+          width: '*',
+        },
+        {
+          stack: [
+            { text: 'Completed', fontSize: 8, color: PDF_COLORS_HEX.textMuted, alignment: 'center' },
+            { text: `${project.completedItems}/${project.totalItems}`, fontSize: 18, bold: true, alignment: 'center' },
+          ],
+          width: '*',
+        },
+        {
+          stack: [
+            { text: 'Overdue', fontSize: 8, color: PDF_COLORS_HEX.textMuted, alignment: 'center' },
+            { text: String(overdueCount), fontSize: 18, bold: true, color: overdueCount > 0 ? PDF_COLORS_HEX.danger : PDF_COLORS_HEX.success, alignment: 'center' },
+          ],
+          width: '*',
+        },
+        {
+          stack: [
+            { text: 'Due Soon', fontSize: 8, color: PDF_COLORS_HEX.textMuted, alignment: 'center' },
+            { text: String(dueSoonCount), fontSize: 18, bold: true, color: dueSoonCount > 3 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.darkGray, alignment: 'center' },
+          ],
+          width: '*',
+        },
+        {
+          stack: [
+            { text: 'Team', fontSize: 8, color: PDF_COLORS_HEX.textMuted, alignment: 'center' },
+            { text: String(project.teamMembers?.length || 0), fontSize: 18, bold: true, alignment: 'center' },
+          ],
+          width: '*',
+        },
+      ],
+      margin: [0, 0, 0, 15],
+    });
+
+    // Upcoming tasks table if available
+    if (project.upcomingItems && project.upcomingItems.length > 0) {
+      const upcomingToShow = project.upcomingItems.slice(0, 8);
+      content.push({
+        text: 'Upcoming Tasks',
+        fontSize: 11,
+        bold: true,
+        color: PDF_COLORS_HEX.primary,
+        margin: [0, 5, 0, 8],
+      });
+
+      const taskRows: any[][] = [
+        [
+          { text: 'Task', bold: true, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', fontSize: 9 },
+          { text: 'Due Date', bold: true, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', fontSize: 9, alignment: 'center' },
+          { text: 'Priority', bold: true, fillColor: PDF_COLORS_HEX.primary, color: '#FFFFFF', fontSize: 9, alignment: 'center' },
+        ],
+        ...upcomingToShow.map((item, idx) => {
+          const fillColor = idx % 2 === 0 ? PDF_COLORS_HEX.lightGray : '#FFFFFF';
+          return [
+            { text: item.title.substring(0, 45), fontSize: 9, fillColor },
+            { text: item.dueDate ? formatDate(item.dueDate) : '-', fontSize: 9, alignment: 'center', fillColor },
+            { text: (item.priority || 'Normal').charAt(0).toUpperCase() + (item.priority || 'normal').slice(1), fontSize: 9, alignment: 'center', fillColor, color: getPriorityColorHex(item.priority || 'normal') },
+          ];
+        }),
+      ];
+
+      content.push({
+        table: {
+          headerRows: 1,
+          widths: ['55%', '25%', '20%'],
+          body: taskRows,
+        },
+        layout: {
+          hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 0.5 : 0,
+          vLineWidth: () => 0,
+          hLineColor: () => PDF_COLORS_HEX.tableBorder,
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 6,
+          paddingBottom: () => 6,
+        },
+        margin: [0, 0, 0, 10],
+      });
+
+      if (project.upcomingItems.length > 8) {
+        content.push({
+          text: `+ ${project.upcomingItems.length - 8} more upcoming tasks`,
+          fontSize: 8,
+          italics: true,
+          color: PDF_COLORS_HEX.textMuted,
+        });
+      }
+    }
+
+    // Team members if available
+    if (project.teamMembers && project.teamMembers.length > 0) {
+      content.push({
+        text: 'Team Members',
+        fontSize: 11,
+        bold: true,
+        color: PDF_COLORS_HEX.primary,
+        margin: [0, 15, 0, 5],
+      });
+      content.push({
+        text: project.teamMembers.map(m => m.name || m.email || 'Unnamed').join('  •  '),
+        fontSize: 9,
+        color: PDF_COLORS_HEX.darkGray,
+      });
+    }
+
+    // Separator line
     content.push({
       canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: PDF_COLORS_HEX.tableBorder }],
-      margin: [0, 0, 0, 8],
+      margin: [0, 15, 0, 0],
     });
   });
 
