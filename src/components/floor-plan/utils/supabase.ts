@@ -549,6 +549,203 @@ export const deleteDesign = async (designId: string): Promise<void> => {
 };
 
 /**
+ * Generates a smart copy name for duplicated designs
+ * E.g., "Design - Copy", "Design - Copy 2", "Design - Copy 3"
+ */
+const generateCopyName = async (baseName: string, folderId: string | null): Promise<string> => {
+    // Remove any existing copy suffix to get the real base name
+    const cleanBaseName = baseName.replace(/ - Copy( \d+)?$/, '');
+    
+    // Query existing designs with similar names in the same folder
+    let query = supabase
+        .from('floor_plan_projects')
+        .select('name')
+        .or(`name.eq.${cleanBaseName} - Copy,name.ilike.${cleanBaseName} - Copy %`);
+    
+    if (folderId) {
+        query = query.eq('folder_id', folderId);
+    } else {
+        query = query.is('folder_id', null);
+    }
+
+    const { data: existing } = await query;
+    
+    if (!existing || existing.length === 0) {
+        return `${cleanBaseName} - Copy`;
+    }
+
+    // Find highest copy number
+    let maxNum = 0;
+    for (const item of existing) {
+        if (item.name === `${cleanBaseName} - Copy`) {
+            maxNum = Math.max(maxNum, 1);
+        } else {
+            const match = item.name.match(/ - Copy (\d+)$/);
+            if (match) {
+                const num = parseInt(match[1]);
+                maxNum = Math.max(maxNum, num);
+            }
+        }
+    }
+
+    return maxNum === 0 ? `${cleanBaseName} - Copy` : `${cleanBaseName} - Copy ${maxNum + 1}`;
+};
+
+/**
+ * Copies all design components from source design to target design
+ */
+const copyDesignComponents = async (sourceId: string, targetId: string): Promise<void> => {
+    // Copy equipment
+    const { data: equipment } = await supabase
+        .from('floor_plan_equipment')
+        .select('type, x, y, rotation, label, properties')
+        .eq('floor_plan_id', sourceId);
+    
+    if (equipment?.length) {
+        await supabase.from('floor_plan_equipment').insert(
+            equipment.map(e => ({ ...e, floor_plan_id: targetId }))
+        );
+    }
+
+    // Copy cables (excluding cable_entry_id link to avoid data conflicts)
+    const { data: cables } = await supabase
+        .from('floor_plan_cables')
+        .select('cable_type, points, length_meters, from_label, to_label, label, termination_count, start_height, end_height, db_circuit_id')
+        .eq('floor_plan_id', sourceId);
+    
+    if (cables?.length) {
+        await supabase.from('floor_plan_cables').insert(
+            cables.map(c => ({ ...c, floor_plan_id: targetId, cable_entry_id: null }))
+        );
+    }
+
+    // Copy zones
+    const { data: zones } = await supabase
+        .from('floor_plan_zones')
+        .select('points, label, area_sqm')
+        .eq('floor_plan_id', sourceId);
+    
+    if (zones?.length) {
+        await supabase.from('floor_plan_zones').insert(
+            zones.map(z => ({ ...z, floor_plan_id: targetId }))
+        );
+    }
+
+    // Copy containment
+    const { data: containment } = await supabase
+        .from('floor_plan_containment')
+        .select('type, size, points, length_meters')
+        .eq('floor_plan_id', sourceId);
+    
+    if (containment?.length) {
+        await supabase.from('floor_plan_containment').insert(
+            containment.map(c => ({ ...c, floor_plan_id: targetId }))
+        );
+    }
+
+    // Copy PV config
+    const { data: pvConfig } = await supabase
+        .from('floor_plan_pv_config')
+        .select('panel_length_m, panel_width_m, panel_wattage')
+        .eq('floor_plan_id', sourceId)
+        .maybeSingle();
+    
+    if (pvConfig) {
+        await supabase.from('floor_plan_pv_config').insert({
+            ...pvConfig,
+            floor_plan_id: targetId
+        });
+    }
+
+    // Copy PV roofs with their arrays (maintaining relationships)
+    const { data: roofs } = await supabase
+        .from('floor_plan_pv_roofs')
+        .select('*, floor_plan_pv_arrays(*)')
+        .eq('floor_plan_id', sourceId);
+    
+    if (roofs?.length) {
+        for (const roof of roofs) {
+            const { data: newRoof } = await supabase.from('floor_plan_pv_roofs').insert({
+                floor_plan_id: targetId,
+                mask_points: roof.mask_points,
+                pitch_degrees: roof.pitch_degrees,
+                azimuth_degrees: roof.azimuth_degrees
+            }).select().single();
+
+            if (newRoof && roof.floor_plan_pv_arrays?.length) {
+                await supabase.from('floor_plan_pv_arrays').insert(
+                    roof.floor_plan_pv_arrays.map((a: any) => ({
+                        roof_id: newRoof.id,
+                        x: a.x,
+                        y: a.y,
+                        rotation: a.rotation,
+                        rows: a.rows,
+                        columns: a.columns,
+                        orientation: a.orientation
+                    }))
+                );
+            }
+        }
+    }
+
+    // Copy tasks
+    const { data: tasks } = await supabase
+        .from('floor_plan_tasks')
+        .select('title, description, status, item_id, assignee')
+        .eq('floor_plan_id', sourceId);
+    
+    if (tasks?.length) {
+        await supabase.from('floor_plan_tasks').insert(
+            tasks.map(t => ({ ...t, floor_plan_id: targetId }))
+        );
+    }
+};
+
+/**
+ * Duplicates a floor plan design with all its components
+ * Returns the ID of the new duplicated design
+ */
+export const duplicateDesign = async (designId: string): Promise<{ id: string; name: string }> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated.");
+
+    // 1. Load original project
+    const { data: original, error } = await supabase
+        .from('floor_plan_projects')
+        .select('*')
+        .eq('id', designId)
+        .single();
+    
+    if (error) throw error;
+
+    // 2. Generate smart copy name
+    const copyName = await generateCopyName(original.name, original.folder_id);
+
+    // 3. Create new project record
+    const { data: newProject, error: insertError } = await supabase
+        .from('floor_plan_projects')
+        .insert({
+            name: copyName,
+            user_id: user.id,
+            project_id: original.project_id,
+            folder_id: original.folder_id,
+            design_purpose: original.design_purpose,
+            pdf_url: original.pdf_url, // Share the PDF file
+            scale_meters_per_pixel: original.scale_meters_per_pixel,
+            state_json: original.state_json
+        })
+        .select()
+        .single();
+
+    if (insertError) throw insertError;
+
+    // 4. Copy all related components
+    await copyDesignComponents(designId, newProject.id);
+
+    return { id: newProject.id, name: copyName };
+};
+
+/**
  * Saves a PDF with markups rendered on it
  * This generates a new PDF with all the canvas overlays and saves it to storage
  */
