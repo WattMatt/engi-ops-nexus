@@ -11377,6 +11377,181 @@ export type Database = {
           },
         ]
       }
+      tenant_evaluation_reports: {
+        Row: {
+          created_at: string
+          evaluation_id: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          report_name: string
+          revision: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          evaluation_id: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          report_name: string
+          revision?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          evaluation_id?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          report_name?: string
+          revision?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_evaluation_reports_evaluation_id_fkey"
+            columns: ["evaluation_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_evaluations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_evaluation_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_evaluation_reports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_evaluations: {
+        Row: {
+          comments: string | null
+          created_at: string
+          created_by: string | null
+          evaluated_by: string
+          evaluation_date: string
+          id: string
+          project_id: string
+          revision: number
+          sow_db_position_confirmed: string | null
+          sow_db_size_visible: string | null
+          sow_lighting_responsibility: string | null
+          sow_power_points_visible: string | null
+          status: string
+          tdp_ceiling_height_indicated: string | null
+          tdp_db_distance_from_water: string | null
+          tdp_db_position_indicated: string | null
+          tdp_electrical_points_dimensioned: string | null
+          tdp_electrical_points_legend: string | null
+          tdp_electrical_power_indicated: string | null
+          tdp_fittings_in_schedule: string | null
+          tdp_floor_points_dimensioned: string | null
+          tdp_floor_points_indicated: string | null
+          tdp_light_switch_position: string | null
+          tdp_lighting_indicated: string | null
+          tdp_mechanical_ventilation: string | null
+          tdp_signage_outlet: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          created_by?: string | null
+          evaluated_by: string
+          evaluation_date?: string
+          id?: string
+          project_id: string
+          revision?: number
+          sow_db_position_confirmed?: string | null
+          sow_db_size_visible?: string | null
+          sow_lighting_responsibility?: string | null
+          sow_power_points_visible?: string | null
+          status?: string
+          tdp_ceiling_height_indicated?: string | null
+          tdp_db_distance_from_water?: string | null
+          tdp_db_position_indicated?: string | null
+          tdp_electrical_points_dimensioned?: string | null
+          tdp_electrical_points_legend?: string | null
+          tdp_electrical_power_indicated?: string | null
+          tdp_fittings_in_schedule?: string | null
+          tdp_floor_points_dimensioned?: string | null
+          tdp_floor_points_indicated?: string | null
+          tdp_light_switch_position?: string | null
+          tdp_lighting_indicated?: string | null
+          tdp_mechanical_ventilation?: string | null
+          tdp_signage_outlet?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          created_by?: string | null
+          evaluated_by?: string
+          evaluation_date?: string
+          id?: string
+          project_id?: string
+          revision?: number
+          sow_db_position_confirmed?: string | null
+          sow_db_size_visible?: string | null
+          sow_lighting_responsibility?: string | null
+          sow_power_points_visible?: string | null
+          status?: string
+          tdp_ceiling_height_indicated?: string | null
+          tdp_db_distance_from_water?: string | null
+          tdp_db_position_indicated?: string | null
+          tdp_electrical_points_dimensioned?: string | null
+          tdp_electrical_points_legend?: string | null
+          tdp_electrical_power_indicated?: string | null
+          tdp_fittings_in_schedule?: string | null
+          tdp_floor_points_dimensioned?: string | null
+          tdp_floor_points_indicated?: string | null
+          tdp_light_switch_position?: string | null
+          tdp_lighting_indicated?: string | null
+          tdp_mechanical_ventilation?: string | null
+          tdp_signage_outlet?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_evaluations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_evaluations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_field_config: {
         Row: {
           created_at: string | null

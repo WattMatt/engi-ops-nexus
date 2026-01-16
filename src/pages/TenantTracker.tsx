@@ -13,6 +13,7 @@ import { TenantChangeAuditLog } from "@/components/tenant/TenantChangeAuditLog";
 import { OutdatedReportsIndicator } from "@/components/tenant/OutdatedReportsIndicator";
 import { TenantVersionBadge } from "@/components/tenant/TenantVersionBadge";
 import { TenantDocumentsTab } from "@/components/tenant/TenantDocumentsTab";
+import { TenantEvaluationTab } from "@/components/tenant/evaluation/TenantEvaluationTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -136,6 +137,7 @@ const TenantTracker = () => {
           <div className="border-b bg-background px-6 flex-shrink-0">
             <TabsList className="my-3">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="evaluation">Evaluation</TabsTrigger>
               <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="report-status">Report Status</TabsTrigger>
@@ -178,6 +180,14 @@ const TenantTracker = () => {
                   <TenantOverview tenants={tenants} projectId={projectId || ""} />
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="evaluation" className="h-full m-0 data-[state=active]:block">
+              <TenantEvaluationTab
+                tenants={tenants}
+                projectId={projectId || ""}
+                projectName={projectName || "Project"}
+              />
             </TabsContent>
             
             <TabsContent value="tenants" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col gap-4">
