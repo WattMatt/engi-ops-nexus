@@ -117,28 +117,172 @@ interface GenerateRequest {
 }
 
 // ============================================================================
-// PDF COLORS
+// SHARED STYLING CONSTANTS - Matches client-side src/utils/pdfmake/styles.ts
 // ============================================================================
 
+// Brand colors - semantic palette
 const PDF_COLORS_HEX = {
+  // Primary branding
   primary: '#1E40AF',
   secondary: '#3B82F6',
   accent: '#60A5FA',
-  success: '#059669',
-  warning: '#D97706',
-  danger: '#DC2626',
+  
+  // Text hierarchy
   text: '#1F2937',
   textMuted: '#6B7280',
   textLight: '#9CA3AF',
+  
+  // Backgrounds
   lightGray: '#F3F4F6',
   offWhite: '#F9FAFB',
-  darkGray: '#4B5563',
+  panelBg: '#F8FAFC',
+  
+  // Borders
   tableBorder: '#E5E7EB',
+  border: '#E5E7EB',
+  
+  // Status colors
+  success: '#059669',
+  warning: '#D97706',
+  danger: '#DC2626',
+  info: '#0284c7',
+  
+  // Variants
+  darkGray: '#4B5563',
   tableHeader: '#1E40AF',
   riskCritical: '#7C2D12',
   riskHigh: '#DC2626',
   riskMedium: '#D97706',
+  
+  // Light variants
+  primaryLight: '#DBEAFE',
+  successLight: '#DCFCE7',
+  warningLight: '#FEF3C7',
+  dangerLight: '#FEE2E2',
 };
+
+// Font sizes - consistent typography scale (in points)
+const FONT_SIZES = {
+  xs: 8,
+  sm: 9,
+  base: 10,
+  md: 11,
+  lg: 12,
+  h3: 13,
+  h2: 16,
+  h1: 20,
+  title: 24,
+  display: 32,
+  // Semantic aliases
+  caption: 8,
+  small: 9,
+  body: 10,
+  table: 9,
+};
+
+// Spacing scale - consistent margins/padding (in points)
+const SPACING = {
+  xxs: 2,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  '2xl': 32,
+  '3xl': 48,
+};
+
+// Table layout presets
+const TABLE_LAYOUTS = {
+  professional: {
+    hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 0.75 : 0.25,
+    vLineWidth: () => 0.25,
+    hLineColor: (i: number) => i === 0 || i === 1 ? PDF_COLORS_HEX.primary : PDF_COLORS_HEX.tableBorder,
+    vLineColor: () => PDF_COLORS_HEX.tableBorder,
+    paddingLeft: () => 8,
+    paddingRight: () => 8,
+    paddingTop: () => 6,
+    paddingBottom: () => 6,
+  },
+  zebra: {
+    hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 0.5 : 0,
+    vLineWidth: () => 0,
+    hLineColor: () => PDF_COLORS_HEX.tableBorder,
+    fillColor: (rowIndex: number) => rowIndex > 0 && rowIndex % 2 === 0 ? PDF_COLORS_HEX.lightGray : null,
+    paddingLeft: () => 6,
+    paddingRight: () => 6,
+    paddingTop: () => 4,
+    paddingBottom: () => 4,
+  },
+  minimal: {
+    hLineWidth: (i: number, node: any) => (i === 1 || i === node.table.body.length) ? 0.5 : 0,
+    vLineWidth: () => 0,
+    hLineColor: () => PDF_COLORS_HEX.tableBorder,
+    paddingLeft: () => 4,
+    paddingRight: () => 4,
+    paddingTop: () => 4,
+    paddingBottom: () => 4,
+  },
+};
+
+/**
+ * Get the complete style dictionary - matches client-side getStyles()
+ * Use style arrays for composition: ['heading', 'h1']
+ */
+const getStyles = () => ({
+  // Base text styles
+  text: { color: PDF_COLORS_HEX.text, fontSize: FONT_SIZES.base },
+  muted: { color: PDF_COLORS_HEX.textMuted },
+  light: { color: PDF_COLORS_HEX.textLight },
+  bold: { bold: true },
+  italic: { italics: true },
+  small: { fontSize: FONT_SIZES.sm },
+  tiny: { fontSize: FONT_SIZES.xs },
+  
+  // Headings (compose with ['heading', 'h1'])
+  heading: { bold: true, color: PDF_COLORS_HEX.text, lineHeight: 1.2 },
+  header: { fontSize: FONT_SIZES.h1, bold: true, color: PDF_COLORS_HEX.primary, margin: [0, 0, 0, SPACING.sm] },
+  subheader: { fontSize: FONT_SIZES.h2, bold: true, color: PDF_COLORS_HEX.text, margin: [0, SPACING.sm, 0, SPACING.xs] },
+  sectionTitle: { fontSize: FONT_SIZES.h2, bold: true, color: PDF_COLORS_HEX.primary, margin: [0, SPACING.lg, 0, SPACING.md] },
+  h1: { fontSize: FONT_SIZES.h1, margin: [0, SPACING.lg, 0, SPACING.sm] },
+  h2: { fontSize: FONT_SIZES.h2, margin: [0, SPACING.md, 0, SPACING.xs] },
+  h3: { fontSize: FONT_SIZES.h3, margin: [0, SPACING.sm, 0, SPACING.xs] },
+  
+  // Paragraph styles
+  p: { fontSize: FONT_SIZES.base, margin: [0, 0, 0, SPACING.sm], lineHeight: 1.4 },
+  section: { margin: [0, SPACING.xl, 0, 0] },
+  subsection: { margin: [0, SPACING.lg, 0, 0] },
+  body: { fontSize: FONT_SIZES.base, color: PDF_COLORS_HEX.text, lineHeight: 1.35 },
+  caption: { fontSize: FONT_SIZES.xs, italics: true, color: PDF_COLORS_HEX.textMuted },
+  
+  // Table styles
+  tableHeader: { fontSize: FONT_SIZES.table, bold: true, color: '#FFFFFF', fillColor: PDF_COLORS_HEX.primary },
+  tableCell: { fontSize: FONT_SIZES.table },
+  tableCellMuted: { fontSize: FONT_SIZES.table, color: PDF_COLORS_HEX.textMuted },
+  
+  // Alignment styles (compose with ['cellRight', 'bold'])
+  cellRight: { alignment: 'right' as const },
+  cellCenter: { alignment: 'center' as const },
+  numeric: { alignment: 'right' as const },
+  
+  // Status token styles
+  success: { color: PDF_COLORS_HEX.success },
+  warning: { color: PDF_COLORS_HEX.warning },
+  danger: { color: PDF_COLORS_HEX.danger },
+  info: { color: PDF_COLORS_HEX.info },
+  
+  // KPI/Metric styles
+  kpiValue: { fontSize: FONT_SIZES.title, bold: true, alignment: 'center' as const },
+  kpiLabel: { fontSize: FONT_SIZES.xs, color: PDF_COLORS_HEX.textMuted, alignment: 'center' as const },
+  
+  // Header/Footer styles
+  headerText: { color: PDF_COLORS_HEX.textMuted, fontSize: FONT_SIZES.sm },
+  footerText: { color: PDF_COLORS_HEX.textMuted, fontSize: FONT_SIZES.sm },
+  
+  // Label/Value styles
+  label: { fontSize: FONT_SIZES.sm, bold: true, color: PDF_COLORS_HEX.textMuted },
+  value: { fontSize: FONT_SIZES.base, color: PDF_COLORS_HEX.text },
+});
 
 const DEFAULT_EXPORT_OPTIONS: RoadmapPDFExportOptions = {
   includeCharts: true,

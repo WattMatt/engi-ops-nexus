@@ -25,8 +25,8 @@
 // Core configuration
 export { pdfMake, PAGE_SIZES, STANDARD_MARGINS, mmToPoints, pointsToMm, isPdfMakeReady, testPdfGeneration, validatePdfMake, quickPdfCheck } from './config';
 
-// Styles and colors
-export { PDF_COLORS, FONT_SIZES, defaultStyles, tableLayouts, QUALITY_PRESETS } from './styles';
+// Styles, colors, and spacing
+export { PDF_COLORS, FONT_SIZES, SPACING, defaultStyles, getStyles, tableLayouts, QUALITY_PRESETS, m, mx, my, mt, mb, ml, mr } from './styles';
 export type { QualityPreset } from './styles';
 
 // Helper functions
@@ -48,8 +48,13 @@ export {
   formatCurrency,
   formatDate,
   formatPercentage,
+  // Panel helpers
+  buildPanel,
+  buildInfoBox,
+  buildStatusBadge,
+  buildMetricCard,
 } from './helpers';
-export type { TableColumn } from './helpers';
+export type { TableColumn, PanelOptions } from './helpers';
 
 // Document builder
 export { PDFDocumentBuilder, createDocument, downloadPdf, openPdf, getPdfBlob } from './documentBuilder';
