@@ -8,7 +8,7 @@ import type { Content, Margins } from 'pdfmake/interfaces';
 import { registerReportType, createReportRegistration } from '../registry';
 import type { ReportConfig } from '../types';
 import { PDF_COLORS, SPACING, FONT_SIZES, tableLayouts, getStyles } from '../../styles';
-import { buildPanel, buildMetricCard, buildStatusBadge } from '../../helpers';
+import { buildPanel, buildMetricCard, buildStatusBadge, priorityToStatus } from '../../helpers';
 
 // ============================================================================
 // DATA TYPES
@@ -62,12 +62,12 @@ function buildExecutiveSummary(data: RoadmapReviewData, config: ReportConfig): C
     // Key metrics grid
     {
       columns: [
-        buildMetricCard('Total Projects', String(metrics.totalProjects), { width: 120 }),
-        buildMetricCard('Avg Progress', `${Math.round(metrics.averageProgress)}%`, { width: 120 }),
-        buildMetricCard('Health Score', `${Math.round(metrics.totalHealthScore)}%`, { width: 120 }),
-        buildMetricCard('At Risk', String(metrics.projectsAtRisk + metrics.projectsCritical), { 
+        buildMetricCard(String(metrics.totalProjects), 'Total Projects', { width: 120 }),
+        buildMetricCard(`${Math.round(metrics.averageProgress)}%`, 'Avg Progress', { width: 120 }),
+        buildMetricCard(`${Math.round(metrics.totalHealthScore)}%`, 'Health Score', { width: 120 }),
+        buildMetricCard(String(metrics.projectsAtRisk + metrics.projectsCritical), 'At Risk', { 
           width: 120,
-          accentColor: metrics.projectsCritical > 0 ? PDF_COLORS.danger : PDF_COLORS.warning 
+          valueColor: metrics.projectsCritical > 0 ? PDF_COLORS.danger : PDF_COLORS.warning 
         }),
       ],
       columnGap: 10,
@@ -139,12 +139,7 @@ function buildProjectsTable(data: RoadmapReviewData, config: ReportConfig): Cont
              : project.healthScore >= 40 ? PDF_COLORS.warning 
              : PDF_COLORS.danger,
       },
-      buildStatusBadge(project.riskLevel || 'low', {
-        low: PDF_COLORS.success,
-        medium: PDF_COLORS.warning,
-        high: PDF_COLORS.danger,
-        critical: PDF_COLORS.danger,
-      }),
+      buildStatusBadge(project.riskLevel || 'low', priorityToStatus(project.riskLevel || 'low')),
       { 
         text: String(project.overdueCount), 
         alignment: 'center' as const,

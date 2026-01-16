@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 export interface CoverPageOptions {
   title: string;
   projectName: string;
+  projectNumber?: string;
   subtitle?: string;
   revision?: string;
   date?: string | Date;
