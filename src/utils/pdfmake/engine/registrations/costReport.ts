@@ -61,15 +61,15 @@ function buildSummarySection(data: CostReportData, config: ReportConfig): Conten
     // Summary metrics
     {
       columns: [
-        buildMetricCard('Total Budget', formatCurrency(summary.totalBudget), { width: 130 }),
-        buildMetricCard('Total Actual', formatCurrency(summary.totalActual), { width: 130 }),
-        buildMetricCard('Variance', formatCurrency(Math.abs(summary.totalVariance)), { 
+        buildMetricCard(formatCurrency(summary.totalBudget), 'Total Budget', { width: 130 }),
+        buildMetricCard(formatCurrency(summary.totalActual), 'Total Actual', { width: 130 }),
+        buildMetricCard(formatCurrency(Math.abs(summary.totalVariance)), 'Variance', { 
           width: 130,
-          accentColor: isOverBudget ? PDF_COLORS.danger : PDF_COLORS.success,
+          valueColor: isOverBudget ? PDF_COLORS.danger : PDF_COLORS.success,
         }),
-        buildMetricCard('Variance %', `${summary.variancePercent.toFixed(1)}%`, { 
+        buildMetricCard(`${summary.variancePercent.toFixed(1)}%`, 'Variance %', { 
           width: 130,
-          accentColor: isOverBudget ? PDF_COLORS.danger : PDF_COLORS.success,
+          valueColor: isOverBudget ? PDF_COLORS.danger : PDF_COLORS.success,
         }),
       ],
       columnGap: 8,

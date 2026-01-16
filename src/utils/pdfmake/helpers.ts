@@ -455,6 +455,8 @@ export const buildMetricCard = (
   label: string,
   options?: {
     valueColor?: string;
+    width?: number | string;
+    accentColor?: string;
   }
 ): Content => {
   const { valueColor = PDF_COLORS.primary } = options || {};
@@ -477,4 +479,17 @@ export const buildMetricCard = (
       },
     ],
   };
+};
+
+/**
+ * Map priority to status badge variant
+ */
+export const priorityToStatus = (priority: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' => {
+  const map: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+    low: 'success',
+    medium: 'warning',
+    high: 'danger',
+    critical: 'danger',
+  };
+  return map[priority?.toLowerCase()] || 'neutral';
 };
