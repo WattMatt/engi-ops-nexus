@@ -2,8 +2,8 @@
  * Roadmap Review PDF Export - Dual Engine Support
  * 
  * Supports two PDF generation engines:
- * - jsPDF (client-side): Higher quality, proven, recommended
- * - pdfmake (server-side): Faster, experimental, uses edge function
+ * - jsPDF (client-side): Rich tables with autoTable, local processing
+ * - pdfmake (server-side): Declarative API, faster, modern approach
  */
 
 import { format } from "date-fns";

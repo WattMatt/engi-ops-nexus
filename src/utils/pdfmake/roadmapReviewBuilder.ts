@@ -477,6 +477,9 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content[] => {
 
   projects.forEach((project, idx) => {
     const healthColor = getHealthColorHex(project.healthScore);
+    // Use correct field names with fallbacks for backward compatibility
+    const overdueCount = project.overdueCount ?? (project as any).overdueItems ?? 0;
+    const dueSoonCount = project.dueSoonCount ?? (project as any).dueSoonItems ?? 0;
 
     // Page break before each project (except first)
     if (idx > 0) {
@@ -499,14 +502,19 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content[] => {
           width: '*',
         },
         {
-          text: `${project.healthScore}%`,
-          fontSize: 12,
-          bold: true,
-          color: '#FFFFFF',
-          alignment: 'center',
-          background: healthColor,
-          width: 50,
-          margin: [0, 2, 0, 2] as Margins,
+          table: {
+            body: [[{ text: `${project.healthScore}%`, fontSize: 11, bold: true, color: '#FFFFFF', alignment: 'center' }]],
+          },
+          layout: {
+            hLineWidth: () => 0,
+            vLineWidth: () => 0,
+            fillColor: () => healthColor,
+            paddingLeft: () => 8,
+            paddingRight: () => 8,
+            paddingTop: () => 4,
+            paddingBottom: () => 4,
+          } as any,
+          width: 55,
         },
       ],
       margin: [0, 0, 0, 10] as Margins,
@@ -541,14 +549,21 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content[] => {
         {
           stack: [
             { text: 'Overdue', fontSize: 8, color: PDF_COLORS_HEX.textMuted },
-            { text: String(project.overdueCount), fontSize: 16, bold: true, color: project.overdueCount > 0 ? PDF_COLORS_HEX.danger : PDF_COLORS_HEX.success },
+            { text: String(overdueCount), fontSize: 16, bold: true, color: overdueCount > 0 ? PDF_COLORS_HEX.danger : PDF_COLORS_HEX.success },
+          ],
+          width: '*',
+        },
+        {
+          stack: [
+            { text: 'Due Soon', fontSize: 8, color: PDF_COLORS_HEX.textMuted },
+            { text: String(dueSoonCount), fontSize: 16, bold: true, color: dueSoonCount > 3 ? PDF_COLORS_HEX.warning : PDF_COLORS_HEX.darkGray },
           ],
           width: '*',
         },
         {
           stack: [
             { text: 'Team', fontSize: 8, color: PDF_COLORS_HEX.textMuted },
-            { text: String(project.teamMembers.length), fontSize: 16, bold: true },
+            { text: String(project.teamMembers?.length || 0), fontSize: 16, bold: true },
           ],
           width: '*',
         },
@@ -557,7 +572,7 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content[] => {
     });
 
     // Upcoming tasks
-    if (project.upcomingItems.length > 0) {
+    if (project.upcomingItems && project.upcomingItems.length > 0) {
       content.push({ text: 'Upcoming Tasks', fontSize: 12, bold: true, color: PDF_COLORS_HEX.primary, margin: [0, 0, 0, 8] as Margins });
 
       const taskRows: TableCell[][] = [
@@ -605,7 +620,7 @@ const buildProjectDetails = (projects: EnhancedProjectSummary[]): Content[] => {
     }
 
     // Team members
-    if (project.teamMembers.length > 0) {
+    if (project.teamMembers && project.teamMembers.length > 0) {
       content.push({ text: 'Team Members', fontSize: 12, bold: true, color: PDF_COLORS_HEX.primary, margin: [0, 20, 0, 8] as Margins });
       content.push({
         text: project.teamMembers.map(m => m.name || m.email || 'Unnamed').join('  •  '),
