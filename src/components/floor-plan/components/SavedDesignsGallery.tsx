@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { FolderOpen, Calendar, Loader, MoreVertical, Pencil, Trash2, Archive, ChevronRight, ChevronDown, Folder, FolderPlus, Settings, Move, Copy } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { FolderOpen, Calendar, Loader, MoreVertical, Pencil, Trash2, Archive, ChevronRight, ChevronDown, Folder, FolderPlus, Settings, Move, Copy, CheckSquare, Square } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Building } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { useFolders } from '../hooks/useFolders';
 import { FolderManagementPanel, type FolderNode } from './FolderManagementPanel';
 import { MoveToFolderDialog } from './MoveToFolderDialog';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from '@/components/ui/context-menu';
+import { DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu';
 
 interface SavedDesign {
   id: string;
@@ -53,6 +55,12 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
   const [newFolderName, setNewFolderName] = useState('');
   const [parentFolderForCreate, setParentFolderForCreate] = useState<string | null>(null);
   const [draggedDesign, setDraggedDesign] = useState<SavedDesign | null>(null);
+  
+  // Duplicate enhancements state
+  const [duplicatingDesignId, setDuplicatingDesignId] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDesigns, setSelectedDesigns] = useState<Set<string>>(new Set());
+  const [isBulkDuplicating, setIsBulkDuplicating] = useState(false);
 
   const { folders, flatFolders, refetch: refetchFolders, getFolderPath } = useFolders(currentProjectId);
 
@@ -193,6 +201,7 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
   };
 
   const handleDuplicate = async (design: SavedDesign) => {
+    setDuplicatingDesignId(design.id);
     try {
       const { name: newName } = await duplicateDesign(design.id);
       toast.success(`Created copy: "${newName}"`);
@@ -200,7 +209,67 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     } catch (error) {
       console.error('Error duplicating design:', error);
       toast.error('Failed to duplicate design');
+    } finally {
+      setDuplicatingDesignId(null);
     }
+  };
+
+  const handleDuplicateToFolder = async (design: SavedDesign, folderId: string | null) => {
+    setDuplicatingDesignId(design.id);
+    try {
+      const { name: newName } = await duplicateDesign(design.id, folderId);
+      const folderName = folderId 
+        ? flatFolders.find(f => f.id === folderId)?.name || 'folder'
+        : 'Uncategorized';
+      toast.success(`Created "${newName}" in ${folderName}`);
+      fetchDesigns();
+    } catch (error) {
+      console.error('Error duplicating design:', error);
+      toast.error('Failed to duplicate design');
+    } finally {
+      setDuplicatingDesignId(null);
+    }
+  };
+
+  const handleBulkDuplicate = async () => {
+    if (selectedDesigns.size === 0) return;
+    
+    setIsBulkDuplicating(true);
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const designId of selectedDesigns) {
+      try {
+        await duplicateDesign(designId);
+        successCount++;
+      } catch (error) {
+        console.error(`Error duplicating design ${designId}:`, error);
+        failCount++;
+      }
+    }
+    
+    setIsBulkDuplicating(false);
+    setSelectedDesigns(new Set());
+    setSelectionMode(false);
+    fetchDesigns();
+    
+    if (failCount === 0) {
+      toast.success(`Successfully duplicated ${successCount} designs`);
+    } else {
+      toast.warning(`Duplicated ${successCount} designs, ${failCount} failed`);
+    }
+  };
+
+  const toggleDesignSelection = (designId: string) => {
+    setSelectedDesigns(prev => {
+      const next = new Set(prev);
+      if (next.has(designId)) {
+        next.delete(designId);
+      } else {
+        next.add(designId);
+      }
+      return next;
+    });
   };
 
   const handleMoveDesign = (design: SavedDesign) => {
@@ -339,120 +408,193 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     );
   };
 
-  const renderDesignCard = (design: SavedDesign) => (
-    <ContextMenu key={design.id}>
-      <ContextMenuTrigger>
-        <div
-          draggable
-          onDragStart={(e) => handleDragStart(e, design)}
-          className="group relative flex flex-col p-4 rounded-lg bg-card hover:bg-accent transition-all duration-200 border border-border hover:border-primary hover:shadow-md cursor-grab active:cursor-grabbing"
-        >
-          <div className="absolute top-2 right-2 z-10">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button 
-                  className="p-1 rounded hover:bg-background/80 transition-colors"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleRename(design)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleDuplicate(design)}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleMoveDesign(design)}>
-                  <Move className="h-4 w-4 mr-2" />
-                  Move to Folder
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleArchive(design)}>
-                  <Archive className="h-4 w-4 mr-2" />
-                  Archive
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => handleDelete(design)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          
-          <button
-            onClick={() => onLoadDesign(design.id)}
-            className="flex-1 flex flex-col text-left"
+  const renderDesignCard = (design: SavedDesign) => {
+    const isDuplicating = duplicatingDesignId === design.id;
+    const isSelected = selectedDesigns.has(design.id);
+    
+    return (
+      <ContextMenu key={design.id}>
+        <ContextMenuTrigger>
+          <div
+            draggable={!selectionMode}
+            onDragStart={(e) => !selectionMode && handleDragStart(e, design)}
+            className={`group relative flex flex-col p-4 rounded-lg bg-card hover:bg-accent transition-all duration-200 border hover:shadow-md ${
+              isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary'
+            } ${selectionMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
+            onClick={selectionMode ? () => toggleDesignSelection(design.id) : undefined}
           >
-            <div className="flex items-start gap-3 mb-3">
-              <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
-                <FolderOpen className="h-5 w-5 text-primary" />
+            {/* Loading overlay during duplication */}
+            {isDuplicating && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-20">
+                <div className="flex items-center gap-2 text-primary">
+                  <Loader className="h-5 w-5 animate-spin" />
+                  <span className="text-sm font-medium">Duplicating...</span>
+                </div>
               </div>
-              <div className="flex-1 min-w-0 pr-6">
-                <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                  {design.name}
-                </h3>
+            )}
+
+            {/* Selection checkbox */}
+            {selectionMode && (
+              <div className="absolute top-2 left-2 z-10">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleDesignSelection(design.id)}
+                  onClick={(e) => e.stopPropagation()}
+                />
               </div>
+            )}
+
+            <div className="absolute top-2 right-2 z-10">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className="p-1 rounded hover:bg-background/80 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                    disabled={isDuplicating}
+                  >
+                    <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleRename(design)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleDuplicate(design)} disabled={isDuplicating}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger disabled={isDuplicating}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Duplicate to Folder
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem onClick={() => handleDuplicateToFolder(design, null)}>
+                        <Folder className="h-4 w-4 mr-2" />
+                        Uncategorized (Root)
+                      </DropdownMenuItem>
+                      {flatFolders.map(folder => (
+                        <DropdownMenuItem 
+                          key={folder.id}
+                          onClick={() => handleDuplicateToFolder(design, folder.id)}
+                        >
+                          <Folder className="h-4 w-4 mr-2" />
+                          {getFolderPath(folder.id)}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuItem onClick={() => handleMoveDesign(design)}>
+                    <Move className="h-4 w-4 mr-2" />
+                    Move to Folder
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleArchive(design)}>
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleDelete(design)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-auto">
-              <Calendar className="h-3 w-3" />
-              {new Date(design.created_at).toLocaleDateString()}
-            </div>
-          </button>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => onLoadDesign(design.id)}>
-          <FolderOpen className="h-4 w-4 mr-2" />
-          Open
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => handleRename(design)}>
-          <Pencil className="h-4 w-4 mr-2" />
-          Rename
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => handleDuplicate(design)}>
-          <Copy className="h-4 w-4 mr-2" />
-          Duplicate
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>
-            <Move className="h-4 w-4 mr-2" />
-            Move to Folder
-          </ContextMenuSubTrigger>
-          <ContextMenuSubContent>
-            <ContextMenuItem onClick={() => handleDropOnFolder({ preventDefault: () => {} } as any, null)}>
-              <Folder className="h-4 w-4 mr-2" />
-              Uncategorized (Root)
-            </ContextMenuItem>
-            {flatFolders.map(folder => (
-              <ContextMenuItem 
-                key={folder.id}
-                onClick={() => handleDropOnFolder({ preventDefault: () => {} } as any, folder.id)}
-              >
+            
+            <button
+              onClick={selectionMode ? undefined : () => onLoadDesign(design.id)}
+              className={`flex-1 flex flex-col text-left ${selectionMode ? 'ml-6' : ''}`}
+              disabled={isDuplicating}
+            >
+              <div className="flex items-start gap-3 mb-3">
+                <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+                  <FolderOpen className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0 pr-6">
+                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                    {design.name}
+                  </h3>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-auto">
+                <Calendar className="h-3 w-3" />
+                {new Date(design.created_at).toLocaleDateString()}
+              </div>
+            </button>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => onLoadDesign(design.id)}>
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Open
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handleRename(design)}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Rename
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handleDuplicate(design)} disabled={isDuplicating}>
+            <Copy className="h-4 w-4 mr-2" />
+            Duplicate
+          </ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger disabled={isDuplicating}>
+              <Copy className="h-4 w-4 mr-2" />
+              Duplicate to Folder
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              <ContextMenuItem onClick={() => handleDuplicateToFolder(design, null)}>
                 <Folder className="h-4 w-4 mr-2" />
-                {getFolderPath(folder.id)}
+                Uncategorized (Root)
               </ContextMenuItem>
-            ))}
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-        <ContextMenuSeparator />
-        <ContextMenuItem 
-          onClick={() => handleDelete(design)}
-          className="text-destructive"
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
-  );
+              {flatFolders.map(folder => (
+                <ContextMenuItem 
+                  key={folder.id}
+                  onClick={() => handleDuplicateToFolder(design, folder.id)}
+                >
+                  <Folder className="h-4 w-4 mr-2" />
+                  {getFolderPath(folder.id)}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+          <ContextMenuSeparator />
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <Move className="h-4 w-4 mr-2" />
+              Move to Folder
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              <ContextMenuItem onClick={() => handleDropOnFolder({ preventDefault: () => {} } as any, null)}>
+                <Folder className="h-4 w-4 mr-2" />
+                Uncategorized (Root)
+              </ContextMenuItem>
+              {flatFolders.map(folder => (
+                <ContextMenuItem 
+                  key={folder.id}
+                  onClick={() => handleDropOnFolder({ preventDefault: () => {} } as any, folder.id)}
+                >
+                  <Folder className="h-4 w-4 mr-2" />
+                  {getFolderPath(folder.id)}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+          <ContextMenuSeparator />
+          <ContextMenuItem 
+            onClick={() => handleDelete(design)}
+            className="text-destructive"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  };
 
   if (loading) {
     return (
@@ -500,6 +642,25 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
             <p className="text-muted-foreground mt-1">Select a design to continue working or start a new one</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={selectionMode ? "secondary" : "outline"}
+              onClick={() => {
+                setSelectionMode(!selectionMode);
+                setSelectedDesigns(new Set());
+              }}
+            >
+              {selectionMode ? (
+                <>
+                  <Square className="h-4 w-4 mr-2" />
+                  Cancel Selection
+                </>
+              ) : (
+                <>
+                  <CheckSquare className="h-4 w-4 mr-2" />
+                  Select Multiple
+                </>
+              )}
+            </Button>
             <Button
               variant="outline"
               onClick={() => setFolderManagementOpen(true)}
@@ -563,6 +724,37 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
             </div>
           )}
         </div>
+
+        {/* Bulk Action Toolbar */}
+        {selectionMode && selectedDesigns.size > 0 && (
+          <div className="sticky bottom-4 flex justify-center mt-6 z-30">
+            <div className="bg-card border border-border rounded-lg shadow-lg p-3 flex items-center gap-4">
+              <span className="text-sm font-medium text-foreground">
+                {selectedDesigns.size} selected
+              </span>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleBulkDuplicate}
+                disabled={isBulkDuplicating}
+              >
+                {isBulkDuplicating ? (
+                  <Loader className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-2" />
+                )}
+                Duplicate Selected
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedDesigns(new Set())}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Rename Dialog */}
         <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>

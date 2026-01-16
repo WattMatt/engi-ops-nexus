@@ -704,8 +704,13 @@ const copyDesignComponents = async (sourceId: string, targetId: string): Promise
 /**
  * Duplicates a floor plan design with all its components
  * Returns the ID of the new duplicated design
+ * @param designId - The ID of the design to duplicate
+ * @param targetFolderId - Optional target folder ID (undefined = same folder, null = uncategorized)
  */
-export const duplicateDesign = async (designId: string): Promise<{ id: string; name: string }> => {
+export const duplicateDesign = async (
+    designId: string, 
+    targetFolderId?: string | null
+): Promise<{ id: string; name: string }> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
 
@@ -718,17 +723,20 @@ export const duplicateDesign = async (designId: string): Promise<{ id: string; n
     
     if (error) throw error;
 
-    // 2. Generate smart copy name
-    const copyName = await generateCopyName(original.name, original.folder_id);
+    // 2. Determine target folder (undefined means keep original, null means uncategorized)
+    const finalFolderId = targetFolderId !== undefined ? targetFolderId : original.folder_id;
 
-    // 3. Create new project record
+    // 3. Generate smart copy name for target folder
+    const copyName = await generateCopyName(original.name, finalFolderId);
+
+    // 4. Create new project record
     const { data: newProject, error: insertError } = await supabase
         .from('floor_plan_projects')
         .insert({
             name: copyName,
             user_id: user.id,
             project_id: original.project_id,
-            folder_id: original.folder_id,
+            folder_id: finalFolderId,
             design_purpose: original.design_purpose,
             pdf_url: original.pdf_url, // Share the PDF file
             scale_meters_per_pixel: original.scale_meters_per_pixel,
@@ -739,7 +747,7 @@ export const duplicateDesign = async (designId: string): Promise<{ id: string; n
 
     if (insertError) throw insertError;
 
-    // 4. Copy all related components
+    // 5. Copy all related components
     await copyDesignComponents(designId, newProject.id);
 
     return { id: newProject.id, name: copyName };
