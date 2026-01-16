@@ -380,6 +380,9 @@ export const MEETING_NOTES_CONFIG = {
   labelWidth: 35,
 };
 
+// PDF Engine type
+export type PDFEngine = 'jspdf' | 'pdfmake';
+
 // PDF export options interface
 export interface RoadmapPDFExportOptions {
   includeCharts: boolean;
@@ -396,6 +399,8 @@ export interface RoadmapPDFExportOptions {
   confidentialNotice?: boolean;
   reportType: 'standard' | 'meeting-review' | 'executive-summary';
   chartLayout: 'stacked' | 'grid';
+  /** PDF generation engine - jsPDF (client) or pdfmake (server) */
+  pdfEngine: PDFEngine;
 }
 
 // Default export options
@@ -414,4 +419,5 @@ export const DEFAULT_EXPORT_OPTIONS: RoadmapPDFExportOptions = {
   confidentialNotice: true,
   reportType: 'meeting-review',
   chartLayout: 'stacked',
+  pdfEngine: 'jspdf', // Default to jsPDF for better quality
 };

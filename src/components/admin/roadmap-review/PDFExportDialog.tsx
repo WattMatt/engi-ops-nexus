@@ -6,9 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, CheckCircle2, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, CheckCircle2, RefreshCw, Server, Monitor, Zap, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS } from "@/utils/roadmapReviewPdfStyles";
+import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS, PDFEngine } from "@/utils/roadmapReviewPdfStyles";
 import type { PreCaptureStatus } from "@/hooks/useChartPreCapture";
 import { toast } from "sonner";
 
@@ -100,6 +101,61 @@ export function PDFExportDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* PDF Engine Toggle */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              PDF Generation Engine
+            </Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div 
+                className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  options.pdfEngine === 'jspdf' 
+                    ? 'border-primary bg-primary/5' 
+                    : 'hover:bg-muted/50'
+                }`}
+                onClick={() => updateOption('pdfEngine', 'jspdf')}
+              >
+                <Monitor className="h-5 w-5 text-primary" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">jsPDF</span>
+                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Recommended
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Client-side • Better quality • Proven
+                  </p>
+                </div>
+              </div>
+              <div 
+                className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  options.pdfEngine === 'pdfmake' 
+                    ? 'border-primary bg-primary/5' 
+                    : 'hover:bg-muted/50'
+                }`}
+                onClick={() => updateOption('pdfEngine', 'pdfmake')}
+              >
+                <Server className="h-5 w-5 text-muted-foreground" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">pdfmake</span>
+                    <Badge variant="outline" className="text-xs">
+                      Experimental
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Server-side • Faster • Beta
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Report Type */}
           <div className="space-y-3">
             <Label className="text-sm font-medium">Report Type</Label>
