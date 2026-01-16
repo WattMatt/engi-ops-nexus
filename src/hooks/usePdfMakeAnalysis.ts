@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export type AnalysisType = 'full' | 'best-practices' | 'performance' | 'structure' | 'tables' | 'styling';
+export type AnalysisType = 'full' | 'best-practices' | 'performance' | 'structure' | 'tables' | 'styling' | 'generate-prompt';
 
 export interface AnalysisResult {
   success: boolean;
@@ -14,6 +14,7 @@ export interface AnalysisResult {
   recommendations: string[];
   codeExamples?: string[];
   references?: string[];
+  developerPrompt?: string;
   error?: string;
 }
 
@@ -24,6 +25,7 @@ export interface UsePdfMakeAnalysisReturn {
     analysisType: AnalysisType;
     codeSnippet?: string;
     specificQuestion?: string;
+    generateDeveloperPrompt?: boolean;
   }) => Promise<AnalysisResult | null>;
   clearResult: () => void;
 }
@@ -36,6 +38,7 @@ export const usePdfMakeAnalysis = (): UsePdfMakeAnalysisReturn => {
     analysisType: AnalysisType;
     codeSnippet?: string;
     specificQuestion?: string;
+    generateDeveloperPrompt?: boolean;
   }): Promise<AnalysisResult | null> => {
     setIsAnalyzing(true);
     setResult(null);
@@ -59,9 +62,16 @@ export const usePdfMakeAnalysis = (): UsePdfMakeAnalysisReturn => {
       }
 
       setResult(analysisResult);
-      toast.success('Analysis complete', { 
-        description: `Found ${analysisResult.recommendations.length} recommendations` 
-      });
+      
+      if (params.generateDeveloperPrompt || params.analysisType === 'generate-prompt') {
+        toast.success('Developer prompt generated', { 
+          description: 'Copy the prompt to use with any AI assistant' 
+        });
+      } else {
+        toast.success('Analysis complete', { 
+          description: `Found ${analysisResult.recommendations.length} recommendations` 
+        });
+      }
       
       return analysisResult;
     } catch (err) {
