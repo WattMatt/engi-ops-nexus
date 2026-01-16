@@ -7,11 +7,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, CheckCircle2, RefreshCw, Server, Monitor, Zap, Sparkles } from "lucide-react";
+import { FileText, Download, Loader2, Building2, FileCheck, LayoutGrid, Rows3, CheckCircle2, RefreshCw, Server, Monitor, Zap, Sparkles, BrainCircuit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS, PDFEngine } from "@/utils/roadmapReviewPdfStyles";
 import type { PreCaptureStatus } from "@/hooks/useChartPreCapture";
 import { toast } from "sonner";
+import { PdfMakeAnalysisDialog } from "./PdfMakeAnalysisDialog";
 
 interface PDFExportDialogProps {
   open: boolean;
@@ -407,6 +408,17 @@ export function PDFExportDialog({
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
+          {/* AI Analysis Button - only show when pdfmake is selected */}
+          {options.pdfEngine === 'pdfmake' && (
+            <PdfMakeAnalysisDialog
+              trigger={
+                <Button variant="ghost" size="sm" className="gap-2 mr-auto">
+                  <BrainCircuit className="h-4 w-4" />
+                  Analyze pdfmake
+                </Button>
+              }
+            />
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isExporting}>
             Cancel
           </Button>

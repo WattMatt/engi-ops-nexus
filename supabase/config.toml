@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.generate-roadmap-pdf]
 verify_jwt = false
+
+[functions.analyze-pdfmake]
+verify_jwt = false
