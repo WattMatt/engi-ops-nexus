@@ -138,6 +138,12 @@ export async function addChartsToPDF(
   for (let i = 0; i < charts.length; i++) {
     const chart = charts[i];
 
+    // Skip charts with invalid dimensions
+    if (!chart.width || !chart.height || chart.width <= 0 || chart.height <= 0) {
+      console.warn(`Skipping chart "${chart.title}" due to invalid dimensions: ${chart.width}x${chart.height}`);
+      continue;
+    }
+
     // Check if we need a new page
     if (yPos + maxChartHeight + 20 > pageHeight - margin) {
       doc.addPage();
@@ -151,8 +157,15 @@ export async function addChartsToPDF(
     doc.text(chart.title, margin, yPos);
     yPos += 5;
 
-    // Calculate aspect ratio and size
+    // Calculate aspect ratio and size with safety checks
     const aspectRatio = chart.width / chart.height;
+    
+    // Ensure valid aspect ratio
+    if (!isFinite(aspectRatio) || isNaN(aspectRatio) || aspectRatio <= 0) {
+      console.warn(`Skipping chart "${chart.title}" due to invalid aspect ratio`);
+      continue;
+    }
+    
     let chartWidth = Math.min(maxChartWidth, maxChartHeight * aspectRatio);
     let chartHeight = chartWidth / aspectRatio;
 
@@ -161,13 +174,26 @@ export async function addChartsToPDF(
       chartWidth = chartHeight * aspectRatio;
     }
 
+    // Final validation before drawing
+    if (!isFinite(chartWidth) || !isFinite(chartHeight) || chartWidth <= 0 || chartHeight <= 0) {
+      console.warn(`Skipping chart "${chart.title}" due to invalid calculated dimensions`);
+      continue;
+    }
+
     // Center the chart
     const chartX = margin + (maxChartWidth - chartWidth) / 2;
 
-    // Add chart image with border
-    doc.setDrawColor(220, 220, 220);
-    doc.setLineWidth(0.3);
-    doc.rect(chartX - 2, yPos - 2, chartWidth + 4, chartHeight + 4);
+    // Add chart image with border - validate all rect parameters
+    const rectX = chartX - 2;
+    const rectY = yPos - 2;
+    const rectW = chartWidth + 4;
+    const rectH = chartHeight + 4;
+    
+    if (isFinite(rectX) && isFinite(rectY) && isFinite(rectW) && isFinite(rectH) && rectW > 0 && rectH > 0) {
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.rect(rectX, rectY, rectW, rectH);
+    }
     
     addHighQualityImage(
       doc,
