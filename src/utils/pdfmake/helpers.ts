@@ -1,12 +1,22 @@
 /**
  * PDFMake Helper Functions
  * Common utilities for building PDF documents
+ * 
+ * Key utilities:
+ * - Text helpers: heading, paragraph, keyValue, sectionHeader
+ * - Table helpers: dataTable, infoTable
+ * - Layout helpers: twoColumns, stack, horizontalLine, spacer
+ * - Panel helpers: buildPanel for styled cards/boxes
+ * - Margin helpers: m, mx, my, mt, mb (re-exported from styles)
  */
 
 import type { Content, ContentTable, ContentColumns, ContentStack, TDocumentDefinitions, Margins } from 'pdfmake/interfaces';
-import { PDF_COLORS, FONT_SIZES, tableLayouts } from './styles';
+import { PDF_COLORS, FONT_SIZES, SPACING, tableLayouts, m, mx, my, mt, mb, ml, mr } from './styles';
 import { STANDARD_MARGINS, mmToPoints } from './config';
 import { format } from 'date-fns';
+
+// Re-export margin utilities for convenience
+export { m, mx, my, mt, mb, ml, mr } from './styles';
 
 // ============ Text Helpers ============
 
@@ -310,4 +320,161 @@ export const formatDate = (date: Date | string, formatStr: string = 'dd MMMM yyy
  */
 export const formatPercentage = (value: number, decimals: number = 1): string => {
   return `${value.toFixed(decimals)}%`;
+};
+
+// ============ Panel/Card Helpers ============
+
+export interface PanelOptions {
+  fillColor?: string;
+  borderColor?: string;
+  indicatorColor?: string;
+  titleFillColor?: string;
+  margin?: Margins;
+}
+
+/**
+ * Create a styled panel/card with title and content
+ * Useful for info boxes, highlighted sections, etc.
+ */
+export const buildPanel = (
+  title: string,
+  contentNodes: Content | Content[],
+  options?: PanelOptions
+): Content => {
+  const {
+    fillColor,
+    borderColor = PDF_COLORS.border,
+    titleFillColor = PDF_COLORS.backgroundAlt,
+    margin = [0, SPACING.md, 0, 0] as Margins,
+  } = options || {};
+
+  const contentArray = Array.isArray(contentNodes) ? contentNodes : [contentNodes];
+
+  return {
+    table: {
+      widths: ['*'],
+      body: [
+        [{ 
+          text: title, 
+          style: ['heading', 'h3'],
+          fillColor: titleFillColor,
+          margin: [SPACING.sm, SPACING.xs, SPACING.sm, SPACING.xs] as Margins,
+        }],
+        [{ 
+          stack: contentArray, 
+          margin: [SPACING.sm, SPACING.sm, SPACING.sm, SPACING.sm] as Margins,
+          fillColor,
+        }],
+      ],
+    },
+    layout: {
+      hLineWidth: (i: number, node: any) => (i === 0 || i === node.table.body.length) ? 0.5 : 0,
+      vLineWidth: () => 0.5,
+      hLineColor: () => borderColor,
+      vLineColor: () => borderColor,
+    },
+    margin,
+  };
+};
+
+/**
+ * Create a simple info box with background
+ */
+export const buildInfoBox = (
+  content: Content | Content[],
+  options?: { 
+    fillColor?: string; 
+    borderColor?: string;
+    margin?: Margins;
+  }
+): Content => {
+  const {
+    fillColor = PDF_COLORS.background,
+    borderColor = PDF_COLORS.border,
+    margin = [0, SPACING.sm, 0, SPACING.sm] as Margins,
+  } = options || {};
+
+  const contentArray = Array.isArray(content) ? content : [content];
+
+  return {
+    table: {
+      widths: ['*'],
+      body: [[{ 
+        stack: contentArray, 
+        fillColor,
+        margin: [SPACING.sm, SPACING.sm, SPACING.sm, SPACING.sm] as Margins,
+      }]],
+    },
+    layout: {
+      hLineWidth: () => 0.5,
+      vLineWidth: () => 0.5,
+      hLineColor: () => borderColor,
+      vLineColor: () => borderColor,
+    },
+    margin,
+  };
+};
+
+/**
+ * Create a status badge
+ */
+export const buildStatusBadge = (
+  text: string,
+  status: 'success' | 'warning' | 'danger' | 'info' | 'neutral'
+): Content => {
+  const colors = {
+    success: { bg: PDF_COLORS.successLight || '#dcfce7', text: PDF_COLORS.success },
+    warning: { bg: PDF_COLORS.warningLight || '#fef3c7', text: PDF_COLORS.warning },
+    danger: { bg: PDF_COLORS.dangerLight || '#fee2e2', text: PDF_COLORS.danger },
+    info: { bg: PDF_COLORS.primaryLight || '#dbeafe', text: PDF_COLORS.info || PDF_COLORS.primary },
+    neutral: { bg: PDF_COLORS.background, text: PDF_COLORS.textMuted },
+  };
+
+  const colorSet = colors[status];
+
+  return {
+    table: {
+      body: [[{
+        text,
+        fontSize: FONT_SIZES.xs,
+        bold: true,
+        color: colorSet.text,
+        fillColor: colorSet.bg,
+        margin: [4, 2, 4, 2] as Margins,
+      }]],
+    },
+    layout: 'noBorders',
+  };
+};
+
+/**
+ * Create a metric card for KPI display
+ */
+export const buildMetricCard = (
+  value: string | number,
+  label: string,
+  options?: {
+    valueColor?: string;
+  }
+): Content => {
+  const { valueColor = PDF_COLORS.primary } = options || {};
+
+  return {
+    stack: [
+      { 
+        text: String(value), 
+        fontSize: FONT_SIZES.display, 
+        bold: true, 
+        color: valueColor, 
+        alignment: 'center' as const,
+      },
+      { 
+        text: label, 
+        fontSize: FONT_SIZES.sm, 
+        color: PDF_COLORS.textMuted, 
+        alignment: 'center' as const,
+        margin: [0, 2, 0, 0] as Margins,
+      },
+    ],
+  };
 };
