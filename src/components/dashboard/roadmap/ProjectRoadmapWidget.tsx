@@ -26,6 +26,7 @@ import { defaultRoadmapTemplate } from "./roadmapTemplates";
 
 interface ProjectRoadmapWidgetProps {
   projectId: string;
+  highlightedItemId?: string | null;
 }
 
 interface RoadmapItemData {
@@ -49,7 +50,7 @@ interface RoadmapItemData {
   updated_at: string;
 }
 
-export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) => {
+export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRoadmapWidgetProps) => {
   const queryClient = useQueryClient();
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set(["all"]));
   const [addDialogOpen, setAddDialogOpen] = useState(false);

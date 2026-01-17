@@ -48,6 +48,7 @@ import ContactLibrary from "./pages/ContactLibrary";
 import ProjectRoadmap from "./pages/ProjectRoadmap";
 import RoadmapReviewMode from "./pages/RoadmapReviewMode";
 import ExternalRoadmapReview from "./pages/ExternalRoadmapReview";
+import RoadmapItemRedirect from "./pages/RoadmapItemRedirect";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
 import HandoverClientManagement from "./pages/HandoverClientManagement";
@@ -100,6 +101,9 @@ const App = () => (
         {/* Global Master Library - accessible without selecting a project */}
         <Route path="/master-library" element={<MasterLibrary />} />
         <Route path="/contact-library" element={<ContactLibrary />} />
+        
+        {/* Deep link for roadmap items from email notifications */}
+        <Route path="/projects/:projectId/roadmap" element={<RoadmapItemRedirect />} />
           
           {/* Admin routes - no project required */}
           <Route path="/admin" element={<AdminLayout />}>

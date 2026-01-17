@@ -122,3 +122,15 @@ verify_jwt = false
 
 [functions.analyze-pdfmake]
 verify_jwt = false
+
+[functions.process-roadmap-notifications]
+verify_jwt = false
+
+[functions.send-roadmap-due-notification]
+verify_jwt = false
+
+[functions.send-roadmap-comment-notification]
+verify_jwt = false
+
+[functions.send-roadmap-review-update]
+verify_jwt = false

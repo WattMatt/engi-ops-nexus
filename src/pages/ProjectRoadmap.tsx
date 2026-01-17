@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ProjectRoadmapWidget } from "@/components/dashboard/roadmap/ProjectRoadmapWidget";
 import { RoadmapProgressChart } from "@/components/dashboard/roadmap/RoadmapProgressChart";
 import { RoadmapExportPDFButton } from "@/components/dashboard/roadmap/RoadmapExportPDFButton";
@@ -12,15 +13,25 @@ import {
 } from "@/components/ui/collapsible";
 
 export default function ProjectRoadmap() {
+  const [searchParams] = useSearchParams();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const storedProjectId = localStorage.getItem("selectedProjectId");
     if (storedProjectId) {
       setProjectId(storedProjectId);
     }
-  }, []);
+    
+    // Check for highlighted item from deep link
+    const highlightId = searchParams.get("highlight");
+    if (highlightId) {
+      setHighlightedItemId(highlightId);
+      // Clear the highlight after a delay
+      setTimeout(() => setHighlightedItemId(null), 5000);
+    }
+  }, [searchParams]);
 
   if (!projectId) {
     return (
@@ -59,7 +70,7 @@ export default function ProjectRoadmap() {
         </CollapsibleContent>
       </Collapsible>
       
-      <ProjectRoadmapWidget projectId={projectId} />
+      <ProjectRoadmapWidget projectId={projectId} highlightedItemId={highlightedItemId} />
     </div>
   );
 }
