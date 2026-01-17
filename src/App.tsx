@@ -63,6 +63,7 @@ import { EmailTemplatesAdmin } from "./components/admin/email-templates/EmailTem
 import { EmailTemplateEditor } from "./components/admin/email-templates/EmailTemplateEditor";
 import { HelpButton } from "./components/feedback/HelpButton";
 
+// Initialize React Query client
 const queryClient = new QueryClient();
 
 const App = () => (
