@@ -7069,6 +7069,131 @@ export type Database = {
         }
         Relationships: []
       }
+      line_shop_material_templates: {
+        Row: {
+          area_label: string
+          created_at: string
+          db_size: string | null
+          id: string
+          is_global: boolean | null
+          max_area: number
+          min_area: number
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          area_label: string
+          created_at?: string
+          db_size?: string | null
+          id?: string
+          is_global?: boolean | null
+          max_area: number
+          min_area?: number
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          area_label?: string
+          created_at?: string
+          db_size?: string | null
+          id?: string
+          is_global?: boolean | null
+          max_area?: number
+          min_area?: number
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "line_shop_material_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      line_shop_template_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string
+          display_order: number | null
+          id: string
+          install_rate: number | null
+          item_code: string | null
+          master_material_id: string | null
+          quantity: number
+          supply_rate: number | null
+          template_id: string
+          unit: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description: string
+          display_order?: number | null
+          id?: string
+          install_rate?: number | null
+          item_code?: string | null
+          master_material_id?: string | null
+          quantity?: number
+          supply_rate?: number | null
+          template_id: string
+          unit?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string
+          display_order?: number | null
+          id?: string
+          install_rate?: number | null
+          item_code?: string | null
+          master_material_id?: string | null
+          quantity?: number
+          supply_rate?: number | null
+          template_id?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "line_shop_template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "line_shop_template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "line_shop_template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "line_shop_template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "line_shop_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "line_shop_material_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       master_materials: {
         Row: {
           approved_by: string | null
