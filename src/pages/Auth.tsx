@@ -23,13 +23,22 @@ const Auth = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Get redirect URL from query params (for email links that need post-login redirect)
+  // Get redirect URL from query params or sessionStorage (for email links that need post-login redirect)
   const redirectTo = useMemo(() => {
+    // First check query params
     const redirect = searchParams.get("redirect");
-    // Validate redirect is a relative path to prevent open redirect vulnerabilities
     if (redirect && redirect.startsWith("/")) {
       return redirect;
     }
+    
+    // Then check sessionStorage for return URL (set by deep link handlers)
+    const storedReturnUrl = sessionStorage.getItem("authReturnUrl");
+    if (storedReturnUrl && storedReturnUrl.startsWith("/")) {
+      // Clear it after reading
+      sessionStorage.removeItem("authReturnUrl");
+      return storedReturnUrl;
+    }
+    
     return "/projects";
   }, [searchParams]);
 

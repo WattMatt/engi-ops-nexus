@@ -7910,6 +7910,173 @@ export type Database = {
           },
         ]
       }
+      notification_log: {
+        Row: {
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          notification_queue_id: string | null
+          notification_type: string
+          provider: string | null
+          provider_response: Json | null
+          recipient_email: string
+          recipient_user_id: string
+          sent_at: string
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          notification_queue_id?: string | null
+          notification_type: string
+          provider?: string | null
+          provider_response?: Json | null
+          recipient_email: string
+          recipient_user_id: string
+          sent_at?: string
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          notification_queue_id?: string | null
+          notification_type?: string
+          provider?: string | null
+          provider_response?: Json | null
+          recipient_email?: string
+          recipient_user_id?: string
+          sent_at?: string
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_notification_queue_id_fkey"
+            columns: ["notification_queue_id"]
+            isOneToOne: false
+            referencedRelation: "notification_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_comment_notifications: boolean | null
+          email_digest_time: string | null
+          email_due_date_days: number | null
+          email_frequency: string | null
+          email_roadmap_reminders: boolean | null
+          email_status_updates: boolean | null
+          id: string
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_comment_notifications?: boolean | null
+          email_digest_time?: string | null
+          email_due_date_days?: number | null
+          email_frequency?: string | null
+          email_roadmap_reminders?: boolean | null
+          email_status_updates?: boolean | null
+          id?: string
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_comment_notifications?: boolean | null
+          email_digest_time?: string | null
+          email_due_date_days?: number | null
+          email_frequency?: string | null
+          email_roadmap_reminders?: boolean | null
+          email_status_updates?: boolean | null
+          id?: string
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_queue: {
+        Row: {
+          attempts: number | null
+          created_at: string
+          id: string
+          last_error: string | null
+          max_attempts: number | null
+          metadata: Json | null
+          notification_type: string
+          priority: number | null
+          processed_at: string | null
+          project_id: string | null
+          recipient_email: string
+          recipient_user_id: string
+          roadmap_item_id: string | null
+          scheduled_for: string
+          status: string
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number | null
+          metadata?: Json | null
+          notification_type?: string
+          priority?: number | null
+          processed_at?: string | null
+          project_id?: string | null
+          recipient_email: string
+          recipient_user_id: string
+          roadmap_item_id?: string | null
+          scheduled_for?: string
+          status?: string
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number | null
+          metadata?: Json | null
+          notification_type?: string
+          priority?: number | null
+          processed_at?: string | null
+          project_id?: string | null
+          recipient_email?: string
+          recipient_user_id?: string
+          roadmap_item_id?: string | null
+          scheduled_for?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_queue_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_queue_roadmap_item_id_fkey"
+            columns: ["roadmap_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_roadmap_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_progress: {
         Row: {
           completion_date: string | null
@@ -12827,6 +12994,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      queue_roadmap_due_notifications: {
+        Args: { days_ahead?: number }
+        Returns: number
       }
       user_has_floor_plan_access: {
         Args: { _floor_plan_id: string }
