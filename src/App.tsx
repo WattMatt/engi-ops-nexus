@@ -59,6 +59,7 @@ import ClientTenantReport from "./pages/client/ClientTenantReport";
 import ClientGeneratorReport from "./pages/client/ClientGeneratorReport";
 import ClientView from "./pages/ClientView";
 import ContractorReviewPortal from "./pages/ContractorReviewPortal";
+import ClientGeneratorReportView from "./pages/ClientGeneratorReportView";
 import PRDManager from "./pages/PRDManager";
 import { EmailTemplatesAdmin } from "./components/admin/email-templates/EmailTemplatesAdmin";
 import { EmailTemplateEditor } from "./components/admin/email-templates/EmailTemplateEditor";
@@ -94,6 +95,9 @@ const App = () => (
         
         {/* Public Client View - shareable link */}
         <Route path="/client-view" element={<ClientView />} />
+        
+        {/* Public Generator Report View - shareable link */}
+        <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
         
         {/* Contractor Review Portal - public access via token */}
         <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />

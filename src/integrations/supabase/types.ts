@@ -5465,6 +5465,62 @@ export type Database = {
           },
         ]
       }
+      generator_report_shares: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          message: string | null
+          project_id: string
+          recipient_email: string
+          recipient_name: string | null
+          shared_by: string
+          shared_sections: string[]
+          status: string
+          token: string
+          view_count: number | null
+          viewed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          message?: string | null
+          project_id: string
+          recipient_email: string
+          recipient_name?: string | null
+          shared_by: string
+          shared_sections?: string[]
+          status?: string
+          token?: string
+          view_count?: number | null
+          viewed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          message?: string | null
+          project_id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          shared_by?: string
+          shared_sections?: string[]
+          status?: string
+          token?: string
+          view_count?: number | null
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generator_report_shares_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generator_reports: {
         Row: {
           created_at: string | null
