@@ -119,12 +119,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const emailResponse = await resend.emails.send({
-      from: "WM Office <notifications@resend.dev>",
-      to: [recipientEmail],
-      subject: subject,
-      html: htmlContent,
-    });
+    const emailResponse = await sendEmail(recipientEmail, subject, htmlContent);
 
     console.log("Email sent successfully:", emailResponse);
 
