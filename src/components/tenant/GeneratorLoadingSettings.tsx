@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { Trash2, Plus, ChevronDown, ChevronRight, Pencil, Check, X, Palette } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronRight, Pencil, Check, X, Zap, UtensilsCrossed, Building2, Store, Settings2, MapPin } from "lucide-react";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 interface GeneratorSettings {
   id: string;
@@ -24,6 +26,55 @@ interface GeneratorSettings {
 
 interface GeneratorLoadingSettingsProps {
   projectId: string;
+}
+
+interface CategoryCardProps {
+  id: string;
+  label: string;
+  value: number;
+  typicalValue: string;
+  icon: React.ReactNode;
+  color: string;
+  onChange: (value: number) => void;
+  onBlur: () => void;
+}
+
+function CategoryCard({ id, label, value, typicalValue, icon, color, onChange, onBlur }: CategoryCardProps) {
+  return (
+    <div className={cn(
+      "group relative rounded-xl border-2 bg-card p-4 transition-all hover:shadow-md",
+      "hover:border-primary/50"
+    )}>
+      <div className="flex items-start gap-3">
+        <div className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+          color
+        )}>
+          {icon}
+        </div>
+        <div className="flex-1 space-y-2">
+          <Label htmlFor={id} className="text-sm font-medium">
+            {label}
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id={id}
+              type="number"
+              step="0.001"
+              value={value}
+              onChange={(e) => onChange(Number(e.target.value))}
+              onBlur={onBlur}
+              className="h-9 font-mono text-sm"
+            />
+            <span className="shrink-0 text-xs text-muted-foreground">kW/m²</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Typical: {typicalValue}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettingsProps) {
@@ -39,6 +90,8 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
   const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
   const [editingZoneName, setEditingZoneName] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [zonesOpen, setZonesOpen] = useState(true);
 
   // Predefined color palette for zones
   const zoneColors = [
@@ -51,7 +104,7 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     { name: "Teal", value: "#14b8a6" },
     { name: "Indigo", value: "#6366f1" },
     { name: "Cyan", value: "#06b6d4" },
-    { name: "Amber", value: "#f59e0b" },
+    { name: "Amber", value: "#d97706" },
   ];
 
   const { data: existingSettings, isLoading } = useQuery({
@@ -153,14 +206,12 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (existingSettings) {
-        // Update existing settings
         const { error } = await supabase
           .from("generator_settings")
           .update(settings)
           .eq("id", existingSettings.id);
         if (error) throw error;
       } else {
-        // Insert new settings
         const { error } = await supabase
           .from("generator_settings")
           .insert({ ...settings, project_id: projectId });
@@ -168,7 +219,7 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
       }
     },
     onSuccess: () => {
-      toast.success("Generator loading settings saved");
+      toast.success("Settings saved");
       queryClient.invalidateQueries({ queryKey: ["generator-settings", projectId] });
       queryClient.invalidateQueries({ queryKey: ["generator-tenants", projectId] });
     },
@@ -224,38 +275,6 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     }
   };
 
-  const handleUpdateZoneSize = async (zoneId: string, size: string | null) => {
-    try {
-      const { error } = await supabase
-        .from("generator_zones")
-        .update({ generator_size: size })
-        .eq("id", zoneId);
-
-      if (error) throw error;
-      toast.success("Generator size updated");
-      refetchZones();
-    } catch (error) {
-      console.error("Error updating zone size:", error);
-      toast.error("Failed to update generator size");
-    }
-  };
-
-  const handleUpdateZoneCost = async (zoneId: string, cost: number) => {
-    try {
-      const { error } = await supabase
-        .from("generator_zones")
-        .update({ generator_cost: cost })
-        .eq("id", zoneId);
-
-      if (error) throw error;
-      toast.success("Generator cost updated");
-      refetchZones();
-    } catch (error) {
-      console.error("Error updating zone cost:", error);
-      toast.error("Failed to update generator cost");
-    }
-  };
-
   const handleUpdateNumGenerators = async (zoneId: string, numGenerators: number) => {
     try {
       const { error } = await supabase
@@ -265,12 +284,10 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
 
       if (error) throw error;
 
-      // Create or remove generators to match the new count
       const existingGenerators = zoneGenerators.filter(g => g.zone_id === zoneId);
       const currentCount = existingGenerators.length;
 
       if (numGenerators > currentCount) {
-        // Add new generators
         const newGenerators = Array.from({ length: numGenerators - currentCount }, (_, i) => ({
           zone_id: zoneId,
           generator_number: currentCount + i + 1,
@@ -284,7 +301,6 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
 
         if (insertError) throw insertError;
       } else if (numGenerators < currentCount) {
-        // Remove excess generators
         const generatorsToRemove = existingGenerators
           .filter(g => g.generator_number > numGenerators)
           .map(g => g.id);
@@ -408,134 +424,191 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
   };
 
   if (isLoading) {
-    return <div>Loading settings...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-pulse text-muted-foreground">Loading settings...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-      <CardHeader>
-        <CardTitle>Generator Loading Settings</CardTitle>
-        <CardDescription>
-          Configure kW per square meter for each shop category. These values will be used to automatically calculate generator loading.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="standard">Standard (kW per m²)</Label>
-            <Input
-              id="standard"
-              type="number"
-              step="0.0001"
-              value={settings.standard_kw_per_sqm}
-              onChange={(e) => setSettings({ ...settings, standard_kw_per_sqm: Number(e.target.value) })}
-              onBlur={handleSave}
-            />
-            <p className="text-sm text-muted-foreground mt-1">Typically 0.03 kW/m²</p>
-          </div>
+    <div className="space-y-4">
+      {/* Loading Settings Section */}
+      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Settings2 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Power Loading Rates</CardTitle>
+                    <CardDescription>
+                      Configure kW per m² for each shop category
+                    </CardDescription>
+                  </div>
+                </div>
+                <ChevronDown className={cn(
+                  "h-5 w-5 text-muted-foreground transition-transform",
+                  settingsOpen && "rotate-180"
+                )} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <CardContent className="space-y-6">
+              {/* Category Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <CategoryCard
+                  id="standard"
+                  label="Standard Shop"
+                  value={settings.standard_kw_per_sqm}
+                  typicalValue="0.03 kW/m²"
+                  icon={<Store className="h-5 w-5 text-blue-600" />}
+                  color="bg-blue-100"
+                  onChange={(value) => setSettings({ ...settings, standard_kw_per_sqm: value })}
+                  onBlur={handleSave}
+                />
+                
+                <CategoryCard
+                  id="fast_food"
+                  label="Fast Food"
+                  value={settings.fast_food_kw_per_sqm}
+                  typicalValue="0.045 kW/m²"
+                  icon={<Zap className="h-5 w-5 text-orange-600" />}
+                  color="bg-orange-100"
+                  onChange={(value) => setSettings({ ...settings, fast_food_kw_per_sqm: value })}
+                  onBlur={handleSave}
+                />
+                
+                <CategoryCard
+                  id="restaurant"
+                  label="Restaurant"
+                  value={settings.restaurant_kw_per_sqm}
+                  typicalValue="0.045 kW/m²"
+                  icon={<UtensilsCrossed className="h-5 w-5 text-purple-600" />}
+                  color="bg-purple-100"
+                  onChange={(value) => setSettings({ ...settings, restaurant_kw_per_sqm: value })}
+                  onBlur={handleSave}
+                />
+                
+                <CategoryCard
+                  id="national"
+                  label="National Tenant"
+                  value={settings.national_kw_per_sqm}
+                  typicalValue="0.03 kW/m²"
+                  icon={<Building2 className="h-5 w-5 text-green-600" />}
+                  color="bg-green-100"
+                  onChange={(value) => setSettings({ ...settings, national_kw_per_sqm: value })}
+                  onBlur={handleSave}
+                />
+              </div>
 
-          <div>
-            <Label htmlFor="fast_food">Fast Food (kW per m²)</Label>
-            <Input
-              id="fast_food"
-              type="number"
-              step="0.0001"
-              value={settings.fast_food_kw_per_sqm}
-              onChange={(e) => setSettings({ ...settings, fast_food_kw_per_sqm: Number(e.target.value) })}
-              onBlur={handleSave}
-            />
-            <p className="text-sm text-muted-foreground mt-1">Typically 0.045 kW/m²</p>
-          </div>
+              {/* Formula Explanation */}
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <div className="flex items-start gap-3">
+                  <Zap className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-sm">How Loading is Calculated</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      <span className="font-mono bg-background px-1.5 py-0.5 rounded text-xs">
+                        Load (kW) = Area (m²) × Rate (kW/m²)
+                      </span>
+                      <br />
+                      <span className="text-xs mt-1 block">
+                        Example: 100m² standard shop = 100 × 0.03 = <strong>3.00 kW</strong>
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
-          <div>
-            <Label htmlFor="restaurant">Restaurant (kW per m²)</Label>
-            <Input
-              id="restaurant"
-              type="number"
-              step="0.0001"
-              value={settings.restaurant_kw_per_sqm}
-              onChange={(e) => setSettings({ ...settings, restaurant_kw_per_sqm: Number(e.target.value) })}
-              onBlur={handleSave}
-            />
-            <p className="text-sm text-muted-foreground mt-1">Typically 0.045 kW/m²</p>
-          </div>
-
-          <div>
-            <Label htmlFor="national">National (kW per m²)</Label>
-            <Input
-              id="national"
-              type="number"
-              step="0.0001"
-              value={settings.national_kw_per_sqm}
-              onChange={(e) => setSettings({ ...settings, national_kw_per_sqm: Number(e.target.value) })}
-              onBlur={handleSave}
-            />
-            <p className="text-sm text-muted-foreground mt-1">Typically 0.03 kW/m²</p>
-          </div>
-        </div>
-
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-semibold mb-2">How it works</h4>
-          <p className="text-sm text-muted-foreground">
-            Generator loading is calculated as: <strong>Area (m²) × kW per m²</strong>
-            <br />
-            Example: A 100m² standard shop = 100 × 0.03 = 3.00 kW
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardHeader>
-        <CardTitle>Generator Zones</CardTitle>
-        <CardDescription>
-          Define generator zones for separate load calculations
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <Input
-              placeholder="Enter zone name (e.g., Zone 1, Sector A)"
-              value={newZoneName}
-              onChange={(e) => setNewZoneName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddZone()}
-            />
-          </div>
-          <Button onClick={handleAddZone}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Zone
-          </Button>
-        </div>
-
-        {zones.length > 0 ? (
-          <div className="space-y-4">
-            {zones.map((zone) => {
-              const zoneLoading = getZoneLoading(zone.id);
-              const generators = getZoneGenerators(zone.id);
-              const isExpanded = expandedZones.has(zone.id);
-              const totalCost = getZoneTotalCost(zone.id);
-              const zoneColor = zone.zone_color || "#3b82f6";
-
-              return (
-                <Card key={zone.id} className="relative overflow-hidden">
-                  {/* Color indicator bar */}
-                  <div 
-                    className="absolute top-0 left-0 w-1.5 h-full" 
-                    style={{ backgroundColor: zoneColor }}
+      {/* Generator Zones Section */}
+      <Collapsible open={zonesOpen} onOpenChange={setZonesOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <MapPin className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Generator Zones</CardTitle>
+                    <CardDescription>
+                      Configure zones for separate load calculations
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="hidden sm:flex">
+                    {zones.length} zone{zones.length !== 1 ? 's' : ''}
+                  </Badge>
+                  <ChevronDown className={cn(
+                    "h-5 w-5 text-muted-foreground transition-transform",
+                    zonesOpen && "rotate-180"
+                  )} />
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              {/* Add Zone Input */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Enter zone name (e.g., Zone 1, Sector A)"
+                    value={newZoneName}
+                    onChange={(e) => setNewZoneName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddZone()}
+                    className="h-10"
                   />
-                  <CardHeader className="pb-3 pl-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 flex-1">
-                        <div className="flex items-center gap-2">
-                          {/* Color picker */}
+                </div>
+                <Button onClick={handleAddZone} className="shrink-0">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Zone
+                </Button>
+              </div>
+
+              {/* Zones List */}
+              {zones.length > 0 ? (
+                <div className="space-y-3">
+                  {zones.map((zone) => {
+                    const zoneLoading = getZoneLoading(zone.id);
+                    const generators = getZoneGenerators(zone.id);
+                    const isExpanded = expandedZones.has(zone.id);
+                    const totalCost = getZoneTotalCost(zone.id);
+                    const zoneColor = zone.zone_color || "#3b82f6";
+
+                    return (
+                      <div 
+                        key={zone.id} 
+                        className="rounded-lg border bg-card overflow-hidden"
+                      >
+                        {/* Zone Header */}
+                        <div className="flex items-center gap-3 p-3 sm:p-4">
+                          {/* Color Indicator */}
+                          <div 
+                            className="w-1 self-stretch rounded-full shrink-0" 
+                            style={{ backgroundColor: zoneColor }}
+                          />
+                          
+                          {/* Color Picker */}
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 w-8 p-0 border-2"
+                                className="h-8 w-8 p-0 shrink-0"
                                 style={{ borderColor: zoneColor }}
                               >
                                 <div 
@@ -544,14 +617,14 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                                 />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-3" align="start">
+                            <PopoverContent className="w-auto p-3 z-50 bg-popover" align="start">
                               <div className="space-y-2">
-                                <p className="text-sm font-medium">Select Zone Color</p>
+                                <p className="text-sm font-medium">Zone Color</p>
                                 <div className="grid grid-cols-5 gap-2">
                                   {zoneColors.map((color) => (
                                     <button
                                       key={color.value}
-                                      className="h-8 w-8 rounded border-2 hover:scale-110 transition-transform"
+                                      className="h-7 w-7 rounded border-2 hover:scale-110 transition-transform"
                                       style={{ 
                                         backgroundColor: color.value,
                                         borderColor: zoneColor === color.value ? "#000" : "transparent"
@@ -564,165 +637,179 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                               </div>
                             </PopoverContent>
                           </Popover>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="text-lg">Zone {zone.zone_number}</CardTitle>
-                          {editingZoneId === zone.id ? (
-                            <div className="flex items-center gap-2 mt-1">
-                              <Input
-                                value={editingZoneName}
-                                onChange={(e) => setEditingZoneName(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleSaveZoneName(zone.id);
-                                  if (e.key === "Escape") handleCancelEditZoneName();
-                                }}
-                                className="h-8 max-w-xs"
-                                autoFocus
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleSaveZoneName(zone.id)}
-                              >
-                                <Check className="h-4 w-4 text-green-600" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleCancelEditZoneName}
-                              >
-                                <X className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <CardDescription>{zone.zone_name}</CardDescription>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleStartEditZoneName(zone.id, zone.zone_name)}
-                                className="h-6 w-6 p-0"
-                              >
-                                <Pencil className="h-3 w-3 text-muted-foreground" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Calculated Load</p>
-                            <p className="font-mono text-lg font-semibold" style={{ color: zoneColor }}>
-                              {zoneLoading.toFixed(2)} kW
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Total Cost</p>
-                            <p className="font-mono text-lg font-semibold" style={{ color: zoneColor }}>
-                              R {totalCost.toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={(zone.num_generators || 1).toString()}
-                          onValueChange={(value) => handleUpdateNumGenerators(zone.id, parseInt(value))}
-                        >
-                          <SelectTrigger className="w-[150px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">1 Generator</SelectItem>
-                            <SelectItem value="2">2 Synchronized</SelectItem>
-                            <SelectItem value="3">3 Synchronized</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleZoneExpanded(zone.id)}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteZone(zone.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  {isExpanded && generators.length > 0 && (
-                    <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Generator #</TableHead>
-                            <TableHead>Size</TableHead>
-                            <TableHead>Cost (R)</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {generators.map((generator) => (
-                            <TableRow key={generator.id}>
-                              <TableCell className="font-medium">
-                                Generator {generator.generator_number}
-                              </TableCell>
-                              <TableCell>
-                                <Select
-                                  value={generator.generator_size || "none"}
-                                  onValueChange={(value) => 
-                                    handleUpdateGeneratorSize(generator.id, value === "none" ? null : value)
-                                  }
+                          
+                          {/* Zone Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm">
+                                Zone {zone.zone_number}
+                              </span>
+                              {editingZoneId === zone.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={editingZoneName}
+                                    onChange={(e) => setEditingZoneName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") handleSaveZoneName(zone.id);
+                                      if (e.key === "Escape") handleCancelEditZoneName();
+                                    }}
+                                    className="h-7 w-32 text-sm"
+                                    autoFocus
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    onClick={() => handleSaveZoneName(zone.id)}
+                                  >
+                                    <Check className="h-3.5 w-3.5 text-green-600" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    onClick={handleCancelEditZoneName}
+                                  >
+                                    <X className="h-3.5 w-3.5 text-destructive" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                                  onClick={() => handleStartEditZoneName(zone.id, zone.zone_name)}
                                 >
-                                  <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Select size" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">No size selected</SelectItem>
-                                    {GENERATOR_SIZING_TABLE.map((gen) => (
-                                      <SelectItem key={gen.rating} value={gen.rating}>
-                                        {gen.rating}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  defaultValue={generator.generator_cost || 0}
-                                  onBlur={(e) => 
-                                    handleUpdateGeneratorCost(generator.id, parseFloat(e.target.value) || 0)
-                                  }
-                                  className="w-[180px]"
-                                  placeholder="Enter cost"
-                                />
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-sm text-center py-4">
-            No zones configured yet. Add zones to enable zone-based load calculations.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+                                  <span className="truncate">{zone.zone_name}</span>
+                                  <Pencil className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100" />
+                                </button>
+                              )}
+                            </div>
+                            
+                            {/* Stats Row - Mobile Responsive */}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs">
+                              <span className="text-muted-foreground">
+                                Load: <span className="font-mono font-medium text-foreground">{zoneLoading.toFixed(2)} kW</span>
+                              </span>
+                              <span className="text-muted-foreground">
+                                Cost: <span className="font-mono font-medium text-foreground">R {totalCost.toLocaleString()}</span>
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                            <Select
+                              value={(zone.num_generators || 1).toString()}
+                              onValueChange={(value) => handleUpdateNumGenerators(zone.id, parseInt(value))}
+                            >
+                              <SelectTrigger className="w-[100px] sm:w-[130px] h-8 text-xs sm:text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="z-50 bg-popover">
+                                <SelectItem value="1">1 Gen</SelectItem>
+                                <SelectItem value="2">2 Sync</SelectItem>
+                                <SelectItem value="3">3 Sync</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => toggleZoneExpanded(zone.id)}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
+                            
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteZone(zone.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {/* Generators Table */}
+                        {isExpanded && generators.length > 0 && (
+                          <div className="border-t bg-muted/20 p-3 sm:p-4">
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="text-xs">Generator</TableHead>
+                                    <TableHead className="text-xs">Size</TableHead>
+                                    <TableHead className="text-xs">Cost (R)</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {generators.map((generator) => (
+                                    <TableRow key={generator.id}>
+                                      <TableCell className="font-medium text-sm py-2">
+                                        #{generator.generator_number}
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <Select
+                                          value={generator.generator_size || "none"}
+                                          onValueChange={(value) => 
+                                            handleUpdateGeneratorSize(generator.id, value === "none" ? null : value)
+                                          }
+                                        >
+                                          <SelectTrigger className="w-full sm:w-[150px] h-8 text-xs">
+                                            <SelectValue placeholder="Select" />
+                                          </SelectTrigger>
+                                          <SelectContent className="z-50 bg-popover">
+                                            <SelectItem value="none">Not selected</SelectItem>
+                                            {GENERATOR_SIZING_TABLE.map((gen) => (
+                                              <SelectItem key={gen.rating} value={gen.rating}>
+                                                {gen.rating}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <Input
+                                          type="number"
+                                          defaultValue={generator.generator_cost || 0}
+                                          onBlur={(e) => 
+                                            handleUpdateGeneratorCost(generator.id, parseFloat(e.target.value) || 0)
+                                          }
+                                          className="w-full sm:w-[120px] h-8 text-xs"
+                                          placeholder="Cost"
+                                        />
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 rounded-lg border-2 border-dashed">
+                  <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    No zones configured yet
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add zones to enable zone-based load calculations
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 }
