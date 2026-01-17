@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
   FileText, 
   Download, 
   RefreshCw,
@@ -15,7 +22,8 @@ import {
   Loader2,
   Archive,
   Trash2,
-  Eye
+  Eye,
+  User
 } from "lucide-react";
 import { PDFPreviewDialog } from "@/components/document-templates/PDFPreviewDialog";
 import { format } from "date-fns";
@@ -67,6 +75,7 @@ export default function AdminRoadmapReview() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [previewExport, setPreviewExport] = useState<SavedPdfExport | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedPrimaryEngineer, setSelectedPrimaryEngineer] = useState<string>("all");
   const cancelExportRef = useRef(false);
   const queryClient = useQueryClient();
 
@@ -143,7 +152,7 @@ export default function AdminRoadmapReview() {
         .select(`
           id,
           project_id,
-          role,
+          position,
           user_id,
           profiles:user_id (
             id,
@@ -189,7 +198,7 @@ export default function AdminRoadmapReview() {
             id: m.user_id,
             name: (m.profiles as any)?.full_name || "Unknown",
             email: (m.profiles as any)?.email || "",
-            role: m.role,
+            role: m.position || "member",
           }));
 
         return {
@@ -218,10 +227,33 @@ export default function AdminRoadmapReview() {
     );
   }, [queryData]);
 
-  // Calculate portfolio metrics
-  const portfolioMetrics = useMemo(() => {
-    return calculatePortfolioMetrics(enhancedSummaries);
+  // Get unique Primary engineers for filter dropdown
+  const primaryEngineers = useMemo(() => {
+    if (!enhancedSummaries) return [];
+    const engineers = new Map<string, { id: string; name: string }>();
+    enhancedSummaries.forEach((project) => {
+      const primary = project.teamMembers.find((m) => m.role === "primary");
+      if (primary && primary.id) {
+        engineers.set(primary.id, { id: primary.id, name: primary.name });
+      }
+    });
+    return Array.from(engineers.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [enhancedSummaries]);
+
+  // Filter summaries by selected Primary engineer
+  const filteredSummaries = useMemo(() => {
+    if (selectedPrimaryEngineer === "all") return enhancedSummaries;
+    return enhancedSummaries.filter((project) =>
+      project.teamMembers.some(
+        (m) => m.role === "primary" && m.id === selectedPrimaryEngineer
+      )
+    );
+  }, [enhancedSummaries, selectedPrimaryEngineer]);
+
+  // Calculate portfolio metrics based on filtered projects
+  const portfolioMetrics = useMemo(() => {
+    return calculatePortfolioMetrics(filteredSummaries);
+  }, [filteredSummaries]);
 
   // State for printable charts container
   const [showPrintableCharts, setShowPrintableCharts] = useState(false);
@@ -510,6 +542,32 @@ export default function AdminRoadmapReview() {
       {/* Hidden Printable Charts Container - ALWAYS rendered off-screen for chart capture */}
       <PrintableChartContainer projects={enhancedSummaries} />
 
+      {/* Primary Engineer Filter */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Primary Engineer:</span>
+          <Select value={selectedPrimaryEngineer} onValueChange={setSelectedPrimaryEngineer}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="All Primary Engineers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Primary Engineers</SelectItem>
+              {primaryEngineers.map((engineer) => (
+                <SelectItem key={engineer.id} value={engineer.id}>
+                  {engineer.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {selectedPrimaryEngineer !== "all" && (
+          <span className="text-sm text-muted-foreground">
+            Showing {filteredSummaries.length} of {enhancedSummaries.length} projects
+          </span>
+        )}
+      </div>
+
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
@@ -547,14 +605,14 @@ export default function AdminRoadmapReview() {
           </div>
 
           {/* Project Comparison Chart */}
-          <ProjectComparisonChart projects={enhancedSummaries} />
+          <ProjectComparisonChart projects={filteredSummaries} />
         </TabsContent>
 
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
-            <PriorityHeatMap projects={enhancedSummaries} />
-            <TeamWorkloadChart projects={enhancedSummaries} />
+            <PriorityHeatMap projects={filteredSummaries} />
+            <TeamWorkloadChart projects={filteredSummaries} />
           </div>
         </TabsContent>
 
@@ -562,15 +620,23 @@ export default function AdminRoadmapReview() {
         <TabsContent value="projects" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>All Project Roadmaps</CardTitle>
+              <CardTitle>
+                {selectedPrimaryEngineer === "all" 
+                  ? "All Project Roadmaps" 
+                  : `Projects for ${primaryEngineers.find(e => e.id === selectedPrimaryEngineer)?.name || "Selected Engineer"}`
+                }
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {enhancedSummaries.length === 0 ? (
+              {filteredSummaries.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  No projects found
+                  {selectedPrimaryEngineer === "all" 
+                    ? "No projects found" 
+                    : "No projects assigned to this Primary engineer"
+                  }
                 </p>
               ) : (
-                enhancedSummaries.map((project) => (
+                filteredSummaries.map((project) => (
                   <EnhancedProjectCard key={project.projectId} project={project} />
                 ))
               )}
