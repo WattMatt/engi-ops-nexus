@@ -8992,6 +8992,7 @@ export type Database = {
       project_members: {
         Row: {
           created_at: string
+          engineer_position: string | null
           id: string
           project_id: string
           role: string | null
@@ -8999,6 +9000,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engineer_position?: string | null
           id?: string
           project_id: string
           role?: string | null
@@ -9006,6 +9008,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engineer_position?: string | null
           id?: string
           project_id?: string
           role?: string | null
