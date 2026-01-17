@@ -35,6 +35,26 @@ interface RoadmapItem {
   project_id: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  project_number: string | null;
+}
+
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject_template: string;
+  html_content: string;
+  variables: Array<{ name: string; description: string; required: boolean }> | null;
+}
+
+interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-ZA", {
@@ -60,18 +80,34 @@ function getPriorityColor(priority: string): string {
   }
 }
 
-function getStatusBadge(status: string): string {
-  const colors: Record<string, { bg: string; text: string }> = {
-    pending: { bg: "#fef3c7", text: "#92400e" },
-    in_progress: { bg: "#dbeafe", text: "#1e40af" },
-    review: { bg: "#f3e8ff", text: "#6b21a8" },
-    completed: { bg: "#dcfce7", text: "#166534" },
+function getStatusDisplay(status: string): string {
+  const statusMap: Record<string, string> = {
+    pending: "Pending",
+    in_progress: "In Progress",
+    review: "Under Review",
+    completed: "Completed",
+    blocked: "Blocked",
   };
-  const color = colors[status] || { bg: "#f3f4f6", text: "#374151" };
-  return `<span style="background-color: ${color.bg}; color: ${color.text}; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase;">${status.replace("_", " ")}</span>`;
+  return statusMap[status] || status.replace("_", " ");
 }
 
-function generateEmailHtml(
+/**
+ * Replace template variables with actual values
+ * Supports {{variable_name}} syntax
+ */
+function populateTemplate(template: string, variables: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(variables)) {
+    const regex = new RegExp(`\\{\\{${key}\\}\\}`, "gi");
+    result = result.replace(regex, value || "");
+  }
+  return result;
+}
+
+/**
+ * Fallback HTML generator if no template is found in database
+ */
+function generateFallbackEmailHtml(
   item: RoadmapItem,
   projectName: string,
   daysUntilDue: number,
@@ -80,151 +116,39 @@ function generateEmailHtml(
 ): string {
   const priorityColor = getPriorityColor(item.priority);
   const directLink = `${baseUrl}/projects/${projectId}/roadmap?item=${item.id}`;
-  const roadmapLink = `${baseUrl}/project-roadmap`;
 
   return `
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Roadmap Item Due Reminder</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
-    <tr>
-      <td style="padding: 40px 20px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-          
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); padding: 32px 40px;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td>
-                    <span style="background-color: #fbbf24; color: #1e3a5f; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">⚡ ACTION REQUIRED</span>
-                    <h1 style="color: #ffffff; margin: 16px 0 8px 0; font-size: 24px; font-weight: 700;">Roadmap Item Due in ${daysUntilDue} Day${daysUntilDue !== 1 ? "s" : ""}</h1>
-                    <p style="color: #94a3b8; margin: 0; font-size: 14px;">${projectName}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Item Details Section -->
-          <tr>
-            <td style="padding: 32px 40px 24px;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td>
-                    <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">📋 ITEM DETAILS</p>
-                    <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; border-left: 4px solid ${priorityColor};">
-                      <h2 style="margin: 0 0 12px 0; color: #1e293b; font-size: 18px; font-weight: 600;">${item.title}</h2>
-                      ${item.description ? `<p style="margin: 0 0 16px 0; color: #475569; font-size: 14px; line-height: 1.6;">${item.description}</p>` : ""}
-                      
-                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                        <tr>
-                          <td width="50%" style="padding: 8px 0;">
-                            <p style="margin: 0; color: #6b7280; font-size: 12px;">Due Date</p>
-                            <p style="margin: 4px 0 0 0; color: #dc2626; font-size: 14px; font-weight: 600;">📅 ${formatDate(item.due_date || "")}</p>
-                          </td>
-                          <td width="50%" style="padding: 8px 0;">
-                            <p style="margin: 0; color: #6b7280; font-size: 12px;">Status</p>
-                            <p style="margin: 4px 0 0 0;">${getStatusBadge(item.status)}</p>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td width="50%" style="padding: 8px 0;">
-                            <p style="margin: 0; color: #6b7280; font-size: 12px;">Priority</p>
-                            <p style="margin: 4px 0 0 0; color: ${priorityColor}; font-size: 14px; font-weight: 600;">● ${item.priority?.toUpperCase() || "MEDIUM"}</p>
-                          </td>
-                          <td width="50%" style="padding: 8px 0;">
-                            <p style="margin: 0; color: #6b7280; font-size: 12px;">Phase</p>
-                            <p style="margin: 4px 0 0 0; color: #1e293b; font-size: 14px; font-weight: 500;">${item.phase || "General"}</p>
-                          </td>
-                        </tr>
-                      </table>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Quick Access Section -->
-          <tr>
-            <td style="padding: 0 40px 24px;">
-              <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">🔗 QUICK ACCESS</p>
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td align="center" style="padding: 0;">
-                    <a href="${directLink}" style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.4);">
-                      View Item Details →
-                    </a>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="padding: 12px 0 0 0;">
-                    <a href="${roadmapLink}" style="color: #6b7280; text-decoration: none; font-size: 13px;">
-                      or view full roadmap
-                    </a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Feedback Section -->
-          <tr>
-            <td style="padding: 0 40px 24px;">
-              <div style="background-color: #fffbeb; border-radius: 8px; padding: 20px; border: 1px solid #fde68a;">
-                <p style="margin: 0 0 12px 0; color: #92400e; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">📝 YOUR FEEDBACK NEEDED</p>
-                <ul style="margin: 0; padding: 0 0 0 20px; color: #78350f; font-size: 14px; line-height: 1.8;">
-                  <li>Is this item still on track?</li>
-                  <li>What's the current progress percentage?</li>
-                  <li>Are there any blockers we should know about?</li>
-                </ul>
-                <p style="margin: 12px 0 0 0; color: #92400e; font-size: 13px;">
-                  Please update the item status or add a comment in the system.
-                </p>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Assistance Section -->
-          <tr>
-            <td style="padding: 0 40px 32px;">
-              <div style="background-color: #f0f9ff; border-radius: 8px; padding: 20px; border: 1px solid #bae6fd;">
-                <p style="margin: 0 0 8px 0; color: #0369a1; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">🤝 ASSISTANCE REQUIRED?</p>
-                <p style="margin: 0; color: #0c4a6e; font-size: 14px; line-height: 1.6;">
-                  If you need help or resources to complete this item on time, please reach out to the project lead or reply to this email.
-                </p>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #e2e8f0;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td>
-                    <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px;">
-                      This is an automated notification from the EngiOps project management system.
-                    </p>
-                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                      To manage your notification preferences, visit your account settings.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:12px;">
+<tr><td style="background:#1e3a5f;padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
+<p style="margin:0;font-size:26px;font-weight:700;color:#fff;">Watson Mattheus</p>
+<p style="margin:12px 0 0;font-size:16px;color:#fff;">📅 Roadmap Due Date Reminder</p>
+<p style="margin:4px 0 0;font-size:13px;color:#e2e8f0;">${projectName}</p>
+</td></tr>
+<tr><td style="padding:32px 24px;">
+<p style="margin:0 0 20px;font-size:15px;color:#1f2937;">A roadmap item requires your attention - it is due in <strong style="color:#dc2626;">${daysUntilDue} days</strong>.</p>
+<div style="background:#f8fafc;padding:20px;border-radius:8px;border-left:4px solid ${priorityColor};">
+<h2 style="margin:0 0 12px;font-size:18px;color:#1e293b;">${item.title}</h2>
+${item.description ? `<p style="margin:0 0 16px;color:#475569;font-size:14px;">${item.description}</p>` : ""}
+<p style="margin:0;"><strong>Due:</strong> <span style="color:#dc2626;">${formatDate(item.due_date || "")}</span></p>
+<p style="margin:8px 0 0;"><strong>Status:</strong> ${getStatusDisplay(item.status)}</p>
+<p style="margin:8px 0 0;"><strong>Priority:</strong> <span style="color:${priorityColor};">${item.priority?.toUpperCase() || "MEDIUM"}</span></p>
+</div>
+<table width="100%" style="margin:24px 0;"><tr><td align="center">
+<a href="${directLink}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;">View Item Details →</a>
+</td></tr></table>
+</td></tr>
+<tr><td style="background:#f8fafc;padding:24px;border-top:1px solid #e2e8f0;border-radius:0 0 12px 12px;text-align:center;">
+<p style="margin:0;color:#64748b;font-size:12px;">This is an automated notification from EngiOps.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
 </body>
 </html>
   `;
@@ -274,6 +198,21 @@ Deno.serve(async (req) => {
     if (action === "process" || action === "both" || !action) {
       console.log("Processing pending notifications...");
 
+      // Fetch the email template from database
+      console.log("Fetching email template from database...");
+      const { data: emailTemplate, error: templateError } = await supabase
+        .from("email_templates")
+        .select("id, name, subject_template, html_content, variables")
+        .eq("name", "Roadmap Due Date Reminder")
+        .eq("is_active", true)
+        .single();
+
+      if (templateError) {
+        console.warn("Could not fetch email template, will use fallback:", templateError.message);
+      } else {
+        console.log(`Using template: ${emailTemplate?.name} (ID: ${emailTemplate?.id})`);
+      }
+
       // Fetch pending notifications
       const { data: pendingNotifications, error: fetchError } = await supabase
         .from("notification_queue")
@@ -314,15 +253,73 @@ Deno.serve(async (req) => {
               throw new Error(`Could not fetch roadmap item: ${itemError?.message || "Not found"}`);
             }
 
-            // Generate email content
-            const subject = `[ACTION REQUIRED] Roadmap Item Due in ${notification.metadata.days_until_due} Days - ${notification.metadata.item_title} | ${notification.metadata.project_name}`;
-            const html = generateEmailHtml(
-              roadmapItem as RoadmapItem,
-              notification.metadata.project_name,
-              notification.metadata.days_until_due,
-              notification.project_id,
-              baseUrl
-            );
+            // Fetch project details
+            const { data: project, error: projectError } = await supabase
+              .from("projects")
+              .select("id, name, project_number")
+              .eq("id", notification.project_id)
+              .single();
+
+            if (projectError) {
+              console.warn("Could not fetch project details:", projectError.message);
+            }
+
+            // Fetch recipient profile for personalized greeting
+            const { data: recipientProfile, error: profileError } = await supabase
+              .from("profiles")
+              .select("id, full_name, email")
+              .eq("id", notification.recipient_user_id)
+              .single();
+
+            if (profileError) {
+              console.warn("Could not fetch recipient profile:", profileError.message);
+            }
+
+            const typedRoadmapItem = roadmapItem as RoadmapItem;
+            const typedProject = project as Project | null;
+            const typedProfile = recipientProfile as Profile | null;
+            const typedTemplate = emailTemplate as EmailTemplate | null;
+
+            // Build direct link
+            const itemLink = `${baseUrl}/projects/${notification.project_id}/roadmap?item=${notification.roadmap_item_id}`;
+            const preferencesLink = `${baseUrl}/settings`;
+
+            // Prepare template variables
+            const templateVariables: Record<string, string> = {
+              recipient_name: typedProfile?.full_name || "Team Member",
+              project_name: typedProject?.name || notification.metadata.project_name,
+              project_number: typedProject?.project_number || "",
+              item_title: typedRoadmapItem.title,
+              item_description: typedRoadmapItem.description || "No description provided",
+              due_date: formatDate(typedRoadmapItem.due_date || notification.metadata.due_date),
+              status: getStatusDisplay(typedRoadmapItem.status),
+              priority: (typedRoadmapItem.priority || "medium").toUpperCase(),
+              priority_color: getPriorityColor(typedRoadmapItem.priority),
+              item_link: itemLink,
+              preferences_link: preferencesLink,
+              days_until_due: String(notification.metadata.days_until_due),
+            };
+
+            let subject: string;
+            let html: string;
+
+            if (typedTemplate) {
+              // Use template from database
+              subject = populateTemplate(typedTemplate.subject_template, templateVariables);
+              html = populateTemplate(typedTemplate.html_content, templateVariables);
+              console.log(`Using database template for notification ${notification.id}`);
+            } else {
+              // Use fallback hardcoded template
+              subject = `[ACTION REQUIRED] Roadmap Item Due in ${notification.metadata.days_until_due} Days - ${notification.metadata.item_title} | ${notification.metadata.project_name}`;
+              html = generateFallbackEmailHtml(
+                typedRoadmapItem,
+                notification.metadata.project_name,
+                notification.metadata.days_until_due,
+                notification.project_id,
+                baseUrl
+              );
+              console.log(`Using fallback template for notification ${notification.id}`);
+            }
 
             // Send email via Resend
             const emailResult = await sendEmail({
@@ -333,6 +330,7 @@ Deno.serve(async (req) => {
               tags: [
                 { name: "type", value: "roadmap_reminder" },
                 { name: "project_id", value: notification.project_id },
+                { name: "template_id", value: typedTemplate?.id || "fallback" },
               ],
             });
 
@@ -346,7 +344,11 @@ Deno.serve(async (req) => {
               provider: "resend",
               provider_response: emailResult,
               status: "sent",
-              metadata: notification.metadata,
+              metadata: {
+                ...notification.metadata,
+                template_used: typedTemplate?.name || "fallback",
+                template_id: typedTemplate?.id || null,
+              },
             });
 
             // Mark as sent
