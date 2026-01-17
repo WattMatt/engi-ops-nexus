@@ -259,7 +259,7 @@ export default function AdminRoadmapReview() {
   const [showPrintableCharts, setShowPrintableCharts] = useState(false);
 
   const generatePDFReport = useCallback(async (options?: RoadmapPDFExportOptions) => {
-    if (enhancedSummaries.length === 0) {
+    if (filteredSummaries.length === 0) {
       toast.error("No project data available to export");
       return;
     }
@@ -299,7 +299,7 @@ export default function AdminRoadmapReview() {
 
       // Step 3: Generate FULL PDF as blob (save for preview, no direct download)
       setExportStep('generating');
-      console.log('Generating PDF blob with', enhancedSummaries.length, 'projects');
+      console.log('Generating PDF blob with', filteredSummaries.length, 'projects');
       
       const exportOptions = {
         includeCharts: capturedCharts ? (options?.includeCharts ?? true) : false,
@@ -317,13 +317,24 @@ export default function AdminRoadmapReview() {
         chartLayout: options?.chartLayout ?? 'stacked',
       };
 
+      // Generate custom filename based on filter
+      const selectedEngineerName = selectedPrimaryEngineer !== "all"
+        ? primaryEngineers.find(e => e.id === selectedPrimaryEngineer)?.name
+        : null;
+      const customFilename = selectedEngineerName
+        ? `Roadmap_Review_${selectedEngineerName.replace(/\s+/g, '_')}_${format(new Date(), "yyyy-MM-dd")}.pdf`
+        : undefined;
+
       // Generate FULL PDF blob (not minimal version)
       const { blob, filename } = await generateRoadmapPdfBlob(
-        enhancedSummaries,
+        filteredSummaries,
         portfolioMetrics,
         exportOptions,
-        queryData?.allRoadmapItems,
+        queryData?.allRoadmapItems?.filter(item => 
+          filteredSummaries.some(p => p.projectId === item.project_id)
+        ),
         capturedCharts,
+        customFilename,
       );
       
       console.log('PDF blob generated:', filename, `(${(blob.size / 1024).toFixed(1)} KB)`);
@@ -409,7 +420,7 @@ export default function AdminRoadmapReview() {
         setIsGeneratingPDF(false);
       }, 2500);
     }
-  }, [enhancedSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts, handlePreviewExport]);
+  }, [filteredSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts, handlePreviewExport, selectedPrimaryEngineer, primaryEngineers]);
 
   // Delete a saved export
   const handleDeleteExport = async (exportItem: SavedPdfExport) => {
