@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BOQBillsManager } from "@/components/boq/BOQBillsManager";
 import { BOQOverview } from "@/components/boq/BOQOverview";
+import { LineShopTemplatesGrid } from "@/components/boq/LineShopTemplatesGrid";
 
 const BOQProjectDetail = () => {
   const { boqId } = useParams();
@@ -61,12 +62,16 @@ const BOQProjectDetail = () => {
           <TabsList className="bg-muted/50">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bills">Bills & Sections</TabsTrigger>
+            <TabsTrigger value="line-shop">Line Shop Templates</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-6">
             {boq && <BOQOverview boq={boq} />}
           </TabsContent>
           <TabsContent value="bills" className="space-y-6">
             {boqId && projectId && <BOQBillsManager boqId={boqId} projectId={projectId} />}
+          </TabsContent>
+          <TabsContent value="line-shop" className="space-y-6">
+            {boqId && projectId && <LineShopTemplatesGrid projectId={projectId} boqId={boqId} />}
           </TabsContent>
         </Tabs>
       </div>
