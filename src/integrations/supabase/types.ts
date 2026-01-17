@@ -12474,6 +12474,10 @@ export type Database = {
         Returns: number
       }
       get_next_employee_number: { Args: never; Returns: string }
+      get_project_member_position: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: string
+      }
       has_project_access: {
         Args: { project_id: string; user_id: string }
         Returns: boolean
@@ -12494,6 +12498,10 @@ export type Database = {
         Returns: string
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
+      is_project_admin: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
