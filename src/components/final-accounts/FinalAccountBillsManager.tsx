@@ -3,18 +3,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, FileSpreadsheet, Database, Upload } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, FileSpreadsheet, Database, Upload, Save, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddBillDialog } from "./AddBillDialog";
 import { FinalAccountSectionsManager } from "./FinalAccountSectionsManager";
 import { UnifiedBOQImport } from "./UnifiedBOQImport";
 import { FinalAccountExcelImport } from "./FinalAccountExcelImport";
+import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
+import { ApplyTemplateDialog } from "@/components/templates/ApplyTemplateDialog";
 import { formatCurrency } from "@/utils/formatters";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -27,6 +30,8 @@ export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountB
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [boqImportDialogOpen, setBoqImportDialogOpen] = useState(false);
   const [excelImportDialogOpen, setExcelImportDialogOpen] = useState(false);
+  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
+  const [applyTemplateDialogOpen, setApplyTemplateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any>(null);
   const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
@@ -42,6 +47,39 @@ export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountB
       if (error) throw error;
       return data || [];
     },
+  });
+
+  // Fetch sections and items for template saving
+  const { data: sectionsData = [] } = useQuery({
+    queryKey: ["final-account-all-sections", accountId],
+    queryFn: async () => {
+      const billIds = bills.map((b) => b.id);
+      if (billIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("final_account_sections")
+        .select("*")
+        .in("bill_id", billIds)
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: bills.length > 0,
+  });
+
+  const { data: itemsData = [] } = useQuery({
+    queryKey: ["final-account-all-items", accountId],
+    queryFn: async () => {
+      const sectionIds = sectionsData.map((s) => s.id);
+      if (sectionIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("final_account_items")
+        .select("*")
+        .in("section_id", sectionIds)
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: sectionsData.length > 0,
   });
 
   const deleteMutation = useMutation({
@@ -91,6 +129,27 @@ export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountB
         <CardHeader className="flex flex-row items-center justify-between py-4">
           <CardTitle className="text-lg">Bills Summary</CardTitle>
           <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Templates
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setApplyTemplateDialogOpen(true)}>
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Apply Template
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setSaveTemplateDialogOpen(true)}
+                  disabled={bills.length === 0}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save as Template
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline">
@@ -246,6 +305,25 @@ export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountB
         onOpenChange={setExcelImportDialogOpen}
         accountId={accountId}
         projectId={projectId}
+      />
+
+      <SaveAsTemplateDialog
+        open={saveTemplateDialogOpen}
+        onOpenChange={setSaveTemplateDialogOpen}
+        bills={bills}
+        sections={sectionsData}
+        items={itemsData}
+        sourceType="final_account"
+      />
+
+      <ApplyTemplateDialog
+        open={applyTemplateDialogOpen}
+        onOpenChange={setApplyTemplateDialogOpen}
+        targetType="final_account"
+        targetId={accountId}
+        onApply={() => {
+          queryClient.invalidateQueries({ queryKey: ["final-account-bills", accountId] });
+        }}
       />
     </div>
   );
