@@ -32,6 +32,7 @@ interface ProjectMember {
   id: string;
   user_id: string;
   role: string;
+  engineer_position: string | null;
   profiles: {
     full_name: string;
     email: string;
@@ -71,6 +72,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
         id,
         user_id,
         role,
+        engineer_position,
         profiles:user_id (
           full_name,
           email,
@@ -185,6 +187,44 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
         return "secondary";
       default:
         return "outline";
+    }
+  };
+
+  const getEngineerPositionLabel = (position: string | null) => {
+    switch (position) {
+      case "primary":
+        return "Primary Engineer";
+      case "secondary":
+        return "Secondary Engineer";
+      default:
+        return null;
+    }
+  };
+
+  const handleUpdateEngineerPosition = async (memberId: string, position: string | null) => {
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("project_members")
+        .update({ engineer_position: position })
+        .eq("id", memberId);
+
+      if (error) {
+        if (error.message.includes("already assigned")) {
+          toast.error(`A ${position} engineer is already assigned to this project`);
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success("Engineer position updated successfully");
+      loadMembers();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update engineer position");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -364,6 +404,32 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
                   <Badge variant={getRoleBadgeVariant(member.role)}>
                     {member.role}
                   </Badge>
+
+                  <Select
+                    value={member.engineer_position || "none"}
+                    onValueChange={(value) =>
+                      handleUpdateEngineerPosition(member.id, value === "none" ? null : value)
+                    }
+                    disabled={loading}
+                  >
+                    <SelectTrigger className="w-[170px]">
+                      <SelectValue placeholder="Engineer Position" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Position</SelectItem>
+                      <SelectItem value="primary">Primary Engineer</SelectItem>
+                      <SelectItem value="secondary">Secondary Engineer</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {member.engineer_position && (
+                    <Badge 
+                      variant={member.engineer_position === "primary" ? "default" : "secondary"}
+                      className={member.engineer_position === "primary" ? "bg-blue-600 hover:bg-blue-700" : "bg-teal-600 hover:bg-teal-700 text-white"}
+                    >
+                      {getEngineerPositionLabel(member.engineer_position)}
+                    </Badge>
+                  )}
 
                   <Button
                     variant="ghost"
