@@ -8994,6 +8994,7 @@ export type Database = {
           created_at: string
           engineer_position: string | null
           id: string
+          position: string | null
           project_id: string
           role: string | null
           user_id: string
@@ -9002,6 +9003,7 @@ export type Database = {
           created_at?: string
           engineer_position?: string | null
           id?: string
+          position?: string | null
           project_id: string
           role?: string | null
           user_id: string
@@ -9010,6 +9012,7 @@ export type Database = {
           created_at?: string
           engineer_position?: string | null
           id?: string
+          position?: string | null
           project_id?: string
           role?: string | null
           user_id?: string

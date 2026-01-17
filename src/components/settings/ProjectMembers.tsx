@@ -12,7 +12,6 @@ import {
 import { toast } from "sonner";
 import { UserPlus, Trash2, Users, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Command,
@@ -31,8 +30,7 @@ import {
 interface ProjectMember {
   id: string;
   user_id: string;
-  role: string;
-  engineer_position: string | null;
+  position: string;
   profiles: {
     full_name: string;
     email: string;
@@ -51,11 +49,18 @@ interface ProjectMembersProps {
   projectId: string;
 }
 
+const POSITIONS = [
+  { value: "primary", label: "Primary", color: "bg-blue-600 hover:bg-blue-700 text-white" },
+  { value: "secondary", label: "Secondary", color: "bg-teal-600 hover:bg-teal-700 text-white" },
+  { value: "admin", label: "Admin", color: "bg-purple-600 hover:bg-purple-700 text-white" },
+  { value: "oversight", label: "Oversight", color: "bg-amber-600 hover:bg-amber-700 text-white" },
+] as const;
+
 export function ProjectMembers({ projectId }: ProjectMembersProps) {
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [selectedRole, setSelectedRole] = useState<string>("member");
+  const [selectedPosition, setSelectedPosition] = useState<string>("admin");
   const [loading, setLoading] = useState(false);
   const [userSearchOpen, setUserSearchOpen] = useState(false);
   const [userSearch, setUserSearch] = useState("");
@@ -71,8 +76,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
       .select(`
         id,
         user_id,
-        role,
-        engineer_position,
+        position,
         profiles:user_id (
           full_name,
           email,
@@ -121,14 +125,21 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
       const { error } = await supabase.from("project_members").insert({
         project_id: projectId,
         user_id: selectedUserId,
-        role: selectedRole,
+        position: selectedPosition,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes("already assigned")) {
+          toast.error(`A ${selectedPosition} position is already assigned to this project`);
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       toast.success("Member added successfully");
       setSelectedUserId("");
-      setSelectedRole("member");
+      setSelectedPosition("admin");
       loadMembers();
     } catch (error: any) {
       toast.error(error.message || "Failed to add member");
@@ -159,73 +170,35 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
     }
   };
 
-  const handleUpdateRole = async (memberId: string, newRole: string) => {
+  const handleUpdatePosition = async (memberId: string, newPosition: string) => {
     setLoading(true);
 
     try {
       const { error } = await supabase
         .from("project_members")
-        .update({ role: newRole })
-        .eq("id", memberId);
-
-      if (error) throw error;
-
-      toast.success("Role updated successfully");
-      loadMembers();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update role");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case "owner":
-        return "default";
-      case "editor":
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
-
-  const getEngineerPositionLabel = (position: string | null) => {
-    switch (position) {
-      case "primary":
-        return "Primary Engineer";
-      case "secondary":
-        return "Secondary Engineer";
-      default:
-        return null;
-    }
-  };
-
-  const handleUpdateEngineerPosition = async (memberId: string, position: string | null) => {
-    setLoading(true);
-
-    try {
-      const { error } = await supabase
-        .from("project_members")
-        .update({ engineer_position: position })
+        .update({ position: newPosition })
         .eq("id", memberId);
 
       if (error) {
         if (error.message.includes("already assigned")) {
-          toast.error(`A ${position} engineer is already assigned to this project`);
+          toast.error(`A ${newPosition} position is already assigned to this project`);
         } else {
           throw error;
         }
         return;
       }
 
-      toast.success("Engineer position updated successfully");
+      toast.success("Position updated successfully");
       loadMembers();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update engineer position");
+      toast.error(error.message || "Failed to update position");
     } finally {
       setLoading(false);
     }
+  };
+
+  const getPositionConfig = (position: string) => {
+    return POSITIONS.find(p => p.value === position) || POSITIONS[2]; // Default to admin
   };
 
   const getInitials = (name: string) => {
@@ -261,7 +234,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
       <Card className="border-primary/20">
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground mb-4">
-            Add team members for messaging and task collaboration
+            Add team members and assign their position for this project
           </p>
           <div className="flex gap-2">
             <Popover open={userSearchOpen} onOpenChange={setUserSearchOpen}>
@@ -335,14 +308,16 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
               </PopoverContent>
             </Popover>
 
-            <Select value={selectedRole} onValueChange={setSelectedRole}>
+            <Select value={selectedPosition} onValueChange={setSelectedPosition}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="owner">Owner</SelectItem>
-                <SelectItem value="editor">Editor</SelectItem>
-                <SelectItem value="member">Member</SelectItem>
+                {POSITIONS.map((pos) => (
+                  <SelectItem key={pos.value} value={pos.value}>
+                    {pos.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -366,83 +341,62 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
             </CardContent>
           </Card>
         ) : (
-          members.map((member) => (
-            <Card key={member.id}>
-              <CardContent className="py-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={member.profiles.avatar_url || undefined} />
-                    <AvatarFallback>
-                      {getInitials(member.profiles.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{member.profiles.full_name}</p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {member.profiles.email}
-                    </p>
-                  </div>
+          members.map((member) => {
+            const positionConfig = getPositionConfig(member.position);
+            return (
+              <Card key={member.id}>
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={member.profiles.avatar_url || undefined} />
+                      <AvatarFallback>
+                        {getInitials(member.profiles.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{member.profiles.full_name}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {member.profiles.email}
+                      </p>
+                    </div>
 
-                  <Select
-                    value={member.role}
-                    onValueChange={(newRole) =>
-                      handleUpdateRole(member.id, newRole)
-                    }
-                    disabled={loading}
-                  >
-                    <SelectTrigger className="w-[130px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="owner">Owner</SelectItem>
-                      <SelectItem value="editor">Editor</SelectItem>
-                      <SelectItem value="member">Member</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Badge variant={getRoleBadgeVariant(member.role)}>
-                    {member.role}
-                  </Badge>
-
-                  <Select
-                    value={member.engineer_position || "none"}
-                    onValueChange={(value) =>
-                      handleUpdateEngineerPosition(member.id, value === "none" ? null : value)
-                    }
-                    disabled={loading}
-                  >
-                    <SelectTrigger className="w-[170px]">
-                      <SelectValue placeholder="Engineer Position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Position</SelectItem>
-                      <SelectItem value="primary">Primary Engineer</SelectItem>
-                      <SelectItem value="secondary">Secondary Engineer</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {member.engineer_position && (
-                    <Badge 
-                      variant={member.engineer_position === "primary" ? "default" : "secondary"}
-                      className={member.engineer_position === "primary" ? "bg-blue-600 hover:bg-blue-700" : "bg-teal-600 hover:bg-teal-700 text-white"}
+                    <Select
+                      value={member.position}
+                      onValueChange={(newPosition) =>
+                        handleUpdatePosition(member.id, newPosition)
+                      }
+                      disabled={loading}
                     >
-                      {getEngineerPositionLabel(member.engineer_position)}
-                    </Badge>
-                  )}
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {POSITIONS.map((pos) => (
+                          <SelectItem key={pos.value} value={pos.value}>
+                            {pos.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveMember(member.id)}
-                    disabled={loading}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                    <Badge className={positionConfig.color}>
+                      {positionConfig.label}
+                    </Badge>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveMember(member.id)}
+                      disabled={loading}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>
