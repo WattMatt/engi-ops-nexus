@@ -3,6 +3,7 @@ import { CompanySettings } from "@/components/settings/CompanySettings";
 import { InvoiceSettings } from "@/components/settings/InvoiceSettings";
 import { TemplateManager } from "@/components/settings/TemplateManager";
 import { PDFExportSettings } from "@/components/settings/PDFExportSettings";
+import { NotificationPreferencesSettings } from "@/components/settings/NotificationPreferencesSettings";
 import { ComponentGenerator } from "@/components/ComponentGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
@@ -46,8 +47,9 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex flex-wrap">
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
           <TabsTrigger value="templates">PDF Templates</TabsTrigger>
@@ -74,6 +76,10 @@ const Settings = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <NotificationPreferencesSettings />
         </TabsContent>
 
         <TabsContent value="company">
