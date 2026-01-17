@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { GeneratorTenantList } from "@/components/tenant/GeneratorTenantList";
 import { GeneratorSizingTable } from "@/components/tenant/GeneratorSizingTable";
 import { RunningRecoveryCalculator } from "@/components/tenant/RunningRecoveryCalculator";
@@ -20,12 +21,31 @@ import { KwOverrideAuditLog } from "@/components/tenant/KwOverrideAuditLog";
 import { LoadDistributionChart } from "@/components/tenant/charts/EnhancedLoadDistributionChart";
 import { CostBreakdownChart } from "@/components/tenant/charts/EnhancedCostBreakdownChart";
 import { RecoveryProjectionChart } from "@/components/tenant/charts/EnhancedRecoveryProjectionChart";
-import { ChevronDown } from "lucide-react";
+import { ShareGeneratorReportDialog } from "@/components/generator/ShareGeneratorReportDialog";
+import { GeneratorShareHistory } from "@/components/generator/GeneratorShareHistory";
+import { ChevronDown, Share2 } from "lucide-react";
 
 const GeneratorReport = () => {
   const projectId = localStorage.getItem("selectedProjectId");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+
+  // Fetch project name
+  const { data: projectData } = useQuery({
+    queryKey: ["project-name", projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      const { data, error } = await supabase
+        .from("projects")
+        .select("name")
+        .eq("id", projectId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
 
   const { data: tenants = [], isLoading, refetch } = useQuery({
     queryKey: ["generator-tenants", projectId, refreshTrigger],
@@ -231,12 +251,31 @@ const GeneratorReport = () => {
           </p>
         </div>
         {projectId && (
-          <GeneratorReportExportPDFButton 
-            projectId={projectId} 
-            onReportSaved={() => setReportsRefreshTrigger(prev => prev + 1)}
-          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShareDialogOpen(true)}
+              className="gap-2"
+            >
+              <Share2 className="h-4 w-4" />
+              Share Report
+            </Button>
+            <GeneratorReportExportPDFButton 
+              projectId={projectId} 
+              onReportSaved={() => setReportsRefreshTrigger(prev => prev + 1)}
+            />
+          </div>
         )}
       </div>
+
+      {projectId && (
+        <ShareGeneratorReportDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          projectId={projectId}
+          projectName={projectId}
+        />
+      )}
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-8">
@@ -354,6 +393,7 @@ const GeneratorReport = () => {
                 key={reportsRefreshTrigger} 
                 projectId={projectId} 
               />
+              <GeneratorShareHistory projectId={projectId} />
             </>
           )}
         </TabsContent>
