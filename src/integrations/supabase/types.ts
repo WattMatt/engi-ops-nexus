@@ -425,6 +425,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bill_structure_templates: {
+        Row: {
+          building_type: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_global: boolean | null
+          name: string
+          tags: string[] | null
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          building_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_global?: boolean | null
+          name: string
+          tags?: string[] | null
+          template_type?: string
+          updated_at?: string
+        }
+        Update: {
+          building_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_global?: boolean | null
+          name?: string
+          tags?: string[] | null
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       boq_bills: {
         Row: {
           bill_name: string
@@ -11294,6 +11333,154 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_bills: {
+        Row: {
+          bill_name: string
+          bill_number: number
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          template_id: string
+        }
+        Insert: {
+          bill_name: string
+          bill_number: number
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          template_id: string
+        }
+        Update: {
+          bill_name?: string
+          bill_number?: number
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_bills_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "bill_structure_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_items: {
+        Row: {
+          created_at: string
+          description: string
+          display_order: number | null
+          id: string
+          item_code: string | null
+          item_type: string | null
+          master_material_id: string | null
+          template_section_id: string
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          display_order?: number | null
+          id?: string
+          item_code?: string | null
+          item_type?: string | null
+          master_material_id?: string | null
+          template_section_id: string
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          display_order?: number | null
+          id?: string
+          item_code?: string | null
+          item_type?: string | null
+          master_material_id?: string | null
+          template_section_id?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "template_items_template_section_id_fkey"
+            columns: ["template_section_id"]
+            isOneToOne: false
+            referencedRelation: "template_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_sections: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          section_code: string
+          section_name: string
+          template_bill_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          section_code: string
+          section_name: string
+          template_bill_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          section_code?: string
+          section_name?: string
+          template_bill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_sections_template_bill_id_fkey"
+            columns: ["template_bill_id"]
+            isOneToOne: false
+            referencedRelation: "template_bills"
             referencedColumns: ["id"]
           },
         ]
