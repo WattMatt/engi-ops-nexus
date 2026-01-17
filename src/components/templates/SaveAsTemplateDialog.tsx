@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -20,8 +20,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Save, X } from "lucide-react";
+import { Save, X, ChevronDown, ChevronRight } from "lucide-react";
 
 interface Bill {
   id: string;
@@ -81,6 +88,133 @@ export function SaveAsTemplateDialog({
   const [buildingType, setBuildingType] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  
+  // Selection state
+  const [selectedBillIds, setSelectedBillIds] = useState<Set<string>>(new Set());
+  const [selectedSectionIds, setSelectedSectionIds] = useState<Set<string>>(new Set());
+  const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set());
+
+  // Initialize selection when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSelectedBillIds(new Set(bills.map(b => b.id)));
+      setSelectedSectionIds(new Set(sections.map(s => s.id)));
+      setExpandedBills(new Set(bills.map(b => b.id)));
+    }
+  }, [open, bills, sections]);
+
+  // Get sections for a specific bill
+  const getSectionsForBill = (billId: string) => {
+    return sections.filter(s => s.bill_id === billId);
+  };
+
+  // Get items for a specific section
+  const getItemsForSection = (sectionId: string) => {
+    return items.filter(i => i.section_id === sectionId);
+  };
+
+  // Check if all sections in a bill are selected
+  const isBillFullySelected = (billId: string) => {
+    const billSections = getSectionsForBill(billId);
+    return billSections.length > 0 && billSections.every(s => selectedSectionIds.has(s.id));
+  };
+
+  // Check if some (but not all) sections in a bill are selected
+  const isBillPartiallySelected = (billId: string) => {
+    const billSections = getSectionsForBill(billId);
+    const selectedCount = billSections.filter(s => selectedSectionIds.has(s.id)).length;
+    return selectedCount > 0 && selectedCount < billSections.length;
+  };
+
+  // Toggle bill selection
+  const toggleBill = (billId: string, checked: boolean) => {
+    const billSections = getSectionsForBill(billId);
+    
+    setSelectedBillIds(prev => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(billId);
+      } else {
+        next.delete(billId);
+      }
+      return next;
+    });
+
+    setSelectedSectionIds(prev => {
+      const next = new Set(prev);
+      billSections.forEach(section => {
+        if (checked) {
+          next.add(section.id);
+        } else {
+          next.delete(section.id);
+        }
+      });
+      return next;
+    });
+  };
+
+  // Toggle section selection
+  const toggleSection = (sectionId: string, billId: string, checked: boolean) => {
+    setSelectedSectionIds(prev => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(sectionId);
+      } else {
+        next.delete(sectionId);
+      }
+      return next;
+    });
+
+    // Update bill selection based on section state
+    const billSections = getSectionsForBill(billId);
+    const willHaveSelected = billSections.some(s => 
+      s.id === sectionId ? checked : selectedSectionIds.has(s.id)
+    );
+
+    setSelectedBillIds(prev => {
+      const next = new Set(prev);
+      if (willHaveSelected) {
+        next.add(billId);
+      } else {
+        next.delete(billId);
+      }
+      return next;
+    });
+  };
+
+  // Toggle expand/collapse bill
+  const toggleExpanded = (billId: string) => {
+    setExpandedBills(prev => {
+      const next = new Set(prev);
+      if (next.has(billId)) {
+        next.delete(billId);
+      } else {
+        next.add(billId);
+      }
+      return next;
+    });
+  };
+
+  // Select/Deselect all
+  const selectAll = () => {
+    setSelectedBillIds(new Set(bills.map(b => b.id)));
+    setSelectedSectionIds(new Set(sections.map(s => s.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedBillIds(new Set());
+    setSelectedSectionIds(new Set());
+  };
+
+  const isAllSelected = selectedBillIds.size === bills.length && selectedSectionIds.size === sections.length;
+
+  // Calculate selected counts
+  const selectedStats = useMemo(() => {
+    const selectedBillCount = selectedBillIds.size;
+    const selectedSectionCount = selectedSectionIds.size;
+    const selectedItemCount = items.filter(i => selectedSectionIds.has(i.section_id)).length;
+    return { selectedBillCount, selectedSectionCount, selectedItemCount };
+  }, [selectedBillIds, selectedSectionIds, items]);
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -115,8 +249,15 @@ export function SaveAsTemplateDialog({
 
       if (templateError) throw templateError;
 
+      // Only process selected bills
+      const selectedBills = bills.filter(b => selectedBillIds.has(b.id));
+
       // Create template bills
-      for (const bill of bills) {
+      for (const bill of selectedBills) {
+        // Check if bill has any selected sections
+        const billSections = getSectionsForBill(bill.id).filter(s => selectedSectionIds.has(s.id));
+        if (billSections.length === 0) continue;
+
         const { data: templateBill, error: billError } = await supabase
           .from("template_bills")
           .insert({
@@ -130,9 +271,6 @@ export function SaveAsTemplateDialog({
           .single();
 
         if (billError) throw billError;
-
-        // Get sections for this bill
-        const billSections = sections.filter((s) => s.bill_id === bill.id);
 
         for (let sIdx = 0; sIdx < billSections.length; sIdx++) {
           const section = billSections[sIdx];
@@ -151,7 +289,7 @@ export function SaveAsTemplateDialog({
           if (sectionError) throw sectionError;
 
           // Get items for this section
-          const sectionItems = items.filter((i) => i.section_id === section.id);
+          const sectionItems = getItemsForSection(section.id);
 
           if (sectionItems.length > 0) {
             const templateItems = sectionItems.map((item, idx) => ({
@@ -193,23 +331,116 @@ export function SaveAsTemplateDialog({
     setBuildingType("");
     setTags([]);
     setTagInput("");
+    setSelectedBillIds(new Set());
+    setSelectedSectionIds(new Set());
   };
 
-  const totalItems = items.length;
-  const totalSections = sections.length;
+  const hasSelection = selectedSectionIds.size > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Save as Template</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-y-auto flex-1">
+          {/* Selection Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Select Sections to Include</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={isAllSelected ? deselectAll : selectAll}
+                className="text-xs h-7"
+              >
+                {isAllSelected ? "Deselect All" : "Select All"}
+              </Button>
+            </div>
+            
+            <ScrollArea className="h-48 border rounded-md p-2">
+              <div className="space-y-1">
+                {bills.map((bill) => {
+                  const billSections = getSectionsForBill(bill.id);
+                  const isExpanded = expandedBills.has(bill.id);
+                  const isFullySelected = isBillFullySelected(bill.id);
+                  const isPartiallySelected = isBillPartiallySelected(bill.id);
+                  const selectedSectionCount = billSections.filter(s => selectedSectionIds.has(s.id)).length;
+
+                  return (
+                    <Collapsible
+                      key={bill.id}
+                      open={isExpanded}
+                      onOpenChange={() => toggleExpanded(bill.id)}
+                    >
+                      <div className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/50">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </CollapsibleTrigger>
+                        <Checkbox
+                          checked={isFullySelected}
+                          ref={(el) => {
+                            if (el && isPartiallySelected) {
+                              (el as HTMLButtonElement).dataset.state = "indeterminate";
+                            }
+                          }}
+                          onCheckedChange={(checked) => toggleBill(bill.id, checked as boolean)}
+                        />
+                        <span className="text-sm font-medium flex-1">
+                          Bill {bill.bill_number} - {bill.bill_name}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {selectedSectionCount}/{billSections.length}
+                        </Badge>
+                      </div>
+                      <CollapsibleContent>
+                        <div className="ml-10 space-y-1 mt-1">
+                          {billSections.map((section) => {
+                            const itemCount = getItemsForSection(section.id).length;
+                            return (
+                              <div
+                                key={section.id}
+                                className={`flex items-center gap-2 py-1 px-2 rounded ${
+                                  selectedSectionIds.has(section.id) ? "" : "opacity-50"
+                                }`}
+                              >
+                                <Checkbox
+                                  checked={selectedSectionIds.has(section.id)}
+                                  onCheckedChange={(checked) =>
+                                    toggleSection(section.id, bill.id, checked as boolean)
+                                  }
+                                />
+                                <span className="text-sm flex-1">
+                                  {section.section_code} - {section.section_name}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {itemCount} items
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Summary */}
           <div className="bg-muted/50 rounded-lg p-3 text-sm">
-            <p className="font-medium mb-1">Structure to save:</p>
+            <p className="font-medium mb-1">Selected structure:</p>
             <p className="text-muted-foreground">
-              {bills.length} bill(s) • {totalSections} section(s) • {totalItems} item(s)
+              {selectedStats.selectedBillCount} of {bills.length} bill(s) • {selectedStats.selectedSectionCount} of {sections.length} section(s) • {selectedStats.selectedItemCount} item(s)
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Quantities and amounts will not be saved - only the structure
@@ -288,7 +519,7 @@ export function SaveAsTemplateDialog({
           </Button>
           <Button
             onClick={() => saveMutation.mutate()}
-            disabled={!name.trim() || saveMutation.isPending}
+            disabled={!name.trim() || !hasSelection || saveMutation.isPending}
             className="gap-2"
           >
             <Save className="h-4 w-4" />
