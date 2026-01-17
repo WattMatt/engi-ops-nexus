@@ -54,6 +54,7 @@ const POSITIONS = [
   { value: "secondary", label: "Secondary", color: "bg-teal-600 hover:bg-teal-700 text-white" },
   { value: "admin", label: "Admin", color: "bg-purple-600 hover:bg-purple-700 text-white" },
   { value: "oversight", label: "Oversight", color: "bg-amber-600 hover:bg-amber-700 text-white" },
+  { value: "draughtsman", label: "Draughtsman", color: "bg-slate-600 hover:bg-slate-700 text-white" },
 ] as const;
 
 export function ProjectMembers({ projectId }: ProjectMembersProps) {
