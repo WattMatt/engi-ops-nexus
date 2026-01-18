@@ -52,10 +52,17 @@ export function buildCoverPageContent(
   report: any,
   companyDetails: CompanyDetails
 ): Content[] {
+  // Validate logo URL - must be a proper data URL with content
+  const hasValidLogo = companyDetails.company_logo_url && 
+    typeof companyDetails.company_logo_url === 'string' &&
+    companyDetails.company_logo_url.length > 100 &&
+    companyDetails.company_logo_url.startsWith('data:image/') &&
+    companyDetails.company_logo_url !== 'data:,';
+    
   return [
-    // Logo placeholder (if available)
-    companyDetails.company_logo_url ? {
-      image: companyDetails.company_logo_url,
+    // Logo placeholder (if available and valid)
+    hasValidLogo ? {
+      image: companyDetails.company_logo_url!,
       width: 150,
       alignment: 'center' as const,
       margin: [0, 40, 0, 30] as [number, number, number, number],

@@ -196,8 +196,31 @@ function buildVariationsSummaryContent(
 /**
  * Build visual summary content with chart images
  */
+/**
+ * Validate if a data URL is a valid image
+ */
+function isValidImageDataUrl(dataUrl: string | null | undefined): boolean {
+  if (!dataUrl) return false;
+  if (typeof dataUrl !== 'string') return false;
+  
+  // Check for empty data URLs like "data:," or "data:image/png;base64,"
+  if (dataUrl === 'data:,') return false;
+  if (dataUrl.length < 100) return false; // Valid images are at least 100 chars
+  if (!dataUrl.startsWith('data:image/')) return false;
+  
+  return true;
+}
+
 function buildVisualSummaryContent(chartImages: string[]): Content[] {
-  if (chartImages.length === 0) return [];
+  // Filter out invalid images first
+  const validImages = chartImages.filter(isValidImageDataUrl);
+  
+  if (validImages.length === 0) {
+    console.log('[CostReportPDF] No valid chart images to include');
+    return [];
+  }
+
+  console.log(`[CostReportPDF] Building visual summary with ${validImages.length} valid images`);
 
   const content: Content[] = [
     {
@@ -230,10 +253,8 @@ function buildVisualSummaryContent(chartImages: string[]): Content[] {
     },
   ];
 
-  // Add chart images
-  chartImages.forEach((imageDataUrl, index) => {
-    if (!imageDataUrl) return;
-    
+  // Add validated chart images
+  validImages.forEach((imageDataUrl, index) => {
     content.push({
       image: imageDataUrl,
       width: 450,
