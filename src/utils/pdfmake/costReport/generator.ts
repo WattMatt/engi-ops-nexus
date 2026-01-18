@@ -441,3 +441,110 @@ export async function generateCostReportPdfmake(
     throw error;
   }
 }
+
+/**
+ * Direct download fallback - uses pdfmake's internal download() which is more reliable
+ * Use this when toBlob() fails or for simpler export flow
+ */
+export async function downloadCostReportPdfmake(
+  data: GenerateCostReportOptions,
+  filename?: string
+): Promise<void> {
+  const startTime = Date.now();
+  console.log('[CostReportPDF] Starting direct download...');
+  
+  const {
+    report,
+    categoriesData,
+    variationsData,
+    variationLineItemsMap,
+    companyDetails,
+    categoryTotals,
+    grandTotals,
+    options = {},
+  } = data;
+
+  // Pre-process company details
+  const processedCompanyDetails = await prepareCompanyDetailsWithLogos(companyDetails);
+
+  const {
+    includeCoverPage = true,
+    includeExecutiveSummary = true,
+    includeCategoryDetails = true,
+    includeDetailedLineItems = true,
+    includeVariations = true,
+    includeVisualSummary = false,
+    chartImages = [],
+    margins = { top: 20, right: 15, bottom: 20, left: 15 },
+  } = options;
+
+  // Apply safety limits
+  const limitedCategories = categoriesData.slice(0, MAX_CATEGORIES);
+  const limitedVariations = variationsData.slice(0, MAX_VARIATIONS);
+
+  const doc = createDocument({
+    pageSize: 'A4',
+    orientation: 'portrait',
+    margins: [margins.left * 2.83, margins.top * 2.83, margins.right * 2.83, margins.bottom * 2.83],
+  });
+
+  // Build content (same as generateCostReportPdfmake)
+  if (includeCoverPage) {
+    doc.add(buildCoverPageContent(report, processedCompanyDetails));
+  }
+
+  if (includeExecutiveSummary) {
+    doc.add(buildExecutiveSummaryContent(categoryTotals, grandTotals));
+  }
+
+  if (includeCategoryDetails) {
+    doc.add(buildCategoryDetailsContent(categoryTotals));
+  }
+
+  if (includeDetailedLineItems && limitedCategories.length > 0) {
+    const limitedCategoriesWithItems = limitedCategories.map(cat => ({
+      ...cat,
+      cost_line_items: (cat.cost_line_items || []).slice(0, MAX_LINE_ITEMS_PER_CATEGORY)
+    }));
+    doc.add(buildDetailedLineItemsContent({ categories: limitedCategoriesWithItems }));
+  }
+
+  if (includeVariations && limitedVariations.length > 0) {
+    doc.add(buildVariationsSummaryContent(limitedVariations, report.project_name));
+    limitedVariations.forEach((variation) => {
+      const lineItems = variationLineItemsMap.get(variation.id) || [];
+      doc.add(buildVariationSheetContent({
+        projectName: report.project_name,
+        reportDate: report.report_date,
+        variation,
+        lineItems: lineItems.slice(0, 50),
+      }));
+    });
+  }
+
+  if (includeVisualSummary && chartImages.length > 0) {
+    const chartsToInclude = chartImages.slice(0, MAX_CHARTS);
+    if (chartsToInclude.length > 0) {
+      doc.add(buildVisualSummaryContent(chartsToInclude));
+    }
+  }
+
+  doc.withStandardHeader(report.project_name || 'Cost Report', report.revision || 'A');
+  doc.withStandardFooter();
+
+  doc.setInfo({
+    title: `Cost Report - ${report.project_name}`,
+    author: processedCompanyDetails.companyName,
+    subject: 'Cost Report',
+    creator: 'Lovable Cost Report Generator',
+  });
+
+  const finalFilename = filename || `Cost_Report_${report.project_name}_${new Date().toISOString().split('T')[0]}.pdf`;
+  
+  // Use direct download (more reliable than toBlob for some browsers)
+  console.log('[CostReportPDF] Using direct download...');
+  await doc.download(finalFilename);
+  
+  const elapsedTime = Date.now() - startTime;
+  console.log(`[CostReportPDF] Direct download completed in ${elapsedTime}ms`);
+}
