@@ -8,6 +8,7 @@
 import type { Content, Margins } from 'pdfmake/interfaces';
 import { createDocument } from '../documentBuilder';
 import { PDF_COLORS } from '../styles';
+import { imageToBase64 } from '../helpers';
 import { 
   buildCoverPageContent, 
   buildExecutiveSummaryContent, 
@@ -65,6 +66,41 @@ interface GenerateCostReportOptions {
   categoryTotals: any[];
   grandTotals: any;
   options?: CostReportPdfmakeOptions;
+}
+
+/**
+ * Pre-process company details to convert logo URLs to base64
+ */
+async function prepareCompanyDetailsWithLogos(
+  companyDetails: CompanyDetails
+): Promise<CompanyDetails> {
+  const processed = { ...companyDetails };
+  
+  // Convert company logo URL to base64
+  if (processed.company_logo_url) {
+    try {
+      console.log('[CostReportPDF] Converting company logo to base64...');
+      processed.company_logo_url = await imageToBase64(processed.company_logo_url);
+      console.log('[CostReportPDF] Company logo converted successfully');
+    } catch (error) {
+      console.warn('[CostReportPDF] Failed to convert company logo, skipping:', error);
+      processed.company_logo_url = null; // Skip logo if conversion fails
+    }
+  }
+  
+  // Convert client logo URL to base64
+  if (processed.client_logo_url) {
+    try {
+      console.log('[CostReportPDF] Converting client logo to base64...');
+      processed.client_logo_url = await imageToBase64(processed.client_logo_url);
+      console.log('[CostReportPDF] Client logo converted successfully');
+    } catch (error) {
+      console.warn('[CostReportPDF] Failed to convert client logo, skipping:', error);
+      processed.client_logo_url = null; // Skip logo if conversion fails
+    }
+  }
+  
+  return processed;
 }
 
 /**
@@ -232,6 +268,10 @@ export async function generateCostReportPdfmake(
     options = {},
   } = data;
 
+  // Pre-process company details to convert logo URLs to base64
+  console.log('[CostReportPDF] Pre-processing logos...');
+  const processedCompanyDetails = await prepareCompanyDetailsWithLogos(companyDetails);
+
   const {
     includeCoverPage = true,
     includeTableOfContents = true,
@@ -261,7 +301,7 @@ export async function generateCostReportPdfmake(
   if (includeCoverPage) {
     console.log('[CostReportPDF] Adding cover page...');
     onProgress?.('Generating cover page...', 10);
-    doc.add(buildCoverPageContent(report, companyDetails));
+    doc.add(buildCoverPageContent(report, processedCompanyDetails));
     currentPage++;
   }
 
@@ -344,7 +384,7 @@ export async function generateCostReportPdfmake(
   // Set document info
   doc.setInfo({
     title: `Cost Report - ${report.project_name}`,
-    author: companyDetails.companyName,
+    author: processedCompanyDetails.companyName,
     subject: 'Cost Report',
     creator: 'Lovable Cost Report Generator',
   });
