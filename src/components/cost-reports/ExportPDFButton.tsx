@@ -335,8 +335,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         client_logo_url: company?.client_logo_url || null,
       };
 
-      const contactId = selectedContactId || (contacts && contacts.length > 0 ? contacts[0].id : null);
-
       const useSections = {
         ...DEFAULT_SECTIONS,
         ...sections,
@@ -347,7 +345,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         ...margins,
       };
 
-      // Fetch all necessary data
+      // Contact ID for cover page
+      const contactId = selectedContactId || (contacts && contacts.length > 0 ? contacts[0].id : null);
       setCurrentSection("Fetching report data...");
       updateProgress('data');
       
@@ -389,7 +388,85 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const pdfCategoryTotals = calculateCategoryTotals(categoriesData || [], allLineItems, sortedVariations || []);
       const pdfGrandTotals = calculateGrandTotals(pdfCategoryTotals);
 
-      // Initialize PDF document
+      // ============================================
+      // USE PDFMAKE ENGINE (new implementation)
+      // ============================================
+      if (USE_PDFMAKE) {
+        setCurrentSection("Generating PDF with pdfmake...");
+        
+        // Build variation line items map
+        const variationLineItemsMap = new Map<string, any[]>();
+        sortedVariations.forEach((variation: any) => {
+          variationLineItemsMap.set(variation.id, variation.variation_line_items || []);
+        });
+
+        // Generate PDF using pdfmake
+        const pdfBlob = await generateCostReportPdfmake({
+          report,
+          categoriesData: categoriesData || [],
+          variationsData: sortedVariations,
+          variationLineItemsMap,
+          companyDetails,
+          categoryTotals: pdfCategoryTotals,
+          grandTotals: pdfGrandTotals,
+          options: {
+            includeCoverPage: useSections.coverPage,
+            includeTableOfContents: useSections.tableOfContents,
+            includeExecutiveSummary: useSections.executiveSummary,
+            includeCategoryDetails: useSections.categoryDetails,
+            includeDetailedLineItems: useSections.detailedLineItems,
+            includeVariations: useSections.variations,
+            includeVisualSummary: useSections.visualSummary,
+            margins: useMargins,
+            onProgress: (section, progress) => {
+              setCurrentSection(section);
+            },
+          },
+        });
+
+        // Generate filenames
+        const downloadFilename = generateStandardizedPDFFilename({
+          projectNumber: report.project_number || report.project_id?.slice(0, 8),
+          reportType: "CostReport",
+          revision: report.revision || "A",
+          reportNumber: report.report_number,
+        });
+        const storageFileName = generateStorageFilename({
+          projectNumber: report.project_number || report.project_id?.slice(0, 8),
+          reportType: "CostReport",
+          revision: report.revision || "A",
+          reportNumber: report.report_number,
+        });
+        const filePath = `${report.project_id}/${storageFileName}`;
+
+        // Show preview or save directly
+        if (useSections.previewBeforeExport) {
+          setPreviewBlob(pdfBlob);
+          setPreviewFileName(downloadFilename);
+          setPendingPdfData({
+            blob: pdfBlob,
+            fileName: downloadFilename,
+            filePath,
+            storageFileName,
+          });
+          setPreviewDialogOpen(true);
+          setLoading(false);
+          setCurrentSection("");
+          completeExport();
+          return;
+        }
+
+        // Direct save
+        await savePdfToStorage(pdfBlob, filePath, downloadFilename);
+        setLoading(false);
+        setCurrentSection("");
+        completeExport();
+        return;
+      }
+
+      // ============================================
+      // LEGACY JSPDF ENGINE (fallback)
+      // ============================================
       setCurrentSection("Initializing PDF document...");
       const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
       const doc = new jsPDF({
