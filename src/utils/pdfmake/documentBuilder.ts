@@ -217,7 +217,7 @@ export class PDFDocumentBuilder {
   }
 
   /**
-   * Convert to blob using getBase64 - more reliable in browsers
+   * Convert to blob using getBlob - most direct approach
    */
   private async toBlobViaBase64(docDefinition: TDocumentDefinitions, timeoutMs: number): Promise<Blob> {
     return new Promise((resolve, reject) => {
@@ -250,48 +250,34 @@ export class PDFDocumentBuilder {
       try {
         console.log('[PDFMake] Creating PDF document...');
         const pdfDoc = pdfMake.createPdf(docDefinition);
-        console.log('[PDFMake] PDF document created, getting base64...');
+        console.log('[PDFMake] PDF document created, getting blob directly...');
         
-        // Use getBase64 which is often more reliable than getBuffer
-        pdfDoc.getBase64((base64: string) => {
-          console.log('[PDFMake] getBase64 callback received');
+        // Use getBlob which is the most direct approach
+        pdfDoc.getBlob((blob: Blob) => {
+          console.log('[PDFMake] getBlob callback received');
           
           if (resolved) {
             console.log('[PDFMake] Already resolved, ignoring callback');
             return;
           }
           
-          if (!base64) {
-            console.error('[PDFMake] Base64 is null/undefined');
-            handleError(new Error('PDF generation returned null base64'));
+          if (!blob) {
+            console.error('[PDFMake] Blob is null/undefined');
+            handleError(new Error('PDF generation returned null blob'));
             return;
           }
           
-          if (base64.length === 0) {
-            console.error('[PDFMake] Base64 is empty');
-            handleError(new Error('PDF generation returned empty base64'));
+          if (blob.size === 0) {
+            console.error('[PDFMake] Blob is empty');
+            handleError(new Error('PDF generation returned empty blob'));
             return;
           }
           
-          console.log('[PDFMake] Base64 received, length:', base64.length, 'chars');
-          
-          // Convert base64 to blob
-          try {
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: 'application/pdf' });
-            console.log('[PDFMake] Blob created:', blob.size, 'bytes');
-            handleSuccess(blob);
-          } catch (conversionError) {
-            console.error('[PDFMake] Base64 to blob conversion failed:', conversionError);
-            handleError(conversionError);
-          }
+          console.log('[PDFMake] Blob received, size:', blob.size, 'bytes');
+          handleSuccess(blob);
         });
         
-        console.log('[PDFMake] getBase64 called, waiting for callback...');
+        console.log('[PDFMake] getBlob called, waiting for callback...');
       } catch (error) {
         console.error('[PDFMake] Exception during PDF creation:', error);
         handleError(error);
