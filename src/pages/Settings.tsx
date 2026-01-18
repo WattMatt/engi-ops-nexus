@@ -7,6 +7,7 @@ import { NotificationPreferencesSettings } from "@/components/settings/Notificat
 import { ComponentGenerator } from "@/components/ComponentGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
+import { WalkthroughSettings } from "@/components/walkthrough/WalkthroughSettings";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -54,6 +55,7 @@ const Settings = () => {
           <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
           <TabsTrigger value="templates">PDF Templates</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
+          <TabsTrigger value="guides">Guides & Tours</TabsTrigger>
           <TabsTrigger value="tools">Developer Tools</TabsTrigger>
         </TabsList>
 
@@ -96,6 +98,10 @@ const Settings = () => {
 
         <TabsContent value="invoice">
           <InvoiceSettings />
+        </TabsContent>
+
+        <TabsContent value="guides">
+          <WalkthroughSettings />
         </TabsContent>
 
         <TabsContent value="tools">

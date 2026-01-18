@@ -19,6 +19,8 @@ export { WalkthroughTooltip } from "./WalkthroughTooltip";
 export { WalkthroughStepComponent } from "./WalkthroughStep";
 export { WalkthroughProgress } from "./WalkthroughProgress";
 export { WalkthroughControls } from "./WalkthroughControls";
+export { WalkthroughSettings } from "./WalkthroughSettings";
+export { HelpButton } from "./HelpButton";
 
 // Legacy components (for backward compatibility)
 export { WalkthroughModal, WalkthroughTriggerButton } from "./WalkthroughModal";
@@ -26,5 +28,23 @@ export { TooltipHint, Beacon } from "./TooltipHint";
 export { FeatureHighlight, NewFeatureBadge } from "./FeatureHighlight";
 export { SpotlightOverlay } from "./SpotlightOverlay";
 
+// Tours/Walkthroughs
+export { 
+  allTours,
+  allWalkthroughs,
+  getTourById,
+  getWalkthroughById,
+  getToursForRoute,
+  getWalkthroughsForRoute,
+  dashboardTour,
+  projectSelectTour,
+  cableScheduleTour,
+  settingsTour,
+} from "./walkthroughs";
+
 // Re-export hooks from hooks folder
-export { useWalkthroughTrigger, useWalkthroughControl } from "@/hooks/useWalkthroughTrigger";
+export { 
+  useWalkthroughTrigger, 
+  useWalkthroughControl,
+  useAvailableTours,
+} from "@/hooks/useWalkthroughTrigger";
