@@ -118,7 +118,7 @@ export const ProjectsMap = ({ projects, onProjectSelect, onLocationUpdate }: Pro
         mapboxgl: mapboxgl as any,
         placeholder: "Search address, street, suburb, city, province, or postal code...",
         countries: "za", // Limit to South Africa
-        types: "country,region,postcode,district,place,locality,neighborhood,street,address",
+        types: "country,region,postcode,district,place,locality,neighborhood,address",
         language: "en",
         limit: 10, // Increased from 8 for more options
         marker: false, // We'll add our own marker
