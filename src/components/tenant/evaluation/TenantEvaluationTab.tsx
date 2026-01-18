@@ -1,14 +1,25 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, FileText, Eye, Download, ClipboardCheck } from "lucide-react";
+import { Plus, FileText, Eye, Trash2, ClipboardCheck, Loader2 } from "lucide-react";
 import { TenantEvaluationFormDialog } from "./TenantEvaluationFormDialog";
 import { TenantEvaluationPreviewDialog } from "./TenantEvaluationPreviewDialog";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Tenant {
   id: string;
@@ -35,10 +46,14 @@ interface TenantEvaluation {
 }
 
 export function TenantEvaluationTab({ tenants, projectId, projectName }: TenantEvaluationTabProps) {
+  const queryClient = useQueryClient();
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedEvaluation, setSelectedEvaluation] = useState<TenantEvaluation | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [evaluationToDelete, setEvaluationToDelete] = useState<TenantEvaluation | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch existing evaluations
   const { data: evaluations = [], refetch: refetchEvaluations } = useQuery({
@@ -81,6 +96,43 @@ export function TenantEvaluationTab({ tenants, projectId, projectName }: TenantE
     setSelectedTenant(tenant);
     setSelectedEvaluation(evaluation);
     setFormDialogOpen(true);
+  };
+
+  const handleDeleteEvaluation = (tenant: Tenant, evaluation: TenantEvaluation) => {
+    setSelectedTenant(tenant);
+    setEvaluationToDelete(evaluation);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!evaluationToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete associated reports first
+      await supabase
+        .from("tenant_evaluation_reports")
+        .delete()
+        .eq("evaluation_id", evaluationToDelete.id);
+      
+      // Then delete the evaluation
+      const { error } = await supabase
+        .from("tenant_evaluations")
+        .delete()
+        .eq("id", evaluationToDelete.id);
+      
+      if (error) throw error;
+      
+      toast.success("Evaluation deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["tenant-evaluations"] });
+      refetchEvaluations();
+    } catch (error: any) {
+      toast.error(`Failed to delete: ${error.message}`);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setEvaluationToDelete(null);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -182,6 +234,14 @@ export function TenantEvaluationTab({ tenants, projectId, projectName }: TenantE
                             >
                               Edit
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteEvaluation(tenant, latestEvaluation)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         )}
 
@@ -229,6 +289,36 @@ export function TenantEvaluationTab({ tenants, projectId, projectName }: TenantE
           projectName={projectName}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Evaluation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this evaluation (Rev {evaluationToDelete?.revision}) for {selectedTenant?.shop_number}? 
+              This action cannot be undone and will also delete any associated reports.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
