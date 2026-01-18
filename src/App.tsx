@@ -81,94 +81,95 @@ const App = () => (
           <BrowserRouter>
             <WalkthroughController />
             <Routes>
-          <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/auth/set-password" element={<SetPassword />} />
-        <Route path="/projects" element={<ProjectSelect />} />
-        
-        {/* Public handover route - no authentication required */}
-        <Route path="/handover-client" element={<HandoverClient />} />
-        
-        {/* Admin handover management route */}
-        <Route path="/handover-client-management" element={<HandoverClientManagement />} />
-        
-        {/* Client Portal routes */}
-        <Route path="/client-portal" element={<ClientPortal />} />
-        <Route path="/client/tenant-report/:projectId" element={<ClientTenantReport />} />
-        <Route path="/client/generator-report/:projectId" element={<ClientGeneratorReport />} />
-        
-        {/* Public Client View - shareable link */}
-        <Route path="/client-view" element={<ClientView />} />
-        
-        {/* Public Generator Report View - shareable link */}
-        <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
-        
-        {/* Contractor Review Portal - public access via token */}
-        <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
-        
-        {/* Global Master Library - accessible without selecting a project */}
-        <Route path="/master-library" element={<MasterLibrary />} />
-        <Route path="/contact-library" element={<ContactLibrary />} />
-        
-        {/* Deep link for roadmap items from email notifications */}
-        <Route path="/projects/:projectId/roadmap" element={<RoadmapItemRedirect />} />
-          
-          {/* Admin routes - no project required */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<ProjectSelect />} />
-            <Route path="projects" element={<ProjectSelect />} />
-            <Route path="finance" element={<Finance />} />
-            <Route path="invoicing" element={<Invoicing />} />
-            <Route path="staff" element={<StaffManagement />} />
-            <Route path="users" element={<UserManagement />} />
-            <Route path="backup" element={<BackupManagement />} />
-            <Route path="ai-review" element={<AdminAIReview />} />
-            <Route path="roadmap-review" element={<AdminRoadmapReview />} />
-            <Route path="feedback" element={<FeedbackManagement />} />
-            <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="prd-manager" element={<PRDManager />} />
-            <Route path="email-templates" element={<EmailTemplatesAdmin />} />
-            <Route path="email-templates/:id" element={<EmailTemplateEditor />} />
-          </Route>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/set-password" element={<SetPassword />} />
+              <Route path="/projects" element={<ProjectSelect />} />
+              
+              {/* Public handover route - no authentication required */}
+              <Route path="/handover-client" element={<HandoverClient />} />
+              
+              {/* Admin handover management route */}
+              <Route path="/handover-client-management" element={<HandoverClientManagement />} />
+              
+              {/* Client Portal routes */}
+              <Route path="/client-portal" element={<ClientPortal />} />
+              <Route path="/client/tenant-report/:projectId" element={<ClientTenantReport />} />
+              <Route path="/client/generator-report/:projectId" element={<ClientGeneratorReport />} />
+              
+              {/* Public Client View - shareable link */}
+              <Route path="/client-view" element={<ClientView />} />
+              
+              {/* Public Generator Report View - shareable link */}
+              <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
+              
+              {/* Contractor Review Portal - public access via token */}
+              <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
+              
+              {/* Global Master Library - accessible without selecting a project */}
+              <Route path="/master-library" element={<MasterLibrary />} />
+              <Route path="/contact-library" element={<ContactLibrary />} />
+              
+              {/* Deep link for roadmap items from email notifications */}
+              <Route path="/projects/:projectId/roadmap" element={<RoadmapItemRedirect />} />
+              
+              {/* Admin routes - no project required */}
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<ProjectSelect />} />
+                <Route path="projects" element={<ProjectSelect />} />
+                <Route path="finance" element={<Finance />} />
+                <Route path="invoicing" element={<Invoicing />} />
+                <Route path="staff" element={<StaffManagement />} />
+                <Route path="users" element={<UserManagement />} />
+                <Route path="backup" element={<BackupManagement />} />
+                <Route path="ai-review" element={<AdminAIReview />} />
+                <Route path="roadmap-review" element={<AdminRoadmapReview />} />
+                <Route path="feedback" element={<FeedbackManagement />} />
+                <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="prd-manager" element={<PRDManager />} />
+                <Route path="email-templates" element={<EmailTemplatesAdmin />} />
+                <Route path="email-templates/:id" element={<EmailTemplateEditor />} />
+              </Route>
 
-          {/* Project-specific routes */}
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="tenant-tracker" element={<TenantTracker />} />
-            <Route path="project-settings" element={<ProjectSettings />} />
-            <Route path="site-diary" element={<SiteDiary />} />
-            <Route path="ai-tools" element={<AITools />} />
-            <Route path="cost-reports" element={<CostReports />} />
-            <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
-            <Route path="budgets/electrical" element={<ElectricalBudgets />} />
-            <Route path="budgets/electrical/:budgetId" element={<ElectricalBudgetDetail />} />
-            <Route path="specifications" element={<Specifications />} />
-            <Route path="specifications/:specId" element={<SpecificationDetail />} />
-            <Route path="cable-schedules" element={<CableSchedules />} />
-            <Route path="cable-schedules/:scheduleId" element={<CableScheduleDetail />} />
-            <Route path="floor-plan" element={<FloorPlan />} />
-            <Route path="final-accounts" element={<FinalAccounts />} />
-            <Route path="final-accounts/:accountId" element={<FinalAccountDetail />} />
-            <Route path="boqs" element={<BOQs />} />
-            <Route path="boqs/:boqId" element={<BOQProjectDetail />} />
-            <Route path="boq/:uploadId" element={<BOQDetail />} />
-            <Route path="messages" element={<Messages />} />
-            <Route path="project-outline" element={<ProjectOutline />} />
-            <Route path="projects-report/generator" element={<GeneratorReport />} />
-            <Route path="projects-report/lighting" element={<LightingReport />} />
-            <Route path="projects-report/handover" element={<HandoverDocuments />} />
-            <Route path="bulk-services" element={<BulkServices />} />
-            <Route path="master-library" element={<MasterLibrary />} />
-            <Route path="contact-library" element={<ContactLibrary />} />
-            <Route path="roadmap" element={<ProjectRoadmap />} />
-            <Route path="roadmap-review" element={<RoadmapReviewMode />} />
-          </Route>
-          {/* External review page - no auth required */}
-          <Route path="/roadmap-review/:token" element={<ExternalRoadmapReview />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+              {/* Project-specific routes */}
+              <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="tenant-tracker" element={<TenantTracker />} />
+                <Route path="project-settings" element={<ProjectSettings />} />
+                <Route path="site-diary" element={<SiteDiary />} />
+                <Route path="ai-tools" element={<AITools />} />
+                <Route path="cost-reports" element={<CostReports />} />
+                <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
+                <Route path="budgets/electrical" element={<ElectricalBudgets />} />
+                <Route path="budgets/electrical/:budgetId" element={<ElectricalBudgetDetail />} />
+                <Route path="specifications" element={<Specifications />} />
+                <Route path="specifications/:specId" element={<SpecificationDetail />} />
+                <Route path="cable-schedules" element={<CableSchedules />} />
+                <Route path="cable-schedules/:scheduleId" element={<CableScheduleDetail />} />
+                <Route path="floor-plan" element={<FloorPlan />} />
+                <Route path="final-accounts" element={<FinalAccounts />} />
+                <Route path="final-accounts/:accountId" element={<FinalAccountDetail />} />
+                <Route path="boqs" element={<BOQs />} />
+                <Route path="boqs/:boqId" element={<BOQProjectDetail />} />
+                <Route path="boq/:uploadId" element={<BOQDetail />} />
+                <Route path="messages" element={<Messages />} />
+                <Route path="project-outline" element={<ProjectOutline />} />
+                <Route path="projects-report/generator" element={<GeneratorReport />} />
+                <Route path="projects-report/lighting" element={<LightingReport />} />
+                <Route path="projects-report/handover" element={<HandoverDocuments />} />
+                <Route path="bulk-services" element={<BulkServices />} />
+                <Route path="master-library" element={<MasterLibrary />} />
+                <Route path="contact-library" element={<ContactLibrary />} />
+                <Route path="roadmap" element={<ProjectRoadmap />} />
+                <Route path="roadmap-review" element={<RoadmapReviewMode />} />
+              </Route>
+              
+              {/* External review page - no auth required */}
+              <Route path="/roadmap-review/:token" element={<ExternalRoadmapReview />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </BrowserRouter>
         </WalkthroughProvider>
       </TooltipProvider>
