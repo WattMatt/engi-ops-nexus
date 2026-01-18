@@ -286,6 +286,10 @@ export function TenantEvaluationFormDialog({
 
       if (response.error) throw response.error;
 
+      // Invalidate the report query so the preview dialog can find it
+      queryClient.invalidateQueries({ queryKey: ["tenant-evaluation-report", savedEvaluation.id] });
+      queryClient.invalidateQueries({ queryKey: ["tenant-evaluations"] });
+      
       toast.success("Evaluation report generated and saved");
       onSuccess();
     } catch (error: any) {
