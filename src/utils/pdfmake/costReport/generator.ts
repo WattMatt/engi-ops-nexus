@@ -5,20 +5,17 @@
  * to generate a complete cost report PDF.
  */
 
-import type { Content, Margins, TDocumentDefinitions } from 'pdfmake/interfaces';
+import type { Content, Margins } from 'pdfmake/interfaces';
 import { createDocument } from '../documentBuilder';
 import { PDF_COLORS } from '../styles';
 import { 
   buildCoverPageContent, 
   buildExecutiveSummaryContent, 
   buildCategoryDetailsContent,
-  type CostReportData 
 } from '../costReportBuilder';
 import { buildVariationSheetContent } from './variationSheet';
 import { buildDetailedLineItemsContent } from './detailedLineItems';
-import { buildTableOfContentsContent } from './tableOfContents';
-import { format } from 'date-fns';
-import type { CompanyDetails, CategoryTotal, GrandTotals } from '@/components/cost-reports/pdf-export/types';
+import type { CompanyDetails } from '@/components/cost-reports/pdf-export/types';
 
 export interface CostReportPdfmakeOptions {
   includeCoverPage?: boolean;
@@ -161,6 +158,61 @@ function buildVariationsSummaryContent(
 }
 
 /**
+ * Build visual summary content with chart images
+ */
+function buildVisualSummaryContent(chartImages: string[]): Content[] {
+  if (chartImages.length === 0) return [];
+
+  const content: Content[] = [
+    {
+      text: 'VISUAL SUMMARY',
+      fontSize: 16,
+      bold: true,
+      alignment: 'center' as const,
+      margin: [0, 0, 0, 5] as Margins,
+    },
+    {
+      text: 'Charts & Graphs Overview',
+      fontSize: 9,
+      color: '#3c3c3c',
+      alignment: 'center' as const,
+      margin: [0, 0, 0, 15] as Margins,
+    },
+    {
+      canvas: [
+        {
+          type: 'line',
+          x1: 0,
+          y1: 0,
+          x2: 515,
+          y2: 0,
+          lineWidth: 0.5,
+          lineColor: '#c8c8c8',
+        },
+      ],
+      margin: [0, 0, 0, 20] as Margins,
+    },
+  ];
+
+  // Add chart images
+  chartImages.forEach((imageDataUrl, index) => {
+    if (!imageDataUrl) return;
+    
+    content.push({
+      image: imageDataUrl,
+      width: 450,
+      alignment: 'center' as const,
+      margin: [0, index > 0 ? 15 : 0, 0, 10] as Margins,
+    });
+  });
+
+  // Page break after visual summary
+  content.push({ text: '', pageBreak: 'after' as const });
+
+  return content;
+}
+
+/**
  * Generate a complete cost report PDF using pdfmake
  */
 export async function generateCostReportPdfmake(
@@ -185,6 +237,7 @@ export async function generateCostReportPdfmake(
     includeDetailedLineItems = true,
     includeVariations = true,
     includeVisualSummary = false,
+    chartImages = [],
     margins = { top: 20, right: 15, bottom: 20, left: 15 },
     onProgress,
   } = options;
@@ -263,6 +316,14 @@ export async function generateCostReportPdfmake(
         page: variationStartPage 
       });
     }
+  }
+
+  // Visual Summary (Charts)
+  if (includeVisualSummary && chartImages.length > 0) {
+    onProgress?.('Generating visual summary...', 90);
+    tocEntries.push({ title: 'Visual Summary', page: currentPage });
+    doc.add(buildVisualSummaryContent(chartImages));
+    currentPage++;
   }
 
   // Add header and footer
