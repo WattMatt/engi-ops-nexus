@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WalkthroughProvider } from "@/components/walkthrough/WalkthroughContext";
+import { WalkthroughController } from "@/components/walkthrough/WalkthroughController";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
@@ -72,11 +74,13 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <HelpButton />
-        <BrowserRouter>
-        <Routes>
+        <WalkthroughProvider>
+          <Toaster />
+          <Sonner />
+          <HelpButton />
+          <BrowserRouter>
+            <WalkthroughController />
+            <Routes>
           <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/set-password" element={<SetPassword />} />
@@ -165,9 +169,10 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+          </BrowserRouter>
+        </WalkthroughProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
   </ErrorBoundary>
 );
 
