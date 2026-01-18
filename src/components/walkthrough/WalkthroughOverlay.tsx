@@ -38,7 +38,8 @@ export function WalkthroughOverlay({
     }
   }, [isActive, targetRect?.top, targetRect?.left]);
 
-  if (!mounted || !isActive) return null;
+  // Don't render the overlay if there's no target to highlight
+  if (!mounted || !isActive || !targetRect) return null;
 
   const handleClick = (e: React.MouseEvent) => {
     // Check if click is inside the cutout
