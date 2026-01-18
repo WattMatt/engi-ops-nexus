@@ -143,7 +143,7 @@ serve(async (req) => {
           margin: [0, 8, 0, 20],
         },
 
-        // TENANT DESIGN PACK Section Title
+        // TENANT DESIGN PACK Section Title - force page break before
         { 
           text: 'TENANT DESIGN PACK :',
           fontSize: 10,
@@ -151,6 +151,7 @@ serve(async (req) => {
           decoration: 'underline',
           alignment: 'center',
           margin: [0, 0, 0, 8],
+          pageBreak: 'before',
         },
 
         // TDP Table
@@ -158,6 +159,8 @@ serve(async (req) => {
           table: {
             headerRows: 1,
             widths: [30, '*', 35, 35, 35],
+            dontBreakRows: true,
+            keepWithHeaderRows: 1,
             body: [
               [
                 { text: 'ITEM', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
@@ -189,14 +192,15 @@ serve(async (req) => {
           },
         },
 
-        // SCOPE OF WORK Section Title
+        // SCOPE OF WORK Section Title - force page break before
         { 
           text: 'SCOPE OF WORK AND FINAL SITE LAYOUTS:',
           fontSize: 10,
           bold: true,
           decoration: 'underline',
           alignment: 'center',
-          margin: [0, 20, 0, 8],
+          margin: [0, 0, 0, 8],
+          pageBreak: 'before',
         },
 
         // SOW Table
@@ -204,6 +208,8 @@ serve(async (req) => {
           table: {
             headerRows: 1,
             widths: [30, '*', 35, 35, 35],
+            dontBreakRows: true,
+            keepWithHeaderRows: 1,
             body: [
               [
                 { text: 'ITEM', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
