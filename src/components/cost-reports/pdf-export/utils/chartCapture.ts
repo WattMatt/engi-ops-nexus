@@ -1,6 +1,6 @@
-import jsPDF from "jspdf";
 import type { Content } from "pdfmake/interfaces";
-import { captureChartAsCanvas, addHighQualityImage, canvasToDataUrl } from "@/utils/pdfQualitySettings";
+import { captureChartAsCanvas, canvasToDataUrl } from "@/utils/pdfQualitySettings";
+import { QUALITY_PRESETS, type QualityPreset } from "@/utils/pdfmake/styles";
 
 // ============================================================================
 // Types
@@ -18,6 +18,13 @@ export interface CapturedChart {
   title: string;
   width: number;
   height: number;
+}
+
+export interface ChartContentOptions {
+  /** Image quality preset - affects file size */
+  quality?: QualityPreset;
+  /** Maximum width for charts in the PDF */
+  maxWidth?: number;
 }
 
 // ============================================================================
@@ -90,144 +97,21 @@ export async function captureCostReportCharts(): Promise<CapturedChart[]> {
 }
 
 // ============================================================================
-// jsPDF Functions (Legacy)
+// pdfmake Functions
 // ============================================================================
 
 /**
- * Adds captured charts to a PDF document as a Visual Summary page
- * @deprecated Use buildChartsContent for pdfmake instead
- */
-export async function addChartsToPDF(
-  doc: jsPDF,
-  charts: CapturedChart[],
-  options: {
-    pageWidth: number;
-    pageHeight: number;
-    margin: number;
-    contentStartY: number;
-  }
-): Promise<void> {
-  if (charts.length === 0) return;
-
-  const { pageWidth, pageHeight, margin, contentStartY } = options;
-  const contentWidth = pageWidth - 2 * margin;
-  const maxChartWidth = contentWidth;
-  const maxChartHeight = 70; // mm
-
-  // Pre-validate charts - only proceed if we have at least one valid chart
-  const validCharts = charts.filter(chart => {
-    if (!chart.width || !chart.height || chart.width <= 0 || chart.height <= 0) {
-      console.warn(`Filtering out chart "${chart.title}" due to invalid dimensions: ${chart.width}x${chart.height}`);
-      return false;
-    }
-    const aspectRatio = chart.width / chart.height;
-    if (!isFinite(aspectRatio) || isNaN(aspectRatio) || aspectRatio <= 0) {
-      console.warn(`Filtering out chart "${chart.title}" due to invalid aspect ratio`);
-      return false;
-    }
-    return true;
-  });
-
-  // Don't add the page if no valid charts
-  if (validCharts.length === 0) {
-    console.warn("No valid charts to add to PDF, skipping Visual Summary section");
-    return;
-  }
-
-  doc.addPage();
-  
-  // Header
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 0, 0);
-  doc.text("VISUAL SUMMARY", pageWidth / 2, contentStartY + 5, { align: "center" });
-
-  // Subtitle
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(60, 60, 60);
-  doc.text("Charts & Graphs Overview", pageWidth / 2, contentStartY + 11, { align: "center" });
-
-  // Decorative line
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.5);
-  doc.line(margin, contentStartY + 14, pageWidth - margin, contentStartY + 14);
-
-  let yPos = contentStartY + 25;
-
-  for (let i = 0; i < validCharts.length; i++) {
-    const chart = validCharts[i];
-
-    // Check if we need a new page
-    if (yPos + maxChartHeight + 20 > pageHeight - margin) {
-      doc.addPage();
-      yPos = contentStartY;
-    }
-
-    // Chart title
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(30, 58, 138);
-    doc.text(chart.title, margin, yPos);
-    yPos += 5;
-
-    // Calculate aspect ratio and size
-    const aspectRatio = chart.width / chart.height;
-    
-    let chartWidth = Math.min(maxChartWidth, maxChartHeight * aspectRatio);
-    let chartHeight = chartWidth / aspectRatio;
-
-    if (chartHeight > maxChartHeight) {
-      chartHeight = maxChartHeight;
-      chartWidth = chartHeight * aspectRatio;
-    }
-
-    // Final validation before drawing
-    if (!isFinite(chartWidth) || !isFinite(chartHeight) || chartWidth <= 0 || chartHeight <= 0) {
-      console.warn(`Skipping chart "${chart.title}" due to invalid calculated dimensions`);
-      continue;
-    }
-
-    // Center the chart
-    const chartX = margin + (maxChartWidth - chartWidth) / 2;
-
-    // Add chart image with border - validate all rect parameters
-    const rectX = chartX - 2;
-    const rectY = yPos - 2;
-    const rectW = chartWidth + 4;
-    const rectH = chartHeight + 4;
-    
-    if (isFinite(rectX) && isFinite(rectY) && isFinite(rectW) && isFinite(rectH) && rectW > 0 && rectH > 0) {
-      doc.setDrawColor(220, 220, 220);
-      doc.setLineWidth(0.3);
-      doc.rect(rectX, rectY, rectW, rectH);
-    }
-    
-    addHighQualityImage(
-      doc,
-      chart.canvas,
-      chartX,
-      yPos,
-      chartWidth,
-      chartHeight,
-      'PNG',
-      0.95
-    );
-
-    yPos += chartHeight + 15;
-  }
-}
-
-// ============================================================================
-// pdfmake Functions (New - preferred)
-// ============================================================================
-
-/**
- * Build charts content for pdfmake
+ * Build charts content for pdfmake with optimized compression
+ * @param charts - Array of captured chart objects
+ * @param options - Configuration for quality and sizing
  */
 export async function buildChartsContent(
-  charts: CapturedChart[]
+  charts: CapturedChart[],
+  options: ChartContentOptions = {}
 ): Promise<Content[]> {
+  const { quality = 'standard', maxWidth = 400 } = options;
+  const qualitySettings = QUALITY_PRESETS[quality];
+  
   if (charts.length === 0) return [];
 
   const content: Content[] = [
@@ -262,9 +146,10 @@ export async function buildChartsContent(
     },
   ];
 
-  // Add each chart
+  // Add each chart with optimized compression
   for (const chart of charts) {
-    const base64 = canvasToDataUrl(chart.canvas, 'PNG', 0.95);
+    // Use JPEG for smaller file sizes (unless transparency needed)
+    const base64 = canvasToDataUrl(chart.canvas, 'JPEG', qualitySettings.imageQuality);
     
     content.push({
       text: chart.title,
@@ -276,7 +161,7 @@ export async function buildChartsContent(
     
     content.push({
       image: base64,
-      width: 400,
+      width: Math.min(maxWidth, chart.width),
       alignment: 'center',
       margin: [0, 0, 0, 15],
     });
