@@ -192,7 +192,8 @@ export class PDFDocumentBuilder {
 
   /**
    * Generate PDF as a Blob with comprehensive error handling
-   * CRITICAL: Uses getBuffer() which is more reliable than getBlob()
+   * CRITICAL: Uses getBase64() which is the most reliable method for complex documents
+   * per pdfmake best practices - avoids callback issues with getBlob/getBuffer
    */
   async toBlob(timeoutMs: number = 60000): Promise<Blob> {
     console.log('[PDFMake] toBlob starting...');
@@ -212,12 +213,13 @@ export class PDFDocumentBuilder {
     const imageCount = Object.keys(docDefinition.images || {}).length;
     console.log(`[PDFMake] Building: ${contentCount} items, ${imageCount} images`);
     
-    // Try getBase64 first - it's often more reliable than getBuffer/getBlob
+    // Use getBase64 - it's the most reliable method per pdfmake best practices
     return this.toBlobViaBase64(docDefinition, timeoutMs);
   }
 
   /**
-   * Convert to blob using getBlob - most direct approach
+   * Convert to blob using getBase64 - most reliable approach for complex documents
+   * getBlob/getBuffer callbacks can hang; getBase64 is more stable
    */
   private async toBlobViaBase64(docDefinition: TDocumentDefinitions, timeoutMs: number): Promise<Blob> {
     return new Promise((resolve, reject) => {
@@ -250,34 +252,43 @@ export class PDFDocumentBuilder {
       try {
         console.log('[PDFMake] Creating PDF document...');
         const pdfDoc = pdfMake.createPdf(docDefinition);
-        console.log('[PDFMake] PDF document created, getting blob directly...');
+        console.log('[PDFMake] PDF document created, getting base64...');
         
-        // Use getBlob which is the most direct approach
-        pdfDoc.getBlob((blob: Blob) => {
-          console.log('[PDFMake] getBlob callback received');
+        // Use getBase64 - most reliable per pdfmake best practices
+        // getBlob/getBuffer callbacks often hang for complex documents
+        pdfDoc.getBase64((base64: string) => {
+          console.log('[PDFMake] getBase64 callback received');
           
           if (resolved) {
             console.log('[PDFMake] Already resolved, ignoring callback');
             return;
           }
           
-          if (!blob) {
-            console.error('[PDFMake] Blob is null/undefined');
-            handleError(new Error('PDF generation returned null blob'));
+          if (!base64 || base64.length === 0) {
+            console.error('[PDFMake] Base64 is null/empty');
+            handleError(new Error('PDF generation returned empty base64'));
             return;
           }
           
-          if (blob.size === 0) {
-            console.error('[PDFMake] Blob is empty');
-            handleError(new Error('PDF generation returned empty blob'));
-            return;
-          }
+          console.log('[PDFMake] Base64 received, length:', base64.length, 'chars');
           
-          console.log('[PDFMake] Blob received, size:', blob.size, 'bytes');
-          handleSuccess(blob);
+          // Convert base64 to Blob
+          try {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            console.log('[PDFMake] Blob created, size:', blob.size, 'bytes');
+            handleSuccess(blob);
+          } catch (conversionError) {
+            console.error('[PDFMake] Base64 to Blob conversion failed:', conversionError);
+            handleError(conversionError);
+          }
         });
         
-        console.log('[PDFMake] getBlob called, waiting for callback...');
+        console.log('[PDFMake] getBase64 called, waiting for callback...');
       } catch (error) {
         console.error('[PDFMake] Exception during PDF creation:', error);
         handleError(error);
