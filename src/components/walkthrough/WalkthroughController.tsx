@@ -1,37 +1,88 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { WalkthroughModal } from "./WalkthroughModal";
 import { useWalkthrough } from "./WalkthroughContext";
-import { getWalkthroughsForRoute } from "./walkthroughs";
+import { WalkthroughStepComponent } from "./WalkthroughStep";
+import { Tour } from "./types";
+
+interface WalkthroughControllerProps {
+  tours?: Tour[];
+}
 
 /**
- * Global walkthrough controller that renders the active walkthrough modal
- * and auto-triggers route-based walkthroughs
+ * Global walkthrough controller that:
+ * 1. Registers provided tours
+ * 2. Auto-triggers route-based tours
+ * 3. Renders the active walkthrough step
  */
-export function WalkthroughController() {
+export function WalkthroughController({ tours = [] }: WalkthroughControllerProps) {
   const location = useLocation();
-  const { state, startWalkthrough, shouldShowWalkthrough } = useWalkthrough();
+  const { state, actions } = useWalkthrough();
 
-  // Auto-trigger walkthroughs based on route
+  // Register tours on mount
   useEffect(() => {
-    // Don't trigger if a walkthrough is already active
-    if (state.activeWalkthrough) return;
+    tours.forEach((tour) => {
+      actions.registerTour(tour);
+    });
 
-    // Get walkthroughs for current route
-    const walkthroughs = getWalkthroughsForRoute(location.pathname);
+    return () => {
+      tours.forEach((tour) => {
+        actions.unregisterTour(tour.id);
+      });
+    };
+  }, [tours, actions]);
 
-    // Find the first walkthrough that should be shown
-    for (const walkthrough of walkthroughs) {
-      if (walkthrough.triggerOnFirstVisit && shouldShowWalkthrough(walkthrough.id)) {
-        // Delay to allow page to render
-        const timer = setTimeout(() => {
-          startWalkthrough(walkthrough);
-        }, 800);
-        
-        return () => clearTimeout(timer);
-      }
+  // Auto-trigger route-based tours
+  useEffect(() => {
+    if (state.isActive || state.activeWalkthrough) return;
+
+    const matchingTours = tours
+      .filter((tour) => {
+        if (tour.route && !location.pathname.includes(tour.route)) {
+          return false;
+        }
+        if (!tour.autoStart && !tour.triggerOnFirstVisit) return false;
+        if (tour.showOnce && actions.isCompleted(tour.id)) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+    if (matchingTours.length > 0) {
+      const timer = setTimeout(() => {
+        actions.startTour(matchingTours[0].id);
+      }, 800);
+
+      return () => clearTimeout(timer);
     }
-  }, [location.pathname, state.activeWalkthrough, shouldShowWalkthrough, startWalkthrough]);
+  }, [location.pathname, state.isActive, state.activeWalkthrough, tours, actions]);
 
-  return <WalkthroughModal />;
+  // Don't render anything if no active tour
+  if (!state.activeWalkthrough) {
+    return null;
+  }
+
+  const currentStep = state.activeWalkthrough.steps[state.currentStep];
+  if (!currentStep) {
+    return null;
+  }
+
+  // Check if current step should be skipped
+  if (currentStep.skipCondition?.()) {
+    setTimeout(() => actions.nextStep(), 0);
+    return null;
+  }
+
+  return (
+    <WalkthroughStepComponent
+      step={currentStep}
+      currentIndex={state.currentStep}
+      totalSteps={state.activeWalkthrough.steps.length}
+      onNext={actions.nextStep}
+      onPrev={actions.prevStep}
+      onSkip={actions.skipTour}
+      onClose={actions.endTour}
+      onGoToStep={actions.goToStep}
+    />
+  );
 }
