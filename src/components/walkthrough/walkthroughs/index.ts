@@ -18,8 +18,27 @@ import {
   Calculator
 } from "lucide-react";
 
+// Import comprehensive page tours
+import {
+  projectsTour,
+  dashboardTour as dashboardPageTour,
+  librariesTour,
+  reportsTour,
+  generatorTour,
+  clientPortalTour,
+  floorPlanTour,
+  adminPortalTour,
+  settingsTour as settingsPageTour,
+  cableScheduleTour as cableSchedulePageTour,
+  allPageTours,
+  getPageTourById,
+  getPageToursForRoute,
+  getToursByCategory,
+} from "../tours";
+
 // ============================================
-// DASHBOARD TOUR - With target selectors for spotlight
+// LEGACY TOURS (for backward compatibility)
+// Keep these for existing integrations
 // ============================================
 export const dashboardTour: Tour = {
   id: "dashboard-overview",
@@ -54,18 +73,6 @@ export const dashboardTour: Tour = {
       allowInteraction: true,
     },
     {
-      id: "project-header",
-      title: "Project Context",
-      description: "The header shows your currently selected project. Click on it to switch between projects or access project settings.",
-      targetSelector: "[data-testid='project-header'], .project-header, header",
-      placement: "bottom",
-      spotlightPadding: 4,
-      icon: Building,
-      iconColor: "text-emerald-600",
-      iconBgColor: "bg-emerald-100 dark:bg-emerald-900/30",
-      type: "spotlight",
-    },
-    {
       id: "notifications",
       title: "Notifications & Messages",
       description: "Access messages, notifications, and your profile from the top-right corner. Stay updated on project activities.",
@@ -81,7 +88,7 @@ export const dashboardTour: Tour = {
     {
       id: "help-menu",
       title: "Get Help Anytime",
-      description: "Click the help icon to access documentation, replay this tour, or contact support. You can always find assistance here.",
+      description: "Click the help icon to access documentation, replay this tour, or contact support.",
       targetSelector: "[data-testid='help-button'], .help-button, button[aria-label*='help']",
       placement: "bottom-end",
       spotlightPadding: 8,
@@ -89,20 +96,10 @@ export const dashboardTour: Tour = {
       iconColor: "text-cyan-600",
       iconBgColor: "bg-cyan-100 dark:bg-cyan-900/30",
       type: "tooltip",
-      highlightActions: [
-        {
-          label: "View Documentation",
-          onClick: () => window.open("/docs", "_blank"),
-          variant: "outline",
-        },
-      ],
     },
   ],
 };
 
-// ============================================
-// PROJECT SELECT TOUR
-// ============================================
 export const projectSelectTour: Tour = {
   id: "project-select-guide",
   name: "Project Selection",
@@ -125,7 +122,7 @@ export const projectSelectTour: Tour = {
     {
       id: "search-filter",
       title: "Search & Filter",
-      description: "Use the search bar to quickly find projects by name or number. Filter by status to see active, completed, or archived projects.",
+      description: "Use the search bar to quickly find projects by name or number.",
       targetSelector: "[data-testid='project-search'], input[placeholder*='search' i], .search-input",
       placement: "bottom",
       spotlightPadding: 8,
@@ -136,44 +133,20 @@ export const projectSelectTour: Tour = {
       allowInteraction: true,
     },
     {
-      id: "project-card",
-      title: "Project Cards",
-      description: "Each card shows key project information including status, dates, and progress. Click on a project to open it.",
-      targetSelector: "[data-testid='project-card']:first-child, .project-card:first-child, article:first-child",
-      placement: "right",
-      spotlightPadding: 12,
-      icon: Building,
-      iconColor: "text-emerald-600",
-      iconBgColor: "bg-emerald-100 dark:bg-emerald-900/30",
-      type: "spotlight",
-      allowInteraction: true,
-    },
-    {
       id: "create-project",
       title: "Create New Project",
-      description: "Click this button to create a new project. You'll be guided through setting up project details, team members, and initial documents.",
-      targetSelector: "[data-testid='create-project'], button:has-text('New Project'), button:has-text('Create')",
+      description: "Click this button to create a new project.",
+      targetSelector: "[data-testid='create-project'], button:has(svg.lucide-plus)",
       placement: "bottom",
       spotlightPadding: 8,
       icon: Plus,
       iconColor: "text-green-600",
       iconBgColor: "bg-green-100 dark:bg-green-900/30",
       type: "spotlight",
-      highlightActions: [
-        {
-          label: "Create Project",
-          onClick: () => {},
-          variant: "default",
-          icon: Plus,
-        },
-      ],
     },
   ],
 };
 
-// ============================================
-// CABLE SCHEDULE TOUR - With infographics
-// ============================================
 export const cableScheduleTour: Tour = {
   id: "cable-schedule-guide",
   name: "Cable Schedule Guide",
@@ -187,35 +160,17 @@ export const cableScheduleTour: Tour = {
     {
       id: "overview",
       title: "Cable Schedule Overview",
-      description: "This module helps you create, manage, and track cable schedules for your electrical projects. It automatically calculates sizing, voltage drop, and costs.",
+      description: "This module helps you create, manage, and track cable schedules for your electrical projects.",
       icon: Cable,
       iconColor: "text-amber-600",
       iconBgColor: "bg-amber-100 dark:bg-amber-900/30",
       type: "modal",
-      // Example infographic - would need actual image
-      // infographic: {
-      //   type: "image",
-      //   src: "/images/cable-schedule-overview.png",
-      //   alt: "Cable schedule interface overview",
-      // },
-    },
-    {
-      id: "schedule-list",
-      title: "Schedule List",
-      description: "View all cable schedules for this project. Each schedule can contain multiple cable entries organized by circuit type.",
-      targetSelector: "[data-testid='schedule-list'], .schedule-list, table",
-      placement: "right",
-      spotlightPadding: 8,
-      icon: Table,
-      iconColor: "text-blue-600",
-      iconBgColor: "bg-blue-100 dark:bg-blue-900/30",
-      type: "spotlight",
     },
     {
       id: "add-cable",
       title: "Add Cable Entry",
-      description: "Click to add a new cable entry. Enter from/to locations, load details, and the system will recommend cable sizing.",
-      targetSelector: "[data-testid='add-cable'], button:has-text('Add Cable'), button:has-text('New Entry')",
+      description: "Click to add a new cable entry with automatic sizing calculations.",
+      targetSelector: "[data-testid='add-cable'], button:has(svg.lucide-plus)",
       placement: "bottom",
       spotlightPadding: 8,
       icon: Plus,
@@ -224,50 +179,9 @@ export const cableScheduleTour: Tour = {
       type: "spotlight",
       allowInteraction: true,
     },
-    {
-      id: "calculations",
-      title: "Automatic Calculations",
-      description: "Voltage drop, cable sizing, and cost estimates are calculated automatically based on SANS 10142 standards and your project settings.",
-      targetSelector: "[data-testid='calculations'], .calculation-panel, .voltage-drop",
-      placement: "left",
-      spotlightPadding: 8,
-      icon: Calculator,
-      iconColor: "text-purple-600",
-      iconBgColor: "bg-purple-100 dark:bg-purple-900/30",
-      type: "tooltip",
-    },
-    {
-      id: "export",
-      title: "Export & Reports",
-      description: "Generate professional PDF reports and export schedules to Excel for sharing with your team and clients.",
-      targetSelector: "[data-testid='export-button'], button:has-text('Export'), button:has-text('Download')",
-      placement: "bottom",
-      spotlightPadding: 8,
-      icon: Download,
-      iconColor: "text-green-600",
-      iconBgColor: "bg-green-100 dark:bg-green-900/30",
-      type: "spotlight",
-      highlightActions: [
-        {
-          label: "Export to PDF",
-          onClick: () => {},
-          variant: "outline",
-          icon: Download,
-        },
-        {
-          label: "Export to Excel",
-          onClick: () => {},
-          variant: "outline",
-          icon: Table,
-        },
-      ],
-    },
   ],
 };
 
-// ============================================
-// SETTINGS TOUR
-// ============================================
 export const settingsTour: Tour = {
   id: "settings-guide",
   name: "Settings Guide",
@@ -281,7 +195,7 @@ export const settingsTour: Tour = {
     {
       id: "overview",
       title: "Project Settings",
-      description: "Configure all aspects of your project from this central settings hub. Each tab focuses on a specific area.",
+      description: "Configure all aspects of your project from this central settings hub.",
       icon: Settings,
       iconColor: "text-primary",
       iconBgColor: "bg-primary/10",
@@ -290,7 +204,7 @@ export const settingsTour: Tour = {
     {
       id: "tabs",
       title: "Settings Tabs",
-      description: "Navigate between different setting categories using these tabs. Changes are saved automatically.",
+      description: "Navigate between different setting categories using these tabs.",
       targetSelector: "[role='tablist'], .tabs-list",
       placement: "bottom",
       spotlightPadding: 8,
@@ -300,40 +214,37 @@ export const settingsTour: Tour = {
       type: "spotlight",
       allowInteraction: true,
     },
-    {
-      id: "team",
-      title: "Team Management",
-      description: "Manage team members, assign roles, and control access permissions for different project areas.",
-      icon: Users,
-      iconColor: "text-emerald-600",
-      iconBgColor: "bg-emerald-100 dark:bg-emerald-900/30",
-      type: "modal",
-    },
   ],
 };
 
 // ============================================
-// LEGACY EXPORTS (for backward compatibility)
+// COMBINED TOURS REGISTRY
 // ============================================
+
+// Legacy aliases
 export const dashboardWalkthrough = dashboardTour;
 export const projectSelectWalkthrough = projectSelectTour;
 export const cableScheduleWalkthrough = cableScheduleTour;
 export const settingsWalkthrough = settingsTour;
 
-// All tours registry
+// Combined all tours (legacy + new comprehensive)
 export const allTours: Tour[] = [
-  dashboardTour,
-  projectSelectTour,
-  cableScheduleTour,
-  settingsTour,
+  // Comprehensive page tours
+  ...allPageTours,
 ];
 
 // Legacy export
 export const allWalkthroughs = allTours;
 
-// Get tour by ID
+// Get tour by ID - checks both legacy and new tours
 export function getTourById(id: string): Tour | undefined {
-  return allTours.find((t) => t.id === id);
+  // Check comprehensive tours first
+  const pageTour = getPageTourById(id);
+  if (pageTour) return pageTour;
+  
+  // Fallback to legacy tours
+  const legacyTours = [dashboardTour, projectSelectTour, cableScheduleTour, settingsTour];
+  return legacyTours.find((t) => t.id === id);
 }
 
 // Legacy export
@@ -341,6 +252,11 @@ export const getWalkthroughById = getTourById;
 
 // Get tours for a specific route
 export function getToursForRoute(route: string): Tour[] {
+  // Use comprehensive tours
+  const pageTours = getPageToursForRoute(route);
+  if (pageTours.length > 0) return pageTours;
+  
+  // Fallback to all tours
   return allTours
     .filter((t) => !t.route || route.includes(t.route))
     .sort((a, b) => (b.priority || 0) - (a.priority || 0));
@@ -348,3 +264,6 @@ export function getToursForRoute(route: string): Tour[] {
 
 // Legacy export
 export const getWalkthroughsForRoute = getToursForRoute;
+
+// Re-export from tours
+export { getToursByCategory };

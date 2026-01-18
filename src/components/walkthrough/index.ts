@@ -36,11 +36,44 @@ export {
   getWalkthroughById,
   getToursForRoute,
   getWalkthroughsForRoute,
+  getToursByCategory,
   dashboardTour,
   projectSelectTour,
   cableScheduleTour,
   settingsTour,
 } from "./walkthroughs";
+
+// Page-specific tours
+export {
+  projectsTour,
+  dashboardTour as dashboardPageTour,
+  librariesTour,
+  reportsTour,
+  generatorTour,
+  clientPortalTour,
+  floorPlanTour,
+  adminPortalTour,
+  settingsTour as settingsPageTour,
+  cableScheduleTour as cableSchedulePageTour,
+  allPageTours,
+  getPageTourById,
+  getPageToursForRoute,
+} from "./tours";
+
+// Rich tooltip components
+export {
+  InfoTooltip,
+  ChartTooltip,
+  VideoTooltip,
+  ActionTooltip,
+  HelpTooltip,
+} from "@/components/ui/rich-tooltip";
+
+// Tooltip utilities for UI integration
+export { NavTooltip } from "./NavTooltip";
+export { FormFieldTooltip, FormLabelWithHelp } from "./FormFieldTooltip";
+export { SearchTooltip, FilterTooltip, RefreshTooltip } from "./SearchTooltips";
+export { buttonTooltips } from "./tooltipConfig";
 
 // Re-export hooks from hooks folder
 export { 
