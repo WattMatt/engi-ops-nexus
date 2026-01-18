@@ -286,6 +286,52 @@ export class PDFDocumentBuilder {
   }
 
   /**
+   * Fallback: Convert to blob via getBuffer
+   */
+  private async toBlobViaBuffer(docDefinition: TDocumentDefinitions, timeoutMs: number): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      let resolved = false;
+      
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.error(`[PDFMake] Buffer fallback timed out after ${timeoutMs}ms`);
+          reject(new Error(`PDF timed out after ${timeoutMs / 1000}s. Try Quick Export.`));
+        }
+      }, timeoutMs);
+      
+      try {
+        console.log('[PDFMake] Creating PDF via getBuffer fallback...');
+        const pdfDoc = pdfMake.createPdf(docDefinition);
+        
+        pdfDoc.getBuffer((buffer: Uint8Array) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          
+          if (!buffer || buffer.byteLength === 0) {
+            reject(new Error('PDF generation returned empty buffer'));
+            return;
+          }
+          
+          console.log('[PDFMake] Buffer received, size:', buffer.byteLength, 'bytes');
+          // Create a new Uint8Array copy to ensure ArrayBuffer compatibility
+          const bufferCopy = new Uint8Array(buffer);
+          const blob = new Blob([bufferCopy], { type: 'application/pdf' });
+          console.log(`[PDFMake] Success via buffer: ${Math.round(blob.size / 1024)}KB`);
+          resolve(blob);
+        });
+      } catch (error) {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    });
+  }
+
+  /**
    * Generate PDF as a data URL
    */
   async toDataUrl(timeoutMs: number = 60000): Promise<string> {

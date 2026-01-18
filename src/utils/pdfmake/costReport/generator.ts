@@ -248,6 +248,13 @@ function buildVisualSummaryContent(chartImages: string[]): Content[] {
   return content;
 }
 
+// Safety limits to prevent hanging (matching roadmap review best practices)
+const MAX_VARIATIONS = 30;
+const MAX_CATEGORIES = 20;
+const MAX_LINE_ITEMS_PER_CATEGORY = 100;
+const MAX_CHART_SIZE_BYTES = 200 * 1024; // 200KB
+const MAX_CHARTS = 4;
+
 /**
  * Generate a complete cost report PDF using pdfmake
  */
@@ -284,6 +291,17 @@ export async function generateCostReportPdfmake(
     margins = { top: 20, right: 15, bottom: 20, left: 15 },
     onProgress,
   } = options;
+
+  // Apply safety limits (best practice from roadmap review)
+  const limitedCategories = categoriesData.slice(0, MAX_CATEGORIES);
+  const limitedVariations = variationsData.slice(0, MAX_VARIATIONS);
+  
+  if (categoriesData.length > MAX_CATEGORIES) {
+    console.warn(`[CostReportPDF] Categories limited from ${categoriesData.length} to ${MAX_CATEGORIES}`);
+  }
+  if (variationsData.length > MAX_VARIATIONS) {
+    console.warn(`[CostReportPDF] Variations limited from ${variationsData.length} to ${MAX_VARIATIONS}`);
+  }
 
   // Track TOC entries
   const tocEntries: { title: string; page: number }[] = [];
@@ -328,52 +346,71 @@ export async function generateCostReportPdfmake(
     currentPage++;
   }
 
-  // Detailed Line Items
-  if (includeDetailedLineItems && categoriesData.length > 0) {
-    console.log(`[CostReportPDF] Adding detailed line items for ${categoriesData.length} categories...`);
+  // Detailed Line Items - with limits
+  if (includeDetailedLineItems && limitedCategories.length > 0) {
+    console.log(`[CostReportPDF] Adding detailed line items for ${limitedCategories.length} categories...`);
     onProgress?.('Generating detailed line items...', 55);
     tocEntries.push({ title: 'Detailed Line Items', page: currentPage });
-    doc.add(buildDetailedLineItemsContent({ categories: categoriesData }));
-    currentPage += Math.ceil(categoriesData.length / 3); // Estimate pages
+    
+    // Limit line items per category to prevent hanging
+    const limitedCategoriesWithItems = limitedCategories.map(cat => ({
+      ...cat,
+      cost_line_items: (cat.cost_line_items || []).slice(0, MAX_LINE_ITEMS_PER_CATEGORY)
+    }));
+    
+    doc.add(buildDetailedLineItemsContent({ categories: limitedCategoriesWithItems }));
+    currentPage += Math.ceil(limitedCategories.length / 3); // Estimate pages
   }
 
-  // Variations Summary
-  if (includeVariations && variationsData.length > 0) {
-    console.log(`[CostReportPDF] Adding ${variationsData.length} variations...`);
+  // Variations Summary - with limits
+  if (includeVariations && limitedVariations.length > 0) {
+    console.log(`[CostReportPDF] Adding ${limitedVariations.length} variations...`);
     onProgress?.('Generating variations summary...', 70);
     tocEntries.push({ title: 'Variation Orders Summary', page: currentPage });
-    doc.add(buildVariationsSummaryContent(variationsData, report.project_name));
+    doc.add(buildVariationsSummaryContent(limitedVariations, report.project_name));
     currentPage++;
 
     // Individual Variation Sheets
     const variationStartPage = currentPage;
-    variationsData.forEach((variation, index) => {
-      onProgress?.(`Generating variation sheet ${index + 1}/${variationsData.length}...`, 70 + (index / variationsData.length) * 20);
+    limitedVariations.forEach((variation, index) => {
+      onProgress?.(`Generating variation sheet ${index + 1}/${limitedVariations.length}...`, 70 + (index / limitedVariations.length) * 20);
       const lineItems = variationLineItemsMap.get(variation.id) || [];
+      // Limit line items per variation too
+      const limitedLineItems = lineItems.slice(0, 50);
       doc.add(buildVariationSheetContent({
         projectName: report.project_name,
         reportDate: report.report_date,
         variation,
-        lineItems,
+        lineItems: limitedLineItems,
       }));
       currentPage++;
     });
     
-    if (variationsData.length > 0) {
+    if (limitedVariations.length > 0) {
       tocEntries.push({ 
-        title: `Variation Order Sheets (${variationsData.length} sheets)`, 
+        title: `Variation Order Sheets (${limitedVariations.length} sheets)`, 
         page: variationStartPage 
       });
     }
   }
 
-  // Visual Summary (Charts)
+  // Visual Summary (Charts) - with size limits
   if (includeVisualSummary && chartImages.length > 0) {
-    console.log(`[CostReportPDF] Adding ${chartImages.length} charts...`);
-    onProgress?.('Generating visual summary...', 90);
-    tocEntries.push({ title: 'Visual Summary', page: currentPage });
-    doc.add(buildVisualSummaryContent(chartImages));
-    currentPage++;
+    // Calculate total chart size and apply limits
+    const totalChartSize = chartImages.reduce((acc, img) => acc + (img?.length || 0), 0);
+    const chartsToInclude = chartImages.slice(0, MAX_CHARTS);
+    
+    if (totalChartSize > MAX_CHART_SIZE_BYTES) {
+      console.warn(`[CostReportPDF] Charts may be large (${Math.round(totalChartSize / 1024)}KB), limiting to ${MAX_CHARTS}`);
+    }
+    
+    if (chartsToInclude.length > 0) {
+      console.log(`[CostReportPDF] Adding ${chartsToInclude.length} charts...`);
+      onProgress?.('Generating visual summary...', 90);
+      tocEntries.push({ title: 'Visual Summary', page: currentPage });
+      doc.add(buildVisualSummaryContent(chartsToInclude));
+      currentPage++;
+    }
   }
 
   // Add header and footer
