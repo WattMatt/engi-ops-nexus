@@ -143,7 +143,7 @@ serve(async (req) => {
           margin: [0, 8, 0, 20],
         },
 
-        // TENANT DESIGN PACK Section Title - force page break before
+        // TENANT DESIGN PACK Section Title (stays on page 1 with info fields)
         { 
           text: 'TENANT DESIGN PACK :',
           fontSize: 10,
@@ -151,7 +151,6 @@ serve(async (req) => {
           decoration: 'underline',
           alignment: 'center',
           margin: [0, 0, 0, 8],
-          pageBreak: 'before',
         },
 
         // TDP Table
