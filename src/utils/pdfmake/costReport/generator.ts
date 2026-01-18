@@ -218,6 +218,9 @@ function buildVisualSummaryContent(chartImages: string[]): Content[] {
 export async function generateCostReportPdfmake(
   data: GenerateCostReportOptions
 ): Promise<Blob> {
+  const startTime = Date.now();
+  console.log('[CostReportPDF] Starting PDF generation...');
+  
   const {
     report,
     categoriesData,
@@ -247,6 +250,7 @@ export async function generateCostReportPdfmake(
   let currentPage = 1;
 
   // Initialize document
+  console.log('[CostReportPDF] Creating document...');
   const doc = createDocument({
     pageSize: 'A4',
     orientation: 'portrait',
@@ -255,6 +259,7 @@ export async function generateCostReportPdfmake(
 
   // Cover Page
   if (includeCoverPage) {
+    console.log('[CostReportPDF] Adding cover page...');
     onProgress?.('Generating cover page...', 10);
     doc.add(buildCoverPageContent(report, companyDetails));
     currentPage++;
@@ -267,6 +272,7 @@ export async function generateCostReportPdfmake(
 
   // Executive Summary
   if (includeExecutiveSummary) {
+    console.log('[CostReportPDF] Adding executive summary...');
     onProgress?.('Generating executive summary...', 25);
     tocEntries.push({ title: 'Executive Summary', page: currentPage });
     doc.add(buildExecutiveSummaryContent(categoryTotals, grandTotals));
@@ -275,6 +281,7 @@ export async function generateCostReportPdfmake(
 
   // Category Details
   if (includeCategoryDetails) {
+    console.log('[CostReportPDF] Adding category details...');
     onProgress?.('Generating category details...', 40);
     tocEntries.push({ title: 'Category Performance Details', page: currentPage });
     doc.add(buildCategoryDetailsContent(categoryTotals));
@@ -283,6 +290,7 @@ export async function generateCostReportPdfmake(
 
   // Detailed Line Items
   if (includeDetailedLineItems && categoriesData.length > 0) {
+    console.log(`[CostReportPDF] Adding detailed line items for ${categoriesData.length} categories...`);
     onProgress?.('Generating detailed line items...', 55);
     tocEntries.push({ title: 'Detailed Line Items', page: currentPage });
     doc.add(buildDetailedLineItemsContent({ categories: categoriesData }));
@@ -291,6 +299,7 @@ export async function generateCostReportPdfmake(
 
   // Variations Summary
   if (includeVariations && variationsData.length > 0) {
+    console.log(`[CostReportPDF] Adding ${variationsData.length} variations...`);
     onProgress?.('Generating variations summary...', 70);
     tocEntries.push({ title: 'Variation Orders Summary', page: currentPage });
     doc.add(buildVariationsSummaryContent(variationsData, report.project_name));
@@ -320,6 +329,7 @@ export async function generateCostReportPdfmake(
 
   // Visual Summary (Charts)
   if (includeVisualSummary && chartImages.length > 0) {
+    console.log(`[CostReportPDF] Adding ${chartImages.length} charts...`);
     onProgress?.('Generating visual summary...', 90);
     tocEntries.push({ title: 'Visual Summary', page: currentPage });
     doc.add(buildVisualSummaryContent(chartImages));
@@ -327,6 +337,7 @@ export async function generateCostReportPdfmake(
   }
 
   // Add header and footer
+  console.log('[CostReportPDF] Adding headers and footers...');
   doc.withStandardHeader(report.project_name || 'Cost Report', report.revision || 'A');
   doc.withStandardFooter();
 
@@ -340,5 +351,16 @@ export async function generateCostReportPdfmake(
 
   onProgress?.('Finalizing PDF...', 95);
 
-  return doc.toBlob();
+  console.log('[CostReportPDF] Building PDF blob...');
+  try {
+    // Use 90 second timeout for complex documents (matching roadmap review)
+    const blob = await doc.toBlob(90000);
+    const elapsedTime = Date.now() - startTime;
+    console.log(`[CostReportPDF] PDF generated successfully in ${elapsedTime}ms, size: ${Math.round(blob.size / 1024)}KB`);
+    return blob;
+  } catch (error) {
+    const elapsedTime = Date.now() - startTime;
+    console.error(`[CostReportPDF] PDF generation failed after ${elapsedTime}ms:`, error);
+    throw error;
+  }
 }
