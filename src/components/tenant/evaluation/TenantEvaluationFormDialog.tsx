@@ -332,7 +332,7 @@ export function TenantEvaluationFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="text-xl">
             Tenant Evaluation Form - {tenant.shop_number}
@@ -340,7 +340,7 @@ export function TenantEvaluationFormDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-4">
           <div className="space-y-6">
             {/* Header Info */}
             <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
