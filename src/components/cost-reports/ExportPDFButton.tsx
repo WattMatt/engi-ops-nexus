@@ -31,6 +31,11 @@ import {
 import { prepareCostReportTemplateData } from "@/utils/prepareCostReportTemplateData";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
 import { usePDFProgress, PDFProgressIndicator, PDFPreviewBeforeExport, captureCostReportCharts, addChartsToPDF, waitForChartsToRender } from "./pdf-export";
+// Import pdfmake generator for new implementation
+import { generateCostReportPdfmake } from "@/utils/pdfmake/costReport";
+
+// Feature flag: Set to true to use pdfmake instead of jsPDF
+const USE_PDFMAKE = true;
 
 interface ExportPDFButtonProps {
   report: any;
