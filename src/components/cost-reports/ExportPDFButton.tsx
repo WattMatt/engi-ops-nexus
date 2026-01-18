@@ -1354,59 +1354,89 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           
           const lineItems = variationLineItemsMap.get(variation.id) || [];
           
+          // Cyan/blue accent color matching template (RGB: 0, 174, 239)
+          const accentColor: [number, number, number] = [0, 174, 239];
+          
           // Professional header matching Excel template
           let yPos = contentStartY;
           
-          // Title
-          doc.setFontSize(14);
+          // Top cyan accent bar
+          doc.setFillColor(...accentColor);
+          doc.rect(contentStartX, yPos - 5, contentWidth, 3, 'F');
+          
+          yPos += 8;
+          
+          // Title - "TENANT ACCOUNT" in cyan
+          doc.setFontSize(24);
           doc.setFont("helvetica", "bold");
-          doc.text(variation.description || "TENANT ACCOUNT", contentStartX + contentWidth / 2, yPos, { align: "center" });
-          
-          yPos += 15;
-          
-          // Project details in 2 columns
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          
-          const col1X = contentStartX;
-          const col2X = contentStartX + contentWidth / 2;
-          
-          // Row 1
-          doc.text("PROJECT: ", col1X, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.text(report.project_name, col1X + 25, yPos);
-          
-          doc.setFont("helvetica", "bold");
-          doc.text("DATE: ", col2X, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.text(format(new Date(report.report_date), "dd-MMM-yy"), col2X + 15, yPos);
-          
-          yPos += 6;
-          
-          // Row 2
-          doc.setFont("helvetica", "bold");
-          doc.text("VARIATION ORDER NO.: ", col1X, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.text(variation.code, col1X + 50, yPos);
-          
-          doc.setFont("helvetica", "bold");
-          doc.text("REVISION: ", col2X, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.text("0", col2X + 25, yPos);
-          
-          yPos += 10;
-          
-          // Tenant name
-          if (variation.tenants) {
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "bold");
-            doc.text(`${variation.tenants.shop_number} - ${variation.tenants.shop_name}`, contentStartX + contentWidth / 2, yPos, { align: "center" });
-            yPos += 10;
-          }
+          doc.setTextColor(...accentColor);
+          doc.text("TENANT ACCOUNT", contentStartX, yPos);
           
           yPos += 5;
           
-          // Line Items Table
+          // Bottom cyan accent bar under title
+          doc.setFillColor(...accentColor);
+          doc.rect(contentStartX, yPos, contentWidth, 1, 'F');
+          
+          yPos += 10;
+          
+          // Header info box with border
+          const headerBoxY = yPos;
+          const headerBoxHeight = 30;
+          doc.setDrawColor(0, 0, 0);
+          doc.setLineWidth(0.3);
+          doc.rect(contentStartX, headerBoxY, contentWidth, headerBoxHeight);
+          
+          // Project details inside the box
+          doc.setTextColor(0, 0, 0);
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+          
+          const col1X = contentStartX + 5;
+          const col1ValueX = contentStartX + 75;
+          const col2X = contentStartX + contentWidth / 2 + 20;
+          const col2ValueX = contentStartX + contentWidth / 2 + 55;
+          
+          // Row 1: PROJECT and DATE
+          yPos = headerBoxY + 10;
+          doc.text("PROJECT:", col1X, yPos);
+          doc.text(report.project_name, col1ValueX, yPos);
+          
+          doc.text("DATE:", col2X, yPos);
+          doc.text(format(new Date(report.report_date), "dd-MMM-yy"), col2ValueX, yPos);
+          
+          // Row 2: VARIATION ORDER NO. and REVISION
+          yPos = headerBoxY + 22;
+          doc.text("VARIATION ORDER NO.:", col1X, yPos);
+          doc.text(variation.code, col1ValueX, yPos);
+          // Underline for variation code
+          const codeWidth = doc.getTextWidth(variation.code);
+          doc.line(col1ValueX, yPos + 1, col1ValueX + codeWidth + 20, yPos + 1);
+          
+          doc.text("REVISION:", col2X, yPos);
+          doc.text("0", col2ValueX, yPos);
+          // Underline for revision
+          doc.line(col2ValueX, yPos + 1, col2ValueX + 20, yPos + 1);
+          
+          yPos = headerBoxY + headerBoxHeight + 8;
+          
+          // Two cyan accent bars below header
+          doc.setFillColor(...accentColor);
+          doc.rect(contentStartX, yPos, contentWidth, 4, 'F');
+          yPos += 6;
+          doc.rect(contentStartX, yPos, contentWidth, 4, 'F');
+          yPos += 12;
+          
+          // Tenant name centered
+          if (variation.tenants) {
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${variation.tenants.shop_number} - ${variation.tenants.shop_name}`, contentStartX + contentWidth / 2, yPos, { align: "center" });
+            yPos += 12;
+          }
+          
+          // Line Items Table with cyan header
           doc.setTextColor(0, 0, 0);
           doc.setFontSize(9);
           doc.setFont("helvetica", "normal");
@@ -1422,53 +1452,67 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 item.line_number.toString(),
                 item.description || '-',
                 item.comments || '',
-                item.quantity?.toString() || '0',
-                `R${Number(item.rate || 0).toFixed(2)}`,
+                item.quantity?.toString() || '1',
+                `R${Number(item.rate || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                 `R${Number(item.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               ]),
               theme: 'grid',
               styles: {
-                fontSize: 8,
-                cellPadding: 2,
+                fontSize: 9,
+                cellPadding: 3,
                 lineColor: [0, 0, 0],
-                lineWidth: 0.1,
+                lineWidth: 0.2,
+                textColor: [0, 0, 0],
               },
               headStyles: {
-                fillColor: [245, 245, 245],
-                textColor: [0, 0, 0],
+                fillColor: accentColor,
+                textColor: [255, 255, 255],
                 fontStyle: 'bold',
                 halign: 'left',
               },
               columnStyles: {
-                0: { cellWidth: 12, halign: 'center' },
+                0: { cellWidth: 15, halign: 'center' },
                 1: { cellWidth: 'auto' },
-                2: { cellWidth: 'auto' },
-                3: { cellWidth: 15, halign: 'right' },
-                4: { cellWidth: 25, halign: 'right' },
-                5: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+                2: { cellWidth: 50 },
+                3: { cellWidth: 18, halign: 'center' },
+                4: { cellWidth: 30, halign: 'right' },
+                5: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
+              },
+              alternateRowStyles: {
+                fillColor: [255, 255, 255],
               },
               didDrawPage: (data) => {
-                // Add bottom border after table
                 const finalY = data.cursor?.y || yPos + 50;
                 yPos = finalY;
               },
             });
             
-            // Total section
-            yPos = (doc as any).lastAutoTable.finalY + 15;
+            // Total section with cyan background
+            yPos = (doc as any).lastAutoTable.finalY + 10;
             
+            // Horizontal line above total
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.5);
-            doc.line(contentStartX, yPos - 5, contentStartX + contentWidth, yPos - 5);
+            doc.line(contentStartX, yPos, contentStartX + contentWidth, yPos);
+            
+            yPos += 5;
+            
+            // Total row with cyan background
+            doc.setFillColor(...accentColor);
+            doc.rect(contentStartX, yPos, contentWidth * 0.65, 12, 'F');
             
             doc.setFontSize(9);
             doc.setFont("helvetica", "bold");
-            doc.text("TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT", contentStartX + contentWidth - 60, yPos);
-            doc.setFontSize(12);
+            doc.setTextColor(255, 255, 255);
+            doc.text("TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT", contentStartX + 5, yPos + 8);
+            
+            // Total amount on white background
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(11);
             doc.text(
               `R${lineItemTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-              contentStartX + contentWidth,
-              yPos + 6,
+              contentStartX + contentWidth - 5,
+              yPos + 8,
               { align: 'right' }
             );
           } else {
