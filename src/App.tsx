@@ -85,35 +85,17 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/set-password" element={<SetPassword />} />
               <Route path="/projects" element={<ProjectSelect />} />
-              
-              {/* Public handover route - no authentication required */}
               <Route path="/handover-client" element={<HandoverClient />} />
-              
-              {/* Admin handover management route */}
               <Route path="/handover-client-management" element={<HandoverClientManagement />} />
-              
-              {/* Client Portal routes */}
               <Route path="/client-portal" element={<ClientPortal />} />
               <Route path="/client/tenant-report/:projectId" element={<ClientTenantReport />} />
               <Route path="/client/generator-report/:projectId" element={<ClientGeneratorReport />} />
-              
-              {/* Public Client View - shareable link */}
               <Route path="/client-view" element={<ClientView />} />
-              
-              {/* Public Generator Report View - shareable link */}
               <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
-              
-              {/* Contractor Review Portal - public access via token */}
               <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
-              
-              {/* Global Master Library - accessible without selecting a project */}
               <Route path="/master-library" element={<MasterLibrary />} />
               <Route path="/contact-library" element={<ContactLibrary />} />
-              
-              {/* Deep link for roadmap items from email notifications */}
               <Route path="/projects/:projectId/roadmap" element={<RoadmapItemRedirect />} />
-              
-              {/* Admin routes - no project required */}
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<ProjectSelect />} />
                 <Route path="projects" element={<ProjectSelect />} />
@@ -131,8 +113,6 @@ const App = () => (
                 <Route path="email-templates" element={<EmailTemplatesAdmin />} />
                 <Route path="email-templates/:id" element={<EmailTemplateEditor />} />
               </Route>
-
-              {/* Project-specific routes */}
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="tenant-tracker" element={<TenantTracker />} />
@@ -164,10 +144,7 @@ const App = () => (
                 <Route path="roadmap" element={<ProjectRoadmap />} />
                 <Route path="roadmap-review" element={<RoadmapReviewMode />} />
               </Route>
-              
-              {/* External review page - no auth required */}
               <Route path="/roadmap-review/:token" element={<ExternalRoadmapReview />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
