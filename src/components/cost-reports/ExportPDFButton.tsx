@@ -1393,9 +1393,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           doc.setFont("helvetica", "normal");
           
           const col1X = contentStartX + 5;
-          const col1ValueX = contentStartX + 75;
-          const col2X = contentStartX + contentWidth / 2 + 20;
-          const col2ValueX = contentStartX + contentWidth / 2 + 55;
+          const col1ValueX = contentStartX + 35;
+          const col2X = contentStartX + contentWidth * 0.65;
+          const col2ValueX = contentStartX + contentWidth * 0.65 + 25;
           
           // Row 1: PROJECT and DATE
           yPos = headerBoxY + 10;
