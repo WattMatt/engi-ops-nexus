@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WalkthroughProvider } from "@/components/walkthrough/WalkthroughContext";
 import { WalkthroughController } from "@/components/walkthrough/WalkthroughController";
+import { allPageTours } from "@/components/walkthrough/tours";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
@@ -79,7 +80,7 @@ const App = () => (
           <Sonner />
           <HelpButton />
           <BrowserRouter>
-            <WalkthroughController />
+            <WalkthroughController tours={allPageTours} />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
