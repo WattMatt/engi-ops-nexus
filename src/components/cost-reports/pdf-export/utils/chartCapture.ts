@@ -111,6 +111,28 @@ export async function addChartsToPDF(
 
   const { pageWidth, pageHeight, margin, contentStartY } = options;
   const contentWidth = pageWidth - 2 * margin;
+  const maxChartWidth = contentWidth;
+  const maxChartHeight = 70; // mm
+
+  // Pre-validate charts - only proceed if we have at least one valid chart
+  const validCharts = charts.filter(chart => {
+    if (!chart.width || !chart.height || chart.width <= 0 || chart.height <= 0) {
+      console.warn(`Filtering out chart "${chart.title}" due to invalid dimensions: ${chart.width}x${chart.height}`);
+      return false;
+    }
+    const aspectRatio = chart.width / chart.height;
+    if (!isFinite(aspectRatio) || isNaN(aspectRatio) || aspectRatio <= 0) {
+      console.warn(`Filtering out chart "${chart.title}" due to invalid aspect ratio`);
+      return false;
+    }
+    return true;
+  });
+
+  // Don't add the page if no valid charts
+  if (validCharts.length === 0) {
+    console.warn("No valid charts to add to PDF, skipping Visual Summary section");
+    return;
+  }
 
   doc.addPage();
   
@@ -132,17 +154,9 @@ export async function addChartsToPDF(
   doc.line(margin, contentStartY + 14, pageWidth - margin, contentStartY + 14);
 
   let yPos = contentStartY + 25;
-  const maxChartWidth = contentWidth;
-  const maxChartHeight = 70; // mm
 
-  for (let i = 0; i < charts.length; i++) {
-    const chart = charts[i];
-
-    // Skip charts with invalid dimensions
-    if (!chart.width || !chart.height || chart.width <= 0 || chart.height <= 0) {
-      console.warn(`Skipping chart "${chart.title}" due to invalid dimensions: ${chart.width}x${chart.height}`);
-      continue;
-    }
+  for (let i = 0; i < validCharts.length; i++) {
+    const chart = validCharts[i];
 
     // Check if we need a new page
     if (yPos + maxChartHeight + 20 > pageHeight - margin) {
@@ -157,14 +171,8 @@ export async function addChartsToPDF(
     doc.text(chart.title, margin, yPos);
     yPos += 5;
 
-    // Calculate aspect ratio and size with safety checks
+    // Calculate aspect ratio and size
     const aspectRatio = chart.width / chart.height;
-    
-    // Ensure valid aspect ratio
-    if (!isFinite(aspectRatio) || isNaN(aspectRatio) || aspectRatio <= 0) {
-      console.warn(`Skipping chart "${chart.title}" due to invalid aspect ratio`);
-      continue;
-    }
     
     let chartWidth = Math.min(maxChartWidth, maxChartHeight * aspectRatio);
     let chartHeight = chartWidth / aspectRatio;
