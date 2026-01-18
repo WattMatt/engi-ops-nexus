@@ -5,7 +5,7 @@
  * generating cost report PDFs, replacing the legacy jsPDF implementation.
  */
 
-export { generateCostReportPdfmake, type CostReportPdfmakeOptions } from './generator';
+export { generateCostReportPdfmake, downloadCostReportPdfmake, type CostReportPdfmakeOptions } from './generator';
 export { buildVariationSheetContent, buildAllVariationSheetsContent } from './variationSheet';
 export { buildDetailedLineItemsContent } from './detailedLineItems';
 export { buildTableOfContentsContent } from './tableOfContents';
