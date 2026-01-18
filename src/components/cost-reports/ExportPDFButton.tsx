@@ -378,7 +378,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         const capturedCharts = await captureCostReportCharts();
         chartImages = capturedCharts
           .filter(chart => chart.canvas)
-          .map(chart => chart.canvas.toDataURL('image/png'));
+          .map(chart => chart.canvas.toDataURL('image/png'))
+          // Filter out invalid/empty data URLs
+          .filter(dataUrl => dataUrl && dataUrl.length > 100 && dataUrl !== 'data:,');
+        console.log(`[CostReportPDF] Captured ${chartImages.length} valid chart images`);
       }
       
       // Build variation line items map
