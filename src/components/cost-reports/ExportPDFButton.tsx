@@ -12,7 +12,7 @@ import { STANDARD_MARGINS } from "@/utils/pdfExportBase";
 import { prepareCostReportTemplateData } from "@/utils/prepareCostReportTemplateData";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
 import { usePDFProgress, PDFProgressIndicator, PDFPreviewBeforeExport, captureCostReportCharts, waitForChartsToRender } from "./pdf-export";
-import { generateCostReportPdfmake } from "@/utils/pdfmake/costReport";
+import { generateCostReportPdfmake, downloadCostReportPdfmake } from "@/utils/pdfmake/costReport";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -387,7 +387,54 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         variationLineItemsMap.set(variation.id, variation.variation_line_items || []);
       });
 
-      // Generate PDF using pdfmake
+      // Generate filename first (needed for both paths)
+      const downloadFilename = generateStandardizedPDFFilename({
+        projectNumber: report.project_number || report.project_id?.slice(0, 8),
+        reportType: "CostReport",
+        revision: report.revision || "A",
+        reportNumber: report.report_number,
+      });
+
+      // ============================================
+      // QUICK EXPORT PATH - Direct Download (more reliable)
+      // ============================================
+      if (useSections.useQuickExport) {
+        setCurrentSection("Direct download in progress...");
+        await downloadCostReportPdfmake({
+          report,
+          categoriesData: categoriesData || [],
+          variationsData: sortedVariations,
+          variationLineItemsMap,
+          companyDetails,
+          categoryTotals: pdfCategoryTotals,
+          grandTotals: pdfGrandTotals,
+          options: {
+            includeCoverPage: useSections.coverPage,
+            includeTableOfContents: useSections.tableOfContents,
+            includeExecutiveSummary: useSections.executiveSummary,
+            includeCategoryDetails: useSections.categoryDetails,
+            includeDetailedLineItems: useSections.detailedLineItems,
+            includeVariations: useSections.variations,
+            includeVisualSummary: useSections.visualSummary,
+            chartImages,
+            margins: useMargins,
+          },
+        }, downloadFilename);
+        
+        setLoading(false);
+        setCurrentSection("");
+        completeExport();
+        toast({
+          title: "PDF Downloaded",
+          description: "Cost report exported successfully via Quick Export",
+        });
+        onReportGenerated?.();
+        return;
+      }
+
+      // ============================================
+      // STANDARD PATH - Blob Generation (for preview/storage)
+      // ============================================
       const pdfBlob = await generateCostReportPdfmake({
         report,
         categoriesData: categoriesData || [],
@@ -412,13 +459,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         },
       });
 
-      // Generate filenames
-      const downloadFilename = generateStandardizedPDFFilename({
-        projectNumber: report.project_number || report.project_id?.slice(0, 8),
-        reportType: "CostReport",
-        revision: report.revision || "A",
-        reportNumber: report.report_number,
-      });
+      // Generate storage filename (downloadFilename already defined above)
       const storageFileName = generateStorageFilename({
         projectNumber: report.project_number || report.project_id?.slice(0, 8),
         reportType: "CostReport",
