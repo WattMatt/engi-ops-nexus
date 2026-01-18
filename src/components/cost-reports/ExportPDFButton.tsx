@@ -1471,12 +1471,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 halign: 'left',
               },
               columnStyles: {
-                0: { cellWidth: 20, halign: 'center' },
+                0: { cellWidth: 10, halign: 'center' },
                 1: { cellWidth: 55, halign: 'left' },
                 2: { cellWidth: 'auto', halign: 'left' },
-                3: { cellWidth: 25, halign: 'center' },
-                4: { cellWidth: 40, halign: 'right' },
-                5: { cellWidth: 45, halign: 'right', fontStyle: 'bold' },
+                3: { cellWidth: 12, halign: 'center' },
+                4: { cellWidth: 20, halign: 'right' },
+                5: { cellWidth: 22, halign: 'right', fontStyle: 'bold' },
               },
               alternateRowStyles: {
                 fillColor: [255, 255, 255],
