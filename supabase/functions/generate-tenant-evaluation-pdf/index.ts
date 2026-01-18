@@ -6,17 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const PDF_COLORS = {
-  primary: '#1e40af',
-  secondary: '#64748b',
-  success: '#22c55e',
-  danger: '#ef4444',
-  warning: '#f59e0b',
-  border: '#e2e8f0',
-  background: '#f8fafc',
-  text: '#1e293b',
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -38,126 +27,144 @@ serve(async (req) => {
     const vfs = (pdfFontsModule as any).pdfMake?.vfs || (pdfFontsModule as any).default?.pdfMake?.vfs || (pdfFontsModule as any).vfs;
     pdfMake.vfs = vfs || {};
 
-    // Helper function to format yes/no/na values
-    const formatAnswer = (value: string | null) => {
-      if (value === 'yes') return { text: '☒', bold: true };
-      if (value === 'no') return { text: '☒', bold: true };
-      if (value === 'na') return { text: '☒', bold: true };
-      return { text: '☐', color: '#94a3b8' };
-    };
-
+    // Helper function to get checkbox row for evaluation items
     const getYesNoNaRow = (item: string, description: string, value: string | null) => {
       return [
-        { text: item, style: 'tableCell', alignment: 'center' },
-        { text: description, style: 'tableCell' },
-        { text: value === 'yes' ? '☒' : '☐', style: 'tableCell', alignment: 'center', bold: value === 'yes' },
-        { text: value === 'no' ? '☒' : '☐', style: 'tableCell', alignment: 'center', bold: value === 'no' },
-        { text: value === 'na' ? '☒' : '☐', style: 'tableCell', alignment: 'center', bold: value === 'na' },
+        { text: item, fontSize: 9, alignment: 'center', margin: [0, 4, 0, 4] },
+        { text: description, fontSize: 9, margin: [4, 4, 4, 4] },
+        { text: value === 'yes' ? '☒' : '☐', fontSize: 10, alignment: 'center', margin: [0, 3, 0, 3] },
+        { text: value === 'no' ? '☒' : '☐', fontSize: 10, alignment: 'center', margin: [0, 3, 0, 3] },
+        { text: value === 'na' ? '☒' : '☐', fontSize: 10, alignment: 'center', margin: [0, 3, 0, 3] },
       ];
+    };
+
+    // Format date for display
+    const formatDate = (dateStr: string | null) => {
+      if (!dateStr) return '';
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      } catch {
+        return dateStr;
+      }
     };
 
     const docDefinition = {
       pageSize: 'A4' as const,
-      pageMargins: [40, 60, 40, 60] as [number, number, number, number],
+      pageMargins: [40, 40, 40, 50] as [number, number, number, number],
       
       defaultStyle: {
         font: 'Roboto',
-        fontSize: 9,
-        lineHeight: 1.3,
-        color: PDF_COLORS.text,
+        fontSize: 10,
+        lineHeight: 1.2,
       },
-      
-      styles: {
-        header: { fontSize: 14, bold: true, color: PDF_COLORS.primary, margin: [0, 0, 0, 5] },
-        sectionHeader: { fontSize: 11, bold: true, color: PDF_COLORS.primary, margin: [0, 15, 0, 8] },
-        tableHeader: { fontSize: 9, bold: true, fillColor: PDF_COLORS.primary, color: 'white', alignment: 'center' },
-        tableCell: { fontSize: 9, margin: [2, 4, 2, 4] },
-        label: { fontSize: 8, color: PDF_COLORS.secondary, bold: true },
-        value: { fontSize: 10, bold: true },
-        comments: { fontSize: 9, italics: true, margin: [0, 5, 0, 0] },
-      },
-
-      info: {
-        title: `Tenant Evaluation - ${tenant.shop_number}`,
-        author: evaluation.evaluated_by,
-        subject: `Evaluation Form for ${tenant.shop_name}`,
-      },
-
-      header: (currentPage: number, pageCount: number) => ({
-        columns: [
-          { text: projectName.toUpperCase(), style: 'header', margin: [40, 20, 0, 0] },
-          { text: `Page ${currentPage} of ${pageCount}`, alignment: 'right', fontSize: 8, margin: [0, 25, 40, 0] },
-        ],
-      }),
 
       footer: (currentPage: number, pageCount: number) => ({
-        text: `Generated: ${new Date().toLocaleDateString()} | Rev ${evaluation.revision}`,
+        text: `P a g e  ${currentPage} | ${pageCount}`,
         alignment: 'center',
-        fontSize: 8,
-        color: PDF_COLORS.secondary,
-        margin: [0, 0, 0, 20],
+        fontSize: 9,
+        margin: [0, 10, 0, 0],
       }),
 
       content: [
-        // Title
+        // Header with project name and title
         {
-          text: 'TENANT EVALUATION FORM',
-          style: 'header',
+          columns: [
+            { 
+              text: projectName?.toUpperCase() || 'PROJECT',
+              fontSize: 12,
+              bold: true,
+              width: 100,
+            },
+            { 
+              text: 'ELECTRICAL TENANT EVALUATION FORM',
+              fontSize: 12,
+              bold: true,
+              decoration: 'underline',
+              alignment: 'center',
+              width: '*',
+            },
+            { 
+              text: '',
+              width: 60,
+            },
+          ],
+          margin: [0, 0, 0, 5],
+        },
+        // Horizontal line under header
+        {
+          canvas: [
+            { type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1 }
+          ],
+          margin: [0, 0, 0, 15],
+        },
+
+        // Info fields - each on its own row with underlined value
+        {
+          columns: [
+            { text: 'PROJECT :', fontSize: 10, bold: true, decoration: 'underline', width: 100 },
+            { text: projectName || '', fontSize: 10, decoration: 'underline', width: '*' },
+          ],
+          margin: [0, 8, 0, 0],
+        },
+        {
+          columns: [
+            { text: 'SHOP NO :', fontSize: 10, bold: true, decoration: 'underline', width: 100 },
+            { text: tenant.shop_number || '', fontSize: 10, decoration: 'underline', width: '*' },
+          ],
+          margin: [0, 8, 0, 0],
+        },
+        {
+          columns: [
+            { text: 'SHOP NAME :', fontSize: 10, bold: true, decoration: 'underline', width: 100 },
+            { text: tenant.shop_name || '', fontSize: 10, decoration: 'underline', width: '*' },
+          ],
+          margin: [0, 8, 0, 0],
+        },
+        {
+          columns: [
+            { text: 'AREA :', fontSize: 10, bold: true, decoration: 'underline', width: 100 },
+            { text: tenant.area ? `${tenant.area} m²` : '', fontSize: 10, decoration: 'underline', width: '*' },
+          ],
+          margin: [0, 8, 0, 0],
+        },
+        {
+          columns: [
+            { text: 'DATE :', fontSize: 10, bold: true, decoration: 'underline', width: 100 },
+            { text: formatDate(evaluation.evaluation_date), fontSize: 10, decoration: 'underline', width: '*' },
+          ],
+          margin: [0, 8, 0, 0],
+        },
+        {
+          columns: [
+            { text: 'EVALUATED BY :', fontSize: 10, bold: true, decoration: 'underline', width: 100 },
+            { text: evaluation.evaluated_by || '', fontSize: 10, decoration: 'underline', width: '*' },
+          ],
+          margin: [0, 8, 0, 20],
+        },
+
+        // TENANT DESIGN PACK Section Title
+        { 
+          text: 'TENANT DESIGN PACK :',
+          fontSize: 10,
+          bold: true,
+          decoration: 'underline',
           alignment: 'center',
-          margin: [0, 0, 0, 20],
+          margin: [0, 0, 0, 8],
         },
 
-        // Header Info Grid
-        {
-          table: {
-            widths: ['auto', '*', 'auto', '*'],
-            body: [
-              [
-                { text: 'PROJECT:', style: 'label' },
-                { text: projectName || '-', style: 'value' },
-                { text: 'SHOP NO:', style: 'label' },
-                { text: tenant.shop_number || '-', style: 'value' },
-              ],
-              [
-                { text: 'SHOP NAME:', style: 'label' },
-                { text: tenant.shop_name || '-', style: 'value' },
-                { text: 'AREA:', style: 'label' },
-                { text: tenant.area ? `${tenant.area} m²` : '-', style: 'value' },
-              ],
-              [
-                { text: 'DATE:', style: 'label' },
-                { text: evaluation.evaluation_date || '-', style: 'value' },
-                { text: 'EVALUATED BY:', style: 'label' },
-                { text: evaluation.evaluated_by || '-', style: 'value' },
-              ],
-            ],
-          },
-          layout: {
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => PDF_COLORS.border,
-            vLineColor: () => PDF_COLORS.border,
-            paddingLeft: () => 8,
-            paddingRight: () => 8,
-            paddingTop: () => 6,
-            paddingBottom: () => 6,
-          },
-          margin: [0, 0, 0, 20],
-        },
-
-        // Tenant Design Pack Section
-        { text: 'TENANT DESIGN PACK:', style: 'sectionHeader' },
+        // TDP Table
         {
           table: {
             headerRows: 1,
-            widths: [30, '*', 30, 30, 30],
+            widths: [30, '*', 35, 35, 35],
             body: [
               [
-                { text: 'ITEM', style: 'tableHeader' },
-                { text: 'DESCRIPTION:', style: 'tableHeader' },
-                { text: 'YES', style: 'tableHeader' },
-                { text: 'NO', style: 'tableHeader' },
-                { text: 'N/A', style: 'tableHeader' },
+                { text: 'ITEM', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
+                { text: 'DESCRIPTION:', fontSize: 9, bold: true, margin: [4, 4, 4, 4] },
+                { text: 'YES', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
+                { text: 'NO', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
+                { text: 'N/A', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
               ],
               getYesNoNaRow('1', 'DB position indicated?', evaluation.tdp_db_position_indicated),
               getYesNoNaRow('2', 'The distance from edge of DB to the nearest water point must be no less than 1200mm:', evaluation.tdp_db_distance_from_water),
@@ -175,30 +182,35 @@ serve(async (req) => {
             ],
           },
           layout: {
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => PDF_COLORS.border,
-            vLineColor: () => PDF_COLORS.border,
-            paddingLeft: () => 4,
-            paddingRight: () => 4,
-            paddingTop: () => 4,
-            paddingBottom: () => 4,
+            hLineWidth: (i: number, node: any) => 0.5,
+            vLineWidth: (i: number, node: any) => 0.5,
+            hLineColor: () => '#000000',
+            vLineColor: () => '#000000',
           },
         },
 
-        // Scope of Work Section
-        { text: 'SCOPE OF WORK AND FINAL SITE LAYOUTS:', style: 'sectionHeader' },
+        // SCOPE OF WORK Section Title
+        { 
+          text: 'SCOPE OF WORK AND FINAL SITE LAYOUTS:',
+          fontSize: 10,
+          bold: true,
+          decoration: 'underline',
+          alignment: 'center',
+          margin: [0, 20, 0, 8],
+        },
+
+        // SOW Table
         {
           table: {
             headerRows: 1,
-            widths: [30, '*', 30, 30, 30],
+            widths: [30, '*', 35, 35, 35],
             body: [
               [
-                { text: 'ITEM', style: 'tableHeader' },
-                { text: 'DESCRIPTION:', style: 'tableHeader' },
-                { text: 'YES', style: 'tableHeader' },
-                { text: 'NO', style: 'tableHeader' },
-                { text: 'N/A', style: 'tableHeader' },
+                { text: 'ITEM', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
+                { text: 'DESCRIPTION:', fontSize: 9, bold: true, margin: [4, 4, 4, 4] },
+                { text: 'YES', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
+                { text: 'NO', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
+                { text: 'N/A', fontSize: 9, bold: true, alignment: 'center', margin: [0, 4, 0, 4] },
               ],
               getYesNoNaRow('1', 'DB size clearly visible?', evaluation.sow_db_size_visible),
               getYesNoNaRow('2', 'DB position confirmed and checked in terms of minimum distance from Water point?', evaluation.sow_db_position_confirmed),
@@ -207,31 +219,40 @@ serve(async (req) => {
             ],
           },
           layout: {
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => PDF_COLORS.border,
-            vLineColor: () => PDF_COLORS.border,
-            paddingLeft: () => 4,
-            paddingRight: () => 4,
-            paddingTop: () => 4,
-            paddingBottom: () => 4,
+            hLineWidth: (i: number, node: any) => 0.5,
+            vLineWidth: (i: number, node: any) => 0.5,
+            hLineColor: () => '#000000',
+            vLineColor: () => '#000000',
           },
         },
 
-        // Comments Section
-        { text: 'COMMENTS:', style: 'sectionHeader' },
+        // COMMENTS Section Title
+        { 
+          text: 'COMMENTS:',
+          fontSize: 10,
+          bold: true,
+          decoration: 'underline',
+          alignment: 'center',
+          margin: [0, 20, 0, 8],
+        },
+
+        // Comments Box - multi-line with empty rows for writing
         {
           table: {
             widths: ['*'],
             body: [
-              [{ text: evaluation.comments || 'No comments.', style: 'comments', margin: [8, 8, 8, 8] }],
+              [{ text: evaluation.comments || '', fontSize: 9, margin: [4, 6, 4, 6] }],
+              [{ text: '', margin: [4, 10, 4, 10] }],
+              [{ text: '', margin: [4, 10, 4, 10] }],
+              [{ text: '', margin: [4, 10, 4, 10] }],
+              [{ text: '', margin: [4, 10, 4, 10] }],
             ],
           },
           layout: {
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => PDF_COLORS.border,
-            vLineColor: () => PDF_COLORS.border,
+            hLineWidth: (i: number, node: any) => 0.5,
+            vLineWidth: (i: number, node: any) => 0.5,
+            hLineColor: () => '#000000',
+            vLineColor: () => '#000000',
           },
         },
       ],
