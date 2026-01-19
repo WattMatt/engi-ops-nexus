@@ -75,7 +75,7 @@ export function RoadmapReviewContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [previewExport, setPreviewExport] = useState<SavedPdfExport | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedPrimaryEngineer, setSelectedPrimaryEngineer] = useState<string>("all");
+  const [selectedTeamMember, setSelectedTeamMember] = useState<string>("all");
   const cancelExportRef = useRef(false);
   const queryClient = useQueryClient();
 
@@ -220,26 +220,25 @@ export function RoadmapReviewContent() {
     );
   }, [queryData]);
 
-  const primaryEngineers = useMemo(() => {
+  const allTeamMembers = useMemo(() => {
     if (!enhancedSummaries) return [];
-    const engineers = new Map<string, { id: string; name: string }>();
+    const members = new Map<string, { id: string; name: string; role: string }>();
     enhancedSummaries.forEach((project) => {
-      const primary = project.teamMembers.find((m) => m.role === "primary");
-      if (primary && primary.id) {
-        engineers.set(primary.id, { id: primary.id, name: primary.name });
-      }
+      project.teamMembers.forEach((member) => {
+        if (member.id && !members.has(member.id)) {
+          members.set(member.id, { id: member.id, name: member.name, role: member.role });
+        }
+      });
     });
-    return Array.from(engineers.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(members.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [enhancedSummaries]);
 
   const filteredSummaries = useMemo(() => {
-    if (selectedPrimaryEngineer === "all") return enhancedSummaries;
+    if (selectedTeamMember === "all") return enhancedSummaries;
     return enhancedSummaries.filter((project) =>
-      project.teamMembers.some(
-        (m) => m.role === "primary" && m.id === selectedPrimaryEngineer
-      )
+      project.teamMembers.some((m) => m.id === selectedTeamMember)
     );
-  }, [enhancedSummaries, selectedPrimaryEngineer]);
+  }, [enhancedSummaries, selectedTeamMember]);
 
   const portfolioMetrics = useMemo(() => {
     return calculatePortfolioMetrics(filteredSummaries);
@@ -290,11 +289,11 @@ export function RoadmapReviewContent() {
         chartLayout: options?.chartLayout ?? 'stacked',
       };
 
-      const selectedEngineerName = selectedPrimaryEngineer !== "all"
-        ? primaryEngineers.find(e => e.id === selectedPrimaryEngineer)?.name
+      const selectedMemberName = selectedTeamMember !== "all"
+        ? allTeamMembers.find(e => e.id === selectedTeamMember)?.name
         : null;
-      const customFilename = selectedEngineerName
-        ? `Roadmap_Review_${selectedEngineerName.replace(/\s+/g, '_')}_${format(new Date(), "yyyy-MM-dd")}.pdf`
+      const customFilename = selectedMemberName
+        ? `Roadmap_Review_${selectedMemberName.replace(/\s+/g, '_')}_${format(new Date(), "yyyy-MM-dd")}.pdf`
         : undefined;
 
       const { blob, filename } = await generateRoadmapPdfBlob(
@@ -374,7 +373,7 @@ export function RoadmapReviewContent() {
         setIsGeneratingPDF(false);
       }, 2500);
     }
-  }, [filteredSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts, handlePreviewExport, selectedPrimaryEngineer, primaryEngineers]);
+  }, [filteredSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts, handlePreviewExport, selectedTeamMember, allTeamMembers]);
 
   const handleDeleteExport = async (exportItem: SavedPdfExport) => {
     setDeletingId(exportItem.id);
@@ -489,26 +488,26 @@ export function RoadmapReviewContent() {
       {/* Hidden Printable Charts Container */}
       <PrintableChartContainer projects={enhancedSummaries} />
 
-      {/* Primary Engineer Filter */}
+      {/* Team Member Filter */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Primary Engineer:</span>
-          <Select value={selectedPrimaryEngineer} onValueChange={setSelectedPrimaryEngineer}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="All Primary Engineers" />
+          <span className="text-sm font-medium">Filter by Team Member:</span>
+          <Select value={selectedTeamMember} onValueChange={setSelectedTeamMember}>
+            <SelectTrigger className="w-[250px]">
+              <SelectValue placeholder="All Team Members" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Primary Engineers</SelectItem>
-              {primaryEngineers.map((engineer) => (
-                <SelectItem key={engineer.id} value={engineer.id}>
-                  {engineer.name}
+              <SelectItem value="all">All Team Members</SelectItem>
+              {allTeamMembers.map((member) => (
+                <SelectItem key={member.id} value={member.id}>
+                  {member.name} <span className="text-muted-foreground ml-1 text-xs">({member.role})</span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        {selectedPrimaryEngineer !== "all" && (
+        {selectedTeamMember !== "all" && (
           <span className="text-sm text-muted-foreground">
             Showing {filteredSummaries.length} of {enhancedSummaries.length} projects
           </span>
@@ -565,18 +564,18 @@ export function RoadmapReviewContent() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {selectedPrimaryEngineer === "all" 
+                {selectedTeamMember === "all" 
                   ? "All Project Roadmaps" 
-                  : `Projects for ${primaryEngineers.find(e => e.id === selectedPrimaryEngineer)?.name || "Selected Engineer"}`
+                  : `Projects for ${allTeamMembers.find(e => e.id === selectedTeamMember)?.name || "Selected Member"}`
                 }
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {filteredSummaries.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  {selectedPrimaryEngineer === "all" 
+                  {selectedTeamMember === "all" 
                     ? "No projects found" 
-                    : "No projects assigned to this Primary engineer"
+                    : "No projects assigned to this team member"
                   }
                 </p>
               ) : (
