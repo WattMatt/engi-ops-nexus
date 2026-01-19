@@ -1,15 +1,14 @@
 /**
  * Bulk Services PDF Export Button
  * 
- * Clean implementation following the cost report pattern with:
+ * Full implementation following the cost report pattern with:
  * - Progress tracking
- * - Quick Export (direct download) path
- * - Standard path (blob for storage + preview)
+ * - Storage upload + preview
  * - Proper error handling and timeouts
  */
 
 import { Button } from "@/components/ui/button";
-import { FileDown, Loader2, Zap } from "lucide-react";
+import { FileDown, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -17,7 +16,6 @@ import { useQuery } from "@tanstack/react-query";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { 
   generateBulkServicesPDF,
-  downloadBulkServicesPDF,
   type BulkServicesDocument,
   type BulkServicesSection,
 } from "@/utils/pdfmake/bulkServices";
@@ -95,45 +93,6 @@ export function BulkServicesExportPDFButton({
     return project?.name || "Bulk Services";
   };
 
-  // ============================================
-  // QUICK EXPORT - Direct Download (most reliable)
-  // ============================================
-  const handleQuickExport = async () => {
-    if (!document) {
-      toast.error("No document data available");
-      return;
-    }
-
-    setIsGenerating(true);
-    setCurrentStep("Preparing...");
-
-    try {
-      const [revision, projectName] = await Promise.all([
-        getNextRevision(),
-        getProjectName(),
-      ]);
-
-      setCurrentStep("Generating PDF...");
-      
-      await downloadBulkServicesPDF(document, sections, {
-        projectName,
-        revision,
-      });
-
-      toast.success("PDF downloaded successfully");
-      onReportSaved?.();
-    } catch (error: any) {
-      console.error("[BulkServicesPDF] Quick export error:", error);
-      toast.error(`Download failed: ${error.message?.slice(0, 100) || 'Unknown error'}`);
-    } finally {
-      setIsGenerating(false);
-      setCurrentStep("");
-    }
-  };
-
-  // ============================================
-  // STANDARD EXPORT - Blob for Storage + Preview
-  // ============================================
   const handleExport = async () => {
     if (!document) {
       toast.error("No document data available");
@@ -156,7 +115,7 @@ export function BulkServicesExportPDFButton({
         {
           projectName,
           revision,
-          onProgress: (step, progress) => {
+          onProgress: (step) => {
             setCurrentStep(step);
           },
         }
@@ -198,12 +157,7 @@ export function BulkServicesExportPDFButton({
     } catch (error: any) {
       console.error("[BulkServicesPDF] Export error:", error);
       const errorMessage = error?.message || "Unknown error";
-      
-      if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
-        toast.error("PDF generation timed out. Try Quick Export for a direct download.");
-      } else {
-        toast.error(`Export failed: ${errorMessage.slice(0, 100)}`);
-      }
+      toast.error(`Export failed: ${errorMessage.slice(0, 100)}`);
     } finally {
       setIsGenerating(false);
       setCurrentStep("");
@@ -212,51 +166,25 @@ export function BulkServicesExportPDFButton({
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        {/* Quick Export Button - Direct Download */}
-        <Button
-          onClick={handleQuickExport}
-          disabled={isGenerating || !document}
-          variant="outline"
-          size="sm"
-          title="Quick Export - Direct download (most reliable)"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {currentStep || "Generating..."}
-            </>
-          ) : (
-            <>
-              <Zap className="h-4 w-4 mr-2" />
-              Quick Export
-            </>
-          )}
-        </Button>
+      <Button
+        onClick={handleExport}
+        disabled={isGenerating || !document}
+        variant="default"
+        size="sm"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            {currentStep || "Generating..."}
+          </>
+        ) : (
+          <>
+            <FileDown className="h-4 w-4 mr-2" />
+            Export PDF
+          </>
+        )}
+      </Button>
 
-        {/* Standard Export Button - Save to Storage + Preview */}
-        <Button
-          onClick={handleExport}
-          disabled={isGenerating || !document}
-          variant="default"
-          size="sm"
-          title="Export and save to storage"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {currentStep || "Generating..."}
-            </>
-          ) : (
-            <>
-              <FileDown className="h-4 w-4 mr-2" />
-              Export PDF
-            </>
-          )}
-        </Button>
-      </div>
-
-      {/* Report Preview Modal */}
       {previewReport && (
         <StandardReportPreview
           report={{
