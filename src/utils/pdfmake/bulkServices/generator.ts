@@ -1,11 +1,11 @@
 /**
  * Bulk Services PDF Generator using pdfmake
  * 
- * Clean implementation following the cost report pattern with:
+ * Rebuilt following the canonical pattern with:
  * - Pre-processed logos (base64 before build)
  * - Safety limits to prevent hanging
- * - Dual export paths (blob + direct download fallback)
- * - 90-second timeout for blob generation
+ * - 120-second timeout for blob generation
+ * - Graceful fallback for missing data
  */
 
 import type { Content, Margins } from 'pdfmake/interfaces';
@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { createDocument } from '../documentBuilder';
 import { PDF_COLORS, tableLayouts } from '../styles';
 import { imageToBase64, spacer, horizontalLine } from '../helpers';
-import { fetchCompanyDetails, type CompanyDetails } from '../coverPage';
+import { supabase } from '@/integrations/supabase/client';
 import { STANDARD_MARGINS } from '../config';
 
 // ============================================================================
@@ -56,12 +56,17 @@ export interface BulkServicesPDFOptions {
   projectName?: string;
   revision: string;
   chartDataUrl?: string;
-  onProgress?: (section: string, progress: number) => void;
+  onProgress?: (section: string, progress?: number) => void;
 }
 
 export interface BulkServicesPDFResult {
   blob: Blob;
   filename: string;
+}
+
+interface LocalCompanyDetails {
+  companyName?: string;
+  logoUrl?: string | null;
 }
 
 // ============================================================================
@@ -87,30 +92,66 @@ const METHOD_NAMES: Record<string, string> = {
   'residential': 'Residential ADMD Method',
 };
 
-// Safety limits (matching cost report best practices)
-const MAX_SECTIONS = 50;
-const LOGO_TIMEOUT_MS = 5000;
+// Safety limits
+const MAX_SECTIONS = 30;
+const LOGO_TIMEOUT_MS = 3000;
+const COMPANY_TIMEOUT_MS = 5000;
+const PDF_TIMEOUT_MS = 120000;
 
 // ============================================================================
-// LOGO PRE-PROCESSING
+// DATA FETCHING WITH STRICT TIMEOUTS
 // ============================================================================
+
+async function fetchCompanyDetailsLocal(): Promise<LocalCompanyDetails> {
+  console.log('[BulkServicesPDF] Fetching company details...');
+  
+  return new Promise(async (resolve) => {
+    const timeout = setTimeout(() => {
+      console.warn('[BulkServicesPDF] Company details fetch timed out');
+      resolve({ companyName: undefined, logoUrl: null });
+    }, COMPANY_TIMEOUT_MS);
+
+    try {
+      const { data: settings } = await supabase
+        .from('company_settings')
+        .select('company_name, company_logo_url')
+        .limit(1)
+        .maybeSingle();
+
+      clearTimeout(timeout);
+      console.log('[BulkServicesPDF] Company details fetched');
+      resolve({
+        companyName: settings?.company_name || undefined,
+        logoUrl: settings?.company_logo_url || null,
+      });
+    } catch (error) {
+      console.warn('[BulkServicesPDF] Company fetch error:', error);
+      clearTimeout(timeout);
+      resolve({ companyName: undefined, logoUrl: null });
+    }
+  });
+}
 
 async function prepareLogoBase64(logoUrl: string | null | undefined): Promise<string | null> {
   if (!logoUrl) return null;
   
-  try {
-    console.log('[BulkServicesPDF] Converting logo to base64...');
-    const logoPromise = imageToBase64(logoUrl);
-    const timeoutPromise = new Promise<null>((_, reject) => 
-      setTimeout(() => reject(new Error('Logo fetch timeout')), LOGO_TIMEOUT_MS)
-    );
-    const result = await Promise.race([logoPromise, timeoutPromise]);
-    console.log('[BulkServicesPDF] Logo converted successfully');
-    return result;
-  } catch (error) {
-    console.warn('[BulkServicesPDF] Failed to convert logo, skipping:', error);
-    return null;
-  }
+  return new Promise(async (resolve) => {
+    const timeout = setTimeout(() => {
+      console.warn('[BulkServicesPDF] Logo conversion timed out');
+      resolve(null);
+    }, LOGO_TIMEOUT_MS);
+
+    try {
+      const base64 = await imageToBase64(logoUrl);
+      clearTimeout(timeout);
+      console.log('[BulkServicesPDF] Logo converted');
+      resolve(base64);
+    } catch (error) {
+      console.warn('[BulkServicesPDF] Logo conversion failed:', error);
+      clearTimeout(timeout);
+      resolve(null);
+    }
+  });
 }
 
 // ============================================================================
@@ -120,7 +161,7 @@ async function prepareLogoBase64(logoUrl: string | null | undefined): Promise<st
 function buildCoverPage(
   document: BulkServicesDocument,
   options: BulkServicesPDFOptions,
-  companyDetails?: CompanyDetails | null,
+  companyDetails?: LocalCompanyDetails | null,
   logoBase64?: string | null
 ): Content[] {
   const content: Content[] = [];
@@ -494,16 +535,7 @@ export async function generateBulkServicesPDF(
 
   // Pre-process: Fetch company details with timeout
   options.onProgress?.('Fetching company details...', 10);
-  let companyDetails: CompanyDetails | null = null;
-  try {
-    const fetchPromise = fetchCompanyDetails();
-    const timeoutPromise = new Promise<null>((_, reject) => 
-      setTimeout(() => reject(new Error('Company details timeout')), 8000)
-    );
-    companyDetails = await Promise.race([fetchPromise, timeoutPromise]);
-  } catch (error) {
-    console.warn('[BulkServicesPDF] Failed to fetch company details:', error);
-  }
+  const companyDetails = await fetchCompanyDetailsLocal();
 
   // Pre-process: Convert logo to base64 BEFORE building document
   options.onProgress?.('Processing logo...', 20);
@@ -551,12 +583,12 @@ export async function generateBulkServicesPDF(
   // Generate filename
   const filename = `BulkServices_${document.document_number}_${options.revision}_${format(new Date(), 'yyyyMMdd')}.pdf`;
 
-  // Generate blob with 90 second timeout
+  // Generate blob with 120 second timeout (extended for complex documents)
   options.onProgress?.('Generating PDF...', 90);
-  console.log('[BulkServicesPDF] Building PDF blob...');
+  console.log('[BulkServicesPDF] Building PDF blob with 120s timeout...');
   
   try {
-    const blob = await doc.toBlob(90000);
+    const blob = await doc.toBlob(120000);
     const elapsedTime = Date.now() - startTime;
     console.log(`[BulkServicesPDF] PDF generated in ${elapsedTime}ms, size: ${Math.round(blob.size / 1024)}KB`);
     
@@ -582,16 +614,7 @@ export async function downloadBulkServicesPDF(
   console.log('[BulkServicesPDF] Starting direct download...');
 
   // Pre-process company details
-  let companyDetails: CompanyDetails | null = null;
-  try {
-    const fetchPromise = fetchCompanyDetails();
-    const timeoutPromise = new Promise<null>((_, reject) => 
-      setTimeout(() => reject(new Error('Company details timeout')), 8000)
-    );
-    companyDetails = await Promise.race([fetchPromise, timeoutPromise]);
-  } catch (error) {
-    console.warn('[BulkServicesPDF] Failed to fetch company details:', error);
-  }
+  const companyDetails = await fetchCompanyDetailsLocal();
 
   // Pre-process logo
   const logoBase64 = await prepareLogoBase64(companyDetails?.logoUrl);
