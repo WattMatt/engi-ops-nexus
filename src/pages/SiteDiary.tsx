@@ -23,7 +23,7 @@ import { TasksGanttChart } from "@/components/site-diary/TasksGanttChart";
 import { RemindersPanel } from "@/components/site-diary/RemindersPanel";
 import { MondayBoardView } from "@/components/site-diary/board/MondayBoardView";
 import { TeamDashboard } from "@/components/site-diary/dashboard/TeamDashboard";
-import { ProjectOverview } from "@/components/site-diary/overview/ProjectOverview";
+import { ProjectOverviewWithSidebar } from "@/components/site-diary/overview/ProjectOverviewWithSidebar";
 import { TaskDetailsModal } from "@/components/site-diary/task-views/TaskDetailsModal";
 import { DiaryEntryFormDialog } from "@/components/site-diary/entry-form/DiaryEntryFormDialog";
 import { LayoutDashboard, Users } from "lucide-react";
@@ -764,7 +764,7 @@ const SiteDiary = () => {
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
-          {projectId && <ProjectOverview projectId={projectId} />}
+          {projectId && <ProjectOverviewWithSidebar projectId={projectId} />}
         </TabsContent>
 
         <TabsContent value="board" className="mt-6">
