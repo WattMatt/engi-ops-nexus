@@ -99,12 +99,12 @@ const DashboardLayout = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="h-screen flex w-full overflow-hidden">
         <AppSidebar />
         
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header */}
-          <header className="h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm">
+          <header className="h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex items-center justify-between px-6 shrink-0 z-50 shadow-sm">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
             </div>
