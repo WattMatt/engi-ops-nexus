@@ -17,7 +17,6 @@ import { ProjectsSidebar, ProjectsSection } from "@/components/projects/Projects
 import { GlobalRoadmapReview } from "@/components/projects/GlobalRoadmapReview";
 import { GlobalAnalytics } from "@/components/projects/GlobalAnalytics";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Project {
   id: string;
@@ -203,7 +202,7 @@ const ProjectSelect = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 flex">
+    <div className="h-screen bg-gradient-to-b from-background via-background to-muted/20 flex overflow-hidden">
       {/* Sidebar */}
       <ProjectsSidebar 
         activeSection={activeSection} 
@@ -211,9 +210,9 @@ const ProjectSelect = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="border-b bg-background/80 backdrop-blur-sm shrink-0 z-10">
           <div className="px-6 py-4">
             <div className="flex justify-between items-center">
               <div>
@@ -246,11 +245,9 @@ const ProjectSelect = () => {
         </div>
 
         {/* Content Area */}
-        <ScrollArea className="flex-1">
-          <div className="p-6">
-            {renderContent()}
-          </div>
-        </ScrollArea>
+        <div className="flex-1 overflow-auto p-6">
+          {renderContent()}
+        </div>
       </div>
     </div>
   );
