@@ -81,6 +81,12 @@ export function RoadmapReviewContent() {
   const cancelExportRef = useRef(false);
   const queryClient = useQueryClient();
 
+  // Generate a filter key for animations - changes when any filter changes
+  const filterKey = useMemo(() => 
+    `${groupBy}-${selectedProject}-${selectedRole}-${selectedUser}`,
+    [groupBy, selectedProject, selectedRole, selectedUser]
+  );
+
   // Pre-capture charts in background
   const { 
     status: preCaptureStatus, 
@@ -520,7 +526,7 @@ export function RoadmapReviewContent() {
         <TabsContent value="dashboard" className="space-y-6">
           {/* Filter indicator */}
           {groupBy !== "none" && (
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg animate-fade-in">
               <BarChart3 className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">
                 Showing filtered data: {getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries) || "Filtered view"}
@@ -530,20 +536,24 @@ export function RoadmapReviewContent() {
               </span>
             </div>
           )}
-          <div className="grid gap-6 lg:grid-cols-4">
-            <PortfolioHealthGauge score={portfolioMetrics.totalHealthScore} />
-            <div className="lg:col-span-3">
+          <div key={`dashboard-${filterKey}`} className="grid gap-6 lg:grid-cols-4 animate-fade-in">
+            <div className="animate-scale-in" style={{ animationDelay: '0ms' }}>
+              <PortfolioHealthGauge score={portfolioMetrics.totalHealthScore} />
+            </div>
+            <div className="lg:col-span-3 animate-scale-in" style={{ animationDelay: '50ms' }}>
               <ExecutiveSummaryCards metrics={portfolioMetrics} />
             </div>
           </div>
-          <ProjectComparisonChart projects={filteredSummaries} />
+          <div key={`chart-${filterKey}`} className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+            <ProjectComparisonChart projects={filteredSummaries} />
+          </div>
         </TabsContent>
 
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
           {/* Filter indicator */}
           {groupBy !== "none" && (
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg animate-fade-in">
               <BarChart3 className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">
                 Showing filtered data: {getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries) || "Filtered view"}
@@ -553,9 +563,13 @@ export function RoadmapReviewContent() {
               </span>
             </div>
           )}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <PriorityHeatMap projects={filteredSummaries} />
-            <TeamWorkloadChart projects={filteredSummaries} />
+          <div key={`analytics-${filterKey}`} className="grid gap-6 lg:grid-cols-2">
+            <div className="animate-scale-in" style={{ animationDelay: '0ms' }}>
+              <PriorityHeatMap projects={filteredSummaries} />
+            </div>
+            <div className="animate-scale-in" style={{ animationDelay: '75ms' }}>
+              <TeamWorkloadChart projects={filteredSummaries} />
+            </div>
           </div>
         </TabsContent>
 
