@@ -2,18 +2,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 
 interface GeneratorCostingSectionProps {
   projectId: string;
 }
 
 export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionProps) => {
+  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
+  const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
   const [editValues, setEditValues] = useState({
     ratePerTenantDB: 0,
     numMainBoards: 0,
@@ -40,7 +44,7 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
   // Get zone IDs for dependent query
   const zoneIds = zones.map(z => z.id);
 
-  const { data: zoneGenerators = [] } = useQuery({
+  const { data: zoneGenerators = [], refetch: refetchZoneGenerators } = useQuery({
     queryKey: ["zone-generators-costing", projectId, zoneIds],
     queryFn: async () => {
       if (!zoneIds.length) return [];
@@ -48,7 +52,8 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
       const { data, error } = await supabase
         .from("zone_generators")
         .select("*")
-        .in("zone_id", zoneIds);
+        .in("zone_id", zoneIds)
+        .order("generator_number");
 
       if (error) throw error;
       return data || [];
@@ -195,6 +200,56 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     return getZoneGenerators(zoneId).reduce((sum, gen) => sum + (Number(gen.generator_cost) || 0), 0);
   };
 
+  const toggleZoneExpanded = (zoneId: string) => {
+    setExpandedZones(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(zoneId)) {
+        newSet.delete(zoneId);
+      } else {
+        newSet.add(zoneId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleUpdateGeneratorSize = async (generatorId: string, size: string | null) => {
+    try {
+      const { error } = await supabase
+        .from("zone_generators")
+        .update({ generator_size: size })
+        .eq("id", generatorId);
+
+      if (error) throw error;
+      toast.success("Generator size updated");
+      refetchZoneGenerators();
+      // Sync with settings tab
+      queryClient.invalidateQueries({ queryKey: ["zone-generators", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-report", projectId] });
+    } catch (error) {
+      console.error("Error updating generator size:", error);
+      toast.error("Failed to update generator size");
+    }
+  };
+
+  const handleUpdateGeneratorCost = async (generatorId: string, cost: number) => {
+    try {
+      const { error } = await supabase
+        .from("zone_generators")
+        .update({ generator_cost: cost })
+        .eq("id", generatorId);
+
+      if (error) throw error;
+      toast.success("Generator cost updated");
+      refetchZoneGenerators();
+      // Sync with settings tab
+      queryClient.invalidateQueries({ queryKey: ["zone-generators", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-report", projectId] });
+    } catch (error) {
+      console.error("Error updating generator cost:", error);
+      toast.error("Failed to update generator cost");
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -247,27 +302,86 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                 {zones.map((zone, index) => {
                   const generators = getZoneGenerators(zone.id);
                   const zoneTotalCost = getZoneTotalCost(zone.id);
+                  const isExpanded = expandedZones.has(zone.id);
                   
                   return (
-                    <TableRow key={zone.id}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell>
-                        {zone.zone_name}
-                        {zone.num_generators > 1 && ` (${zone.num_generators} Generators)`}
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {generators.map((gen, i) => (
-                            <div key={gen.id}>
-                              Gen {gen.generator_number}: {gen.generator_size || "Not set"} - {formatCurrency(Number(gen.generator_cost) || 0)}
+                    <>
+                      <TableRow key={zone.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleZoneExpanded(zone.id)}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-1">
+                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            {index + 1}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-2 h-2 rounded-full shrink-0" 
+                              style={{ backgroundColor: zone.zone_color || "#3b82f6" }}
+                            />
+                            {zone.zone_name}
+                            {zone.num_generators > 1 && ` (${zone.num_generators} Generators)`}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono">{generators.length}</TableCell>
+                        <TableCell className="font-mono text-muted-foreground">—</TableCell>
+                        <TableCell className="text-right font-mono font-medium">
+                          {formatCurrency(zoneTotalCost)}
+                        </TableCell>
+                      </TableRow>
+                      
+                      {/* Expanded generator rows */}
+                      {isExpanded && generators.map((gen) => (
+                        <TableRow key={gen.id} className="bg-muted/30">
+                          <TableCell></TableCell>
+                          <TableCell className="pl-8">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm text-muted-foreground">Gen #{gen.generator_number}</span>
+                              <Select
+                                value={gen.generator_size || "none"}
+                                onValueChange={(value) => handleUpdateGeneratorSize(gen.id, value === "none" ? null : value)}
+                              >
+                                <SelectTrigger className="w-[130px] h-8 text-xs" onClick={(e) => e.stopPropagation()}>
+                                  <SelectValue placeholder="Select size" />
+                                </SelectTrigger>
+                                <SelectContent className="z-50 bg-popover">
+                                  <SelectItem value="none">Not selected</SelectItem>
+                                  {GENERATOR_SIZING_TABLE.map((g) => (
+                                    <SelectItem key={g.rating} value={g.rating}>
+                                      {g.rating}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono">{generators.length}</TableCell>
-                      <TableCell className="font-mono">-</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(zoneTotalCost)}
-                      </TableCell>
-                    </TableRow>
+                          </TableCell>
+                          <TableCell></TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={gen.generator_cost || 0}
+                              onChange={(e) => {
+                                const newCost = parseFloat(e.target.value) || 0;
+                                // Optimistic update
+                                queryClient.setQueryData(
+                                  ["zone-generators-costing", projectId, zoneIds],
+                                  (old: any[]) => old?.map(g => 
+                                    g.id === gen.id ? { ...g, generator_cost: newCost } : g
+                                  )
+                                );
+                              }}
+                              onBlur={(e) => handleUpdateGeneratorCost(gen.id, parseFloat(e.target.value) || 0)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-28 h-8 text-xs"
+                              placeholder="Cost"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {formatCurrency(Number(gen.generator_cost) || 0)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </>
                   );
                 })}
                 

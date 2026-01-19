@@ -348,6 +348,9 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
       if (error) throw error;
       toast.success("Generator cost updated");
       refetchZoneGenerators();
+      // Invalidate costing tab queries for bidirectional sync
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-costing", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-report", projectId] });
     } catch (error) {
       console.error("Error updating generator cost:", error);
       toast.error("Failed to update generator cost");
@@ -776,7 +779,17 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                                       <TableCell className="py-2">
                                         <Input
                                           type="number"
-                                          defaultValue={generator.generator_cost || 0}
+                                          value={generator.generator_cost || 0}
+                                          onChange={(e) => {
+                                            // Optimistically update local state
+                                            const newCost = parseFloat(e.target.value) || 0;
+                                            queryClient.setQueryData(
+                                              ["zone-generators", projectId],
+                                              (old: any[]) => old?.map(g => 
+                                                g.id === generator.id ? { ...g, generator_cost: newCost } : g
+                                              )
+                                            );
+                                          }}
                                           onBlur={(e) => 
                                             handleUpdateGeneratorCost(generator.id, parseFloat(e.target.value) || 0)
                                           }
