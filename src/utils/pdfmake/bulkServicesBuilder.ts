@@ -1050,96 +1050,71 @@ export async function generateBulkServicesPDF(
 
   try {
     // Fetch company details
+    console.log('[BulkServicesPDF] Fetching company details...');
     const companyDetails = options.companyDetails || await fetchCompanyDetails();
 
-    // Build all content sections
-    const content: Content[] = [];
+    // Create document using PDFDocumentBuilder (reliable pattern)
+    console.log('[BulkServicesPDF] Creating document builder...');
+    const doc = createDocument({
+      orientation: 'portrait',
+      pageSize: 'A4',
+    });
+
+    // Add custom styles
+    doc.addStyles({
+      label: { fontSize: 9, color: COLORS.textMuted, bold: true },
+      value: { fontSize: 10, color: COLORS.text },
+    });
 
     // Cover Page
+    console.log('[BulkServicesPDF] Building cover page...');
     const coverContent = await buildCoverPage(document, options, companyDetails);
-    content.push(...coverContent);
+    doc.add(coverContent);
 
     // Document Information
-    content.push(...buildDocumentInfo(document, options.projectName));
+    console.log('[BulkServicesPDF] Building document info...');
+    doc.add(buildDocumentInfo(document, options.projectName));
 
     // SANS 204 Analysis
-    content.push(...buildSANS204Analysis(document));
+    console.log('[BulkServicesPDF] Building SANS 204 analysis...');
+    doc.add(buildSANS204Analysis(document));
 
     // Connection & Cabling
-    content.push(...buildConnectionAndCabling(document));
+    console.log('[BulkServicesPDF] Building connection & cabling...');
+    doc.add(buildConnectionAndCabling(document));
 
     // Chart if available
-    if (options.chartDataUrl) {
-      content.push({
-        text: 'Zone Load Comparison Chart',
-        fontSize: 14,
-        bold: true,
-        margin: [0, 0, 0, 10] as Margins,
-      });
-      try {
-        content.push({
+    if (options.chartDataUrl && options.chartDataUrl.startsWith('data:image/')) {
+      console.log('[BulkServicesPDF] Adding chart...');
+      doc.add([
+        {
+          text: 'Zone Load Comparison Chart',
+          fontSize: 14,
+          bold: true,
+          margin: [0, 0, 0, 10] as Margins,
+        },
+        {
           image: options.chartDataUrl,
           width: 500,
           margin: [0, 0, 0, 20] as Margins,
-        });
-      } catch (error) {
-        console.warn('[BulkServicesPDF] Failed to add chart:', error);
-      }
-      content.push({ text: '', pageBreak: 'after' });
+        },
+        { text: '', pageBreak: 'after' },
+      ]);
     }
 
     // Section Content
     if (sections.length > 0) {
-      content.push(...buildSectionContent(sections));
+      console.log('[BulkServicesPDF] Building section content...');
+      doc.add(buildSectionContent(sections));
     }
 
-    // Create document definition
-    const docDefinition: TDocumentDefinitions = {
-      pageSize: 'A4',
-      pageOrientation: 'portrait',
-      pageMargins: [STANDARD_MARGINS.left, STANDARD_MARGINS.top, STANDARD_MARGINS.right, STANDARD_MARGINS.bottom],
-      content,
-      defaultStyle: {
-        fontSize: 10,
-        color: COLORS.text,
-      },
-      styles: {
-        label: { fontSize: 9, color: COLORS.textMuted, bold: true },
-        value: { fontSize: 10, color: COLORS.text },
-      },
-      header: (currentPage: number, pageCount: number) => {
-        if (currentPage === 1) return null;
-        return {
-          columns: [
-            { text: 'Bulk Services Report', fontSize: 8, color: COLORS.textMuted, margin: [40, 15, 0, 0] as Margins },
-            { text: document.document_number, fontSize: 8, color: COLORS.textMuted, alignment: 'right', margin: [0, 15, 40, 0] as Margins },
-          ],
-        };
-      },
-      footer: (currentPage: number, pageCount: number) => {
-        if (currentPage === 1) return null;
-        return {
-          columns: [
-            { text: companyDetails?.companyName || '', fontSize: 8, color: COLORS.textMuted, margin: [40, 0, 0, 0] as Margins },
-            { text: `Page ${currentPage} of ${pageCount}`, fontSize: 8, color: COLORS.textMuted, alignment: 'right', margin: [0, 0, 40, 0] as Margins },
-          ],
-        };
-      },
-    };
+    // Configure standard header/footer (skip first page automatically)
+    doc.withStandardHeader('Bulk Services Report', options.projectName);
+    doc.withStandardFooter(false);
 
-    // Generate PDF using pdfmake
-    const pdfMake = (await import('pdfmake/build/pdfmake')).default;
-    const pdfFonts = (await import('pdfmake/build/vfs_fonts')).default;
-    pdfMake.vfs = pdfFonts.vfs;
-
-    const pdfDocGenerator = pdfMake.createPdf(docDefinition);
-
-    // Generate blob
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      pdfDocGenerator.getBlob((blob: Blob) => {
-        resolve(blob);
-      });
-    });
+    // Generate blob using reliable toBlob method with 90s timeout
+    console.log('[BulkServicesPDF] Generating PDF blob (90s timeout)...');
+    const blob = await doc.toBlob(90000);
 
     const filename = `bulk-services-${document.document_number.replace(/\s+/g, '-')}-${options.revision}-${format(new Date(), 'yyyyMMdd')}.pdf`;
 
