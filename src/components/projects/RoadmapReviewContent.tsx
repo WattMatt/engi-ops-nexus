@@ -6,13 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
   FileText, 
   Download, 
   RefreshCw,
@@ -23,8 +16,13 @@ import {
   Archive,
   Trash2,
   Eye,
-  User
 } from "lucide-react";
+import { 
+  RoadmapReviewFilters, 
+  GroupByMode, 
+  useFilteredSummaries,
+  getFilterDescription,
+} from "./RoadmapReviewFilters";
 import { PDFPreviewDialog } from "@/components/document-templates/PDFPreviewDialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -75,7 +73,11 @@ export function RoadmapReviewContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [previewExport, setPreviewExport] = useState<SavedPdfExport | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedTeamMember, setSelectedTeamMember] = useState<string>("all");
+  // Filter state
+  const [groupBy, setGroupBy] = useState<GroupByMode>("none");
+  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [selectedRole, setSelectedRole] = useState<string>("all");
+  const [selectedUser, setSelectedUser] = useState<string>("all");
   const cancelExportRef = useRef(false);
   const queryClient = useQueryClient();
 
@@ -220,25 +222,14 @@ export function RoadmapReviewContent() {
     );
   }, [queryData]);
 
-  const allTeamMembers = useMemo(() => {
-    if (!enhancedSummaries) return [];
-    const members = new Map<string, { id: string; name: string; role: string }>();
-    enhancedSummaries.forEach((project) => {
-      project.teamMembers.forEach((member) => {
-        if (member.id && !members.has(member.id)) {
-          members.set(member.id, { id: member.id, name: member.name, role: member.role });
-        }
-      });
-    });
-    return Array.from(members.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [enhancedSummaries]);
-
-  const filteredSummaries = useMemo(() => {
-    if (selectedTeamMember === "all") return enhancedSummaries;
-    return enhancedSummaries.filter((project) =>
-      project.teamMembers.some((m) => m.id === selectedTeamMember)
-    );
-  }, [enhancedSummaries, selectedTeamMember]);
+  // Use the filter hook for filtered summaries
+  const filteredSummaries = useFilteredSummaries(
+    enhancedSummaries,
+    groupBy,
+    selectedProject,
+    selectedRole,
+    selectedUser
+  );
 
   const portfolioMetrics = useMemo(() => {
     return calculatePortfolioMetrics(filteredSummaries);
@@ -289,11 +280,9 @@ export function RoadmapReviewContent() {
         chartLayout: options?.chartLayout ?? 'stacked',
       };
 
-      const selectedMemberName = selectedTeamMember !== "all"
-        ? allTeamMembers.find(e => e.id === selectedTeamMember)?.name
-        : null;
-      const customFilename = selectedMemberName
-        ? `Roadmap_Review_${selectedMemberName.replace(/\s+/g, '_')}_${format(new Date(), "yyyy-MM-dd")}.pdf`
+      const filterDesc = getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries);
+      const customFilename = filterDesc
+        ? `Roadmap_Review_${filterDesc.replace(/\s+/g, '_')}_${format(new Date(), "yyyy-MM-dd")}.pdf`
         : undefined;
 
       const { blob, filename } = await generateRoadmapPdfBlob(
@@ -373,7 +362,7 @@ export function RoadmapReviewContent() {
         setIsGeneratingPDF(false);
       }, 2500);
     }
-  }, [filteredSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts, handlePreviewExport, selectedTeamMember, allTeamMembers]);
+  }, [filteredSummaries, portfolioMetrics, queryClient, queryData?.allRoadmapItems, chartsPreCaptured, preCapturedCharts, handlePreviewExport, groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries]);
 
   const handleDeleteExport = async (exportItem: SavedPdfExport) => {
     setDeletingId(exportItem.id);
@@ -488,31 +477,18 @@ export function RoadmapReviewContent() {
       {/* Hidden Printable Charts Container */}
       <PrintableChartContainer projects={enhancedSummaries} />
 
-      {/* Team Member Filter */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Filter by Team Member:</span>
-          <Select value={selectedTeamMember} onValueChange={setSelectedTeamMember}>
-            <SelectTrigger className="w-[250px]">
-              <SelectValue placeholder="All Team Members" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Team Members</SelectItem>
-              {allTeamMembers.map((member) => (
-                <SelectItem key={member.id} value={member.id}>
-                  {member.name} <span className="text-muted-foreground ml-1 text-xs">({member.role})</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {selectedTeamMember !== "all" && (
-          <span className="text-sm text-muted-foreground">
-            Showing {filteredSummaries.length} of {enhancedSummaries.length} projects
-          </span>
-        )}
-      </div>
+      {/* Filters */}
+      <RoadmapReviewFilters
+        enhancedSummaries={enhancedSummaries}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        selectedProject={selectedProject}
+        onProjectChange={setSelectedProject}
+        selectedRole={selectedRole}
+        onRoleChange={setSelectedRole}
+        selectedUser={selectedUser}
+        onUserChange={setSelectedUser}
+      />
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -564,18 +540,18 @@ export function RoadmapReviewContent() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {selectedTeamMember === "all" 
-                  ? "All Project Roadmaps" 
-                  : `Projects for ${allTeamMembers.find(e => e.id === selectedTeamMember)?.name || "Selected Member"}`
+                {getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries)
+                  ? `Projects: ${getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries)}`
+                  : "All Project Roadmaps"
                 }
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {filteredSummaries.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  {selectedTeamMember === "all" 
+                  {groupBy === "none" 
                     ? "No projects found" 
-                    : "No projects assigned to this team member"
+                    : "No projects match the current filter"
                   }
                 </p>
               ) : (
