@@ -261,7 +261,7 @@ export class PDFDocumentBuilder {
         if (!resolved) {
           resolved = true;
           console.error(`[PDFMake] Timed out after ${timeoutMs}ms`);
-          reject(new Error(`PDF timed out after ${timeoutMs / 1000}s. Try Quick Export.`));
+          reject(new Error(`PDF generation timed out after ${Math.round(timeoutMs / 1000)}s. The document may be too complex.`));
         }
       }, timeoutMs);
       
@@ -339,7 +339,7 @@ export class PDFDocumentBuilder {
         if (!resolved) {
           resolved = true;
           console.error(`[PDFMake] Buffer fallback timed out after ${timeoutMs}ms`);
-          reject(new Error(`PDF timed out after ${timeoutMs / 1000}s. Try Quick Export.`));
+          reject(new Error(`PDF generation timed out after ${Math.round(timeoutMs / 1000)}s. The document may be too complex.`));
         }
       }, timeoutMs);
       

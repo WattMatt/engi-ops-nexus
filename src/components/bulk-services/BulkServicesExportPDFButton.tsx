@@ -1,10 +1,8 @@
 /**
  * Bulk Services PDF Export Button
  * 
- * Full implementation following the cost report pattern with:
- * - Progress tracking
- * - Storage upload + preview
- * - Proper error handling and timeouts
+ * Full storage-backed export following the cost report pattern.
+ * Uses 120s timeout and strict async handling.
  */
 
 import { Button } from "@/components/ui/button";
@@ -103,6 +101,8 @@ export function BulkServicesExportPDFButton({
     setCurrentStep("Initializing...");
 
     try {
+      // Fetch revision and project name
+      setCurrentStep("Preparing...");
       const [revision, projectName] = await Promise.all([
         getNextRevision(),
         getProjectName(),
@@ -115,9 +115,7 @@ export function BulkServicesExportPDFButton({
         {
           projectName,
           revision,
-          onProgress: (step) => {
-            setCurrentStep(step);
-          },
+          onProgress: (step) => setCurrentStep(step),
         }
       );
 
