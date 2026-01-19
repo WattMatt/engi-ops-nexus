@@ -9,22 +9,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { FileText, Download, Calendar, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import { generateAnalyticsReportPDF, type ReportConfig } from './reportBuilderPdfExport';
 
-interface ReportConfig {
-  name: string;
-  timeframe: 'all' | '12months' | '6months' | '3months';
-  metrics: {
-    portfolio: boolean;
-    benchmarks: boolean;
-    trends: boolean;
-    manufacturers: boolean;
-    efficiency: boolean;
-    costs: boolean;
-  };
-}
+// ReportConfig type is now imported from reportBuilderPdfExport
 
 export const ReportBuilder: React.FC = () => {
   const [config, setConfig] = useState<ReportConfig>({
@@ -70,130 +58,11 @@ export const ReportBuilder: React.FC = () => {
   const generatePDF = async () => {
     setIsGenerating(true);
     try {
-      const pdf = new jsPDF();
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      let yPos = 20;
-
-      // Title
-      pdf.setFontSize(20);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(config.name, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 10;
-
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(`Generated: ${format(new Date(), 'PPP')}`, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 15;
-
-      // Portfolio Summary
-      if (config.metrics.portfolio && reportData?.fittings) {
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Portfolio Summary', 14, yPos);
-        yPos += 8;
-
-        const totalFittings = reportData.fittings.length;
-        const totalCost = reportData.fittings.reduce((s, f) => 
-          s + (f.supply_cost || 0) + (f.install_cost || 0), 0);
-        const avgWattage = totalFittings 
-          ? reportData.fittings.reduce((s, f) => s + (f.wattage || 0), 0) / totalFittings 
-          : 0;
-
-        autoTable(pdf, {
-          startY: yPos,
-          head: [['Metric', 'Value']],
-          body: [
-            ['Total Fittings', totalFittings.toString()],
-            ['Total Portfolio Value', `R ${totalCost.toLocaleString()}`],
-            ['Average Wattage', `${avgWattage.toFixed(1)} W`],
-            ['Unique Projects', (reportData.projects?.length || 0).toString()]
-          ],
-          theme: 'striped',
-          headStyles: { fillColor: [59, 130, 246] }
-        });
-        yPos = (pdf as any).lastAutoTable.finalY + 15;
-      }
-
-      // Manufacturer Analysis
-      if (config.metrics.manufacturers && reportData?.fittings) {
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Manufacturer Analysis', 14, yPos);
-        yPos += 8;
-
-        const mfrCounts: Record<string, number> = {};
-        reportData.fittings.forEach(f => {
-          if (f.manufacturer) {
-            mfrCounts[f.manufacturer] = (mfrCounts[f.manufacturer] || 0) + 1;
-          }
-        });
-
-        const mfrData = Object.entries(mfrCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
-          .map(([mfr, count]) => [
-            mfr, 
-            count.toString(), 
-            `${((count / reportData.fittings.length) * 100).toFixed(1)}%`
-          ]);
-
-        autoTable(pdf, {
-          startY: yPos,
-          head: [['Manufacturer', 'Fitting Count', 'Market Share']],
-          body: mfrData,
-          theme: 'striped',
-          headStyles: { fillColor: [59, 130, 246] }
-        });
-        yPos = (pdf as any).lastAutoTable.finalY + 15;
-      }
-
-      // Efficiency Analysis
-      if (config.metrics.efficiency && reportData?.fittings) {
-        if (yPos > 240) {
-          pdf.addPage();
-          yPos = 20;
-        }
-
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Efficiency Analysis', 14, yPos);
-        yPos += 8;
-
-        const efficacyFittings = reportData.fittings.filter(f => f.wattage && f.lumen_output);
-        const avgEfficacy = efficacyFittings.length
-          ? efficacyFittings.reduce((s, f) => s + (f.lumen_output! / f.wattage!), 0) / efficacyFittings.length
-          : 0;
-
-        const efficacyRanges = {
-          'Below 80 lm/W': 0,
-          '80-100 lm/W': 0,
-          '100-120 lm/W': 0,
-          'Above 120 lm/W': 0
-        };
-
-        efficacyFittings.forEach(f => {
-          const eff = f.lumen_output! / f.wattage!;
-          if (eff < 80) efficacyRanges['Below 80 lm/W']++;
-          else if (eff < 100) efficacyRanges['80-100 lm/W']++;
-          else if (eff < 120) efficacyRanges['100-120 lm/W']++;
-          else efficacyRanges['Above 120 lm/W']++;
-        });
-
-        autoTable(pdf, {
-          startY: yPos,
-          head: [['Efficacy Range', 'Count', 'Percentage']],
-          body: Object.entries(efficacyRanges).map(([range, count]) => [
-            range,
-            count.toString(),
-            `${((count / efficacyFittings.length) * 100).toFixed(1)}%`
-          ]),
-          theme: 'striped',
-          headStyles: { fillColor: [59, 130, 246] }
-        });
-      }
-
-      // Download
-      pdf.save(`${config.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      await generateAnalyticsReportPDF(config, {
+        fittings: reportData?.fittings || null,
+        schedules: reportData?.schedules || null,
+        projects: reportData?.projects || null,
+      });
       toast.success('Report generated successfully');
     } catch (error) {
       console.error('Error generating report:', error);
