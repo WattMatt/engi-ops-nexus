@@ -419,5 +419,5 @@ export const DEFAULT_EXPORT_OPTIONS: RoadmapPDFExportOptions = {
   confidentialNotice: true,
   reportType: 'meeting-review',
   chartLayout: 'stacked',
-  pdfEngine: 'jspdf', // Default to jsPDF for better quality
+  pdfEngine: 'pdfmake', // Always use pdfmake
 };
