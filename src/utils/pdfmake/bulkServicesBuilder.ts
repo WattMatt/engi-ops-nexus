@@ -887,16 +887,38 @@ export async function generateBulkServicesPDF(
     // ========== PHASE 1: Pre-process all async data BEFORE document building ==========
     console.log('[BulkServicesPDF] Phase 1: Pre-processing data...');
     
-    // Fetch company details
+    // Fetch company details with timeout
     console.log('[BulkServicesPDF] Fetching company details...');
-    const companyDetails = options.companyDetails || await fetchCompanyDetails();
+    let companyDetails: CompanyDetails | undefined;
+    try {
+      const companyPromise = options.companyDetails 
+        ? Promise.resolve(options.companyDetails)
+        : fetchCompanyDetails();
+      const timeoutPromise = new Promise<CompanyDetails>((_, reject) => 
+        setTimeout(() => reject(new Error('Company details fetch timeout')), 8000)
+      );
+      companyDetails = await Promise.race([companyPromise, timeoutPromise]);
+      console.log('[BulkServicesPDF] Company details fetched:', companyDetails?.companyName);
+    } catch (error) {
+      console.warn('[BulkServicesPDF] Failed to fetch company details, using defaults:', error);
+      companyDetails = {
+        companyName: 'Company Name',
+        contactName: 'Contact',
+        contactPhone: '',
+      };
+    }
     
-    // Pre-convert logo to base64 (like Cost Report does)
+    // Pre-convert logo to base64 with timeout (like Cost Report does)
     let logoBase64: string | null = null;
     if (companyDetails?.logoUrl) {
       try {
         console.log('[BulkServicesPDF] Converting logo to base64...');
-        logoBase64 = await imageToBase64(companyDetails.logoUrl);
+        // Add timeout to prevent hanging on slow/unreachable logo URLs
+        const logoPromise = imageToBase64(companyDetails.logoUrl);
+        const timeoutPromise = new Promise<null>((_, reject) => 
+          setTimeout(() => reject(new Error('Logo fetch timeout')), 5000)
+        );
+        logoBase64 = await Promise.race([logoPromise, timeoutPromise]);
         console.log('[BulkServicesPDF] Logo converted successfully');
       } catch (error) {
         console.warn('[BulkServicesPDF] Failed to convert logo, skipping:', error);
@@ -984,13 +1006,30 @@ export async function generateBulkServicesPDF(
     // ========== PHASE 3: Generate PDF blob using toBlob (same as Cost Report) ==========
     console.log('[BulkServicesPDF] Phase 3: Generating PDF via doc.toBlob()...');
     
-    // Use the standard toBlob method which internally uses getBase64 - proven reliable
-    const blob = await doc.toBlob(90000);
-
     const filename = `bulk-services-${document.document_number.replace(/\s+/g, '-')}-${options.revision}-${format(new Date(), 'yyyyMMdd')}.pdf`;
+    
+    // Use the standard toBlob method with timeout - proven reliable
+    let blob: Blob;
+    try {
+      blob = await doc.toBlob(90000);
+      console.log(`[BulkServicesPDF] Blob generated: ${(blob.size / 1024).toFixed(1)}KB`);
+    } catch (blobError) {
+      console.error('[BulkServicesPDF] toBlob failed:', blobError);
+      // Try fallback: direct download (won't return blob but will save file)
+      console.log('[BulkServicesPDF] Attempting direct download fallback...');
+      try {
+        await doc.download(filename);
+        console.log('[BulkServicesPDF] Direct download completed');
+        // Create a minimal placeholder blob for the return value
+        blob = new Blob(['PDF downloaded directly'], { type: 'text/plain' });
+      } catch (downloadError) {
+        console.error('[BulkServicesPDF] Direct download also failed:', downloadError);
+        throw new Error('PDF generation failed - both toBlob and direct download failed');
+      }
+    }
 
     const elapsed = Date.now() - startTime;
-    console.log(`[BulkServicesPDF] Generation complete: ${(blob.size / 1024).toFixed(1)}KB in ${elapsed}ms`);
+    console.log(`[BulkServicesPDF] Generation complete in ${elapsed}ms`);
 
     return { blob, filename };
   } catch (error) {

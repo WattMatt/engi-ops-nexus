@@ -94,8 +94,10 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
         console.warn('[BulkServicesPDF] Chart capture failed:', error);
       }
 
-      // Generate PDF using pdfmake
-      const { blob, filename } = await generateBulkServicesPDF(
+      console.log('[BulkServicesPDFButton] Starting PDF generation...');
+      
+      // Generate PDF using pdfmake with timeout wrapper
+      const pdfGenerationPromise = generateBulkServicesPDF(
         document,
         sections,
         {
@@ -104,9 +106,28 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
           chartDataUrl,
         }
       );
+      
+      // Add an overall timeout for the PDF generation
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PDF generation timed out after 120 seconds')), 120000)
+      );
+      
+      const { blob, filename } = await Promise.race([pdfGenerationPromise, timeoutPromise]);
+      
+      console.log('[BulkServicesPDFButton] PDF generated, size:', blob.size);
+      
+      // Check if we got a real blob or a fallback placeholder
+      if (blob.type === 'text/plain') {
+        // Direct download fallback was used - file was already saved
+        toast.success("PDF downloaded directly (fallback mode)");
+        onReportSaved?.();
+        return;
+      }
 
       // Upload to storage
       const filePath = `${document.project_id}/${filename}`;
+      console.log('[BulkServicesPDFButton] Uploading to storage:', filePath);
+      
       const { error: uploadError } = await supabase.storage
         .from("bulk-services-reports")
         .upload(filePath, blob, {
@@ -134,9 +155,14 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
       
       setPreviewReport(savedReport);
       onReportSaved?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF report");
+      const errorMessage = error?.message || "Unknown error";
+      if (errorMessage.includes('timed out')) {
+        toast.error("PDF generation timed out. Try again or use a simpler document.");
+      } else {
+        toast.error(`Failed to generate PDF: ${errorMessage.slice(0, 100)}`);
+      }
     } finally {
       setIsGenerating(false);
     }
