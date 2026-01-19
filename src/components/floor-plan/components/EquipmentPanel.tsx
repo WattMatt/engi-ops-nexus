@@ -62,6 +62,7 @@ interface EquipmentPanelProps {
   // Roof Masks Props
   roofMasks?: RoofMask[];
   onJumpToRoofMask?: (mask: RoofMask) => void;
+  onRoofMaskUpdate?: (mask: RoofMask) => void;
   // Project ID
   projectId?: string;
   // Floor Plan ID for grouping unassigned materials per layout/shop
@@ -172,11 +173,22 @@ const ZoneDetails: React.FC<{
 }> = ({ item, onUpdate, onDelete, tasks, onOpenTaskModal }) => {
   return (
     <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Selection Details</h3>
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Exclusion Zone Details</h3>
       <div className='flex items-center gap-3 mb-3'>
-        <Layers className="h-5 w-5 text-yellow-400 flex-shrink-0" />
-        <span className="text-foreground font-bold">Supply Zone</span>
+        <div className="w-5 h-5 rounded flex-shrink-0" style={{ backgroundColor: item.color }} />
+        <span className="text-foreground font-bold">Exclusion Zone</span>
       </div>
+      
+      {/* Area Display */}
+      <div className="text-sm text-foreground mb-3 bg-background/50 p-2 rounded-md">
+        <div className="flex justify-between items-center">
+          <span>Area:</span>
+          <span className="font-mono font-bold text-yellow-400">
+            {item.area > 0 ? `${item.area.toFixed(2)} m²` : '--'}
+          </span>
+        </div>
+      </div>
+      
       <div>
         <label htmlFor="zoneName" className="block text-sm font-medium text-foreground mb-1">
           Zone Name
@@ -187,7 +199,7 @@ const ZoneDetails: React.FC<{
           value={item.name || ''}
           onChange={(e) => onUpdate({ ...item, name: e.target.value })}
           className="w-full px-3 py-1.5 bg-background border border-input rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
-          placeholder="e.g., Office Area"
+          placeholder="e.g., No-Go Area"
           autoFocus
           onFocus={(e) => e.target.select()}
         />
@@ -200,6 +212,89 @@ const ZoneDetails: React.FC<{
       </div>
     </div>
   )
+}
+
+// Roof Mask Details Component
+const RoofMaskDetails: React.FC<{
+  item: RoofMask;
+  onUpdate: (item: RoofMask) => void;
+  onDelete: () => void;
+}> = ({ item, onUpdate, onDelete }) => {
+  const getDirectionLabel = (degrees: number): string => {
+    if (degrees >= 337.5 || degrees < 22.5) return 'N';
+    if (degrees >= 22.5 && degrees < 67.5) return 'NE';
+    if (degrees >= 67.5 && degrees < 112.5) return 'E';
+    if (degrees >= 112.5 && degrees < 157.5) return 'SE';
+    if (degrees >= 157.5 && degrees < 202.5) return 'S';
+    if (degrees >= 202.5 && degrees < 247.5) return 'SW';
+    if (degrees >= 247.5 && degrees < 292.5) return 'W';
+    return 'NW';
+  };
+  
+  return (
+    <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Roof Mask Details</h3>
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-5 h-5 rounded flex-shrink-0" style={{ backgroundColor: 'rgba(148, 112, 216, 0.6)' }} />
+        <span className="text-foreground font-bold">Roof Mask</span>
+      </div>
+      
+      {/* Area Display */}
+      <div className="text-sm text-foreground mb-4 bg-background/50 p-2 rounded-md">
+        <div className="flex justify-between items-center">
+          <span>Area:</span>
+          <span className="font-mono font-bold text-purple-400">
+            {item.area ? `${item.area.toFixed(2)} m²` : '--'}
+          </span>
+        </div>
+      </div>
+      
+      {/* Editable Pitch */}
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-foreground mb-1">
+          Pitch (degrees)
+        </label>
+        <input
+          type="number"
+          value={item.pitch}
+          onChange={(e) => onUpdate({ ...item, pitch: parseFloat(e.target.value) || 0 })}
+          min="0"
+          max="90"
+          step="1"
+          className="w-full px-3 py-1.5 bg-background border border-input rounded-md text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+      
+      {/* Editable Direction */}
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-foreground mb-1">
+          Direction / Azimuth (degrees)
+        </label>
+        <input
+          type="number"
+          value={item.direction}
+          onChange={(e) => onUpdate({ ...item, direction: parseFloat(e.target.value) || 0 })}
+          min="0"
+          max="360"
+          step="1"
+          className="w-full px-3 py-1.5 bg-background border border-input rounded-md text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          0° = North ({getDirectionLabel(item.direction)})
+        </p>
+      </div>
+      
+      {/* Delete Button */}
+      <div className="mt-4">
+        <button
+          onClick={onDelete}
+          className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors"
+        >
+          Delete Roof Mask
+        </button>
+      </div>
+    </div>
+  );
 }
 
 const PvArrayDetails: React.FC<{
@@ -709,6 +804,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   scaleInfo,
   roofMasks = [],
   onJumpToRoofMask,
+  onRoofMaskUpdate,
   selectedCircuit,
   onSelectCircuit,
   onEditCable,
@@ -927,6 +1023,12 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     if (!selectedItemId) return null;
     return containment.find(c => c.id === selectedItemId) || null;
   }, [selectedItemId, containment]);
+  
+  const selectedRoofMask = useMemo(() => {
+    if (!selectedItemId) return null;
+    return roofMasks.find(rm => rm.id === selectedItemId) || null;
+  }, [selectedItemId, roofMasks]);
+  
   const hasCables = useMemo(() => cableEntries.length > 0 || lines.some(l => l.type === 'lv' && l.cableType), [cableEntries, lines]);
 
   const renderSummaryTab = () => {
@@ -1423,6 +1525,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
             {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} projectId={projectId} floorPlanId={floorPlanId} currentCircuitId={selectedLine.dbCircuitId} />}
             {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} projectId={projectId} floorPlanId={floorPlanId} />}
+            {selectedRoofMask && onRoofMaskUpdate && <RoofMaskDetails item={selectedRoofMask} onUpdate={onRoofMaskUpdate} onDelete={onDeleteItem} />}
           </div>
 
           <div className="border-b border-border px-2 flex-shrink-0">
@@ -1608,7 +1711,13 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                               Pitch: {mask.pitch}°
                             </span>
                             <span>|</span>
-                            <span>Direction: {mask.direction}°</span>
+                            <span>Dir: {mask.direction}°</span>
+                            {mask.area !== undefined && mask.area > 0 && (
+                              <>
+                                <span>|</span>
+                                <span className="font-mono text-purple-400">{mask.area.toFixed(1)}m²</span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </button>

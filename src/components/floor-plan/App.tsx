@@ -1013,7 +1013,38 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const handlePvConfigSubmit = (config: PVPanelConfig) => { setPvPanelConfig(config); setIsPvConfigModalOpen(false); setActiveTool(Tool.PAN); };
   const handleRoofMaskDrawComplete = useCallback((points: Point[]) => { setPendingRoofMask({ points }); setIsRoofMaskModalOpen(true); }, []);
   const handleRoofMaskSubmit = useCallback((details: { pitch: number }) => { if (!pendingRoofMask) return; setPendingRoofMask(prev => ({ ...prev!, pitch: details.pitch })); setActiveTool(Tool.TOOL_ROOF_DIRECTION); setIsRoofMaskModalOpen(false); }, [pendingRoofMask]);
-  const handleRoofDirectionSet = useCallback((direction: number) => { if (!pendingRoofMask || typeof pendingRoofMask.pitch === 'undefined') return; setRoofMasks(prev => [...prev, { id: `roofmask-${Date.now()}`, points: pendingRoofMask.points, pitch: pendingRoofMask.pitch, direction: direction }]); setPendingRoofMask(null); setActiveTool(Tool.PAN); }, [pendingRoofMask, setRoofMasks]);
+  
+  // Calculate polygon area using shoelace formula
+  const calculatePolygonArea = useCallback((vertices: Point[]): number => {
+    if (!scaleInfo.ratio || vertices.length < 3) return 0;
+    let area = 0;
+    for (let i = 0; i < vertices.length; i++) {
+      const j = (i + 1) % vertices.length;
+      area += vertices[i].x * vertices[j].y;
+      area -= vertices[j].x * vertices[i].y;
+    }
+    return Math.abs(area / 2) * Math.pow(scaleInfo.ratio, 2);
+  }, [scaleInfo.ratio]);
+  
+  const handleRoofDirectionSet = useCallback((direction: number) => { 
+    if (!pendingRoofMask || typeof pendingRoofMask.pitch === 'undefined') return; 
+    const area = calculatePolygonArea(pendingRoofMask.points);
+    setRoofMasks(prev => [...prev, { 
+      id: `roofmask-${Date.now()}`, 
+      points: pendingRoofMask.points, 
+      pitch: pendingRoofMask.pitch, 
+      direction: direction,
+      area: area
+    }]); 
+    setPendingRoofMask(null); 
+    setActiveTool(Tool.PAN); 
+  }, [pendingRoofMask, setRoofMasks, calculatePolygonArea]);
+  
+  const handleRoofMaskUpdate = useCallback((updatedMask: RoofMask) => {
+    setRoofMasks(prev => prev.map(mask => 
+      mask.id === updatedMask.id ? updatedMask : mask
+    ));
+  }, [setRoofMasks]);
   const cancelRoofCreation = useCallback(() => { setPendingRoofMask(null); setActiveTool(Tool.PAN); }, []);
   const handlePvArrayConfigSubmit = (config: PVArrayConfig) => { setPendingPvArrayConfig(config); setIsPvArrayModalOpen(false); };
   const handlePlacePvArray = (array: Omit<PVArrayItem, 'id'>) => setPvArrays(prev => [...prev, { id: `pvarray-${Date.now()}`, ...array }]);
@@ -1317,6 +1348,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}
         roofMasks={roofMasks}
         onJumpToRoofMask={handleJumpToRoofMask}
+        onRoofMaskUpdate={handleRoofMaskUpdate}
         projectId={currentProjectId || undefined}
         floorPlanId={currentDesignId || undefined}
         selectedCircuit={selectedCircuit}

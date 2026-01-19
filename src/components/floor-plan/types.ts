@@ -268,6 +268,7 @@ export interface RoofMask {
   points: Point[];
   pitch: number;    // in degrees
   direction: number; // in degrees (azimuth)
+  area?: number;    // in square meters (calculated from polygon)
 }
 
 export type PanelOrientation = 'portrait' | 'landscape';
