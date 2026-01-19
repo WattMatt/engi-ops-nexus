@@ -31,24 +31,28 @@ const sidebarItems = [
     title: "All Projects",
     icon: Folder,
     description: "Browse & select projects",
+    route: null,
   },
   {
     id: "roadmap-review" as ProjectsSection,
     title: "Roadmap Review",
     icon: Map,
     description: "Progress & health metrics",
+    route: "/admin/roadmap-review",
   },
   {
     id: "analytics" as ProjectsSection,
     title: "Analytics",
     icon: BarChart3,
     description: "Cross-project insights",
+    route: null,
   },
   {
     id: "documentation" as ProjectsSection,
     title: "Documentation",
     icon: FileText,
     description: "Guides & resources",
+    route: null,
   },
 ];
 
@@ -87,6 +91,14 @@ export function ProjectsSidebar({
             const Icon = item.icon;
             const isActive = activeSection === item.id;
             
+            const handleClick = () => {
+              if (item.route) {
+                navigate(item.route);
+              } else {
+                onSectionChange(item.id);
+              }
+            };
+            
             return (
               <Button
                 key={item.id}
@@ -95,7 +107,7 @@ export function ProjectsSidebar({
                   "w-full justify-start h-auto py-3 px-3",
                   isActive && "bg-primary/10 text-primary border-l-2 border-primary rounded-l-none"
                 )}
-                onClick={() => onSectionChange(item.id)}
+                onClick={handleClick}
               >
                 <Icon className="h-4 w-4 mr-3 shrink-0" />
                 <div className="flex-1 text-left">
