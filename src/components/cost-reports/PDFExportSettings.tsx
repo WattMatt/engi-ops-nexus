@@ -88,8 +88,8 @@ export const DEFAULT_SECTIONS: PDFSectionOptions = {
   detailedLineItems: true,
   variations: true,
   visualSummary: true, // Charts and graphs
-  previewBeforeExport: true, // Preview before saving
-  useQuickExport: false, // Direct download (more reliable for complex reports)
+  previewBeforeExport: false, // Disabled by default - Quick Export is more reliable
+  useQuickExport: true, // Direct download is now default (more reliable for complex reports)
 };
 
 export const PDFExportSettings = ({

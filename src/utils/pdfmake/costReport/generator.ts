@@ -71,16 +71,23 @@ interface GenerateCostReportOptions {
 /**
  * Pre-process company details to convert logo URLs to base64
  */
+// Strict timeout for logo conversion (3 seconds max per logo)
+const LOGO_TIMEOUT_MS = 3000;
+
 async function prepareCompanyDetailsWithLogos(
   companyDetails: CompanyDetails
 ): Promise<CompanyDetails> {
   const processed = { ...companyDetails };
   
-  // Convert company logo URL to base64
+  // Convert company logo URL to base64 with strict timeout
   if (processed.company_logo_url) {
     try {
       console.log('[CostReportPDF] Converting company logo to base64...');
-      processed.company_logo_url = await imageToBase64(processed.company_logo_url);
+      const logoPromise = imageToBase64(processed.company_logo_url);
+      const timeoutPromise = new Promise<null>((_, reject) => 
+        setTimeout(() => reject(new Error('Logo timeout')), LOGO_TIMEOUT_MS)
+      );
+      processed.company_logo_url = await Promise.race([logoPromise, timeoutPromise]);
       console.log('[CostReportPDF] Company logo converted successfully');
     } catch (error) {
       console.warn('[CostReportPDF] Failed to convert company logo, skipping:', error);
@@ -88,11 +95,15 @@ async function prepareCompanyDetailsWithLogos(
     }
   }
   
-  // Convert client logo URL to base64
+  // Convert client logo URL to base64 with strict timeout
   if (processed.client_logo_url) {
     try {
       console.log('[CostReportPDF] Converting client logo to base64...');
-      processed.client_logo_url = await imageToBase64(processed.client_logo_url);
+      const logoPromise = imageToBase64(processed.client_logo_url);
+      const timeoutPromise = new Promise<null>((_, reject) => 
+        setTimeout(() => reject(new Error('Logo timeout')), LOGO_TIMEOUT_MS)
+      );
+      processed.client_logo_url = await Promise.race([logoPromise, timeoutPromise]);
       console.log('[CostReportPDF] Client logo converted successfully');
     } catch (error) {
       console.warn('[CostReportPDF] Failed to convert client logo, skipping:', error);
@@ -451,8 +462,8 @@ export async function generateCostReportPdfmake(
 
   console.log('[CostReportPDF] Building PDF blob...');
   try {
-    // Use 90 second timeout for complex documents (matching roadmap review)
-    const blob = await doc.toBlob(90000);
+    // Use 120 second timeout for complex documents (canonical standard)
+    const blob = await doc.toBlob(120000);
     const elapsedTime = Date.now() - startTime;
     console.log(`[CostReportPDF] PDF generated successfully in ${elapsedTime}ms, size: ${Math.round(blob.size / 1024)}KB`);
     return blob;
