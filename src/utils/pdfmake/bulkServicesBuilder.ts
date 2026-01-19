@@ -9,6 +9,7 @@ import type { Content, TableCell, Margins, TDocumentDefinitions } from 'pdfmake/
 import { format } from 'date-fns';
 import { createDocument, PDFDocumentBuilder } from './documentBuilder';
 import { PDF_COLORS, FONT_SIZES, tableLayouts, SPACING } from './styles';
+import { pdfMake } from './config';
 import { 
   imageToBase64, 
   spacer, 
@@ -986,42 +987,49 @@ export async function generateBulkServicesPDF(
     doc.withStandardHeader('Bulk Services Report', options.projectName);
     doc.withStandardFooter(false);
 
-    // ========== PHASE 3: Generate PDF blob ==========
-    // Use shorter timeout since we've simplified the layouts
-    console.log('[BulkServicesPDF] Phase 3: Generating PDF blob (60s timeout)...');
+    // ========== PHASE 3: Generate PDF blob using getBuffer (proven to work) ==========
+    console.log('[BulkServicesPDF] Phase 3: Generating PDF via getBuffer...');
     
-    let blob: Blob;
-    try {
-      // First attempt: use the standard toBlob method
-      blob = await doc.toBlob(60000);
-      console.log('[BulkServicesPDF] toBlob succeeded');
-    } catch (blobError) {
-      console.warn('[BulkServicesPDF] toBlob failed, trying direct getBlob...', blobError);
+    const docDef = doc.build();
+    
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      let resolved = false;
       
-      // Fallback: Try direct pdfmake getBlob
-      blob = await new Promise<Blob>((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          reject(new Error('Direct getBlob timed out after 60s'));
-        }, 60000);
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          reject(new Error('PDF generation timed out after 60s'));
+        }
+      }, 60000);
+      
+      try {
+        console.log('[BulkServicesPDF] Creating pdfmake document...');
+        const pdfDoc = pdfMake.createPdf(docDef);
         
-        try {
-          const docDef = doc.build();
-          const { pdfMake } = require('./config');
-          pdfMake.createPdf(docDef).getBlob((result: Blob) => {
-            clearTimeout(timeoutId);
-            if (result) {
-              console.log('[BulkServicesPDF] Direct getBlob succeeded:', result.size, 'bytes');
-              resolve(result);
-            } else {
-              reject(new Error('getBlob returned empty result'));
-            }
-          });
-        } catch (err) {
+        console.log('[BulkServicesPDF] Calling getBuffer...');
+        pdfDoc.getBuffer((buffer: Uint8Array) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeoutId);
+          
+          if (buffer && buffer.byteLength > 0) {
+            console.log('[BulkServicesPDF] Buffer received:', buffer.byteLength, 'bytes');
+            // Create a copy of the buffer to ensure proper ArrayBuffer type
+            const bufferCopy = new Uint8Array(buffer);
+            const pdfBlob = new Blob([bufferCopy], { type: 'application/pdf' });
+            resolve(pdfBlob);
+          } else {
+            reject(new Error('getBuffer returned empty result'));
+          }
+        });
+      } catch (err) {
+        if (!resolved) {
+          resolved = true;
           clearTimeout(timeoutId);
           reject(err);
         }
-      });
-    }
+      }
+    });
 
     const filename = `bulk-services-${document.document_number.replace(/\s+/g, '-')}-${options.revision}-${format(new Date(), 'yyyyMMdd')}.pdf`;
 
