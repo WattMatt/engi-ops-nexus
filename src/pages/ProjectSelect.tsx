@@ -14,7 +14,7 @@ import { ProjectSkeleton } from "@/components/projects/ProjectSkeleton";
 import { ProjectsMap } from "@/components/projects/ProjectsMap";
 import { DocumentationTab } from "@/components/documentation/DocumentationTab";
 import { ProjectsSidebar, ProjectsSection } from "@/components/projects/ProjectsSidebar";
-
+import { RoadmapReviewContent } from "@/components/projects/RoadmapReviewContent";
 import { GlobalAnalytics } from "@/components/projects/GlobalAnalytics";
 import { cn } from "@/lib/utils";
 
@@ -190,6 +190,8 @@ const ProjectSelect = () => {
             )}
           </>
         );
+      case "roadmap-review":
+        return <RoadmapReviewContent />;
       case "analytics":
         return <GlobalAnalytics />;
       case "documentation":
