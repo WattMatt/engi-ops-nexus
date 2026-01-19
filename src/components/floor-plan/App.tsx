@@ -956,6 +956,19 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
   }, []);
 
+  const handleJumpToRoofMask = useCallback((mask: RoofMask) => {
+    if (canvasApiRef.current && mask.points.length > 0) {
+      // Calculate center of the roof mask polygon
+      const center = mask.points.reduce(
+        (acc, p) => ({ x: acc.x + p.x / mask.points.length, y: acc.y + p.y / mask.points.length }),
+        { x: 0, y: 0 }
+      );
+      // Use jumpToZone-like behavior - create a temporary zone-like object
+      canvasApiRef.current.jumpToZone({ id: mask.id, points: mask.points, name: 'Roof Mask', color: '#9470D8', area: 0 });
+    }
+    setSelectedItemId(mask.id);
+  }, []);
+
   const handleDeleteSelectedItem = async () => {
     if (!selectedItemId) return;
     if (window.confirm(`Are you sure you want to delete this item? This will also delete any linked tasks and circuit materials.`)) {
@@ -978,6 +991,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                 pvArrays: prev.pvArrays.filter(p => p.id !== selectedItemId),
                 lines: prev.lines.filter(l => l.id !== selectedItemId),
                 containment: prev.containment.filter(c => c.id !== selectedItemId),
+                roofMasks: prev.roofMasks.filter(rm => rm.id !== selectedItemId),
                 tasks: prev.tasks.filter(t => t.linkedItemId !== selectedItemId),
             };
         });
@@ -1301,6 +1315,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
         pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
         onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}
+        roofMasks={roofMasks}
+        onJumpToRoofMask={handleJumpToRoofMask}
         projectId={currentProjectId || undefined}
         floorPlanId={currentDesignId || undefined}
         selectedCircuit={selectedCircuit}
