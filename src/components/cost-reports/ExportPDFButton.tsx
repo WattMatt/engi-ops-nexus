@@ -6,12 +6,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
-import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
 import { STANDARD_MARGINS } from "@/utils/pdfExportBase";
 import { prepareCostReportTemplateData } from "@/utils/prepareCostReportTemplateData";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
-import { usePDFProgress, PDFProgressIndicator, PDFPreviewBeforeExport, captureCostReportCharts, waitForChartsToRender } from "./pdf-export";
+import { PDFPreviewBeforeExport, captureCostReportCharts, waitForChartsToRender, useCostReportData } from "./pdf-export";
+import { CostReportProgressIndicator } from "./pdf-export/components/CostReportProgressIndicator";
 import { generateCostReportPdfmake, downloadCostReportPdfmake } from "@/utils/pdfmake/costReport";
 
 interface ExportPDFButtonProps {
@@ -30,7 +30,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
-  const [currentSection, setCurrentSection] = useState<string>("");
+  
+  // PDF Generation progress state
+  const [generationStep, setGenerationStep] = useState<string>("");
+  const [generationPercentage, setGenerationPercentage] = useState<number>(0);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   // Preview before export state
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
@@ -44,8 +48,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     storageFileName: string;
   } | null>(null);
   
-  // Enhanced progress tracking
-  const { progress, isExporting, startExport, updateProgress, completeExport, resetProgress } = usePDFProgress(sections);
+  // Use the new data fetching hook (follows Roadmap Review pattern)
+  const { fetchReportData, progress: dataProgress, isFetching, resetProgress } = useCostReportData();
 
   // Check for Word template availability (both cover page and full report)
   const { data: templates } = useQuery({
@@ -174,7 +178,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   const exportWithTemplate = async () => {
     setLoading(true);
-    setCurrentSection("Preparing template data...");
+    setGenerationStep("Preparing template data...");
     
     try {
       console.log('Starting template-based PDF export for report:', report.id);
@@ -189,7 +193,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         return;
       }
 
-      setCurrentSection("Processing template and data...");
+      setGenerationStep("Processing template and data...");
 
       // Prepare placeholder data using existing utility
       const { placeholderData, imagePlaceholders } = await prepareCostReportTemplateData(report.id);
@@ -224,7 +228,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       console.log('PDF generated successfully:', data.pdfUrl);
       
-      setCurrentSection("Saving PDF...");
+      setGenerationStep("Saving PDF...");
       
       // Save the generated PDF directly to cost_report_pdfs
       const fileName = `${report.project_name.replace(/[^a-zA-Z0-9]/g, '_')}_Report_${report.report_number}.pdf`;
@@ -287,52 +291,43 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       });
     } finally {
       setLoading(false);
-      setCurrentSection("");
+      setGenerationStep("");
     }
   };
 
-  // Timeout wrapper for database queries (10 seconds max per query)
-  const QUERY_TIMEOUT_MS = 10000;
-  
-  async function withQueryTimeout<T>(
-    queryFn: () => PromiseLike<{ data: T | null; error: any }>,
-    fallbackData: T,
-    label: string
-  ): Promise<T> {
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        console.warn(`[CostReportPDF] ${label} query timed out after ${QUERY_TIMEOUT_MS}ms, using fallback`);
-        resolve(fallbackData);
-      }, QUERY_TIMEOUT_MS);
-      
-      Promise.resolve(queryFn())
-        .then((result) => {
-          clearTimeout(timeout);
-          resolve(result.data ?? fallbackData);
-        })
-        .catch((error) => {
-          clearTimeout(timeout);
-          console.error(`[CostReportPDF] ${label} query failed:`, error);
-          resolve(fallbackData);
-        });
-    });
-  }
-
+  /**
+   * Main PDF export function - follows Roadmap Review architecture:
+   * Phase 1: Data Fetching (via useCostReportData hook)
+   * Phase 2: PDF Generation (via pdfmake)
+   */
   const exportPDF = async () => {
     setLoading(true);
-    startExport();
-    setCurrentSection("Initializing PDF export...");
-    updateProgress('init');
+    setIsGenerating(false);
+    setGenerationStep("");
+    setGenerationPercentage(0);
+    resetProgress();
 
     try {
-      // Fetch company settings with timeout
-      setCurrentSection("Loading company settings...");
-      const company = await withQueryTimeout(
-        () => supabase.from("company_settings").select("*").limit(1).maybeSingle(),
-        null,
-        "Company settings"
-      );
+      console.log('[CostReportPDF] Starting export for report:', report.id);
 
+      // ========================================
+      // PHASE 1: Data Fetching (handled by hook)
+      // ========================================
+      const reportData = await fetchReportData(report.id);
+      
+      if (!reportData) {
+        toast({
+          title: "Data Fetch Failed",
+          description: "Unable to load report data. Please try again.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const { company, categoriesData, variationsData, categoryTotals, grandTotals } = reportData;
+
+      // Build company details object
       const companyDetails = {
         companyName: company?.company_name || "Company Name",
         contactName: company?.client_name || "",
@@ -341,86 +336,37 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         client_logo_url: company?.client_logo_url || null,
       };
 
-      const useSections = {
-        ...DEFAULT_SECTIONS,
-        ...sections,
-      };
+      const useSections = { ...DEFAULT_SECTIONS, ...sections };
+      const useMargins = { ...STANDARD_MARGINS, ...margins };
 
-      const useMargins = {
-        ...STANDARD_MARGINS,
-        ...margins,
-      };
-
-      // Contact ID for cover page
-      const contactId = selectedContactId || (contacts && contacts.length > 0 ? contacts[0].id : null);
-      
-      // Fetch all report data in parallel with individual timeouts
-      setCurrentSection("Fetching report data...");
-      updateProgress('data');
-      
-      const [categoriesData, variationsData, details] = await Promise.all([
-        withQueryTimeout(
-          () => supabase.from("cost_categories").select("*, cost_line_items(*)").eq("cost_report_id", report.id).order("display_order"),
-          [] as any[],
-          "Categories"
-        ),
-        withQueryTimeout(
-          () => supabase.from("cost_variations").select(`*, tenants(shop_name, shop_number), variation_line_items(*)`).eq("cost_report_id", report.id).order("display_order"),
-          [] as any[],
-          "Variations"
-        ),
-        withQueryTimeout(
-          () => supabase.from("cost_report_details").select("*").eq("cost_report_id", report.id).order("display_order"),
-          [] as any[],
-          "Details"
-        )
-      ]);
-      
-      // Log results for debugging
-      console.log(`[CostReportPDF] Data fetched - Categories: ${categoriesData.length}, Variations: ${variationsData.length}, Details: ${details.length}`);
-      
-      // Sort variations by extracting numeric part from code (e.g., G1, G2, G10)
-      const sortedVariations = (variationsData || []).sort((a: any, b: any) => {
-        const aMatch = a.code?.match(/\d+/);
-        const bMatch = b.code?.match(/\d+/);
-        const aNum = aMatch ? parseInt(aMatch[0], 10) : 0;
-        const bNum = bMatch ? parseInt(bMatch[0], 10) : 0;
-        return aNum - bNum;
-      });
-
-      // Extract line items from categories
-      const allLineItems = (categoriesData || []).flatMap(cat => cat.cost_line_items || []);
-
-      // Calculate totals using the utility
-      const pdfCategoryTotals = calculateCategoryTotals(categoriesData || [], allLineItems, sortedVariations || []);
-      const pdfGrandTotals = calculateGrandTotals(pdfCategoryTotals);
-
-      // ============================================
-      // PDFMAKE ENGINE
-      // ============================================
-      setCurrentSection("Generating PDF with pdfmake...");
+      // ========================================
+      // PHASE 2: PDF Generation
+      // ========================================
+      setIsGenerating(true);
+      setGenerationStep("Preparing PDF generation...");
+      setGenerationPercentage(10);
       
       // Capture charts if visual summary is enabled
       let chartImages: string[] = [];
       if (useSections.visualSummary) {
-        setCurrentSection("Capturing charts...");
+        setGenerationStep("Capturing charts...");
+        setGenerationPercentage(20);
         await waitForChartsToRender();
         const capturedCharts = await captureCostReportCharts();
         chartImages = capturedCharts
           .filter(chart => chart.canvas)
           .map(chart => chart.canvas.toDataURL('image/png'))
-          // Filter out invalid/empty data URLs
           .filter(dataUrl => dataUrl && dataUrl.length > 100 && dataUrl !== 'data:,');
         console.log(`[CostReportPDF] Captured ${chartImages.length} valid chart images`);
       }
       
       // Build variation line items map
       const variationLineItemsMap = new Map<string, any[]>();
-      sortedVariations.forEach((variation: any) => {
+      variationsData.forEach((variation: any) => {
         variationLineItemsMap.set(variation.id, variation.variation_line_items || []);
       });
 
-      // Generate filename first (needed for both paths)
+      // Generate filename
       const downloadFilename = generateStandardizedPDFFilename({
         projectNumber: report.project_number || report.project_id?.slice(0, 8),
         reportType: "CostReport",
@@ -428,19 +374,24 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         reportNumber: report.report_number,
       });
 
+      setGenerationStep("Building PDF document...");
+      setGenerationPercentage(40);
+
       // ============================================
-      // QUICK EXPORT PATH - Direct Download (more reliable)
+      // QUICK EXPORT PATH - Direct Download (most reliable)
       // ============================================
       if (useSections.useQuickExport) {
-        setCurrentSection("Direct download in progress...");
+        setGenerationStep("Generating PDF (direct download)...");
+        setGenerationPercentage(60);
+        
         await downloadCostReportPdfmake({
           report,
-          categoriesData: categoriesData || [],
-          variationsData: sortedVariations,
+          categoriesData,
+          variationsData,
           variationLineItemsMap,
           companyDetails,
-          categoryTotals: pdfCategoryTotals,
-          grandTotals: pdfGrandTotals,
+          categoryTotals,
+          grandTotals,
           options: {
             includeCoverPage: useSections.coverPage,
             includeTableOfContents: useSections.tableOfContents,
@@ -454,28 +405,38 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           },
         }, downloadFilename);
         
-        setLoading(false);
-        setCurrentSection("");
-        completeExport();
+        setGenerationPercentage(100);
+        setGenerationStep("Complete!");
+        
         toast({
           title: "PDF Downloaded",
-          description: "Cost report exported successfully via Quick Export",
+          description: "Cost report exported successfully",
         });
         onReportGenerated?.();
+        
+        // Reset after short delay
+        setTimeout(() => {
+          setLoading(false);
+          setIsGenerating(false);
+          resetProgress();
+        }, 1000);
         return;
       }
 
       // ============================================
       // STANDARD PATH - Blob Generation (for preview/storage)
       // ============================================
+      setGenerationStep("Rendering PDF to blob...");
+      setGenerationPercentage(60);
+      
       const pdfBlob = await generateCostReportPdfmake({
         report,
-        categoriesData: categoriesData || [],
-        variationsData: sortedVariations,
+        categoriesData,
+        variationsData,
         variationLineItemsMap,
         companyDetails,
-        categoryTotals: pdfCategoryTotals,
-        grandTotals: pdfGrandTotals,
+        categoryTotals,
+        grandTotals,
         options: {
           includeCoverPage: useSections.coverPage,
           includeTableOfContents: useSections.tableOfContents,
@@ -486,13 +447,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           includeVisualSummary: useSections.visualSummary,
           chartImages,
           margins: useMargins,
-          onProgress: (section, progress) => {
-            setCurrentSection(section);
+          onProgress: (section: string) => {
+            setGenerationStep(section);
           },
         },
       });
 
-      // Generate storage filename (downloadFilename already defined above)
+      setGenerationPercentage(80);
+
+      // Generate storage filename
       const storageFileName = generateStorageFilename({
         projectNumber: report.project_number || report.project_id?.slice(0, 8),
         reportType: "CostReport",
@@ -512,26 +475,37 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           storageFileName,
         });
         setPreviewDialogOpen(true);
+        setGenerationPercentage(100);
+        setGenerationStep("Preview ready");
         setLoading(false);
-        setCurrentSection("");
-        completeExport();
+        setIsGenerating(false);
         return;
       }
 
-      // Direct save
+      // Direct save to storage
+      setGenerationStep("Saving to storage...");
+      setGenerationPercentage(90);
       await savePdfToStorage(pdfBlob, filePath, downloadFilename);
+      
+      setGenerationPercentage(100);
+      setGenerationStep("Complete!");
 
     } catch (error: any) {
-      console.error('Error generating PDF:', error);
+      console.error('[CostReportPDF] Export error:', error);
       toast({
-        title: "Error",
-        description: "Failed to generate PDF",
+        title: "Export Failed",
+        description: error.message || "Failed to generate PDF. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
-      setCurrentSection("");
-      completeExport();
+      // Delayed cleanup to show completion state
+      setTimeout(() => {
+        setLoading(false);
+        setIsGenerating(false);
+        setGenerationStep("");
+        setGenerationPercentage(0);
+        resetProgress();
+      }, 1500);
     }
   };
   
@@ -567,24 +541,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           </Button>
         </div>
         
-        {/* Enhanced Progress Indicator */}
-        {isExporting && (
-          <PDFProgressIndicator progress={progress} isExporting={isExporting} />
-        )}
-        
-        {/* Legacy progress fallback */}
-        {loading && !isExporting && currentSection && (
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/50 rounded-lg border border-border/50 animate-in fade-in slide-in-from-left-2 duration-300">
-            <div className="flex items-center gap-2.5">
-              <div className="relative">
-                <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                <div className="absolute inset-0 h-2 w-2 bg-primary rounded-full animate-ping opacity-75" />
-              </div>
-              <span className="text-sm font-medium text-foreground">
-                {currentSection}
-              </span>
-            </div>
-          </div>
+        {/* Two-Phase Progress Indicator */}
+        {(isFetching || isGenerating || dataProgress.error) && (
+          <CostReportProgressIndicator
+            dataProgress={dataProgress}
+            generationStep={generationStep}
+            generationPercentage={generationPercentage}
+            isGenerating={isGenerating}
+            isFetching={isFetching}
+          />
         )}
       </div>
       
