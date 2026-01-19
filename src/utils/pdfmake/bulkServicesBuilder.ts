@@ -9,7 +9,6 @@ import type { Content, TableCell, Margins, TDocumentDefinitions } from 'pdfmake/
 import { format } from 'date-fns';
 import { createDocument, PDFDocumentBuilder } from './documentBuilder';
 import { PDF_COLORS, FONT_SIZES, tableLayouts, SPACING } from './styles';
-import { pdfMake } from './config';
 import { 
   imageToBase64, 
   spacer, 
@@ -987,49 +986,11 @@ export async function generateBulkServicesPDF(
     doc.withStandardHeader('Bulk Services Report', options.projectName);
     doc.withStandardFooter(false);
 
-    // ========== PHASE 3: Generate PDF blob using getBuffer (proven to work) ==========
-    console.log('[BulkServicesPDF] Phase 3: Generating PDF via getBuffer...');
+    // ========== PHASE 3: Generate PDF blob using toBlob (same as Cost Report) ==========
+    console.log('[BulkServicesPDF] Phase 3: Generating PDF via doc.toBlob()...');
     
-    const docDef = doc.build();
-    
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      let resolved = false;
-      
-      const timeoutId = setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          reject(new Error('PDF generation timed out after 60s'));
-        }
-      }, 60000);
-      
-      try {
-        console.log('[BulkServicesPDF] Creating pdfmake document...');
-        const pdfDoc = pdfMake.createPdf(docDef);
-        
-        console.log('[BulkServicesPDF] Calling getBuffer...');
-        pdfDoc.getBuffer((buffer: Uint8Array) => {
-          if (resolved) return;
-          resolved = true;
-          clearTimeout(timeoutId);
-          
-          if (buffer && buffer.byteLength > 0) {
-            console.log('[BulkServicesPDF] Buffer received:', buffer.byteLength, 'bytes');
-            // Create a copy of the buffer to ensure proper ArrayBuffer type
-            const bufferCopy = new Uint8Array(buffer);
-            const pdfBlob = new Blob([bufferCopy], { type: 'application/pdf' });
-            resolve(pdfBlob);
-          } else {
-            reject(new Error('getBuffer returned empty result'));
-          }
-        });
-      } catch (err) {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timeoutId);
-          reject(err);
-        }
-      }
-    });
+    // Use the standard toBlob method which internally uses getBase64 - proven reliable
+    const blob = await doc.toBlob(90000);
 
     const filename = `bulk-services-${document.document_number.replace(/\s+/g, '-')}-${options.revision}-${format(new Date(), 'yyyyMMdd')}.pdf`;
 
