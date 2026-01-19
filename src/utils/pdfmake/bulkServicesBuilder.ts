@@ -213,12 +213,7 @@ const buildCoverPage = (
         ],
       ],
     },
-    layout: {
-      hLineWidth: () => 0.5,
-      vLineWidth: () => 0.5,
-      hLineColor: () => COLORS.border,
-      vLineColor: () => COLORS.border,
-    },
+    layout: tableLayouts.standard,
     margin: [60, 0, 60, 0] as Margins,
   });
 
