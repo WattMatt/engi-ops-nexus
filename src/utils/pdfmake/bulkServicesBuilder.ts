@@ -1010,11 +1010,11 @@ const buildSectionContent = (sections: BulkServicesSection[]): Content[] => {
             margin: [10, 2, 0, 2] as Margins,
           });
         } else if (trimmed.startsWith('|')) {
-          // Table row - render as monospace
+          // Table row - render as monospace style (using Roboto since Courier not available)
           content.push({
             text: trimmed,
             fontSize: 8,
-            font: 'Courier',
+            font: 'Roboto',
             margin: [0, 1, 0, 1] as Margins,
           });
         } else if (trimmed) {
