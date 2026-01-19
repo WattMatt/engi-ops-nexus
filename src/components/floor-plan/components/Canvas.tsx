@@ -833,6 +833,13 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             return;
         }
         
+        // Check if clicked on a roof mask
+        const clickedRoofMask = roofMasks.slice().reverse().find(mask => isPointInPolygon(worldPos, mask.points));
+        if (clickedRoofMask) {
+            setSelectedItemId(clickedRoofMask.id);
+            return;
+        }
+        
         // Check if clicked on a cable/line
         const CLICK_THRESHOLD = 10 / viewState.zoom; // 10 pixels in world units
         const clickedLine = lines.slice().reverse().find(line => 

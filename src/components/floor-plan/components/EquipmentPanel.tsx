@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles, FileText, Settings2, Eye, MapPin } from 'lucide-react';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles, FileText, Settings2, Eye, MapPin, X } from 'lucide-react';
 import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo, RoofMask } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -168,12 +168,22 @@ const ZoneDetails: React.FC<{
   item: SupplyZone;
   onUpdate: (item: SupplyZone) => void;
   onDelete: () => void;
+  onDeselect: () => void;
   tasks: Task[];
   onOpenTaskModal: (task: Partial<Task> | null) => void;
-}> = ({ item, onUpdate, onDelete, tasks, onOpenTaskModal }) => {
+}> = ({ item, onUpdate, onDelete, onDeselect, tasks, onOpenTaskModal }) => {
   return (
     <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Exclusion Zone Details</h3>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Exclusion Zone Details</h3>
+        <button
+          onClick={onDeselect}
+          className="p-1 hover:bg-accent rounded transition-colors"
+          title="Close details"
+        >
+          <X size={14} className="text-muted-foreground" />
+        </button>
+      </div>
       <div className='flex items-center gap-3 mb-3'>
         <div className="w-5 h-5 rounded flex-shrink-0" style={{ backgroundColor: item.color }} />
         <span className="text-foreground font-bold">Exclusion Zone</span>
@@ -219,7 +229,8 @@ const RoofMaskDetails: React.FC<{
   item: RoofMask;
   onUpdate: (item: RoofMask) => void;
   onDelete: () => void;
-}> = ({ item, onUpdate, onDelete }) => {
+  onDeselect: () => void;
+}> = ({ item, onUpdate, onDelete, onDeselect }) => {
   const getDirectionLabel = (degrees: number): string => {
     if (degrees >= 337.5 || degrees < 22.5) return 'N';
     if (degrees >= 22.5 && degrees < 67.5) return 'NE';
@@ -233,7 +244,16 @@ const RoofMaskDetails: React.FC<{
   
   return (
     <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Roof Mask Details</h3>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Roof Mask Details</h3>
+        <button
+          onClick={onDeselect}
+          className="p-1 hover:bg-accent rounded transition-colors"
+          title="Close details"
+        >
+          <X size={14} className="text-muted-foreground" />
+        </button>
+      </div>
       <div className="flex items-center gap-3 mb-3">
         <div className="w-5 h-5 rounded flex-shrink-0" style={{ backgroundColor: 'rgba(148, 112, 216, 0.6)' }} />
         <span className="text-foreground font-bold">Roof Mask</span>
@@ -1521,11 +1541,11 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
         <>
           <div className='p-4 flex-shrink-0'>
             {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
-            {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
+            {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} onDeselect={() => setSelectedItemId(null)} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
             {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
             {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} projectId={projectId} floorPlanId={floorPlanId} currentCircuitId={selectedLine.dbCircuitId} />}
             {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} projectId={projectId} floorPlanId={floorPlanId} />}
-            {selectedRoofMask && onRoofMaskUpdate && <RoofMaskDetails item={selectedRoofMask} onUpdate={onRoofMaskUpdate} onDelete={onDeleteItem} />}
+            {selectedRoofMask && onRoofMaskUpdate && <RoofMaskDetails item={selectedRoofMask} onUpdate={onRoofMaskUpdate} onDelete={onDeleteItem} onDeselect={() => setSelectedItemId(null)} />}
           </div>
 
           <div className="border-b border-border px-2 flex-shrink-0">
