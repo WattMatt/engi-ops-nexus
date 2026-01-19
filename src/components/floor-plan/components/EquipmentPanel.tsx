@@ -125,12 +125,18 @@ const SelectionDetails: React.FC<{
   item: EquipmentItem;
   onUpdate: (item: EquipmentItem) => void;
   onDelete: () => void;
+  onDeselect: () => void;
   tasks: Task[];
   onOpenTaskModal: (task: Partial<Task> | null) => void;
-}> = ({ item, onUpdate, onDelete, tasks, onOpenTaskModal }) => {
+}> = ({ item, onUpdate, onDelete, onDeselect, tasks, onOpenTaskModal }) => {
   return (
     <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Selection Details</h3>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Selection Details</h3>
+        <button onClick={onDeselect} className="p-1 hover:bg-accent rounded transition-colors" title="Close details">
+          <X size={14} className="text-muted-foreground" />
+        </button>
+      </div>
       <div className='flex items-center gap-3 mb-3'>
         <EquipmentIcon type={item.type} className="h-5 w-5 text-amber-400 flex-shrink-0" />
         <span className="text-foreground font-bold">{item.type}</span>
@@ -321,12 +327,18 @@ const PvArrayDetails: React.FC<{
   item: PVArrayItem;
   pvPanelConfig: PVPanelConfig | null;
   onDelete: () => void;
-}> = ({ item, pvPanelConfig, onDelete }) => {
+  onDeselect: () => void;
+}> = ({ item, pvPanelConfig, onDelete, onDeselect }) => {
   const totalPanels = item.rows * item.columns;
   const totalWattage = pvPanelConfig ? totalPanels * pvPanelConfig.wattage : 0;
   return (
     <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Selection Details</h3>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Selection Details</h3>
+        <button onClick={onDeselect} className="p-1 hover:bg-accent rounded transition-colors" title="Close details">
+          <X size={14} className="text-muted-foreground" />
+        </button>
+      </div>
       <div className='flex items-center gap-3 mb-3'>
         <LayoutGrid className="h-5 w-5 text-sky-400 flex-shrink-0" />
         <span className="text-foreground font-bold">PV Array</span>
@@ -349,6 +361,7 @@ const PvArrayDetails: React.FC<{
 const CableDetails: React.FC<{
   item: SupplyLine;
   onDelete: () => void;
+  onDeselect: () => void;
   onEdit?: () => void;
   tasks: Task[];
   onOpenTaskModal: (task: Partial<Task> | null) => void;
@@ -356,7 +369,7 @@ const CableDetails: React.FC<{
   floorPlanId?: string;
   currentCircuitId?: string | null;
   materialId?: string;
-}> = ({ item, onDelete, onEdit, tasks, onOpenTaskModal, projectId, floorPlanId, currentCircuitId, materialId }) => {
+}> = ({ item, onDelete, onDeselect, onEdit, tasks, onOpenTaskModal, projectId, floorPlanId, currentCircuitId, materialId }) => {
   const isGpWire = item.cableType?.toUpperCase().includes('GP');
   // For GP wire: pathLength is the horizontal trace, we triple it for L+E+N conductors
   const pathLength = item.pathLength ?? item.length;
@@ -370,7 +383,12 @@ const CableDetails: React.FC<{
 
   return (
     <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Cable Details</h3>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cable Details</h3>
+        <button onClick={onDeselect} className="p-1 hover:bg-accent rounded transition-colors" title="Close details">
+          <X size={14} className="text-muted-foreground" />
+        </button>
+      </div>
       <div className='flex items-center gap-3 mb-3'>
         <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: item.cableType ? getCableColor(item.cableType) : '#6B7280' }}></div>
         <span className="text-foreground font-bold">{item.cableType || 'Cable'}</span>
@@ -450,16 +468,22 @@ const CableDetails: React.FC<{
 const ContainmentDetails: React.FC<{
   item: Containment;
   onDelete: () => void;
+  onDeselect: () => void;
   projectId?: string;
   floorPlanId?: string;
   currentCircuitId?: string | null;
   materialId?: string;
-}> = ({ item, onDelete, projectId, floorPlanId, currentCircuitId, materialId }) => {
+}> = ({ item, onDelete, onDeselect, projectId, floorPlanId, currentCircuitId, materialId }) => {
   const style = getContainmentStyle(item.type, item.size);
 
   return (
     <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Containment Details</h3>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Containment Details</h3>
+        <button onClick={onDeselect} className="p-1 hover:bg-accent rounded transition-colors" title="Close details">
+          <X size={14} className="text-muted-foreground" />
+        </button>
+      </div>
       <div className='flex items-center gap-3 mb-3'>
         <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: style.color }}></div>
         <span className="text-foreground font-bold">{item.type}</span>
@@ -1540,11 +1564,11 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       {topLevelView === 'overview' && (
         <>
           <div className='p-4 flex-shrink-0'>
-            {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
+            {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} onDeselect={() => setSelectedItemId(null)} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
             {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} onDeselect={() => setSelectedItemId(null)} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
-            {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
-            {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} projectId={projectId} floorPlanId={floorPlanId} currentCircuitId={selectedLine.dbCircuitId} />}
-            {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} projectId={projectId} floorPlanId={floorPlanId} />}
+            {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} onDeselect={() => setSelectedItemId(null)} />}
+            {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onDeselect={() => setSelectedItemId(null)} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} projectId={projectId} floorPlanId={floorPlanId} currentCircuitId={selectedLine.dbCircuitId} />}
+            {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} onDeselect={() => setSelectedItemId(null)} projectId={projectId} floorPlanId={floorPlanId} />}
             {selectedRoofMask && onRoofMaskUpdate && <RoofMaskDetails item={selectedRoofMask} onUpdate={onRoofMaskUpdate} onDelete={onDeleteItem} onDeselect={() => setSelectedItemId(null)} />}
           </div>
 
