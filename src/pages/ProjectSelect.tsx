@@ -3,8 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Folder, LogOut, Users, Settings, Library, Sparkles, Map, LayoutGrid, Contact, FileText } from "lucide-react";
+import { Folder, LogOut, Map, LayoutGrid } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -14,7 +13,11 @@ import { ProjectFilters } from "@/components/projects/ProjectFilters";
 import { ProjectSkeleton } from "@/components/projects/ProjectSkeleton";
 import { ProjectsMap } from "@/components/projects/ProjectsMap";
 import { DocumentationTab } from "@/components/documentation/DocumentationTab";
+import { ProjectsSidebar, ProjectsSection } from "@/components/projects/ProjectsSidebar";
+import { GlobalRoadmapReview } from "@/components/projects/GlobalRoadmapReview";
+import { GlobalAnalytics } from "@/components/projects/GlobalAnalytics";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Project {
   id: string;
@@ -38,7 +41,7 @@ const ProjectSelect = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
-  const [activeTab, setActiveTab] = useState("projects");
+  const [activeSection, setActiveSection] = useState<ProjectsSection>("projects");
   const { isAdmin, loading: roleLoading } = useUserRole();
   const isAdminRoute = location.pathname.startsWith('/admin');
 
@@ -91,91 +94,11 @@ const ProjectSelect = () => {
     navigate("/auth");
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
-      {/* Header Section */}
-      <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-2.5 rounded-xl bg-primary/10">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  {isAdminRoute ? "Admin Portal" : "Projects"}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {isAdminRoute 
-                    ? "Manage organization-wide settings" 
-                    : "Select a project to continue"}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              <Button variant="outline" size="sm" onClick={() => navigate("/master-library")}>
-                <Library className="h-4 w-4 mr-2" />
-                Master Library
-              </Button>
-              
-              <Button variant="outline" size="sm" onClick={() => navigate("/contact-library")}>
-                <Contact className="h-4 w-4 mr-2" />
-                Contact Library
-              </Button>
-              
-              {!isAdminRoute && isAdmin && (
-                <Button variant="outline" size="sm" onClick={() => navigate("/admin/projects")}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Admin Portal
-                </Button>
-              )}
-              
-              {isAdminRoute && (
-                <>
-                  <Button variant="outline" size="sm" onClick={() => navigate("/admin/staff")}>
-                    <Users className="h-4 w-4 mr-2" />
-                    Staff
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => navigate("/admin/users")}>
-                    <Users className="h-4 w-4 mr-2" />
-                    Users
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => navigate("/admin/settings")}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </Button>
-                </>
-              )}
-              
-              <Separator orientation="vertical" className="h-6 hidden sm:block" />
-              
-              <CreateProjectDialog onProjectCreated={loadProjects} />
-              
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="projects" className="gap-2">
-              <Folder className="h-4 w-4" />
-              Projects
-            </TabsTrigger>
-            <TabsTrigger value="documentation" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Documentation
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="projects">
+  const renderContent = () => {
+    switch (activeSection) {
+      case "projects":
+        return (
+          <>
             {loading || roleLoading ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <ProjectSkeleton />
@@ -266,12 +189,68 @@ const ProjectSelect = () => {
                 )}
               </>
             )}
-          </TabsContent>
-          
-          <TabsContent value="documentation">
-            <DocumentationTab />
-          </TabsContent>
-        </Tabs>
+          </>
+        );
+      case "roadmap-review":
+        return <GlobalRoadmapReview />;
+      case "analytics":
+        return <GlobalAnalytics />;
+      case "documentation":
+        return <DocumentationTab />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 flex">
+      {/* Sidebar */}
+      <ProjectsSidebar 
+        activeSection={activeSection} 
+        onSectionChange={setActiveSection} 
+      />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+          <div className="px-6 py-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-xl font-semibold text-foreground">
+                  {activeSection === "projects" && "All Projects"}
+                  {activeSection === "roadmap-review" && "Roadmap Review"}
+                  {activeSection === "analytics" && "Analytics"}
+                  {activeSection === "documentation" && "Documentation"}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {activeSection === "projects" && `${projects.length} projects available`}
+                  {activeSection === "roadmap-review" && "Track progress across all projects"}
+                  {activeSection === "analytics" && "Cross-project insights and metrics"}
+                  {activeSection === "documentation" && "Guides and resources"}
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <CreateProjectDialog onProjectCreated={loadProjects} />
+                
+                <Separator orientation="vertical" className="h-6" />
+                
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <ScrollArea className="flex-1">
+          <div className="p-6">
+            {renderContent()}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );
