@@ -8,6 +8,7 @@
 import type { TDocumentDefinitions, Content, PageOrientation, PageSize, Margins, StyleDictionary } from 'pdfmake/interfaces';
 import { pdfMake, STANDARD_MARGINS, PAGE_SIZES, validatePdfMake } from './config';
 import { defaultStyles, tableLayouts, PDF_COLORS } from './styles';
+import { validateDocument, quickValidate } from './validation';
 import { format } from 'date-fns';
 export interface DocumentBuilderOptions {
   orientation?: PageOrientation;
@@ -140,10 +141,10 @@ export class PDFDocumentBuilder {
   }
 
   /**
-   * Build the document definition
+   * Build the document definition with automatic validation
    */
   build(): TDocumentDefinitions {
-    return {
+    const docDefinition: TDocumentDefinitions = {
       pageSize: this.options.pageSize,
       pageOrientation: this.options.orientation,
       pageMargins: this.options.margins,
@@ -160,6 +161,37 @@ export class PDFDocumentBuilder {
       images: Object.keys(this.images).length > 0 ? this.images : undefined,
       info: Object.keys(this.info).length > 0 ? this.info : undefined,
     };
+
+    // CRITICAL: Run validation before generation
+    this.validateBeforeBuild(docDefinition);
+
+    return docDefinition;
+  }
+
+  /**
+   * Validate document before building to catch common issues
+   * Logs warnings for font/image issues that would cause failures
+   */
+  private validateBeforeBuild(docDefinition: TDocumentDefinitions): void {
+    const quickResult = quickValidate(docDefinition);
+    
+    if (!quickResult.ok) {
+      console.error('[PDFMake] ⚠️ CRITICAL VALIDATION ISSUES DETECTED:');
+      quickResult.issues.forEach(issue => {
+        console.error(`  ✗ ${issue}`);
+      });
+      console.error('[PDFMake] These issues will likely cause PDF generation to fail.');
+    }
+
+    // Full validation for warnings
+    const fullResult = validateDocument(docDefinition);
+    
+    if (fullResult.warnings.length > 0) {
+      console.warn('[PDFMake] Validation warnings:');
+      fullResult.warnings.forEach(warning => {
+        console.warn(`  ⚠ ${warning.message}`);
+      });
+    }
   }
 
   /**
