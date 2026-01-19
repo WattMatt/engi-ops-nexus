@@ -165,12 +165,13 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
       
       {previewReport && (
         <StandardReportPreview
+          report={{
+            ...previewReport,
+            report_name: `Bulk Services Report - ${previewReport.revision}`,
+          }}
           open={!!previewReport}
-          onClose={() => setPreviewReport(null)}
-          reportId={previewReport.id}
-          reportName={`Bulk Services Report - ${previewReport.revision}`}
+          onOpenChange={(open) => !open && setPreviewReport(null)}
           storageBucket="bulk-services-reports"
-          filePath={previewReport.file_path}
         />
       )}
     </>
