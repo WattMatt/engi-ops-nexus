@@ -117,14 +117,19 @@ const getZoneColor = (value: number): string => {
 // SECTION BUILDERS
 // ============================================================================
 
+// Safety limits to prevent hanging (matching cost report best practices)
+const MAX_SECTIONS = 50;
+const MAX_CHART_SIZE_BYTES = 200 * 1024; // 200KB
+
 /**
- * Build cover page
+ * Build cover page - now synchronous, uses pre-processed logo
  */
-const buildCoverPage = async (
+const buildCoverPage = (
   document: BulkServicesDocument,
   options: BulkServicesPDFOptions,
-  companyDetails?: CompanyDetails
-): Promise<Content[]> => {
+  companyDetails?: CompanyDetails,
+  logoBase64?: string | null
+): Content[] => {
   const content: Content[] = [];
 
   // Blue header band
@@ -142,18 +147,13 @@ const buildCoverPage = async (
     absolutePosition: { x: 0, y: 0 },
   });
 
-  // Logo if available
-  if (companyDetails?.logoUrl) {
-    try {
-      const logoBase64 = await imageToBase64(companyDetails.logoUrl);
-      content.push({
-        image: logoBase64,
-        width: 100,
-        margin: [0, 20, 0, 20] as Margins,
-      });
-    } catch (error) {
-      console.warn('[BulkServicesPDF] Failed to load logo:', error);
-    }
+  // Logo if available (pre-processed base64)
+  if (logoBase64) {
+    content.push({
+      image: logoBase64,
+      width: 100,
+      margin: [0, 20, 0, 20] as Margins,
+    });
   }
 
   content.push(spacer(50));
@@ -1049,12 +1049,47 @@ export async function generateBulkServicesPDF(
   const startTime = Date.now();
 
   try {
+    // ========== PHASE 1: Pre-process all async data BEFORE document building ==========
+    console.log('[BulkServicesPDF] Phase 1: Pre-processing data...');
+    
     // Fetch company details
     console.log('[BulkServicesPDF] Fetching company details...');
     const companyDetails = options.companyDetails || await fetchCompanyDetails();
+    
+    // Pre-convert logo to base64 (like Cost Report does)
+    let logoBase64: string | null = null;
+    if (companyDetails?.logoUrl) {
+      try {
+        console.log('[BulkServicesPDF] Converting logo to base64...');
+        logoBase64 = await imageToBase64(companyDetails.logoUrl);
+        console.log('[BulkServicesPDF] Logo converted successfully');
+      } catch (error) {
+        console.warn('[BulkServicesPDF] Failed to convert logo, skipping:', error);
+        logoBase64 = null; // Proceed without logo
+      }
+    }
+    
+    // Validate and limit chart size
+    let validChartDataUrl: string | null = null;
+    if (options.chartDataUrl && options.chartDataUrl.startsWith('data:image/')) {
+      const chartSizeBytes = options.chartDataUrl.length * 0.75; // Approximate base64 to bytes
+      if (chartSizeBytes <= MAX_CHART_SIZE_BYTES) {
+        validChartDataUrl = options.chartDataUrl;
+        console.log(`[BulkServicesPDF] Chart validated: ${Math.round(chartSizeBytes / 1024)}KB`);
+      } else {
+        console.warn(`[BulkServicesPDF] Chart too large (${Math.round(chartSizeBytes / 1024)}KB > ${MAX_CHART_SIZE_BYTES / 1024}KB), skipping`);
+      }
+    }
+    
+    // Apply safety limits to sections
+    const limitedSections = sections.slice(0, MAX_SECTIONS);
+    if (sections.length > MAX_SECTIONS) {
+      console.warn(`[BulkServicesPDF] Sections limited from ${sections.length} to ${MAX_SECTIONS}`);
+    }
 
-    // Create document using PDFDocumentBuilder (reliable pattern)
-    console.log('[BulkServicesPDF] Creating document builder...');
+    // ========== PHASE 2: Build document synchronously ==========
+    console.log('[BulkServicesPDF] Phase 2: Building document...');
+    
     const doc = createDocument({
       orientation: 'portrait',
       pageSize: 'A4',
@@ -1066,10 +1101,9 @@ export async function generateBulkServicesPDF(
       value: { fontSize: 10, color: COLORS.text },
     });
 
-    // Cover Page
+    // Cover Page (now synchronous - uses pre-processed logo)
     console.log('[BulkServicesPDF] Building cover page...');
-    const coverContent = await buildCoverPage(document, options, companyDetails);
-    doc.add(coverContent);
+    doc.add(buildCoverPage(document, options, companyDetails, logoBase64));
 
     // Document Information
     console.log('[BulkServicesPDF] Building document info...');
@@ -1083,8 +1117,8 @@ export async function generateBulkServicesPDF(
     console.log('[BulkServicesPDF] Building connection & cabling...');
     doc.add(buildConnectionAndCabling(document));
 
-    // Chart if available
-    if (options.chartDataUrl && options.chartDataUrl.startsWith('data:image/')) {
+    // Chart if available and validated
+    if (validChartDataUrl) {
       console.log('[BulkServicesPDF] Adding chart...');
       doc.add([
         {
@@ -1094,7 +1128,7 @@ export async function generateBulkServicesPDF(
           margin: [0, 0, 0, 10] as Margins,
         },
         {
-          image: options.chartDataUrl,
+          image: validChartDataUrl,
           width: 500,
           margin: [0, 0, 0, 20] as Margins,
         },
@@ -1102,18 +1136,18 @@ export async function generateBulkServicesPDF(
       ]);
     }
 
-    // Section Content
-    if (sections.length > 0) {
-      console.log('[BulkServicesPDF] Building section content...');
-      doc.add(buildSectionContent(sections));
+    // Section Content (with limits applied)
+    if (limitedSections.length > 0) {
+      console.log(`[BulkServicesPDF] Building ${limitedSections.length} sections...`);
+      doc.add(buildSectionContent(limitedSections));
     }
 
     // Configure standard header/footer (skip first page automatically)
     doc.withStandardHeader('Bulk Services Report', options.projectName);
     doc.withStandardFooter(false);
 
-    // Generate blob using reliable toBlob method with 90s timeout
-    console.log('[BulkServicesPDF] Generating PDF blob (90s timeout)...');
+    // ========== PHASE 3: Generate PDF blob ==========
+    console.log('[BulkServicesPDF] Phase 3: Generating PDF blob (90s timeout)...');
     const blob = await doc.toBlob(90000);
 
     const filename = `bulk-services-${document.document_number.replace(/\s+/g, '-')}-${options.revision}-${format(new Date(), 'yyyyMMdd')}.pdf`;
