@@ -291,6 +291,33 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     }
   };
 
+  // Timeout wrapper for database queries (10 seconds max per query)
+  const QUERY_TIMEOUT_MS = 10000;
+  
+  async function withQueryTimeout<T>(
+    queryFn: () => PromiseLike<{ data: T | null; error: any }>,
+    fallbackData: T,
+    label: string
+  ): Promise<T> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.warn(`[CostReportPDF] ${label} query timed out after ${QUERY_TIMEOUT_MS}ms, using fallback`);
+        resolve(fallbackData);
+      }, QUERY_TIMEOUT_MS);
+      
+      Promise.resolve(queryFn())
+        .then((result) => {
+          clearTimeout(timeout);
+          resolve(result.data ?? fallbackData);
+        })
+        .catch((error) => {
+          clearTimeout(timeout);
+          console.error(`[CostReportPDF] ${label} query failed:`, error);
+          resolve(fallbackData);
+        });
+    });
+  }
+
   const exportPDF = async () => {
     setLoading(true);
     startExport();
@@ -298,11 +325,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     updateProgress('init');
 
     try {
-      const { data: company } = await supabase
-        .from("company_settings")
-        .select("*")
-        .limit(1)
-        .maybeSingle();
+      // Fetch company settings with timeout
+      setCurrentSection("Loading company settings...");
+      const company = await withQueryTimeout(
+        () => supabase.from("company_settings").select("*").limit(1).maybeSingle(),
+        null,
+        "Company settings"
+      );
 
       const companyDetails = {
         companyName: company?.company_name || "Company Name",
@@ -324,39 +353,40 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // Contact ID for cover page
       const contactId = selectedContactId || (contacts && contacts.length > 0 ? contacts[0].id : null);
+      
+      // Fetch all report data in parallel with individual timeouts
       setCurrentSection("Fetching report data...");
       updateProgress('data');
       
-      const { data: categoriesData } = await supabase
-        .from("cost_categories")
-        .select("*, cost_line_items(*)")
-        .eq("cost_report_id", report.id)
-        .order("display_order");
-
-      const { data: variationsData } = await supabase
-        .from("cost_variations")
-        .select(`
-          *,
-          tenants(shop_name, shop_number),
-          variation_line_items(*)
-        `)
-        .eq("cost_report_id", report.id)
-        .order("display_order");
+      const [categoriesData, variationsData, details] = await Promise.all([
+        withQueryTimeout(
+          () => supabase.from("cost_categories").select("*, cost_line_items(*)").eq("cost_report_id", report.id).order("display_order"),
+          [] as any[],
+          "Categories"
+        ),
+        withQueryTimeout(
+          () => supabase.from("cost_variations").select(`*, tenants(shop_name, shop_number), variation_line_items(*)`).eq("cost_report_id", report.id).order("display_order"),
+          [] as any[],
+          "Variations"
+        ),
+        withQueryTimeout(
+          () => supabase.from("cost_report_details").select("*").eq("cost_report_id", report.id).order("display_order"),
+          [] as any[],
+          "Details"
+        )
+      ]);
+      
+      // Log results for debugging
+      console.log(`[CostReportPDF] Data fetched - Categories: ${categoriesData.length}, Variations: ${variationsData.length}, Details: ${details.length}`);
       
       // Sort variations by extracting numeric part from code (e.g., G1, G2, G10)
-      const sortedVariations = (variationsData || []).sort((a, b) => {
-        const aMatch = a.code.match(/\d+/);
-        const bMatch = b.code.match(/\d+/);
+      const sortedVariations = (variationsData || []).sort((a: any, b: any) => {
+        const aMatch = a.code?.match(/\d+/);
+        const bMatch = b.code?.match(/\d+/);
         const aNum = aMatch ? parseInt(aMatch[0], 10) : 0;
         const bNum = bMatch ? parseInt(bMatch[0], 10) : 0;
         return aNum - bNum;
       });
-
-      const { data: details } = await supabase
-        .from("cost_report_details")
-        .select("*")
-        .eq("cost_report_id", report.id)
-        .order("display_order");
 
       // Extract line items from categories
       const allLineItems = (categoriesData || []).flatMap(cat => cat.cost_line_items || []);
