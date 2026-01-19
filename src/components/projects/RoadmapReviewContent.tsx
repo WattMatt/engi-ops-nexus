@@ -503,10 +503,6 @@ export function RoadmapReviewContent() {
             <LayoutDashboard className="h-4 w-4" />
             Dashboard
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Analytics
-          </TabsTrigger>
           <TabsTrigger value="projects" className="flex items-center gap-2">
             <List className="h-4 w-4" />
             Projects
@@ -522,7 +518,7 @@ export function RoadmapReviewContent() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Dashboard Tab */}
+        {/* Dashboard Tab - Combined with Analytics */}
         <TabsContent value="dashboard" className="space-y-6">
           {/* Filter indicator */}
           {groupBy !== "none" && (
@@ -536,6 +532,8 @@ export function RoadmapReviewContent() {
               </span>
             </div>
           )}
+          
+          {/* Executive Summary Section */}
           <div key={`dashboard-${filterKey}`} className="grid gap-6 lg:grid-cols-4 animate-fade-in">
             <div className="animate-scale-in" style={{ animationDelay: '0ms' }}>
               <PortfolioHealthGauge score={portfolioMetrics.totalHealthScore} />
@@ -544,30 +542,18 @@ export function RoadmapReviewContent() {
               <ExecutiveSummaryCards metrics={portfolioMetrics} />
             </div>
           </div>
+          
+          {/* Project Comparison Chart */}
           <div key={`chart-${filterKey}`} className="animate-fade-in" style={{ animationDelay: '100ms' }}>
             <ProjectComparisonChart projects={filteredSummaries} />
           </div>
-        </TabsContent>
-
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-6">
-          {/* Filter indicator */}
-          {groupBy !== "none" && (
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg animate-fade-in">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">
-                Showing filtered data: {getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries) || "Filtered view"}
-              </span>
-              <span className="text-xs text-muted-foreground ml-auto">
-                {filteredSummaries.length} of {enhancedSummaries.length} projects
-              </span>
-            </div>
-          )}
+          
+          {/* Analytics Section */}
           <div key={`analytics-${filterKey}`} className="grid gap-6 lg:grid-cols-2">
-            <div className="animate-scale-in" style={{ animationDelay: '0ms' }}>
+            <div className="animate-scale-in" style={{ animationDelay: '150ms' }}>
               <PriorityHeatMap projects={filteredSummaries} />
             </div>
-            <div className="animate-scale-in" style={{ animationDelay: '75ms' }}>
+            <div className="animate-scale-in" style={{ animationDelay: '200ms' }}>
               <TeamWorkloadChart projects={filteredSummaries} />
             </div>
           </div>
