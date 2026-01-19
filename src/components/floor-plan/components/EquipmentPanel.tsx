@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles, FileText, Settings2 } from 'lucide-react';
-import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo } from '../types';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles, FileText, Settings2, Eye, MapPin } from 'lucide-react';
+import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo, RoofMask } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
 import { getCableColor, getContainmentStyle, calculateLvCableSummary } from '../utils/styleUtils';
@@ -59,6 +59,9 @@ interface EquipmentPanelProps {
   onOpenTaskModal: (task: Partial<Task> | null) => void;
   // Zones Props
   onJumpToZone: (zone: SupplyZone) => void;
+  // Roof Masks Props
+  roofMasks?: RoofMask[];
+  onJumpToRoofMask?: (mask: RoofMask) => void;
   // Project ID
   projectId?: string;
   // Floor Plan ID for grouping unassigned materials per layout/shop
@@ -75,7 +78,7 @@ interface EquipmentPanelProps {
   isSelectingRegion?: boolean;
 }
 
-type EquipmentPanelTab = 'summary' | 'equipment' | 'assemblies' | 'cables' | 'containment' | 'zones' | 'tasks';
+type EquipmentPanelTab = 'summary' | 'equipment' | 'assemblies' | 'cables' | 'containment' | 'zones' | 'roofMasks' | 'tasks';
 type TopLevelView = 'overview' | 'circuits';
 
 
@@ -704,6 +707,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   projectId,
   floorPlanId,
   scaleInfo,
+  roofMasks = [],
+  onJumpToRoofMask,
   selectedCircuit,
   onSelectCircuit,
   onEditCable,
@@ -1427,7 +1432,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
               <TabButton tabId="assemblies" label="Assemblies" />
               <TabButton tabId="cables" label="Cables" disabled={!hasCables} />
               <TabButton tabId="containment" label="Containment" />
-              <TabButton tabId="zones" label="Zones" />
+              <TabButton tabId="roofMasks" label="Roof Masks" count={roofMasks.length} />
+              <TabButton tabId="zones" label="Exclusion Zones" />
               <TabButton tabId="tasks" label="Tasks" count={tasks.length} />
             </nav>
           </div>
@@ -1574,8 +1580,63 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
               </div>
             </div>
 
+            {/* Roof Masks Tab */}
+            <div style={{ display: activeTab === 'roofMasks' ? 'block' : 'none' }}>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Roof Masks ({roofMasks.length})
+              </h3>
+              <div className="space-y-1.5 text-sm max-h-[60vh] overflow-y-auto pr-2">
+                {roofMasks.length > 0 ? roofMasks.map((mask, index) => (
+                  <div 
+                    key={mask.id}
+                    className={`w-full text-left p-2 rounded-md transition-colors ${selectedItemId === mask.id ? 'bg-indigo-600/30 ring-1 ring-indigo-400' : 'bg-gray-700/50'}`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <button
+                        onClick={() => setSelectedItemId(mask.id)}
+                        className="flex items-center gap-3 flex-1 text-left hover:opacity-80 transition-opacity"
+                      >
+                        <div 
+                          className="w-4 h-4 rounded" 
+                          style={{ backgroundColor: 'rgba(148, 112, 216, 0.6)' }}
+                        />
+                        <div>
+                          <span className="text-gray-300 font-medium">Roof Mask {index + 1}</span>
+                          <div className="text-[10px] text-gray-400 flex items-center gap-2 mt-0.5">
+                            <span className="flex items-center gap-1">
+                              <MapPin size={10} />
+                              Pitch: {mask.pitch}°
+                            </span>
+                            <span>|</span>
+                            <span>Direction: {mask.direction}°</span>
+                          </div>
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        {onJumpToRoofMask && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onJumpToRoofMask(mask);
+                            }}
+                            className="p-1 hover:bg-indigo-500/30 rounded transition-colors"
+                            title="Jump to roof mask in drawing"
+                          >
+                            <Eye size={16} className="text-indigo-400" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-gray-500 text-xs text-center p-4">No roof masks defined. Use the Roof Mask tool to draw mask areas.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Exclusion Zones Tab */}
             <div style={{ display: activeTab === 'zones' ? 'block' : 'none' }}>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Supply Zones ({zones.length})</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Exclusion Zones ({zones.length})</h3>
               <div className="space-y-1.5 text-sm max-h-[60vh] overflow-y-auto pr-2">
                 {zones.length > 0 ? zones.map(zone => (
                   <div key={zone.id}
@@ -1598,15 +1659,12 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                           className="p-1 hover:bg-indigo-500/30 rounded transition-colors"
                           title="Jump to zone in drawing"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
-                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
+                          <Eye size={16} className="text-indigo-400" />
                         </button>
                       </div>
                     </div>
                   </div>
-                )) : <p className="text-gray-500 text-xs text-center p-4">No supply zones defined.</p>}
+                )) : <p className="text-gray-500 text-xs text-center p-4">No exclusion zones defined.</p>}
               </div>
             </div>
 
