@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -5,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useState } from "react";
-import { Pencil, Save, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Pencil, Save, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 
@@ -17,7 +17,6 @@ interface GeneratorCostingSectionProps {
 export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionProps) => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
-  const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
   const [editValues, setEditValues] = useState({
     ratePerTenantDB: 0,
     numMainBoards: 0,
@@ -200,18 +199,6 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     return getZoneGenerators(zoneId).reduce((sum, gen) => sum + (Number(gen.generator_cost) || 0), 0);
   };
 
-  const toggleZoneExpanded = (zoneId: string) => {
-    setExpandedZones(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(zoneId)) {
-        newSet.delete(zoneId);
-      } else {
-        newSet.add(zoneId);
-      }
-      return newSet;
-    });
-  };
-
   const handleUpdateGeneratorSize = async (generatorId: string, size: string | null) => {
     try {
       const { error } = await supabase
@@ -283,11 +270,11 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Item</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Rate (R)</TableHead>
-              <TableHead className="text-right">Cost (excl. VAT)</TableHead>
+              <TableHead className="w-12">#</TableHead>
+              <TableHead>Zone / Generator</TableHead>
+              <TableHead>Size</TableHead>
+              <TableHead>Cost (R)</TableHead>
+              <TableHead className="text-right">Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -299,70 +286,63 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
               </TableRow>
             ) : (
               <>
-                {zones.map((zone, index) => {
+                {/* Flat list of all generators with direct editing */}
+                {zones.map((zone, zoneIndex) => {
                   const generators = getZoneGenerators(zone.id);
                   const zoneTotalCost = getZoneTotalCost(zone.id);
-                  const isExpanded = expandedZones.has(zone.id);
                   
                   return (
-                    <>
-                      <TableRow key={zone.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleZoneExpanded(zone.id)}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-1">
-                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                            {index + 1}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                    <React.Fragment key={zone.id}>
+                      {/* Zone header row */}
+                      <TableRow className="bg-muted/30 border-t">
+                        <TableCell className="font-bold">{zoneIndex + 1}</TableCell>
+                        <TableCell colSpan={3}>
+                          <div className="flex items-center gap-2 font-medium">
                             <div 
-                              className="w-2 h-2 rounded-full shrink-0" 
+                              className="w-3 h-3 rounded-full shrink-0" 
                               style={{ backgroundColor: zone.zone_color || "#3b82f6" }}
                             />
                             {zone.zone_name}
-                            {zone.num_generators > 1 && ` (${zone.num_generators} Generators)`}
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono">{generators.length}</TableCell>
-                        <TableCell className="font-mono text-muted-foreground">—</TableCell>
-                        <TableCell className="text-right font-mono font-medium">
+                        <TableCell className="text-right font-mono font-bold">
                           {formatCurrency(zoneTotalCost)}
                         </TableCell>
                       </TableRow>
                       
-                      {/* Expanded generator rows */}
-                      {isExpanded && generators.map((gen) => (
-                        <TableRow key={gen.id} className="bg-muted/30">
-                          <TableCell></TableCell>
-                          <TableCell className="pl-8">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm text-muted-foreground">Gen #{gen.generator_number}</span>
-                              <Select
-                                value={gen.generator_size || "none"}
-                                onValueChange={(value) => handleUpdateGeneratorSize(gen.id, value === "none" ? null : value)}
-                              >
-                                <SelectTrigger className="w-[130px] h-8 text-xs" onClick={(e) => e.stopPropagation()}>
-                                  <SelectValue placeholder="Select size" />
-                                </SelectTrigger>
-                                <SelectContent className="z-50 bg-popover">
-                                  <SelectItem value="none">Not selected</SelectItem>
-                                  {GENERATOR_SIZING_TABLE.map((g) => (
-                                    <SelectItem key={g.rating} value={g.rating}>
-                                      {g.rating}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                      {/* Generator rows - always visible, directly editable */}
+                      {generators.map((gen) => (
+                        <TableRow key={gen.id}>
+                          <TableCell className="text-muted-foreground text-xs pl-6">
+                            #{gen.generator_number}
                           </TableCell>
-                          <TableCell></TableCell>
+                          <TableCell className="text-sm">
+                            Generator {gen.generator_number}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={gen.generator_size || "none"}
+                              onValueChange={(value) => handleUpdateGeneratorSize(gen.id, value === "none" ? null : value)}
+                            >
+                              <SelectTrigger className="w-[130px] h-8 text-xs">
+                                <SelectValue placeholder="Select size" />
+                              </SelectTrigger>
+                              <SelectContent className="z-50 bg-popover">
+                                <SelectItem value="none">Not selected</SelectItem>
+                                {GENERATOR_SIZING_TABLE.map((g) => (
+                                  <SelectItem key={g.rating} value={g.rating}>
+                                    {g.rating}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell>
                             <Input
                               type="number"
-                              value={gen.generator_cost || 0}
+                              value={gen.generator_cost || ""}
                               onChange={(e) => {
                                 const newCost = parseFloat(e.target.value) || 0;
-                                // Optimistic update
                                 queryClient.setQueryData(
                                   ["zone-generators-costing", projectId, zoneIds],
                                   (old: any[]) => old?.map(g => 
@@ -371,9 +351,8 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                                 );
                               }}
                               onBlur={(e) => handleUpdateGeneratorCost(gen.id, parseFloat(e.target.value) || 0)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-28 h-8 text-xs"
-                              placeholder="Cost"
+                              className="w-32 h-8 font-mono"
+                              placeholder="Enter cost"
                             />
                           </TableCell>
                           <TableCell className="text-right font-mono">
@@ -381,7 +360,7 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                           </TableCell>
                         </TableRow>
                       ))}
-                    </>
+                    </React.Fragment>
                   );
                 })}
                 
