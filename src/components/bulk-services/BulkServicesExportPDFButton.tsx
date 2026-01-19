@@ -1,27 +1,41 @@
+/**
+ * Bulk Services PDF Export Button
+ * 
+ * Clean implementation following the cost report pattern with:
+ * - Progress tracking
+ * - Quick Export (direct download) path
+ * - Standard path (blob for storage + preview)
+ * - Proper error handling and timeouts
+ */
+
 import { Button } from "@/components/ui/button";
-import { FileDown, Loader2 } from "lucide-react";
+import { FileDown, Loader2, Zap } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
-import { captureChartAsCanvas, waitForElementRender } from "@/utils/pdfQualitySettings";
 import { 
   generateBulkServicesPDF,
+  downloadBulkServicesPDF,
   type BulkServicesDocument,
   type BulkServicesSection,
-} from "@/utils/pdfmake/bulkServicesBuilder";
+} from "@/utils/pdfmake/bulkServices";
 
 interface BulkServicesExportPDFButtonProps {
   documentId: string;
   onReportSaved?: () => void;
 }
 
-export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkServicesExportPDFButtonProps) {
+export function BulkServicesExportPDFButton({ 
+  documentId, 
+  onReportSaved 
+}: BulkServicesExportPDFButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [currentStep, setCurrentStep] = useState("");
   const [previewReport, setPreviewReport] = useState<any>(null);
 
+  // Fetch document data
   const { data: document } = useQuery({
     queryKey: ["bulk-services-document", documentId],
     queryFn: async () => {
@@ -36,6 +50,7 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
     enabled: !!documentId,
   });
 
+  // Fetch sections
   const { data: sections = [] } = useQuery({
     queryKey: ["bulk-services-sections", documentId],
     queryFn: async () => {
@@ -50,83 +65,108 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
     enabled: !!documentId,
   });
 
-  const generatePDF = async () => {
+  // Get next revision number
+  const getNextRevision = async (): Promise<string> => {
+    const { data: latestReport } = await supabase
+      .from("bulk_services_reports")
+      .select("revision")
+      .eq("document_id", documentId)
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestReport?.revision) {
+      const currentRevNum = parseInt(latestReport.revision.replace("Rev.", ""));
+      return `Rev.${currentRevNum + 1}`;
+    }
+    return "Rev.0";
+  };
+
+  // Get project name
+  const getProjectName = async (): Promise<string> => {
+    if (!document?.project_id) return "Bulk Services";
+    
+    const { data: project } = await supabase
+      .from("projects")
+      .select("name")
+      .eq("id", document.project_id)
+      .single();
+    
+    return project?.name || "Bulk Services";
+  };
+
+  // ============================================
+  // QUICK EXPORT - Direct Download (most reliable)
+  // ============================================
+  const handleQuickExport = async () => {
     if (!document) {
       toast.error("No document data available");
       return;
     }
 
     setIsGenerating(true);
+    setCurrentStep("Preparing...");
 
     try {
-      // Get the latest revision
-      const { data: latestReport } = await supabase
-        .from("bulk_services_reports")
-        .select("revision")
-        .eq("document_id", documentId)
-        .order("generated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [revision, projectName] = await Promise.all([
+        getNextRevision(),
+        getProjectName(),
+      ]);
 
-      let nextRevision = "Rev.0";
-      if (latestReport?.revision) {
-        const currentRevNum = parseInt(latestReport.revision.replace("Rev.", ""));
-        nextRevision = `Rev.${currentRevNum + 1}`;
-      }
-
-      // Fetch project name
-      const { data: project } = await supabase
-        .from("projects")
-        .select("name")
-        .eq("id", document.project_id)
-        .single();
-
-      // Try to capture chart if available
-      let chartDataUrl: string | undefined;
-      try {
-        const chartElement = window.document.getElementById('zone-statistics-chart');
-        if (chartElement) {
-          await waitForElementRender(1500);
-          const canvas = await captureChartAsCanvas(chartElement);
-          chartDataUrl = canvas.toDataURL('image/png');
-        }
-      } catch (error) {
-        console.warn('[BulkServicesPDF] Chart capture failed:', error);
-      }
-
-      console.log('[BulkServicesPDFButton] Starting PDF generation...');
+      setCurrentStep("Generating PDF...");
       
-      // Generate PDF using pdfmake with timeout wrapper
-      const pdfGenerationPromise = generateBulkServicesPDF(
+      await downloadBulkServicesPDF(document, sections, {
+        projectName,
+        revision,
+      });
+
+      toast.success("PDF downloaded successfully");
+      onReportSaved?.();
+    } catch (error: any) {
+      console.error("[BulkServicesPDF] Quick export error:", error);
+      toast.error(`Download failed: ${error.message?.slice(0, 100) || 'Unknown error'}`);
+    } finally {
+      setIsGenerating(false);
+      setCurrentStep("");
+    }
+  };
+
+  // ============================================
+  // STANDARD EXPORT - Blob for Storage + Preview
+  // ============================================
+  const handleExport = async () => {
+    if (!document) {
+      toast.error("No document data available");
+      return;
+    }
+
+    setIsGenerating(true);
+    setCurrentStep("Initializing...");
+
+    try {
+      const [revision, projectName] = await Promise.all([
+        getNextRevision(),
+        getProjectName(),
+      ]);
+
+      // Generate PDF blob
+      const { blob, filename } = await generateBulkServicesPDF(
         document,
         sections,
         {
-          projectName: project?.name || "Bulk Services",
-          revision: nextRevision,
-          chartDataUrl,
+          projectName,
+          revision,
+          onProgress: (step, progress) => {
+            setCurrentStep(step);
+          },
         }
       );
-      
-      // Add an overall timeout for the PDF generation
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('PDF generation timed out after 120 seconds')), 120000)
-      );
-      
-      const { blob, filename } = await Promise.race([pdfGenerationPromise, timeoutPromise]);
-      
-      console.log('[BulkServicesPDFButton] PDF generated, size:', blob.size);
-      
-      // Check if we got a real blob or a fallback placeholder
-      if (blob.type === 'text/plain') {
-        // Direct download fallback was used - file was already saved
-        toast.success("PDF downloaded directly (fallback mode)");
-        onReportSaved?.();
-        return;
-      }
+
+      console.log('[BulkServicesPDF] Generated blob size:', blob.size);
 
       // Upload to storage
+      setCurrentStep("Uploading...");
       const filePath = `${document.project_id}/${filename}`;
-      console.log('[BulkServicesPDFButton] Uploading to storage:', filePath);
       
       const { error: uploadError } = await supabase.storage
         .from("bulk-services-reports")
@@ -138,57 +178,85 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
       if (uploadError) throw uploadError;
 
       // Save report record
+      setCurrentStep("Saving record...");
       const { data: savedReport, error: saveError } = await supabase
         .from("bulk_services_reports")
         .insert({
           document_id: documentId,
           project_id: document.project_id,
           file_path: filePath,
-          revision: nextRevision,
+          revision: revision,
         })
         .select()
         .single();
 
       if (saveError) throw saveError;
 
-      toast.success("PDF report generated successfully");
-      
+      toast.success("PDF report generated and saved");
       setPreviewReport(savedReport);
       onReportSaved?.();
     } catch (error: any) {
-      console.error("Error generating PDF:", error);
+      console.error("[BulkServicesPDF] Export error:", error);
       const errorMessage = error?.message || "Unknown error";
-      if (errorMessage.includes('timed out')) {
-        toast.error("PDF generation timed out. Try again or use a simpler document.");
+      
+      if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
+        toast.error("PDF generation timed out. Try Quick Export for a direct download.");
       } else {
-        toast.error(`Failed to generate PDF: ${errorMessage.slice(0, 100)}`);
+        toast.error(`Export failed: ${errorMessage.slice(0, 100)}`);
       }
     } finally {
       setIsGenerating(false);
+      setCurrentStep("");
     }
   };
 
   return (
     <>
-      <Button
-        onClick={generatePDF}
-        disabled={isGenerating || !document}
-        variant="outline"
-        size="sm"
-      >
-        {isGenerating ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Generating...
-          </>
-        ) : (
-          <>
-            <FileDown className="h-4 w-4 mr-2" />
-            Export PDF
-          </>
-        )}
-      </Button>
-      
+      <div className="flex items-center gap-2">
+        {/* Quick Export Button - Direct Download */}
+        <Button
+          onClick={handleQuickExport}
+          disabled={isGenerating || !document}
+          variant="outline"
+          size="sm"
+          title="Quick Export - Direct download (most reliable)"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {currentStep || "Generating..."}
+            </>
+          ) : (
+            <>
+              <Zap className="h-4 w-4 mr-2" />
+              Quick Export
+            </>
+          )}
+        </Button>
+
+        {/* Standard Export Button - Save to Storage + Preview */}
+        <Button
+          onClick={handleExport}
+          disabled={isGenerating || !document}
+          variant="default"
+          size="sm"
+          title="Export and save to storage"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {currentStep || "Generating..."}
+            </>
+          ) : (
+            <>
+              <FileDown className="h-4 w-4 mr-2" />
+              Export PDF
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Report Preview Modal */}
       {previewReport && (
         <StandardReportPreview
           report={{
