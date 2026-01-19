@@ -417,70 +417,25 @@ const buildSANS204Analysis = (document: BulkServicesDocument): Content[] => {
     margin: [0, 15, 0, 10] as Margins,
   });
 
+  // Simplified statistics table (avoiding function-based layouts that can hang pdfmake)
   content.push({
-    columns: [
-      {
-        width: '*',
-        table: {
-          widths: ['*'],
-          body: [[{
-            stack: [
-              { text: 'Average', fontSize: 8, color: COLORS.textMuted, alignment: 'center' as const },
-              { text: '82.6', fontSize: 24, bold: true, color: COLORS.secondary, alignment: 'center' as const, margin: [0, 4, 0, 4] as Margins },
-              { text: 'VA/m²', fontSize: 8, color: COLORS.textMuted, alignment: 'center' as const },
-            ],
-            margin: [8, 8, 8, 8] as Margins,
-          }]],
-        },
-        layout: {
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          hLineColor: () => COLORS.secondary,
-          vLineColor: () => COLORS.secondary,
-        },
-      },
-      {
-        width: '*',
-        table: {
-          widths: ['*'],
-          body: [[{
-            stack: [
-              { text: 'Minimum', fontSize: 8, color: COLORS.textMuted, alignment: 'center' as const },
-              { text: '75', fontSize: 24, bold: true, color: COLORS.success, alignment: 'center' as const, margin: [0, 4, 0, 4] as Margins },
-              { text: 'VA/m²', fontSize: 8, color: COLORS.textMuted, alignment: 'center' as const },
-            ],
-            margin: [8, 8, 8, 8] as Margins,
-          }]],
-        },
-        layout: {
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          hLineColor: () => COLORS.success,
-          vLineColor: () => COLORS.success,
-        },
-      },
-      {
-        width: '*',
-        table: {
-          widths: ['*'],
-          body: [[{
-            stack: [
-              { text: 'Maximum', fontSize: 8, color: COLORS.textMuted, alignment: 'center' as const },
-              { text: '95', fontSize: 24, bold: true, color: COLORS.danger, alignment: 'center' as const, margin: [0, 4, 0, 4] as Margins },
-              { text: 'VA/m²', fontSize: 8, color: COLORS.textMuted, alignment: 'center' as const },
-            ],
-            margin: [8, 8, 8, 8] as Margins,
-          }]],
-        },
-        layout: {
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          hLineColor: () => COLORS.danger,
-          vLineColor: () => COLORS.danger,
-        },
-      },
-    ],
-    columnGap: 15,
+    table: {
+      headerRows: 1,
+      widths: ['*', '*', '*'],
+      body: [
+        [
+          { text: 'Average', fontSize: 9, bold: true, fillColor: COLORS.secondary, color: COLORS.white, alignment: 'center' as const },
+          { text: 'Minimum', fontSize: 9, bold: true, fillColor: COLORS.success, color: COLORS.white, alignment: 'center' as const },
+          { text: 'Maximum', fontSize: 9, bold: true, fillColor: COLORS.danger, color: COLORS.white, alignment: 'center' as const },
+        ],
+        [
+          { text: '82.6 VA/m²', fontSize: 16, bold: true, color: COLORS.secondary, alignment: 'center' as const, margin: [0, 8, 0, 8] as Margins },
+          { text: '75 VA/m²', fontSize: 16, bold: true, color: COLORS.success, alignment: 'center' as const, margin: [0, 8, 0, 8] as Margins },
+          { text: '95 VA/m²', fontSize: 16, bold: true, color: COLORS.danger, alignment: 'center' as const, margin: [0, 8, 0, 8] as Margins },
+        ],
+      ],
+    },
+    layout: tableLayouts.standard,
     margin: [0, 0, 0, 20] as Margins,
   });
 
@@ -551,6 +506,7 @@ const buildSANS204Analysis = (document: BulkServicesDocument): Content[] => {
     `Your selected configuration requires ${document.va_per_sqm || '90'} VA/m² in ${document.climatic_zone || 'Zone 1'}`,
   ];
 
+  // Use standard layout instead of function-based layout
   content.push({
     table: {
       widths: ['*'],
@@ -560,12 +516,7 @@ const buildSANS204Analysis = (document: BulkServicesDocument): Content[] => {
         fillColor: COLORS.lightGray,
       }]],
     },
-    layout: {
-      hLineWidth: () => 0.5,
-      vLineWidth: () => 0.5,
-      hLineColor: () => COLORS.border,
-      vLineColor: () => COLORS.border,
-    },
+    layout: tableLayouts.standard,
     margin: [0, 0, 0, 20] as Margins,
   });
 
@@ -707,191 +658,80 @@ const buildConnectionAndCabling = (document: BulkServicesDocument): Content[] =>
     margin: [0, 10, 0, 15] as Margins,
   });
 
-  // Diagram using tables to simulate boxes and flow
-  const diagramContent: Content[] = [];
-
-  // Supply Authority Box
-  diagramContent.push({
-    table: {
-      widths: ['*'],
-      body: [[{
-        text: 'SUPPLY AUTHORITY',
-        fontSize: 10,
-        bold: true,
-        color: COLORS.white,
-        alignment: 'center' as const,
-        margin: [0, 6, 0, 6] as Margins,
-      }]],
+  // Simplified diagram - using basic table structure instead of complex nested layouts
+  // Complex diagram layouts with function callbacks can cause pdfmake to hang
+  const diagramRows = [
+    {
+      label: 'SUPPLY AUTHORITY',
+      detail: document.primary_voltage || '11kV',
+      bgColor: COLORS.supplyBlue,
+      textColor: COLORS.white,
     },
-    layout: { fillColor: () => COLORS.supplyBlue, hLineWidth: () => 0, vLineWidth: () => 0 },
-    margin: [100, 0, 100, 0] as Margins,
-  });
-
-  diagramContent.push({
-    text: `${document.primary_voltage || '11kV'}`,
-    fontSize: 8,
-    alignment: 'center',
-    margin: [0, 4, 0, 4] as Margins,
-  });
-
-  diagramContent.push({
-    text: '│',
-    fontSize: 16,
-    alignment: 'center',
-    margin: [0, 0, 0, 0] as Margins,
-  });
-
-  // Bulk Metering Box
-  diagramContent.push({
-    table: {
-      widths: ['*'],
-      body: [[{
-        stack: [
-          { text: 'BULK METERING', fontSize: 9, bold: true, alignment: 'center' as const },
-          { text: document.connection_size || `${maxDemandKVA.toFixed(0)} kVA`, fontSize: 7, alignment: 'center' as const },
-          { text: '(Municipal Equipment)', fontSize: 6, alignment: 'center' as const },
-        ],
-        margin: [0, 4, 0, 4] as Margins,
-      }]],
+    {
+      label: 'BULK METERING',
+      detail: `${document.connection_size || `${maxDemandKVA.toFixed(0)} kVA`} (Municipal Equipment)`,
+      bgColor: COLORS.meterYellow,
+      textColor: COLORS.text,
     },
-    layout: { 
-      fillColor: () => COLORS.meterYellow, 
-      hLineWidth: () => 0.5, 
-      vLineWidth: () => 0.5,
-      hLineColor: () => '#d4a806',
-      vLineColor: () => '#d4a806',
+    {
+      label: 'MAIN PROTECTION',
+      detail: `MCCB ${breakerSize}A @ 400V 3φ`,
+      bgColor: COLORS.protectionRed,
+      textColor: COLORS.white,
     },
-    margin: [80, 0, 80, 0] as Margins,
-  });
-
-  diagramContent.push({
-    text: '│',
-    fontSize: 16,
-    alignment: 'center',
-    margin: [0, 0, 0, 0] as Margins,
-  });
-
-  // Main Protection Box
-  diagramContent.push({
-    table: {
-      widths: ['*'],
-      body: [[{
-        stack: [
-          { text: 'MAIN PROTECTION', fontSize: 9, bold: true, color: COLORS.white, alignment: 'center' as const },
-          { text: `MCCB ${breakerSize}A`, fontSize: 8, color: COLORS.white, alignment: 'center' as const },
-          { text: '@ 400V 3φ', fontSize: 7, color: COLORS.white, alignment: 'center' as const },
-        ],
-        margin: [0, 4, 0, 4] as Margins,
-      }]],
+    {
+      label: 'MAIN DISTRIBUTION BOARD',
+      detail: `Busbar Rating: ${breakerSize}A | Cable: ${cablesNeeded > 1 ? `${cablesNeeded}x ${suitableCable.size}` : suitableCable.size} COPPER`,
+      bgColor: COLORS.mdbGreen,
+      textColor: COLORS.white,
     },
-    layout: { fillColor: () => COLORS.protectionRed, hLineWidth: () => 0, vLineWidth: () => 0 },
-    margin: [70, 0, 70, 0] as Margins,
-  });
-
-  diagramContent.push({
-    columns: [
-      { text: '│', fontSize: 16, alignment: 'center', width: '*' },
-      { 
-        text: cablesNeeded > 1 
-          ? `${cablesNeeded}x ${suitableCable.size} COPPER\n(${ampsPerCable.toFixed(0)}A per cable)\nPVC/SWA/PVC`
-          : `${suitableCable.size} COPPER\n(${maxDemandAmps.toFixed(0)}A)\nPVC/SWA/PVC`,
-        fontSize: 7,
-        bold: true,
-        margin: [10, 0, 0, 0] as Margins,
-        width: 'auto',
-      },
-    ],
-    margin: [0, 0, 0, 0] as Margins,
-  });
-
-  // MDB Box
-  diagramContent.push({
-    table: {
-      widths: ['*'],
-      body: [[{
-        stack: [
-          { text: 'MAIN DISTRIBUTION BOARD', fontSize: 9, bold: true, color: COLORS.white, alignment: 'center' as const },
-          { text: '(MDB - Location per layout)', fontSize: 7, color: COLORS.white, alignment: 'center' as const },
-          { text: `Busbar Rating: ${breakerSize}A`, fontSize: 7, color: COLORS.white, alignment: 'center' as const },
-        ],
-        margin: [0, 4, 0, 4] as Margins,
-      }]],
-    },
-    layout: { fillColor: () => COLORS.mdbGreen, hLineWidth: () => 0, vLineWidth: () => 0 },
-    margin: [60, 0, 60, 0] as Margins,
-  });
-
-  diagramContent.push({
-    text: '├────────────┼────────────┤',
-    fontSize: 10,
-    alignment: 'center',
-    margin: [0, 4, 0, 4] as Margins,
-  });
-
-  // Sub-DBs
-  diagramContent.push({
-    columns: [
-      {
-        width: '*',
-        table: {
-          widths: ['*'],
-          body: [[{
-            stack: [
-              { text: 'SUB-DB 1', fontSize: 7, bold: true, color: COLORS.white, alignment: 'center' as const },
-              { text: 'Area 1', fontSize: 6, color: COLORS.white, alignment: 'center' as const },
-            ],
-            margin: [0, 3, 0, 3] as Margins,
-          }]],
-        },
-        layout: { fillColor: () => COLORS.subDbPurple, hLineWidth: () => 0, vLineWidth: () => 0 },
-      },
-      {
-        width: '*',
-        table: {
-          widths: ['*'],
-          body: [[{
-            stack: [
-              { text: 'SUB-DB 2', fontSize: 7, bold: true, color: COLORS.white, alignment: 'center' as const },
-              { text: 'Area 2', fontSize: 6, color: COLORS.white, alignment: 'center' as const },
-            ],
-            margin: [0, 3, 0, 3] as Margins,
-          }]],
-        },
-        layout: { fillColor: () => COLORS.subDbPurple, hLineWidth: () => 0, vLineWidth: () => 0 },
-      },
-      {
-        width: '*',
-        table: {
-          widths: ['*'],
-          body: [[{
-            stack: [
-              { text: 'SUB-DB 3', fontSize: 7, bold: true, color: COLORS.white, alignment: 'center' as const },
-              { text: 'Area 3', fontSize: 6, color: COLORS.white, alignment: 'center' as const },
-            ],
-            margin: [0, 3, 0, 3] as Margins,
-          }]],
-        },
-        layout: { fillColor: () => COLORS.subDbPurple, hLineWidth: () => 0, vLineWidth: () => 0 },
-      },
-    ],
-    columnGap: 15,
-    margin: [40, 0, 40, 0] as Margins,
-  });
+  ];
 
   content.push({
     table: {
-      widths: ['*'],
-      body: [[{
-        stack: diagramContent,
-        margin: [10, 10, 10, 10] as Margins,
-      }]],
+      headerRows: 0,
+      widths: [180, '*'],
+      body: diagramRows.map(row => [
+        { 
+          text: row.label, 
+          fontSize: 10, 
+          bold: true, 
+          color: row.textColor, 
+          fillColor: row.bgColor,
+          alignment: 'center' as const,
+          margin: [5, 8, 5, 8] as Margins,
+        },
+        { 
+          text: row.detail, 
+          fontSize: 9, 
+          fillColor: '#f8fafc',
+          margin: [8, 8, 8, 8] as Margins,
+        },
+      ]),
     },
-    layout: {
-      hLineWidth: () => 0.5,
-      vLineWidth: () => 0.5,
-      hLineColor: () => COLORS.border,
-      vLineColor: () => COLORS.border,
+    layout: tableLayouts.standard,
+    margin: [0, 0, 0, 15] as Margins,
+  });
+
+  // Sub-distribution summary (simplified)
+  content.push({
+    table: {
+      headerRows: 1,
+      widths: ['*', '*', '*'],
+      body: [
+        [
+          { text: 'SUB-DB 1', bold: true, fontSize: 8, color: COLORS.white, fillColor: COLORS.subDbPurple, alignment: 'center' as const },
+          { text: 'SUB-DB 2', bold: true, fontSize: 8, color: COLORS.white, fillColor: COLORS.subDbPurple, alignment: 'center' as const },
+          { text: 'SUB-DB 3', bold: true, fontSize: 8, color: COLORS.white, fillColor: COLORS.subDbPurple, alignment: 'center' as const },
+        ],
+        [
+          { text: 'Area 1', fontSize: 8, alignment: 'center' as const },
+          { text: 'Area 2', fontSize: 8, alignment: 'center' as const },
+          { text: 'Area 3', fontSize: 8, alignment: 'center' as const },
+        ],
+      ],
     },
+    layout: tableLayouts.standard,
     margin: [0, 0, 0, 20] as Margins,
   });
 
@@ -1147,8 +987,41 @@ export async function generateBulkServicesPDF(
     doc.withStandardFooter(false);
 
     // ========== PHASE 3: Generate PDF blob ==========
-    console.log('[BulkServicesPDF] Phase 3: Generating PDF blob (90s timeout)...');
-    const blob = await doc.toBlob(90000);
+    // Use shorter timeout since we've simplified the layouts
+    console.log('[BulkServicesPDF] Phase 3: Generating PDF blob (60s timeout)...');
+    
+    let blob: Blob;
+    try {
+      // First attempt: use the standard toBlob method
+      blob = await doc.toBlob(60000);
+      console.log('[BulkServicesPDF] toBlob succeeded');
+    } catch (blobError) {
+      console.warn('[BulkServicesPDF] toBlob failed, trying direct getBlob...', blobError);
+      
+      // Fallback: Try direct pdfmake getBlob
+      blob = await new Promise<Blob>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Direct getBlob timed out after 60s'));
+        }, 60000);
+        
+        try {
+          const docDef = doc.build();
+          const { pdfMake } = require('./config');
+          pdfMake.createPdf(docDef).getBlob((result: Blob) => {
+            clearTimeout(timeoutId);
+            if (result) {
+              console.log('[BulkServicesPDF] Direct getBlob succeeded:', result.size, 'bytes');
+              resolve(result);
+            } else {
+              reject(new Error('getBlob returned empty result'));
+            }
+          });
+        } catch (err) {
+          clearTimeout(timeoutId);
+          reject(err);
+        }
+      });
+    }
 
     const filename = `bulk-services-${document.document_number.replace(/\s+/g, '-')}-${options.revision}-${format(new Date(), 'yyyyMMdd')}.pdf`;
 
