@@ -518,6 +518,18 @@ export function RoadmapReviewContent() {
 
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-6">
+          {/* Filter indicator */}
+          {groupBy !== "none" && (
+            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">
+                Showing filtered data: {getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries) || "Filtered view"}
+              </span>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {filteredSummaries.length} of {enhancedSummaries.length} projects
+              </span>
+            </div>
+          )}
           <div className="grid gap-6 lg:grid-cols-4">
             <PortfolioHealthGauge score={portfolioMetrics.totalHealthScore} />
             <div className="lg:col-span-3">
@@ -529,6 +541,18 @@ export function RoadmapReviewContent() {
 
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
+          {/* Filter indicator */}
+          {groupBy !== "none" && (
+            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">
+                Showing filtered data: {getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries) || "Filtered view"}
+              </span>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {filteredSummaries.length} of {enhancedSummaries.length} projects
+              </span>
+            </div>
+          )}
           <div className="grid gap-6 lg:grid-cols-2">
             <PriorityHeatMap projects={filteredSummaries} />
             <TeamWorkloadChart projects={filteredSummaries} />
