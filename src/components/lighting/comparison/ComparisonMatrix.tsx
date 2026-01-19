@@ -13,8 +13,8 @@ import { ComparisonSettings, calculateMetrics } from './comparisonTypes';
 import { CostAnalysisPanel } from './CostAnalysisPanel';
 import { EnergyAnalysisPanel } from './EnergyAnalysisPanel';
 import { EfficiencyMetrics } from './EfficiencyMetrics';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generateComparisonPDF } from './comparisonPdfExport';
+import { toast } from 'sonner';
 
 interface ComparisonMatrixProps {
   fittings: LightingFitting[];
@@ -161,36 +161,20 @@ export const ComparisonMatrix = ({
     return String(value);
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF('landscape');
-    doc.setFontSize(16);
-    doc.text('Lighting Fitting Comparison', 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
-
-    const headers = ['Property', ...fittings.map((f) => f.fitting_code)];
-    const allRows = [
-      ...generalRows,
-      ...performanceRows,
-      ...costRows,
-      ...physicalRows,
-    ];
-
-    const tableData = allRows.map((row) => [
-      row.property,
-      ...row.values.map((v) => formatValue(v, row.format)),
-    ]);
-
-    autoTable(doc, {
-      head: [headers],
-      body: tableData,
-      startY: 28,
-      theme: 'striped',
-      headStyles: { fillColor: [59, 130, 246] },
-      styles: { fontSize: 8 },
-    });
-
-    doc.save('lighting-comparison.pdf');
+  const exportToPDF = async () => {
+    try {
+      await generateComparisonPDF({
+        fittings,
+        generalRows,
+        performanceRows,
+        costRows,
+        physicalRows,
+      });
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      toast.error('Failed to export PDF');
+    }
   };
 
   const renderSection = (
