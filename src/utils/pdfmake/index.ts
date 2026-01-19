@@ -93,6 +93,8 @@ export {
   validateDocument,
   getDocumentSummary,
   formatValidationResult,
+  quickValidate,
+  validateBeforeGeneration,
 } from './validation';
 export type {
   ValidationResult,
@@ -101,6 +103,16 @@ export type {
   DocumentSummary,
   ContentStats,
 } from './validation';
+
+// Canonical report template (use as reference for new reports)
+export {
+  generateCanonicalReportPDF,
+  downloadCanonicalReportPDF,
+} from './CANONICAL_REPORT';
+export type {
+  CanonicalReportData,
+  CanonicalReportOptions,
+} from './CANONICAL_REPORT';
 
 // Testing utilities
 export {
