@@ -414,14 +414,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         });
         onReportGenerated?.();
         
-        // Reset all states after short delay to show completion
-        setTimeout(() => {
-          setLoading(false);
-          setIsGenerating(false);
-          setGenerationStep("");
-          setGenerationPercentage(0);
-          resetProgress();
-        }, 1500);
+        // Quick export path - reset handled by finally block
         return;
       }
 
@@ -499,16 +492,23 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         description: error.message || "Failed to generate PDF. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      // Delayed cleanup to show completion state
-      setTimeout(() => {
-        setLoading(false);
-        setIsGenerating(false);
-        setGenerationStep("");
-        setGenerationPercentage(0);
-        resetProgress();
-      }, 1500);
+      // Immediately reset on error - don't leave progress stuck
+      setLoading(false);
+      setIsGenerating(false);
+      setGenerationStep("");
+      setGenerationPercentage(0);
+      resetProgress();
+      return; // Exit early on error
     }
+    
+    // Success path - delayed cleanup to show completion state briefly
+    setTimeout(() => {
+      setLoading(false);
+      setIsGenerating(false);
+      setGenerationStep("");
+      setGenerationPercentage(0);
+      resetProgress();
+    }, 1500);
   };
   
   const handleValidationProceed = () => {
@@ -543,8 +543,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           </Button>
         </div>
         
-        {/* Two-Phase Progress Indicator */}
-        {(isFetching || isGenerating || dataProgress.error) && (
+        {/* Two-Phase Progress Indicator - only show while actively working */}
+        {(isFetching || isGenerating) && (
           <CostReportProgressIndicator
             dataProgress={dataProgress}
             generationStep={generationStep}
