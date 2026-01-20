@@ -87,20 +87,81 @@ serve(async (req) => {
 
     // Determine data source
     if (syncSource === 'external' && externalUrl && externalKey) {
-      // Pull from external wm-solar system
+      // Pull from external wm-solar system (uses 'project_tenants' table)
       console.log('Fetching from external wm-solar system...');
       const externalSupabase = createClient(externalUrl, externalKey);
-      const { data: externalTenants, error: extError } = await externalSupabase
-        .from('tenants')
-        .select('*')
-        .order('shop_number');
       
-      if (extError) {
-        console.error('External fetch error:', extError);
-      } else {
-        tenantData = externalTenants || [];
-        console.log(`Fetched ${tenantData.length} tenants from external system`);
+      // First try to get schema info by fetching a single row
+      let externalTenants: any[] = [];
+      
+      // Try common table names that wm-solar might use
+      const possibleTables = ['project_tenants', 'tenants', 'tenant_schedule', 'shops'];
+      
+      for (const tableName of possibleTables) {
+        console.log(`Trying table: ${tableName}...`);
+        const { data, error } = await externalSupabase
+          .from(tableName)
+          .select('*')
+          .limit(5);
+        
+        if (!error && data && data.length > 0) {
+          console.log(`Found data in table '${tableName}'. Columns:`, Object.keys(data[0]));
+          
+          // Fetch all records
+          const { data: allData, error: fetchError } = await externalSupabase
+            .from(tableName)
+            .select('*');
+          
+          if (!fetchError) {
+            externalTenants = allData || [];
+            console.log(`Fetched ${externalTenants.length} records from ${tableName}`);
+            break;
+          }
+        } else if (error) {
+          console.log(`Table '${tableName}' error:`, error.message);
+        }
       }
+      
+      if (externalTenants.length === 0) {
+        throw new Error('No tenant data found in external wm-solar database');
+      }
+      
+      // Log first record keys to understand schema
+      console.log('Sample record:', JSON.stringify(externalTenants[0], null, 2));
+      
+      // wm-solar stores monthly_kwh_override - estimate connected load from energy consumption
+      // Typical commercial building operates ~10-12 hours/day, ~25 days/month = ~250-300 hours
+      // kW_avg = monthly_kwh / 300, peak_kW = kW_avg * 1.5, kVA = peak_kW / 0.9 (PF)
+      const estimateKvaFromMonthlyKwh = (monthlyKwh: number | null): number => {
+        if (!monthlyKwh || monthlyKwh <= 0) return 0;
+        const avgKw = monthlyKwh / 280; // Assume 280 operating hours/month
+        const peakKw = avgKw * 1.4; // Peak = 1.4x average
+        return peakKw / 0.9; // Convert to kVA assuming 0.9 PF
+      };
+      
+      // Map wm-solar column names to local structure dynamically
+      tenantData = externalTenants.map((t: any) => {
+        // Calculate kVA from monthly_kwh_override or area-based estimate
+        let connectedKva = estimateKvaFromMonthlyKwh(t.monthly_kwh_override);
+        
+        // If no kwh data, estimate from area (typical 50-100 VA/m² for retail)
+        if (connectedKva <= 0 && t.area_sqm > 0) {
+          connectedKva = (t.area_sqm * 75) / 1000; // 75 VA/m² average, convert to kVA
+        }
+        
+        return {
+          id: t.id,
+          shop_number: t.unit_number || t.shop_number || t.unit || t.number || `Unit-${t.id?.toString().slice(0,4)}`,
+          shop_name: t.tenant_name || t.name || t.shop_name || t.tenant || 'Unknown',
+          shop_category: t.category || t.tenant_category || t.type || t.shop_type || 'standard',
+          area: t.area_sqm || t.area || t.size || t.floor_area || 0,
+          db_size_allowance: t.db_size || t.circuit_size || t.breaker_size || t.supply_size,
+          manual_kw_override: connectedKva, // Use calculated value
+          own_generator_provided: t.has_generator || t.generator || t.own_generator || false,
+          exclude_from_totals: t.excluded || t.exclude || t.exclude_from_totals || false,
+        };
+      });
+      console.log(`Mapped ${tenantData.length} tenants from external wm-solar system`);
     } else {
       // Pull from local tenant schedule (same project)
       console.log('Fetching from local tenant schedule...');
