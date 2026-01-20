@@ -146,7 +146,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const categoryTotals = calculateCategoryTotals(categoriesData, allLineItems, variationsData);
       const grandTotals = calculateGrandTotals(categoryTotals);
       
-      if (signal.aborted) throw new Error("Export cancelled");
+      // Build variation line items map for TENANT ACCOUNT sheets
+      const variationLineItemsMap: Record<string, any[]> = {};
+      variationsData.forEach((v: any) => {
+        variationLineItemsMap[v.id] = v.variation_line_items || [];
+      });
+      console.log('[CostReportPDF] Built variationLineItemsMap for', Object.keys(variationLineItemsMap).length, 'variations');
       
       if (signal.aborted) throw new Error("Export cancelled");
       
@@ -173,6 +178,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         report,
         categoriesData,
         variationsData,
+        variationLineItemsMap,
         companyDetails,
         categoryTotals,
         grandTotals,
