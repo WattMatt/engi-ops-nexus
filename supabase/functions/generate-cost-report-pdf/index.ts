@@ -52,16 +52,24 @@ serve(async (req) => {
 
     const { report, categoriesData, variationsData, variationLineItemsMap, companyDetails, categoryTotals, grandTotals } = pdfData;
     
-    // Helper functions
+    // Helper functions - South African currency format with spaces (not commas)
     const formatCurrency = (value: number | null | undefined): string => {
       if (value == null || isNaN(value)) return 'R0,00';
-      return `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      // Format with spaces as thousands separator (SA standard)
+      const formatted = Math.abs(value).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      // Replace commas with spaces for SA format
+      return `R${formatted.replace(/,/g, ' ')}`;
     };
     
+    // Variance format: positive savings show WITHOUT + sign, negatives (extras) show WITH + sign
     const formatVariance = (value: number | null | undefined): string => {
       if (value == null || isNaN(value)) return 'R0,00';
-      const sign = value >= 0 ? '+' : '';
-      return `${sign}R${Math.abs(value).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const absFormatted = Math.abs(value).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/,/g, ' ');
+      // Positive = savings (no sign), Negative = extra (show + sign because it's added cost)
+      if (value < 0) {
+        return `+R${absFormatted}`;
+      }
+      return `R${absFormatted}`;
     };
     
     const formatDate = (dateStr: string | null) => {
@@ -180,7 +188,7 @@ serve(async (req) => {
       // Build executive summary table
       const tableBody: any[][] = [];
       
-      // Header row
+      // Header row - exact column headers from template
       tableBody.push([
         { text: 'CODE', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
         { text: 'CATEGORY', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF' },
@@ -197,7 +205,9 @@ serve(async (req) => {
       
       categoryTotals.forEach((cat: any, idx: number) => {
         const pct = totalAnticipated > 0 ? ((cat.anticipatedFinal || 0) / totalAnticipated * 100).toFixed(1) : '0.0';
+        // Original Variance = Original Budget - Anticipated Final (positive = saving)
         const originalVar = (cat.originalBudget || 0) - (cat.anticipatedFinal || 0);
+        // Variance = Previous Report - Anticipated Final (change from last report)
         const currentVar = (cat.previousReport || cat.originalBudget || 0) - (cat.anticipatedFinal || 0);
         
         tableBody.push([
@@ -713,15 +723,23 @@ serve(async (req) => {
 
 // Helper function to build category cards
 function buildCategoryCard(cat: any, colorHex: string): any {
-  const isNegative = (cat.originalBudget || 0) > (cat.anticipatedFinal || 0);
+  // Positive variance = saving (budget > anticipated), Negative = extra
   const variance = (cat.originalBudget || 0) - (cat.anticipatedFinal || 0);
-  const varianceColor = isNegative ? '#16a34a' : '#dc2626';
-  const varianceLabel = isNegative ? 'SAVING' : 'EXTRA';
+  const isSaving = variance >= 0;
+  const varianceColor = isSaving ? '#16a34a' : '#dc2626';
+  const varianceLabel = isSaving ? 'SAVING' : 'EXTRA';
 
+  // SA currency format with spaces
   const formatCurrency = (value: number | null | undefined): string => {
     if (value == null || isNaN(value)) return 'R0,00';
-    return `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const formatted = Math.abs(value).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `R${formatted.replace(/,/g, ' ')}`;
   };
+
+  // Variance display: savings show with - prefix, extras show with + prefix
+  const varianceDisplay = isSaving 
+    ? `-${formatCurrency(Math.abs(variance))}` 
+    : `+${formatCurrency(Math.abs(variance))}`;
 
   return {
     stack: [
@@ -756,7 +774,7 @@ function buildCategoryCard(cat: any, colorHex: string): any {
           {
             stack: [
               { 
-                text: `${isNegative ? '-' : '+'}${formatCurrency(Math.abs(variance))}`, 
+                text: varianceDisplay, 
                 fontSize: 9, 
                 bold: true, 
                 alignment: 'right',
