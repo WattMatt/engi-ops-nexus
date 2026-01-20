@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.send-roadmap-review-update]
 verify_jwt = false
+
+[functions.analyze-pdf-issue]
+verify_jwt = false
