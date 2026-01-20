@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, LayoutDashboard, Calculator, Building2, FileText, Wrench, Hammer, Activity } from "lucide-react";
 import { BulkServicesExportPDFButton } from "./BulkServicesExportPDFButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SANS204Calculator } from "./SANS204Calculator";
 import { 
   WorkflowSummary,
@@ -78,6 +78,13 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
     });
     return map;
   }, [phases]);
+
+  // Initialize mapSelectedZone from persisted document data
+  useEffect(() => {
+    if (document?.climatic_zone && !mapSelectedZone) {
+      setMapSelectedZone(document.climatic_zone);
+    }
+  }, [document?.climatic_zone]);
 
   const handleNavigateToPhase = (phaseNumber: number) => {
     setActiveTab(`phase-${phaseNumber}`);
