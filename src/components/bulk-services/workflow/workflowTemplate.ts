@@ -65,10 +65,11 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
       },
       {
         title: "Develop load profile",
-        description: "Document daily/seasonal variations to understand demand curve",
+        description: "Import tenant schedule data to understand load distribution by category and area",
         isCritical: false,
         priority: "medium",
-        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
+        linkedDataKey: "project_area", // Links to tenant tracker data import
+        navigation: { type: 'external', url: '/tenant-tracker', label: 'Open Tenant Tracker' }
       }
     ]
   },
@@ -146,10 +147,11 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
       },
       {
         title: "Prepare load profile documentation",
-        description: "Daily/seasonal load curves and usage patterns",
+        description: "Export tenant loading schedule with category breakdowns",
         isCritical: true,
         priority: "high",
-        navigation: { type: 'tab', tabId: 'sections', label: 'Add to Sections' }
+        linkedDataKey: "project_area", // Auto-completes when tenant data imported
+        navigation: { type: 'external', url: '/tenant-tracker', label: 'Open Tenant Tracker' }
       },
       {
         title: "Specify requested voltage level",
