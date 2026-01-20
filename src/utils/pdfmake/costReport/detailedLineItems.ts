@@ -33,24 +33,29 @@ interface DetailedLineItemsOptions {
  */
 export function buildDetailedLineItemsContent(options: DetailedLineItemsOptions): Content[] {
   const { categories } = options;
+  const content: Content[] = [];
+
+  // Sort categories by display order
+  const sortedCategories = [...categories].sort((a, b) => a.display_order - b.display_order);
   
-  const content: Content[] = [
-    // Section header
-    {
-      text: 'DETAILED LINE ITEMS',
-      fontSize: 16,
+  // Filter out categories with no line items
+  const categoriesWithItems = sortedCategories.filter(cat => (cat.cost_line_items || []).length > 0);
+
+  categoriesWithItems.forEach((category, catIndex) => {
+    const lineItems = category.cost_line_items || [];
+    const isLastCategory = catIndex === categoriesWithItems.length - 1;
+
+    // Category page header (each category gets its own page)
+    content.push({
+      text: `${category.code}  ${category.description.toUpperCase()}`,
+      fontSize: 14,
       bold: true,
-      alignment: 'center' as const,
-      margin: [0, 0, 0, 5] as Margins,
-    },
-    {
-      text: 'Complete Breakdown by Category',
-      fontSize: 9,
-      color: '#3c3c3c',
-      alignment: 'center' as const,
+      color: PDF_COLORS.primary,
       margin: [0, 0, 0, 15] as Margins,
-    },
-    {
+    });
+
+    // Separator line
+    content.push({
       canvas: [
         {
           type: 'line',
@@ -58,91 +63,77 @@ export function buildDetailedLineItemsContent(options: DetailedLineItemsOptions)
           y1: 0,
           x2: 515,
           y2: 0,
-          lineWidth: 0.5,
-          lineColor: '#c8c8c8',
+          lineWidth: 1,
+          lineColor: PDF_COLORS.primary,
         },
       ],
       margin: [0, 0, 0, 15] as Margins,
-    },
-  ];
-
-  // Sort categories by display order
-  const sortedCategories = [...categories].sort((a, b) => a.display_order - b.display_order);
-
-  sortedCategories.forEach((category, catIndex) => {
-    const lineItems = category.cost_line_items || [];
-    if (lineItems.length === 0) return;
-
-    // Category header
-    content.push({
-      stack: [
-        {
-          columns: [
-            {
-              width: 'auto',
-              text: category.code,
-              fontSize: 10,
-              bold: true,
-              color: '#FFFFFF',
-              fillColor: PDF_COLORS.primary,
-              margin: [4, 2, 4, 2] as Margins,
-            },
-            {
-              width: '*',
-              text: category.description,
-              fontSize: 10,
-              bold: true,
-              margin: [8, 2, 0, 0] as Margins,
-            },
-          ],
-        },
-      ],
-      margin: [0, catIndex > 0 ? 15 : 0, 0, 8] as Margins,
     });
 
     // Category items table
     const categoryTotal = lineItems.reduce((sum, item) => sum + Number(item.anticipated_final || 0), 0);
+    const originalTotal = lineItems.reduce((sum, item) => sum + Number(item.original_budget || 0), 0);
+    const previousTotal = lineItems.reduce((sum, item) => sum + Number(item.previous_report || 0), 0);
 
     content.push({
       table: {
         headerRows: 1,
-        widths: ['*', 'auto', 'auto', 'auto'],
+        widths: ['*', 80, 80, 90],
         body: [
           // Header row
           [
-            { text: 'Description', bold: true, fontSize: 8, fillColor: '#f3f4f6' },
-            { text: 'Original Budget', bold: true, fontSize: 8, alignment: 'right' as const, fillColor: '#f3f4f6' },
-            { text: 'Previous Report', bold: true, fontSize: 8, alignment: 'right' as const, fillColor: '#f3f4f6' },
-            { text: 'Anticipated Final', bold: true, fontSize: 8, alignment: 'right' as const, fillColor: '#f3f4f6' },
+            { text: 'Description', bold: true, fontSize: 9, fillColor: PDF_COLORS.primary, color: '#FFFFFF' },
+            { text: 'Original Budget', bold: true, fontSize: 9, alignment: 'right' as const, fillColor: PDF_COLORS.primary, color: '#FFFFFF' },
+            { text: 'Previous Report', bold: true, fontSize: 9, alignment: 'right' as const, fillColor: PDF_COLORS.primary, color: '#FFFFFF' },
+            { text: 'Anticipated Final', bold: true, fontSize: 9, alignment: 'right' as const, fillColor: PDF_COLORS.primary, color: '#FFFFFF' },
           ],
-          // Data rows
-          ...lineItems.map(item => [
-            { text: item.description || '-', fontSize: 8 },
+          // Data rows with zebra striping
+          ...lineItems.map((item, rowIndex) => [
+            { 
+              text: item.description || '-', 
+              fontSize: 9,
+              fillColor: rowIndex % 2 === 1 ? '#f9fafb' : undefined,
+            },
             { 
               text: `R${Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-              fontSize: 8, 
-              alignment: 'right' as const 
+              fontSize: 9, 
+              alignment: 'right' as const,
+              fillColor: rowIndex % 2 === 1 ? '#f9fafb' : undefined,
             },
             { 
               text: `R${Number(item.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-              fontSize: 8, 
-              alignment: 'right' as const 
+              fontSize: 9, 
+              alignment: 'right' as const,
+              fillColor: rowIndex % 2 === 1 ? '#f9fafb' : undefined,
             },
             { 
               text: `R${Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-              fontSize: 8, 
+              fontSize: 9, 
               alignment: 'right' as const,
               bold: true,
+              fillColor: rowIndex % 2 === 1 ? '#f9fafb' : undefined,
             },
           ]),
           // Category total row
           [
-            { text: `${category.code} Total`, bold: true, fontSize: 8, fillColor: '#e5e7eb' },
-            { text: '', fillColor: '#e5e7eb' },
-            { text: '', fillColor: '#e5e7eb' },
+            { text: `${category.code} Total`, bold: true, fontSize: 9, fillColor: '#e5e7eb' },
+            { 
+              text: `R${originalTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
+              fontSize: 9, 
+              bold: true,
+              alignment: 'right' as const,
+              fillColor: '#e5e7eb',
+            },
+            { 
+              text: `R${previousTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
+              fontSize: 9, 
+              bold: true,
+              alignment: 'right' as const,
+              fillColor: '#e5e7eb',
+            },
             { 
               text: `R${categoryTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-              fontSize: 8, 
+              fontSize: 9, 
               bold: true,
               alignment: 'right' as const,
               fillColor: '#e5e7eb',
@@ -155,15 +146,20 @@ export function buildDetailedLineItemsContent(options: DetailedLineItemsOptions)
         vLineWidth: () => 0.5,
         hLineColor: () => '#dcdcdc',
         vLineColor: () => '#dcdcdc',
-        paddingLeft: () => 4,
-        paddingRight: () => 4,
-        paddingTop: () => 3,
-        paddingBottom: () => 3,
+        paddingLeft: () => 6,
+        paddingRight: () => 6,
+        paddingTop: () => 5,
+        paddingBottom: () => 5,
       },
     });
+
+    // Page break after each category (except the last one)
+    if (!isLastCategory) {
+      content.push({ text: '', pageBreak: 'after' as const });
+    }
   });
 
-  // Page break after section
+  // Final page break after section
   content.push({ text: '', pageBreak: 'after' as const });
 
   return content;
