@@ -6,12 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Default PDF Colors - can be overridden by colorTheme option
+// Default PDF Colors - matched to UI (CostReportOverview.tsx)
+// Green = Saving (under budget), Red = Extra (over budget)
 const DEFAULT_PDF_COLORS = {
   primary: '#1e3a5f',
   secondary: '#4a90a4',
-  success: '#16a34a',
-  danger: '#dc2626',
+  success: '#16a34a',       // green-600 for savings
+  danger: '#dc2626',        // red-600 for extras
+  successBg: '#dcfce7',     // green-100 for saving badges
+  dangerBg: '#fee2e2',      // red-100 for extra badges
+  successText: '#166534',   // green-800 for text on green bg
+  dangerText: '#991b1b',    // red-800 for text on red bg
   warning: '#f59e0b',
   neutral: '#6b7280',
   tableHeader: '#1e3a5f',
@@ -28,9 +33,10 @@ const COLOR_THEMES: Record<string, any> = {
   professional: { primary: '#18181b', secondary: '#3f3f46', tableHeader: '#27272a', success: '#22c55e', danger: '#ef4444' },
 };
 
+// Category colors matching UI pie chart palette
 const CATEGORY_COLORS = [
-  '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
-  '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'
+  '#0088FE', '#00C49F', '#FFBB28', '#FF8042', 
+  '#8884D8', '#82CA9D', '#FFC658', '#FF6B9D'
 ];
 
 serve(async (req) => {
@@ -948,10 +954,17 @@ serve(async (req) => {
 
 // Helper function to build category cards
 function buildCategoryCard(cat: any, colorHex: string): any {
-  // Positive variance = saving (budget > anticipated), Negative = extra
+  // Calculate variance: originalBudget - anticipatedFinal
+  // Positive = under budget (saving), Negative = over budget (extra)
   const variance = (cat.originalBudget || 0) - (cat.anticipatedFinal || 0);
   const isSaving = variance >= 0;
+  
+  // Match UI colors: green-600/#16a34a for saving, red-600/#dc2626 for extra
   const varianceColor = isSaving ? '#16a34a' : '#dc2626';
+  // Badge background: green-100/#dcfce7 for saving, red-100/#fee2e2 for extra
+  const badgeBgColor = isSaving ? '#dcfce7' : '#fee2e2';
+  // Badge text: green-700/#15803d for saving, red-700/#b91c1c for extra
+  const badgeTextColor = isSaving ? '#15803d' : '#b91c1c';
   const varianceLabel = isSaving ? 'SAVING' : 'EXTRA';
 
   // SA currency format with spaces
@@ -961,7 +974,7 @@ function buildCategoryCard(cat: any, colorHex: string): any {
     return `R${formatted.replace(/,/g, ' ')}`;
   };
 
-  // Variance display: savings show with - prefix, extras show with + prefix
+  // Variance display: match UI - saving shows with - prefix, extra shows with + prefix
   const varianceDisplay = isSaving 
     ? `-${formatCurrency(Math.abs(variance))}` 
     : `+${formatCurrency(Math.abs(variance))}`;
@@ -1000,18 +1013,20 @@ function buildCategoryCard(cat: any, colorHex: string): any {
             stack: [
               { 
                 text: varianceDisplay, 
-                fontSize: 9, 
+                fontSize: 12, 
                 bold: true, 
                 alignment: 'right',
                 color: varianceColor,
               },
               { 
+                // Badge-style label matching UI styling
                 text: varianceLabel, 
-                fontSize: 6, 
+                fontSize: 7, 
                 bold: true, 
                 alignment: 'right',
-                color: varianceColor,
-                margin: [0, 3, 0, 0],
+                color: badgeTextColor,
+                background: badgeBgColor,
+                margin: [0, 4, 0, 0],
               },
             ],
             width: 'auto',
