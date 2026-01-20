@@ -68,6 +68,14 @@ export interface CompanyDetails {
   contactPhone: string;
   company_logo_url: string | null;
   client_logo_url: string | null;
+  // Company address fields
+  addressLine1?: string;
+  addressLine2?: string;
+  // Client fields
+  clientName?: string;
+  clientAddressLine1?: string;
+  clientAddressLine2?: string;
+  clientPhone?: string;
 }
 
 export interface CategoryTotal {
