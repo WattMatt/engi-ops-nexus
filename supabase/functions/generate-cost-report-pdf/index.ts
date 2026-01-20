@@ -583,7 +583,16 @@ serve(async (req) => {
     // ========================================
     // DETAILED LINE ITEMS - Each category on its own page
     // ========================================
+    console.log('[CostReportPDF] Detailed line items section - includeDetailedLineItems:', options?.includeDetailedLineItems);
+    console.log('[CostReportPDF] categoriesData count:', categoriesData?.length);
+    
     if (options?.includeDetailedLineItems !== false && categoriesData?.length > 0) {
+      // Log first category to understand structure
+      if (categoriesData[0]) {
+        console.log('[CostReportPDF] First category keys:', Object.keys(categoriesData[0]));
+        console.log('[CostReportPDF] First category cost_line_items count:', categoriesData[0].cost_line_items?.length);
+      }
+      
       // Sort categories by code
       const sortedCategories = [...categoriesData].sort((a: any, b: any) => {
         const codeA = a.code || a.category_code || '';
@@ -593,6 +602,7 @@ serve(async (req) => {
       
       // Filter categories with line items
       const categoriesWithItems = sortedCategories.filter((cat: any) => (cat.cost_line_items || []).length > 0);
+      console.log('[CostReportPDF] categoriesWithItems count:', categoriesWithItems.length);
       
       categoriesWithItems.forEach((category: any, catIndex: number) => {
         const lineItems = category.cost_line_items || [];
