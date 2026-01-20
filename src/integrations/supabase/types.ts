@@ -1425,6 +1425,171 @@ export type Database = {
           },
         ]
       }
+      bulk_services_workflow_phases: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          display_order: number
+          document_id: string
+          id: string
+          notes: string | null
+          phase_description: string | null
+          phase_name: string
+          phase_number: number
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          display_order?: number
+          document_id: string
+          id?: string
+          notes?: string | null
+          phase_description?: string | null
+          phase_name: string
+          phase_number: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          display_order?: number
+          document_id?: string
+          id?: string
+          notes?: string | null
+          phase_description?: string | null
+          phase_name?: string
+          phase_number?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_services_workflow_phases_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_services_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bulk_services_workflow_snapshots: {
+        Row: {
+          completed_phases: number
+          completed_tasks: number
+          created_at: string
+          critical_tasks_pending: number
+          document_id: string
+          id: string
+          phase_status: Json
+          snapshot_date: string
+          total_phases: number
+          total_tasks: number
+        }
+        Insert: {
+          completed_phases?: number
+          completed_tasks?: number
+          created_at?: string
+          critical_tasks_pending?: number
+          document_id: string
+          id?: string
+          phase_status?: Json
+          snapshot_date?: string
+          total_phases: number
+          total_tasks: number
+        }
+        Update: {
+          completed_phases?: number
+          completed_tasks?: number
+          created_at?: string
+          critical_tasks_pending?: number
+          document_id?: string
+          id?: string
+          phase_status?: Json
+          snapshot_date?: string
+          total_phases?: number
+          total_tasks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_services_workflow_snapshots_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_services_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bulk_services_workflow_tasks: {
+        Row: {
+          attachments: Json | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          display_order: number
+          due_date: string | null
+          id: string
+          is_completed: boolean
+          is_critical: boolean
+          linked_data: Json | null
+          notes: string | null
+          phase_id: string
+          priority: string | null
+          task_description: string | null
+          task_title: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          display_order?: number
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean
+          is_critical?: boolean
+          linked_data?: Json | null
+          notes?: string | null
+          phase_id: string
+          priority?: string | null
+          task_description?: string | null
+          task_title: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          display_order?: number
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean
+          is_critical?: boolean
+          linked_data?: Json | null
+          notes?: string | null
+          phase_id?: string
+          priority?: string | null
+          task_description?: string | null
+          task_title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_services_workflow_tasks_phase_id_fkey"
+            columns: ["phase_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_services_workflow_phases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cable_calculation_settings: {
         Row: {
           ambient_temp_baseline: number | null
