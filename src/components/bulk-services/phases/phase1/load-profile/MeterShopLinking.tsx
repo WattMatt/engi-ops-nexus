@@ -1,6 +1,6 @@
 /**
  * Meter-Shop Linking Component
- * Shows tenant schedule with profile linking dropdowns
+ * Shows tenant schedule with profile linking dropdowns from external wm-solar database
  */
 
 import { useState, useMemo } from 'react';
@@ -19,28 +19,23 @@ import {
   Save,
   RefreshCw,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Database
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { MeterShopLinkage } from './useLoadProfile';
 
-// Define types locally until schema regenerates
-interface StandardLoadProfile {
+// External meter profile from wm-solar
+interface ExternalMeterProfile {
   id: string;
   name: string;
-  description: string | null;
-  category: string;
-  va_per_sqm: number;
-  diversity_factor: number;
-  power_factor: number;
-  typical_breaker_size: string | null;
-  peak_hours_start: number;
-  peak_hours_end: number;
-  base_load_factor: number;
-  is_active: boolean;
+  area_sqm: number;
+  kva: number;
+  monthly_kwh: number;
 }
 
+// Local tenant schedule entry
 interface TenantScheduleEntry {
   id: string;
   project_id: string;
@@ -57,12 +52,12 @@ interface MeterShopLinkingProps {
   profileId: string;
   projectId: string;
   linkages: MeterShopLinkage[];
-  onAddLinkage: (linkage: Omit<MeterShopLinkage, 'id' | 'created_at' | 'updated_at'>) => void;
-  onUpdateLinkage: (data: Partial<MeterShopLinkage> & { id: string }) => void;
-  onDeleteLinkage: (id: string) => void;
+  onAddLinkage?: (linkage: Omit<MeterShopLinkage, 'id' | 'created_at' | 'updated_at'>) => void;
+  onUpdateLinkage?: (data: Partial<MeterShopLinkage> & { id: string }) => void;
+  onDeleteLinkage?: (id: string) => void;
 }
 
-// Parse breaker size to get amps (e.g., "60A TP" -> 60)
+// Parse breaker size to get amps
 function parseDbSizeToAmps(dbSize: string | null): number | null {
   if (!dbSize) return null;
   const match = dbSize.match(/(\d+)A/i);
@@ -92,7 +87,7 @@ export function MeterShopLinking({
   const [pendingChanges, setPendingChanges] = useState<Map<string, string | null>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch tenant schedule
+  // Fetch tenant schedule from local database
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
     queryKey: ['tenant-schedule', projectId],
     queryFn: async () => {
@@ -108,18 +103,14 @@ export function MeterShopLinking({
     enabled: !!projectId,
   });
 
-  // Fetch standard load profiles
-  const { data: standardProfiles = [], isLoading: profilesLoading } = useQuery({
-    queryKey: ['standard-load-profiles'],
-    queryFn: async (): Promise<StandardLoadProfile[]> => {
-      const { data, error } = await (supabase as any)
-        .from('standard_load_profiles')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-
+  // Fetch meter profiles from external wm-solar database
+  const { data: externalProfiles = [], isLoading: profilesLoading, refetch: refetchProfiles } = useQuery({
+    queryKey: ['external-meter-profiles'],
+    queryFn: async (): Promise<ExternalMeterProfile[]> => {
+      const { data, error } = await supabase.functions.invoke('fetch-external-meters');
+      
       if (error) throw error;
-      return (data || []) as StandardLoadProfile[];
+      return data?.profiles || [];
     },
   });
 
@@ -127,7 +118,6 @@ export function MeterShopLinking({
   const tenantLinkageMap = useMemo(() => {
     const map = new Map<string, MeterShopLinkage>();
     linkages.forEach(linkage => {
-      // Match by shop_number or external_linkage_id
       if (linkage.shop_number) {
         map.set(linkage.shop_number, linkage);
       }
@@ -155,14 +145,14 @@ export function MeterShopLinking({
       return pendingChanges.get(tenant.id) || null;
     }
     const linkage = tenantLinkageMap.get(tenant.shop_number || '') || tenantLinkageMap.get(tenant.id);
-    return (linkage as any)?.standard_profile_id || null;
+    return (linkage as any)?.external_meter_id || null;
   };
 
   // Handle profile selection change
-  const handleProfileChange = (tenantId: string, profileId: string | null) => {
+  const handleProfileChange = (tenantId: string, meterProfileId: string | null) => {
     setPendingChanges(prev => {
       const newMap = new Map(prev);
-      newMap.set(tenantId, profileId);
+      newMap.set(tenantId, meterProfileId);
       return newMap;
     });
   };
@@ -183,30 +173,33 @@ export function MeterShopLinking({
         if (!tenant) continue;
 
         const existingLinkage = tenantLinkageMap.get(tenant.shop_number || '') || tenantLinkageMap.get(tenantId);
-        const profile = standardProfiles.find(p => p.id === selectedProfileId);
+        const profile = externalProfiles.find(p => p.id === selectedProfileId);
 
         if (existingLinkage) {
-          // Update existing linkage
           if (selectedProfileId && profile) {
-            const connectedKva = tenant.manual_kw_override || parseDbSizeToKva(tenant.db_size_allowance) || (tenant.area || 0) * profile.va_per_sqm / 1000;
+            // Use profile's kVA, adjust by area ratio if sizes differ significantly
+            const areaRatio = tenant.area && profile.area_sqm > 0 ? tenant.area / profile.area_sqm : 1;
+            const adjustedKva = profile.kva * Math.min(Math.max(areaRatio, 0.5), 2);
+            
             const { error } = await (supabase as any).from('meter_shop_linkages').update({
-              standard_profile_id: selectedProfileId,
-              diversity_factor: profile.diversity_factor,
-              power_factor: profile.power_factor,
-              connected_load_kva: connectedKva,
-              max_demand_kva: connectedKva * profile.diversity_factor,
+              external_meter_id: selectedProfileId,
+              external_meter_name: profile.name,
+              connected_load_kva: adjustedKva,
+              max_demand_kva: adjustedKva * 0.8,
+              notes: `Linked to: ${profile.name} (${profile.kva.toFixed(1)} kVA, ${profile.area_sqm}m²)`,
             }).eq('id', existingLinkage.id);
             if (error) throw error;
           } else if (!selectedProfileId) {
-            // Clear profile link
             const { error } = await (supabase as any).from('meter_shop_linkages').update({
-              standard_profile_id: null,
+              external_meter_id: null,
+              external_meter_name: null,
             }).eq('id', existingLinkage.id);
             if (error) throw error;
           }
         } else if (selectedProfileId && profile) {
-          // Create new linkage
-          const connectedKva = tenant.manual_kw_override || parseDbSizeToKva(tenant.db_size_allowance) || (tenant.area || 0) * profile.va_per_sqm / 1000;
+          const areaRatio = tenant.area && profile.area_sqm > 0 ? tenant.area / profile.area_sqm : 1;
+          const adjustedKva = profile.kva * Math.min(Math.max(areaRatio, 0.5), 2);
+          
           const { error } = await (supabase as any).from('meter_shop_linkages').insert({
             profile_id: profileId,
             project_id: projectId,
@@ -216,19 +209,20 @@ export function MeterShopLinking({
             shop_number: tenant.shop_number,
             shop_name: tenant.shop_name,
             shop_category: tenant.shop_category,
-            connected_load_kva: connectedKva,
-            max_demand_kva: connectedKva * profile.diversity_factor,
-            power_factor: profile.power_factor,
-            diversity_factor: profile.diversity_factor,
-            standard_profile_id: selectedProfileId,
+            connected_load_kva: adjustedKva,
+            max_demand_kva: adjustedKva * 0.8,
+            power_factor: 0.9,
+            diversity_factor: 0.8,
+            external_meter_id: selectedProfileId,
+            external_meter_name: profile.name,
             is_active: true,
             external_linkage_id: tenantId,
+            notes: `Linked to: ${profile.name} (${profile.kva.toFixed(1)} kVA, ${profile.area_sqm}m²)`,
           });
           if (error) throw error;
         }
       }
-      
-      // Invalidate queries
+
       queryClient.invalidateQueries({ queryKey: ['meter-shop-linkages'] });
       
       setPendingChanges(new Map());
@@ -264,6 +258,7 @@ export function MeterShopLinking({
     return (
       <div className="flex items-center justify-center py-12">
         <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading meter profiles from wm-solar...</span>
       </div>
     );
   }
@@ -285,10 +280,18 @@ export function MeterShopLinking({
             <Zap className="h-4 w-4 text-accent-foreground" />
             <span>{stats.totalKva.toFixed(1)} kVA</span>
           </div>
+          <Badge variant="outline" className="gap-1">
+            <Database className="h-3 w-3" />
+            {externalProfiles.length} wm-solar meters
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Search */}
+          <Button variant="outline" size="sm" onClick={() => refetchProfiles()}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Refresh
+          </Button>
+          
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -299,7 +302,6 @@ export function MeterShopLinking({
             />
           </div>
 
-          {/* Save button */}
           <Button 
             onClick={saveChanges} 
             disabled={pendingChanges.size === 0 || isSaving}
@@ -326,8 +328,8 @@ export function MeterShopLinking({
                   <TableHead>Shop Name</TableHead>
                   <TableHead className="w-[100px] text-right">Area (m²)</TableHead>
                   <TableHead className="w-[100px] text-right">Current</TableHead>
-                  <TableHead className="w-[120px] text-right">kVA</TableHead>
-                  <TableHead className="w-[220px]">Load Profile</TableHead>
+                  <TableHead className="w-[100px] text-right">kVA</TableHead>
+                  <TableHead className="w-[300px]">Link to Meter (wm-solar)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -346,6 +348,7 @@ export function MeterShopLinking({
                     const kva = tenant.manual_kw_override || parseDbSizeToKva(tenant.db_size_allowance);
                     const selectedProfileId = getProfileSelection(tenant);
                     const hasPendingChange = pendingChanges.has(tenant.id);
+                    const linkedProfile = externalProfiles.find(p => p.id === selectedProfileId);
 
                     return (
                       <TableRow 
@@ -390,18 +393,24 @@ export function MeterShopLinking({
                             onValueChange={(value) => handleProfileChange(tenant.id, value === 'none' ? null : value)}
                           >
                             <SelectTrigger className="w-full bg-background">
-                              <SelectValue placeholder="Select profile..." />
+                              <SelectValue placeholder="Select meter profile...">
+                                {linkedProfile ? (
+                                  <span className="truncate">{linkedProfile.name} ({linkedProfile.kva.toFixed(1)} kVA)</span>
+                                ) : (
+                                  <span className="text-muted-foreground">No profile</span>
+                                )}
+                              </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="bg-popover z-50">
+                            <SelectContent className="bg-popover z-50 max-h-[300px]">
                               <SelectItem value="none">
                                 <span className="text-muted-foreground">No profile</span>
                               </SelectItem>
-                              {standardProfiles.map((profile) => (
+                              {externalProfiles.map((profile) => (
                                 <SelectItem key={profile.id} value={profile.id}>
                                   <div className="flex items-center gap-2">
-                                    <span>{profile.name}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      ({profile.va_per_sqm} VA/m²)
+                                    <span className="truncate max-w-[180px]">{profile.name}</span>
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {profile.kva.toFixed(1)} kVA · {profile.area_sqm}m²
                                     </span>
                                   </div>
                                 </SelectItem>
@@ -419,26 +428,31 @@ export function MeterShopLinking({
         </CardContent>
       </Card>
 
-      {/* Profile legend */}
-      <Card>
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm">Available Load Profiles</CardTitle>
-        </CardHeader>
-        <CardContent className="py-2">
-          <div className="flex flex-wrap gap-2">
-            {standardProfiles.slice(0, 8).map((profile) => (
-              <Badge key={profile.id} variant="outline" className="text-xs">
-                {profile.name}: {profile.va_per_sqm} VA/m², DF={profile.diversity_factor}
-              </Badge>
-            ))}
-            {standardProfiles.length > 8 && (
-              <Badge variant="secondary" className="text-xs">
-                +{standardProfiles.length - 8} more
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* External profiles info */}
+      {externalProfiles.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              wm-solar Meter Profiles ({externalProfiles.length} available)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-2">
+            <div className="flex flex-wrap gap-2">
+              {externalProfiles.slice(0, 12).map((profile) => (
+                <Badge key={profile.id} variant="outline" className="text-xs">
+                  {profile.name}: {profile.kva.toFixed(1)} kVA
+                </Badge>
+              ))}
+              {externalProfiles.length > 12 && (
+                <Badge variant="secondary" className="text-xs">
+                  +{externalProfiles.length - 12} more
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
