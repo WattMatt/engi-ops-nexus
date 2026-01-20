@@ -39,6 +39,7 @@ export interface MeterShopLinkage {
   notes: string | null;
   is_active: boolean;
   external_linkage_id: string | null;
+  standard_profile_id?: string | null;
 }
 
 export interface LoadCategorySummary {
@@ -67,6 +68,33 @@ export interface LoadProfileReading {
   energy_kwh: number;
   peak_demand_kva: number | null;
   reading_source: string;
+}
+
+export interface StandardLoadProfile {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  va_per_sqm: number;
+  diversity_factor: number;
+  power_factor: number;
+  typical_breaker_size: string | null;
+  peak_hours_start: number;
+  peak_hours_end: number;
+  base_load_factor: number;
+  is_active: boolean;
+}
+
+export interface TenantScheduleEntry {
+  id: string;
+  project_id: string;
+  shop_number: string | null;
+  shop_name: string | null;
+  shop_category: string | null;
+  area: number | null;
+  db_size_allowance: string | null;
+  manual_kw_override: number | null;
+  exclude_from_totals: boolean;
 }
 
 export function useLoadProfile(projectId: string, documentId?: string) {

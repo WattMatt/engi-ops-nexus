@@ -1,28 +1,57 @@
 /**
  * Meter-Shop Linking Component
- * Allows users to link meters to shops and manage load data
+ * Shows tenant schedule with profile linking dropdowns
  */
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Plus, 
-  Trash2, 
-  Edit2, 
   Zap, 
   Activity,
-  MoreHorizontal
+  Search,
+  Save,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import type { MeterShopLinkage } from './useLoadProfile';
+
+// Define types locally until schema regenerates
+interface StandardLoadProfile {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  va_per_sqm: number;
+  diversity_factor: number;
+  power_factor: number;
+  typical_breaker_size: string | null;
+  peak_hours_start: number;
+  peak_hours_end: number;
+  base_load_factor: number;
+  is_active: boolean;
+}
+
+interface TenantScheduleEntry {
+  id: string;
+  project_id: string;
+  shop_number: string | null;
+  shop_name: string | null;
+  shop_category: string | null;
+  area: number | null;
+  db_size_allowance: string | null;
+  manual_kw_override: number | null;
+  exclude_from_totals: boolean;
+}
 
 interface MeterShopLinkingProps {
   profileId: string;
@@ -33,410 +62,381 @@ interface MeterShopLinkingProps {
   onDeleteLinkage: (id: string) => void;
 }
 
-const METER_TYPES = ['main', 'sub', 'check', 'tenant', 'common'];
-const SHOP_CATEGORIES = [
-  'Anchor', 'Major', 'Line Shop', 'Food Court', 'Restaurant', 
-  'Entertainment', 'Services', 'Kiosk', 'ATM', 'Common Areas'
-];
+// Parse breaker size to get amps (e.g., "60A TP" -> 60)
+function parseDbSizeToAmps(dbSize: string | null): number | null {
+  if (!dbSize) return null;
+  const match = dbSize.match(/(\d+)A/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+// Parse breaker size to kVA
+function parseDbSizeToKva(dbSize: string | null): number {
+  if (!dbSize) return 0;
+  const match = dbSize.match(/(\d+)A\s*(TP|SP)?/i);
+  if (!match) return 0;
+  const amps = parseInt(match[1], 10);
+  const phase = match[2]?.toUpperCase();
+  if (phase === 'TP') {
+    return (amps * 400 * 1.732) / 1000;
+  }
+  return (amps * 230) / 1000;
+}
 
 export function MeterShopLinking({
   profileId,
   projectId,
   linkages,
-  onAddLinkage,
-  onUpdateLinkage,
-  onDeleteLinkage,
 }: MeterShopLinkingProps) {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingLinkage, setEditingLinkage] = useState<MeterShopLinkage | null>(null);
-  
-  // Form state
-  const [formData, setFormData] = useState({
-    meter_id: '',
-    meter_name: '',
-    meter_type: 'sub',
-    shop_number: '',
-    shop_name: '',
-    shop_category: '',
-    connected_load_kva: 0,
-    max_demand_kva: 0,
-    power_factor: 0.9,
-    diversity_factor: 0.8,
-    notes: '',
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pendingChanges, setPendingChanges] = useState<Map<string, string | null>>(new Map());
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch tenant schedule
+  const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
+    queryKey: ['tenant-schedule', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, project_id, shop_number, shop_name, shop_category, area, db_size_allowance, manual_kw_override, exclude_from_totals')
+        .eq('project_id', projectId)
+        .order('shop_number');
+
+      if (error) throw error;
+      return data as TenantScheduleEntry[];
+    },
+    enabled: !!projectId,
   });
 
-  const resetForm = () => {
-    setFormData({
-      meter_id: '',
-      meter_name: '',
-      meter_type: 'sub',
-      shop_number: '',
-      shop_name: '',
-      shop_category: '',
-      connected_load_kva: 0,
-      max_demand_kva: 0,
-      power_factor: 0.9,
-      diversity_factor: 0.8,
-      notes: '',
+  // Fetch standard load profiles
+  const { data: standardProfiles = [], isLoading: profilesLoading } = useQuery({
+    queryKey: ['standard-load-profiles'],
+    queryFn: async (): Promise<StandardLoadProfile[]> => {
+      const { data, error } = await (supabase as any)
+        .from('standard_load_profiles')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      return (data || []) as StandardLoadProfile[];
+    },
+  });
+
+  // Create a map of tenant to existing linkage
+  const tenantLinkageMap = useMemo(() => {
+    const map = new Map<string, MeterShopLinkage>();
+    linkages.forEach(linkage => {
+      // Match by shop_number or external_linkage_id
+      if (linkage.shop_number) {
+        map.set(linkage.shop_number, linkage);
+      }
+      if (linkage.external_linkage_id) {
+        map.set(linkage.external_linkage_id, linkage);
+      }
     });
-    setEditingLinkage(null);
+    return map;
+  }, [linkages]);
+
+  // Filter tenants based on search
+  const filteredTenants = useMemo(() => {
+    if (!searchTerm) return tenants;
+    const term = searchTerm.toLowerCase();
+    return tenants.filter(t => 
+      t.shop_number?.toLowerCase().includes(term) ||
+      t.shop_name?.toLowerCase().includes(term) ||
+      t.shop_category?.toLowerCase().includes(term)
+    );
+  }, [tenants, searchTerm]);
+
+  // Get current profile selection for a tenant
+  const getProfileSelection = (tenant: TenantScheduleEntry): string | null => {
+    if (pendingChanges.has(tenant.id)) {
+      return pendingChanges.get(tenant.id) || null;
+    }
+    const linkage = tenantLinkageMap.get(tenant.shop_number || '') || tenantLinkageMap.get(tenant.id);
+    return (linkage as any)?.standard_profile_id || null;
   };
 
-  const handleSubmit = () => {
-    if (!formData.meter_id) return;
+  // Handle profile selection change
+  const handleProfileChange = (tenantId: string, profileId: string | null) => {
+    setPendingChanges(prev => {
+      const newMap = new Map(prev);
+      newMap.set(tenantId, profileId);
+      return newMap;
+    });
+  };
 
-    if (editingLinkage) {
-      onUpdateLinkage({
-        id: editingLinkage.id,
-        ...formData,
-      });
-    } else {
-      onAddLinkage({
-        profile_id: profileId,
-        project_id: projectId,
-        ...formData,
-        is_active: true,
-        external_linkage_id: null,
-      });
+  // Save all pending changes
+  const saveChanges = async () => {
+    if (pendingChanges.size === 0) {
+      toast.info('No changes to save');
+      return;
     }
 
-    resetForm();
-    setIsAddDialogOpen(false);
+    setIsSaving(true);
+    const changeCount = pendingChanges.size;
+    
+    try {
+      for (const [tenantId, selectedProfileId] of pendingChanges) {
+        const tenant = tenants.find(t => t.id === tenantId);
+        if (!tenant) continue;
+
+        const existingLinkage = tenantLinkageMap.get(tenant.shop_number || '') || tenantLinkageMap.get(tenantId);
+        const profile = standardProfiles.find(p => p.id === selectedProfileId);
+
+        if (existingLinkage) {
+          // Update existing linkage
+          if (selectedProfileId && profile) {
+            const connectedKva = tenant.manual_kw_override || parseDbSizeToKva(tenant.db_size_allowance) || (tenant.area || 0) * profile.va_per_sqm / 1000;
+            const { error } = await (supabase as any).from('meter_shop_linkages').update({
+              standard_profile_id: selectedProfileId,
+              diversity_factor: profile.diversity_factor,
+              power_factor: profile.power_factor,
+              connected_load_kva: connectedKva,
+              max_demand_kva: connectedKva * profile.diversity_factor,
+            }).eq('id', existingLinkage.id);
+            if (error) throw error;
+          } else if (!selectedProfileId) {
+            // Clear profile link
+            const { error } = await (supabase as any).from('meter_shop_linkages').update({
+              standard_profile_id: null,
+            }).eq('id', existingLinkage.id);
+            if (error) throw error;
+          }
+        } else if (selectedProfileId && profile) {
+          // Create new linkage
+          const connectedKva = tenant.manual_kw_override || parseDbSizeToKva(tenant.db_size_allowance) || (tenant.area || 0) * profile.va_per_sqm / 1000;
+          const { error } = await (supabase as any).from('meter_shop_linkages').insert({
+            profile_id: profileId,
+            project_id: projectId,
+            meter_id: `M-${tenant.shop_number?.replace(/\s+/g, '') || tenantId.slice(0, 8)}`,
+            meter_name: `${tenant.shop_name || 'Unknown'} Meter`,
+            meter_type: 'sub',
+            shop_number: tenant.shop_number,
+            shop_name: tenant.shop_name,
+            shop_category: tenant.shop_category,
+            connected_load_kva: connectedKva,
+            max_demand_kva: connectedKva * profile.diversity_factor,
+            power_factor: profile.power_factor,
+            diversity_factor: profile.diversity_factor,
+            standard_profile_id: selectedProfileId,
+            is_active: true,
+            external_linkage_id: tenantId,
+          });
+          if (error) throw error;
+        }
+      }
+      
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['meter-shop-linkages'] });
+      
+      setPendingChanges(new Map());
+      toast.success(`Saved ${changeCount} profile assignments`);
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      toast.error('Failed to save changes');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleEdit = (linkage: MeterShopLinkage) => {
-    setEditingLinkage(linkage);
-    setFormData({
-      meter_id: linkage.meter_id,
-      meter_name: linkage.meter_name || '',
-      meter_type: linkage.meter_type || 'sub',
-      shop_number: linkage.shop_number || '',
-      shop_name: linkage.shop_name || '',
-      shop_category: linkage.shop_category || '',
-      connected_load_kva: linkage.connected_load_kva,
-      max_demand_kva: linkage.max_demand_kva,
-      power_factor: linkage.power_factor,
-      diversity_factor: linkage.diversity_factor,
-      notes: linkage.notes || '',
+  // Calculate summary stats
+  const stats = useMemo(() => {
+    let linkedCount = 0;
+    let unlinkedCount = 0;
+    let totalKva = 0;
+
+    tenants.forEach(tenant => {
+      const hasProfile = getProfileSelection(tenant);
+      if (hasProfile) {
+        linkedCount++;
+        totalKva += tenant.manual_kw_override || parseDbSizeToKva(tenant.db_size_allowance) || 0;
+      } else {
+        unlinkedCount++;
+      }
     });
-    setIsAddDialogOpen(true);
-  };
 
-  // Calculate max demand based on connected load and diversity factor
-  const calculateMaxDemand = () => {
-    const maxDemand = formData.connected_load_kva * formData.diversity_factor;
-    setFormData(prev => ({ ...prev, max_demand_kva: Math.round(maxDemand * 100) / 100 }));
-  };
+    return { linkedCount, unlinkedCount, totalKva };
+  }, [tenants, pendingChanges, tenantLinkageMap]);
+
+  if (tenantsLoading || profilesLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Meter-Shop Linkages</h3>
-          <p className="text-sm text-muted-foreground">
-            Connect meters to shops to track load distribution
-          </p>
+      {/* Header with stats and actions */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            <span>{stats.linkedCount} Linked</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <span>{stats.unlinkedCount} Unlinked</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Zap className="h-4 w-4 text-accent-foreground" />
+            <span>{stats.totalKva.toFixed(1)} kVA</span>
+          </div>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-          setIsAddDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Linkage
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingLinkage ? 'Edit Meter-Shop Linkage' : 'Add New Meter-Shop Linkage'}
-              </DialogTitle>
-              <DialogDescription>
-                Link a meter to a shop and specify load parameters
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid grid-cols-2 gap-4 py-4">
-              {/* Meter Information */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-muted-foreground">Meter Details</h4>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="meter_id">Meter ID *</Label>
-                  <Input
-                    id="meter_id"
-                    value={formData.meter_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, meter_id: e.target.value }))}
-                    placeholder="e.g., M-001"
-                  />
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="meter_name">Meter Name</Label>
-                  <Input
-                    id="meter_name"
-                    value={formData.meter_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, meter_name: e.target.value }))}
-                    placeholder="e.g., Main Meter Block A"
-                  />
-                </div>
+        <div className="flex items-center gap-2">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tenants..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 w-[200px]"
+            />
+          </div>
 
-                <div className="space-y-2">
-                  <Label>Meter Type</Label>
-                  <Select
-                    value={formData.meter_type}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, meter_type: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {METER_TYPES.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type.charAt(0).toUpperCase() + type.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Shop Information */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-muted-foreground">Shop Details</h4>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="shop_number">Shop Number</Label>
-                  <Input
-                    id="shop_number"
-                    value={formData.shop_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, shop_number: e.target.value }))}
-                    placeholder="e.g., G-101"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="shop_name">Shop Name</Label>
-                  <Input
-                    id="shop_name"
-                    value={formData.shop_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, shop_name: e.target.value }))}
-                    placeholder="e.g., Woolworths"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Shop Category</Label>
-                  <Select
-                    value={formData.shop_category}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, shop_category: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SHOP_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Load Parameters */}
-              <div className="col-span-2 space-y-4 pt-4 border-t">
-                <h4 className="font-medium text-sm text-muted-foreground">Load Parameters</h4>
-                
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="connected_load">Connected Load (kVA)</Label>
-                    <Input
-                      id="connected_load"
-                      type="number"
-                      step="0.01"
-                      value={formData.connected_load_kva}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        connected_load_kva: parseFloat(e.target.value) || 0 
-                      }))}
-                      onBlur={calculateMaxDemand}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="diversity_factor">Diversity Factor</Label>
-                    <Input
-                      id="diversity_factor"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="1"
-                      value={formData.diversity_factor}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        diversity_factor: parseFloat(e.target.value) || 0.8 
-                      }))}
-                      onBlur={calculateMaxDemand}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="max_demand">Max Demand (kVA)</Label>
-                    <Input
-                      id="max_demand"
-                      type="number"
-                      step="0.01"
-                      value={formData.max_demand_kva}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        max_demand_kva: parseFloat(e.target.value) || 0 
-                      }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="power_factor">Power Factor</Label>
-                    <Input
-                      id="power_factor"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="1"
-                      value={formData.power_factor}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        power_factor: parseFloat(e.target.value) || 0.9 
-                      }))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Additional notes..."
-                  rows={2}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                resetForm();
-                setIsAddDialogOpen(false);
-              }}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} disabled={!formData.meter_id}>
-                {editingLinkage ? 'Update Linkage' : 'Add Linkage'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          {/* Save button */}
+          <Button 
+            onClick={saveChanges} 
+            disabled={pendingChanges.size === 0 || isSaving}
+            className="gap-2"
+          >
+            {isSaving ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Save ({pendingChanges.size})
+          </Button>
+        </div>
       </div>
 
-      {/* Linkages Table */}
+      {/* Table */}
       <Card>
-        <CardContent className="pt-6">
-          {linkages.length === 0 ? (
-            <div className="text-center py-12">
-              <Activity className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Meter-Shop Linkages</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Start by adding meters and linking them to shops
-              </p>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add First Linkage
-              </Button>
-            </div>
-          ) : (
+        <CardContent className="p-0">
+          <ScrollArea className="h-[500px]">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead>Meter</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Shop</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Connected (kVA)</TableHead>
-                  <TableHead className="text-right">Max Demand (kVA)</TableHead>
-                  <TableHead className="text-right">PF</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="w-[100px]">Shop #</TableHead>
+                  <TableHead>Shop Name</TableHead>
+                  <TableHead className="w-[100px] text-right">Area (m²)</TableHead>
+                  <TableHead className="w-[100px] text-right">Current</TableHead>
+                  <TableHead className="w-[120px] text-right">kVA</TableHead>
+                  <TableHead className="w-[220px]">Load Profile</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {linkages.map((linkage) => (
-                  <TableRow key={linkage.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{linkage.meter_id}</p>
-                        {linkage.meter_name && (
-                          <p className="text-xs text-muted-foreground">{linkage.meter_name}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {linkage.meter_type || 'sub'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{linkage.shop_number || '-'}</p>
-                        {linkage.shop_name && (
-                          <p className="text-xs text-muted-foreground">{linkage.shop_name}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {linkage.shop_category && (
-                        <Badge variant="secondary">{linkage.shop_category}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {linkage.connected_load_kva?.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {linkage.max_demand_kva?.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {linkage.power_factor?.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(linkage)}>
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => onDeleteLinkage(linkage.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {filteredTenants.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <Activity className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                      <p className="text-muted-foreground">
+                        {searchTerm ? 'No tenants match your search' : 'No tenants in schedule'}
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredTenants.map((tenant) => {
+                    const currentAmps = parseDbSizeToAmps(tenant.db_size_allowance);
+                    const kva = tenant.manual_kw_override || parseDbSizeToKva(tenant.db_size_allowance);
+                    const selectedProfileId = getProfileSelection(tenant);
+                    const hasPendingChange = pendingChanges.has(tenant.id);
+
+                    return (
+                      <TableRow 
+                        key={tenant.id}
+                        className={hasPendingChange ? 'bg-muted/50' : ''}
+                      >
+                        <TableCell className="font-mono font-medium">
+                          {tenant.shop_number || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{tenant.shop_name || 'Unknown'}</p>
+                            {tenant.shop_category && (
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {tenant.shop_category}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {tenant.area?.toFixed(0) || '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {currentAmps ? (
+                            <Badge variant="secondary" className="font-mono">
+                              {currentAmps}A {tenant.db_size_allowance?.includes('TP') ? 'TP' : 'SP'}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {kva > 0 ? (
+                            <span className="font-medium">{kva.toFixed(1)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={selectedProfileId || 'none'}
+                            onValueChange={(value) => handleProfileChange(tenant.id, value === 'none' ? null : value)}
+                          >
+                            <SelectTrigger className="w-full bg-background">
+                              <SelectValue placeholder="Select profile..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover z-50">
+                              <SelectItem value="none">
+                                <span className="text-muted-foreground">No profile</span>
+                              </SelectItem>
+                              {standardProfiles.map((profile) => (
+                                <SelectItem key={profile.id} value={profile.id}>
+                                  <div className="flex items-center gap-2">
+                                    <span>{profile.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      ({profile.va_per_sqm} VA/m²)
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
-          )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {/* Profile legend */}
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm">Available Load Profiles</CardTitle>
+        </CardHeader>
+        <CardContent className="py-2">
+          <div className="flex flex-wrap gap-2">
+            {standardProfiles.slice(0, 8).map((profile) => (
+              <Badge key={profile.id} variant="outline" className="text-xs">
+                {profile.name}: {profile.va_per_sqm} VA/m², DF={profile.diversity_factor}
+              </Badge>
+            ))}
+            {standardProfiles.length > 8 && (
+              <Badge variant="secondary" className="text-xs">
+                +{standardProfiles.length - 8} more
+              </Badge>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
