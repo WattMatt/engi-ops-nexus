@@ -96,8 +96,31 @@ serve(async (req) => {
     // COVER PAGE
     // ========================================
     if (options?.includeCoverPage !== false) {
-      // Company logo placeholder area
-      content.push({ text: '\n\n\n\n', fontSize: 10 });
+      // Company logo - fetch and convert to base64 if available
+      let logoContent: any = { text: '\n\n\n\n', fontSize: 10 };
+      
+      if (companyDetails?.company_logo_url) {
+        try {
+          console.log('[CostReportPDF] Fetching company logo...');
+          const logoResponse = await fetch(companyDetails.company_logo_url);
+          if (logoResponse.ok) {
+            const logoBuffer = await logoResponse.arrayBuffer();
+            const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoBuffer)));
+            const contentType = logoResponse.headers.get('content-type') || 'image/png';
+            logoContent = {
+              image: `data:${contentType};base64,${logoBase64}`,
+              width: 150,
+              alignment: 'center',
+              margin: [0, 40, 0, 40],
+            };
+            console.log('[CostReportPDF] Logo loaded successfully');
+          }
+        } catch (logoError) {
+          console.warn('[CostReportPDF] Could not load logo:', logoError);
+        }
+      }
+      
+      content.push(logoContent);
       
       // COST REPORT title
       content.push({
@@ -254,6 +277,12 @@ serve(async (req) => {
           paddingRight: () => 3,
           paddingTop: () => 2,
           paddingBottom: () => 2,
+          // Zebra striping for data rows
+          fillColor: (rowIndex: number) => {
+            if (rowIndex === 0) return PDF_COLORS.tableHeader; // Header row
+            if (rowIndex === categoryTotals.length + 1) return '#f3f4f6'; // Total row
+            return rowIndex % 2 === 0 ? '#f9fafb' : null;
+          },
         },
       });
       
@@ -399,22 +428,28 @@ serve(async (req) => {
               widths: ['*', 80, 80, 80],
               body: itemTableBody,
             },
-            layout: {
-              hLineWidth: () => 0.5,
-              vLineWidth: () => 0.5,
-              hLineColor: () => '#e5e7eb',
-              vLineColor: () => '#e5e7eb',
-              paddingLeft: () => 4,
-              paddingRight: () => 4,
-              paddingTop: () => 3,
-              paddingBottom: () => 3,
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#e5e7eb',
+            vLineColor: () => '#e5e7eb',
+            paddingLeft: () => 4,
+            paddingRight: () => 4,
+            paddingTop: () => 3,
+            paddingBottom: () => 3,
+            // Zebra striping
+            fillColor: (rowIndex: number, _node: any, _columnIndex: number) => {
+              if (rowIndex === 0) return '#374151'; // Header
+              if (rowIndex === lineItems.length + 1) return '#f3f4f6'; // Total row
+              return rowIndex % 2 === 0 ? '#f9fafb' : null;
             },
-          });
-        }
+          },
+        });
       }
-      
-      content.push({ text: '', pageBreak: 'after' });
     }
+    
+    content.push({ text: '', pageBreak: 'after' });
+  }
     
     // ========================================
     // VARIATION ORDERS SUMMARY
@@ -480,7 +515,11 @@ serve(async (req) => {
           paddingRight: () => 4,
           paddingTop: () => 3,
           paddingBottom: () => 3,
-          fillColor: (rowIndex: number) => rowIndex > 0 && rowIndex % 2 === 0 ? '#f5f7fa' : null,
+          // Zebra striping for variations table
+          fillColor: (rowIndex: number) => {
+            if (rowIndex === 0) return PDF_COLORS.primary;
+            return rowIndex % 2 === 0 ? '#f9fafb' : null;
+          },
         },
       });
       
@@ -561,18 +600,23 @@ serve(async (req) => {
               widths: [20, '*', 'auto', 30, 60, 70],
               body: lineItemTableBody,
             },
-            layout: {
-              hLineWidth: () => 0.5,
-              vLineWidth: () => 0.5,
-              hLineColor: () => '#dcdcdc',
-              vLineColor: () => '#dcdcdc',
-              paddingLeft: () => 4,
-              paddingRight: () => 4,
-              paddingTop: () => 3,
-              paddingBottom: () => 3,
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#dcdcdc',
+            vLineColor: () => '#dcdcdc',
+            paddingLeft: () => 4,
+            paddingRight: () => 4,
+            paddingTop: () => 3,
+            paddingBottom: () => 3,
+            // Zebra striping for tenant account table
+            fillColor: (rowIndex: number) => {
+              if (rowIndex === 0) return '#06b6d4'; // Cyan header
+              return rowIndex % 2 === 0 ? '#f9fafb' : null;
             },
-          });
-        }
+          },
+        });
+      }
         
         // Total
         const totalAmount = lineItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0) || variation.total_amount || 0;
