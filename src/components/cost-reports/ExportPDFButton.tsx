@@ -176,7 +176,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       if (signal.aborted) throw new Error("Export cancelled");
       
       // ========================================
-      // STEP 3: Build PDF (50-90%)
+      // STEP 3: Generate PDF (50-90%)
+      // PRIMARY: Use direct download (most reliable)
+      // SECONDARY: Try blob for storage
       // ========================================
       setExportStep("Building PDF document...");
       setExportProgress(50);
@@ -221,98 +223,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         },
       };
       
-      // Generate PDF blob with multi-strategy approach
-      let pdfBlob: Blob | null = null;
-      let usedFallback = false;
-      
-      // Strategy 1: Try blob generation (with 60s initial timeout, then fallback strategies inside)
-      try {
-        setExportStep("Generating PDF (Strategy 1: blob)...");
-        const pdfPromise = generateCostReportPdfmake(pdfData);
-        pdfBlob = await Promise.race([
-          pdfPromise,
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error("PDF generation timeout")), 60000)
-          )
-        ]);
-        console.log('[CostReportPDF] Strategy 1 success:', Math.round(pdfBlob.size / 1024), 'KB');
-      } catch (strategy1Error: any) {
-        console.warn('[CostReportPDF] Strategy 1 failed:', strategy1Error.message);
-        
-        // Strategy 2: Try with longer timeout
-        try {
-          setExportStep("Generating PDF (Strategy 2: extended)...");
-          const pdfPromise = generateCostReportPdfmake(pdfData);
-          pdfBlob = await Promise.race([
-            pdfPromise,
-            new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error("Extended timeout")), PDF_TIMEOUT_MS)
-            )
-          ]);
-          console.log('[CostReportPDF] Strategy 2 success:', Math.round(pdfBlob.size / 1024), 'KB');
-        } catch (strategy2Error: any) {
-          console.warn('[CostReportPDF] Strategy 2 failed:', strategy2Error.message);
-          pdfBlob = null;
-        }
-      }
-      
-      // If all blob strategies failed, use direct download fallback
-      if (!pdfBlob) {
-        console.warn('[CostReportPDF] All blob strategies failed, using direct download...');
-        setExportStep("Using direct download (fallback)...");
-        usedFallback = true;
-        
-        const { downloadCostReportPdfmake } = await import("@/utils/pdfmake/costReport");
-        const downloadFilename = generateStandardizedPDFFilename({
-          projectNumber: report.project_number || report.project_id?.slice(0, 8),
-          reportType: "CostReport",
-          revision: report.revision || "A",
-          reportNumber: report.report_number,
-        });
-        
-        try {
-          await downloadCostReportPdfmake(pdfData, downloadFilename);
-          
-          setExportStep("Complete!");
-          setExportProgress(100);
-          
-          toast({
-            title: "PDF Downloaded",
-            description: "Cost report exported via direct download. Not saved to history.",
-          });
-          
-          onReportGenerated?.();
-          
-          setTimeout(() => {
-            setIsExporting(false);
-            setExportStep("");
-            setExportProgress(0);
-          }, 1500);
-          
-          return; // Exit early - skip storage since we used fallback
-        } catch (downloadError: any) {
-          console.error('[CostReportPDF] Direct download also failed:', downloadError.message);
-          throw new Error("All PDF generation methods failed. Please try again or contact support.");
-        }
-      }
-      
-      if (signal.aborted) throw new Error("Export cancelled");
-      
-      console.log('[CostReportPDF] PDF generated, size:', Math.round(pdfBlob.size / 1024), 'KB');
-      
-      // ========================================
-      // STEP 4: Save to storage (90-95%)
-      // ========================================
-      setExportStep("Saving to storage...");
-      setExportProgress(90);
-      
-      const storageFileName = generateStorageFilename({
-        projectNumber: report.project_number || report.project_id?.slice(0, 8),
-        reportType: "CostReport",
-        revision: report.revision || "A",
-        reportNumber: report.report_number,
-      });
-      
       const downloadFilename = generateStandardizedPDFFilename({
         projectNumber: report.project_number || report.project_id?.slice(0, 8),
         reportType: "CostReport",
@@ -320,59 +230,103 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         reportNumber: report.report_number,
       });
       
-      const filePath = `cost-reports/${report.project_id}/${storageFileName}`;
+      // PRIMARY STRATEGY: Direct download (bypasses hanging blob callbacks)
+      // This is the most reliable method for complex pdfmake documents
+      setExportStep("Generating PDF (direct download)...");
+      setExportProgress(70);
       
-      const { error: uploadError } = await supabase.storage
-        .from("cost-report-pdfs")
-        .upload(filePath, pdfBlob, { upsert: true });
-      
-      if (uploadError) throw uploadError;
-      
-      if (signal.aborted) throw new Error("Export cancelled");
-      
-      // ========================================
-      // STEP 5: Save record to database (95-100%)
-      // ========================================
-      setExportStep("Saving record...");
-      setExportProgress(95);
-      
-      const { data: pdfRecord, error: recordError } = await supabase
-        .from("cost_report_pdfs")
-        .insert({
-          cost_report_id: report.id,
-          project_id: report.project_id,
-          file_path: filePath,
-          file_name: downloadFilename,
-          file_size: pdfBlob.size,
-          revision: `Report ${report.report_number}`,
-          generated_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .select()
-        .single();
-      
-      if (recordError) throw recordError;
-      
-      // ========================================
-      // SUCCESS
-      // ========================================
-      setExportStep("Complete!");
-      setExportProgress(100);
-      
-      toast({
-        title: "PDF Generated",
-        description: "Cost report exported successfully",
-      });
-      
-      setPreviewReport(pdfRecord);
-      onReportGenerated?.();
-      
-      // Reset after showing success briefly
-      setTimeout(() => {
-        setIsExporting(false);
-        setExportStep("");
-        setExportProgress(0);
-      }, 1500);
-      
+      try {
+        const { downloadCostReportPdfmake } = await import("@/utils/pdfmake/costReport");
+        await downloadCostReportPdfmake(pdfData, downloadFilename);
+        
+        console.log('[CostReportPDF] Direct download completed successfully');
+        
+        // Now try to generate blob for storage (with short timeout - don't block user)
+        setExportStep("Saving to history (optional)...");
+        setExportProgress(85);
+        
+        let savedToStorage = false;
+        try {
+          // Quick attempt to get blob for storage (15s timeout - don't wait too long)
+          const blobPromise = generateCostReportPdfmake(pdfData);
+          const pdfBlob = await Promise.race([
+            blobPromise,
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error("Storage blob timeout")), 15000)
+            )
+          ]);
+          
+          // Save to storage
+          const storageFileName = generateStorageFilename({
+            projectNumber: report.project_number || report.project_id?.slice(0, 8),
+            reportType: "CostReport",
+            revision: report.revision || "A",
+            reportNumber: report.report_number,
+          });
+          
+          const filePath = `cost-reports/${report.project_id}/${storageFileName}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("cost-report-pdfs")
+            .upload(filePath, pdfBlob, { upsert: true });
+          
+          if (!uploadError) {
+            // Save record to database
+            const { data: pdfRecord } = await supabase
+              .from("cost_report_pdfs")
+              .insert({
+                cost_report_id: report.id,
+                project_id: report.project_id,
+                file_path: filePath,
+                file_name: downloadFilename,
+                file_size: pdfBlob.size,
+                revision: `Report ${report.report_number}`,
+                generated_by: (await supabase.auth.getUser()).data.user?.id
+              })
+              .select()
+              .single();
+            
+            if (pdfRecord) {
+              savedToStorage = true;
+              setPreviewReport(pdfRecord);
+            }
+          }
+        } catch (storageError) {
+          console.warn('[CostReportPDF] Storage save skipped (timeout or error):', storageError);
+          // Don't fail - the user already got their PDF via download
+        }
+        
+        if (signal.aborted) throw new Error("Export cancelled");
+        
+        // ========================================
+        // SUCCESS
+        // ========================================
+        setExportStep("Complete!");
+        setExportProgress(100);
+        
+        toast({
+          title: "PDF Downloaded",
+          description: savedToStorage 
+            ? "Cost report exported and saved to history" 
+            : "Cost report exported (not saved to history)",
+        });
+        
+        onReportGenerated?.();
+        
+        // Reset after showing success briefly
+        setTimeout(() => {
+          setIsExporting(false);
+          setExportStep("");
+          setExportProgress(0);
+        }, 1500);
+        
+        return;
+        
+      } catch (downloadError: any) {
+        console.error('[CostReportPDF] Direct download failed:', downloadError);
+        throw new Error(`PDF generation failed: ${downloadError.message}`);
+      }
+    
     } catch (error: any) {
       console.error('[CostReportPDF] Export failed:', error);
       
