@@ -70,7 +70,7 @@ const budgetMarkupConfig: PurposeConfig = {
         '4Core x 185mm Alu', '4Core x 240mm Alu', '4Core x 16mm Cu', '4Core x 25mm Cu',
         '4Core x 35mm Cu',
     ],
-    containmentSizes: ['50mm', '100mm', '150mm', '200mm', '300mm', '450mm', '600mm'],
+    containmentSizes: ['50mm', '100mm', '150mm', '200mm', '300mm', '450mm', '600mm', '800mm', '1000mm'],
 };
 
 const pvDesignConfig: PurposeConfig = {
@@ -336,7 +336,7 @@ const finalAccountMarkupConfig: PurposeConfig = {
         ...lineShopMarkupConfig.cableTypes,
         ...cableScheduleMarkupConfig.cableTypes,
     ])].sort((a,b) => a.localeCompare(b, undefined, { numeric: true })),
-    containmentSizes: ['50mm', '100mm', '150mm', '200mm', '300mm', '450mm', '600mm'],
+    containmentSizes: ['50mm', '100mm', '150mm', '200mm', '300mm', '450mm', '600mm', '800mm', '1000mm'],
 };
 
 
