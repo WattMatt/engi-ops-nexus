@@ -7,6 +7,7 @@ import { BulkServicesExportPDFButton } from "./BulkServicesExportPDFButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect } from "react";
 import { SANS204Calculator } from "./SANS204Calculator";
+import { useTaskAutoSync } from "./workflow/useTaskAutoSync";
 import { 
   WorkflowSummary,
   Phase1LoadEstimation,
@@ -85,6 +86,9 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
       setMapSelectedZone(document.climatic_zone);
     }
   }, [document?.climatic_zone]);
+
+  // Auto-sync workflow tasks with document data
+  useTaskAutoSync(documentId, document);
 
   const handleNavigateToPhase = (phaseNumber: number) => {
     setActiveTab(`phase-${phaseNumber}`);
