@@ -259,6 +259,13 @@ serve(async (req) => {
     // EXECUTIVE SUMMARY
     // ========================================
     if (options?.includeExecutiveSummary !== false && categoryTotals?.length > 0) {
+      // Sort categoryTotals alphabetically by code for executive summary
+      const sortedCategoryTotals = [...categoryTotals].sort((a: any, b: any) => {
+        const codeA = String(a.code || '').toUpperCase();
+        const codeB = String(b.code || '').toUpperCase();
+        return codeA.localeCompare(codeB);
+      });
+      
       // Header
       content.push({
         text: 'EXECUTIVE SUMMARY',
@@ -298,9 +305,9 @@ serve(async (req) => {
       ]);
       
       // Data rows
-      const totalAnticipated = grandTotals?.anticipatedFinal || categoryTotals.reduce((sum: number, c: any) => sum + (c.anticipatedFinal || 0), 0);
+      const totalAnticipated = grandTotals?.anticipatedFinal || sortedCategoryTotals.reduce((sum: number, c: any) => sum + (c.anticipatedFinal || 0), 0);
       
-      categoryTotals.forEach((cat: any, idx: number) => {
+      sortedCategoryTotals.forEach((cat: any, idx: number) => {
         const pct = totalAnticipated > 0 ? ((cat.anticipatedFinal || 0) / totalAnticipated * 100).toFixed(1) : '0.0';
         // Original Variance = Original Budget - Anticipated Final (positive = saving)
         const originalVar = (cat.originalBudget || 0) - (cat.anticipatedFinal || 0);
@@ -320,9 +327,9 @@ serve(async (req) => {
       });
       
       // Grand total row
-      const grandOriginalBudget = grandTotals?.originalBudget || categoryTotals.reduce((s: number, c: any) => s + (c.originalBudget || 0), 0);
+      const grandOriginalBudget = grandTotals?.originalBudget || sortedCategoryTotals.reduce((s: number, c: any) => s + (c.originalBudget || 0), 0);
       const grandPreviousReport = grandTotals?.previousReport || grandOriginalBudget;
-      const grandAnticipatedFinal = grandTotals?.anticipatedFinal || categoryTotals.reduce((s: number, c: any) => s + (c.anticipatedFinal || 0), 0);
+      const grandAnticipatedFinal = grandTotals?.anticipatedFinal || sortedCategoryTotals.reduce((s: number, c: any) => s + (c.anticipatedFinal || 0), 0);
       const grandOriginalVar = grandOriginalBudget - grandAnticipatedFinal;
       const grandCurrentVar = grandPreviousReport - grandAnticipatedFinal;
       
@@ -339,7 +346,7 @@ serve(async (req) => {
       content.push({
         table: {
           headerRows: 1,
-          widths: [25, '*', 60, 60, 60, 55, 55, 55],
+          widths: [30, '*', 58, 58, 58, 50, 55, 55],
           body: tableBody,
         },
         layout: {
@@ -347,14 +354,14 @@ serve(async (req) => {
           vLineWidth: () => 0.5,
           hLineColor: () => '#dcdcdc',
           vLineColor: () => '#dcdcdc',
-          paddingLeft: () => 3,
-          paddingRight: () => 3,
+          paddingLeft: () => 4,
+          paddingRight: () => 4,
           paddingTop: () => 2,
           paddingBottom: () => 2,
           // Zebra striping for data rows
           fillColor: (rowIndex: number) => {
             if (rowIndex === 0) return DEFAULT_PDF_COLORS.tableHeader; // Header row
-            if (rowIndex === categoryTotals.length + 1) return '#f3f4f6'; // Total row
+            if (rowIndex === sortedCategoryTotals.length + 1) return '#f3f4f6'; // Total row
             return rowIndex % 2 === 0 ? '#f9fafb' : null;
           },
         },
@@ -367,6 +374,13 @@ serve(async (req) => {
     // CATEGORY PERFORMANCE DETAILS
     // ========================================
     if (options?.includeCategoryDetails !== false && categoryTotals?.length > 0) {
+      // Sort categoryTotals alphabetically by code for category performance section
+      const sortedCatPerformance = [...categoryTotals].sort((a: any, b: any) => {
+        const codeA = String(a.code || '').toUpperCase();
+        const codeB = String(b.code || '').toUpperCase();
+        return codeA.localeCompare(codeB);
+      });
+      
       content.push({
         text: 'CATEGORY PERFORMANCE DETAILS',
         fontSize: 16,
@@ -378,17 +392,17 @@ serve(async (req) => {
       // Build cards in 2-column layout
       const cardRows: any[][] = [];
       
-      for (let i = 0; i < categoryTotals.length; i += 2) {
+      for (let i = 0; i < sortedCatPerformance.length; i += 2) {
         const row: any[] = [];
         
         // First card
-        const cat1 = categoryTotals[i];
+        const cat1 = sortedCatPerformance[i];
         const color1 = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
         row.push(buildCategoryCard(cat1, color1));
         
         // Second card
-        if (i + 1 < categoryTotals.length) {
-          const cat2 = categoryTotals[i + 1];
+        if (i + 1 < sortedCatPerformance.length) {
+          const cat2 = sortedCatPerformance[i + 1];
           const color2 = CATEGORY_COLORS[(i + 1) % CATEGORY_COLORS.length];
           row.push(buildCategoryCard(cat2, color2));
         } else {
