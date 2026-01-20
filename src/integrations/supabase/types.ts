@@ -8247,6 +8247,7 @@ export type Database = {
           shop_category: string | null
           shop_name: string | null
           shop_number: string | null
+          standard_profile_id: string | null
           updated_at: string
         }
         Insert: {
@@ -8267,6 +8268,7 @@ export type Database = {
           shop_category?: string | null
           shop_name?: string | null
           shop_number?: string | null
+          standard_profile_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -8287,6 +8289,7 @@ export type Database = {
           shop_category?: string | null
           shop_name?: string | null
           shop_number?: string | null
+          standard_profile_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -8302,6 +8305,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meter_shop_linkages_standard_profile_id_fkey"
+            columns: ["standard_profile_id"]
+            isOneToOne: false
+            referencedRelation: "standard_load_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -11371,6 +11381,57 @@ export type Database = {
           spec_id?: string
           term?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      standard_load_profiles: {
+        Row: {
+          base_load_factor: number | null
+          category: string
+          created_at: string
+          description: string | null
+          diversity_factor: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          peak_hours_end: number | null
+          peak_hours_start: number | null
+          power_factor: number | null
+          typical_breaker_size: string | null
+          updated_at: string
+          va_per_sqm: number | null
+        }
+        Insert: {
+          base_load_factor?: number | null
+          category: string
+          created_at?: string
+          description?: string | null
+          diversity_factor?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          peak_hours_end?: number | null
+          peak_hours_start?: number | null
+          power_factor?: number | null
+          typical_breaker_size?: string | null
+          updated_at?: string
+          va_per_sqm?: number | null
+        }
+        Update: {
+          base_load_factor?: number | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          diversity_factor?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          peak_hours_end?: number | null
+          peak_hours_start?: number | null
+          power_factor?: number | null
+          typical_breaker_size?: string | null
+          updated_at?: string
+          va_per_sqm?: number | null
         }
         Relationships: []
       }
