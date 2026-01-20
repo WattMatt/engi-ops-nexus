@@ -96,31 +96,95 @@ serve(async (req) => {
     // COVER PAGE
     // ========================================
     if (options?.includeCoverPage !== false) {
-      // Company logo - fetch and convert to base64 if available
-      let logoContent: any = { text: '\n\n\n\n', fontSize: 10 };
+      // Fetch both logos in parallel if available
+      let companyLogoContent: any = null;
+      let clientLogoContent: any = null;
       
+      const logoPromises: Promise<void>[] = [];
+      
+      // Company logo
       if (companyDetails?.company_logo_url) {
-        try {
-          console.log('[CostReportPDF] Fetching company logo...');
-          const logoResponse = await fetch(companyDetails.company_logo_url);
-          if (logoResponse.ok) {
-            const logoBuffer = await logoResponse.arrayBuffer();
-            const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoBuffer)));
-            const contentType = logoResponse.headers.get('content-type') || 'image/png';
-            logoContent = {
-              image: `data:${contentType};base64,${logoBase64}`,
-              width: 150,
-              alignment: 'center',
-              margin: [0, 40, 0, 40],
-            };
-            console.log('[CostReportPDF] Logo loaded successfully');
-          }
-        } catch (logoError) {
-          console.warn('[CostReportPDF] Could not load logo:', logoError);
-        }
+        logoPromises.push(
+          (async () => {
+            try {
+              console.log('[CostReportPDF] Fetching company logo...');
+              const logoResponse = await fetch(companyDetails.company_logo_url);
+              if (logoResponse.ok) {
+                const logoBuffer = await logoResponse.arrayBuffer();
+                const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoBuffer)));
+                const contentType = logoResponse.headers.get('content-type') || 'image/png';
+                companyLogoContent = {
+                  image: `data:${contentType};base64,${logoBase64}`,
+                  width: 120,
+                  alignment: 'center',
+                };
+                console.log('[CostReportPDF] Company logo loaded');
+              }
+            } catch (logoError) {
+              console.warn('[CostReportPDF] Could not load company logo:', logoError);
+            }
+          })()
+        );
       }
       
-      content.push(logoContent);
+      // Client logo
+      if (companyDetails?.client_logo_url) {
+        logoPromises.push(
+          (async () => {
+            try {
+              console.log('[CostReportPDF] Fetching client logo...');
+              const logoResponse = await fetch(companyDetails.client_logo_url);
+              if (logoResponse.ok) {
+                const logoBuffer = await logoResponse.arrayBuffer();
+                const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoBuffer)));
+                const contentType = logoResponse.headers.get('content-type') || 'image/png';
+                clientLogoContent = {
+                  image: `data:${contentType};base64,${logoBase64}`,
+                  width: 120,
+                  alignment: 'center',
+                };
+                console.log('[CostReportPDF] Client logo loaded');
+              }
+            } catch (logoError) {
+              console.warn('[CostReportPDF] Could not load client logo:', logoError);
+            }
+          })()
+        );
+      }
+      
+      // Wait for all logos to load (with timeout)
+      await Promise.race([
+        Promise.all(logoPromises),
+        new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout for logos
+      ]);
+      
+      // Build logo section - show both logos side by side if both exist
+      if (companyLogoContent && clientLogoContent) {
+        // Both logos - side by side
+        content.push({
+          columns: [
+            { ...companyLogoContent, width: '*' },
+            { text: '', width: 40 }, // Spacer
+            { ...clientLogoContent, width: '*' },
+          ],
+          margin: [0, 40, 0, 40],
+        });
+      } else if (companyLogoContent) {
+        // Only company logo - centered
+        content.push({
+          ...companyLogoContent,
+          margin: [0, 40, 0, 40],
+        });
+      } else if (clientLogoContent) {
+        // Only client logo - centered  
+        content.push({
+          ...clientLogoContent,
+          margin: [0, 40, 0, 40],
+        });
+      } else {
+        // No logos - add spacing
+        content.push({ text: '\n\n\n\n', fontSize: 10 });
+      }
       
       // COST REPORT title
       content.push({
@@ -673,12 +737,35 @@ serve(async (req) => {
       },
       
       footer: (currentPage: number, pageCount: number) => {
+        // Skip footer on cover page
         if (currentPage === 1) return { text: '' };
+        
+        // Page X of Y (adjusted for cover page)
+        const displayPage = currentPage - 1;
+        const displayTotal = pageCount - 1;
+        
         return {
-          text: `Page ${currentPage - 1} of ${pageCount - 1}`,
-          alignment: 'center',
-          fontSize: 8,
-          color: '#9ca3af',
+          columns: [
+            { 
+              text: companyDetails?.companyName || '', 
+              fontSize: 7, 
+              color: '#9ca3af',
+              margin: [40, 0, 0, 0],
+            },
+            { 
+              text: `Page ${displayPage} of ${displayTotal}`,
+              alignment: 'center',
+              fontSize: 8,
+              color: '#9ca3af',
+            },
+            { 
+              text: report.revision ? `Rev ${report.revision}` : '', 
+              fontSize: 7, 
+              color: '#9ca3af',
+              alignment: 'right',
+              margin: [0, 0, 40, 0],
+            },
+          ],
           margin: [0, 15, 0, 0],
         };
       },
