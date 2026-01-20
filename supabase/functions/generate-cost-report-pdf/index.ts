@@ -610,6 +610,9 @@ serve(async (req) => {
         const catDesc = category.description || category.name || 'Category';
         const isLastCategory = catIndex === categoriesWithItems.length - 1;
         
+        // Log each category being processed
+        console.log(`[CostReportPDF] Processing category ${catIndex}: code="${catCode}", desc="${catDesc}", lineItems=${lineItems.length}`);
+        
         // Category page header
         content.push({
           text: `${catCode}  ${catDesc.toUpperCase()}`,
@@ -625,20 +628,32 @@ serve(async (req) => {
           margin: [0, 0, 0, 15],
         });
         
-        // Calculate totals for the category
-        let originalTotal = 0;
-        let previousTotal = 0;
-        let anticipatedTotal = 0;
+        // Calculate totals for the category - use category-level values first, then fallback to sum
+        const categoryOriginalBudget = Number(category.original_budget ?? 0);
+        const categoryPreviousReport = Number(category.previous_report ?? 0);
+        const categoryAnticipatedFinal = Number(category.anticipated_final ?? 0);
+        
+        // Calculate from line items as fallback
+        let lineItemOriginalTotal = 0;
+        let lineItemPreviousTotal = 0;
+        let lineItemAnticipatedTotal = 0;
         
         lineItems.forEach((item: any) => {
-          originalTotal += Number(item.original_budget ?? item.contract_sum ?? 0);
-          previousTotal += Number(item.previous_report ?? item.contract_sum ?? 0);
-          anticipatedTotal += Number(item.anticipated_final ?? item.contract_sum ?? 0);
+          lineItemOriginalTotal += Number(item.original_budget ?? item.contract_sum ?? 0);
+          lineItemPreviousTotal += Number(item.previous_report ?? item.contract_sum ?? 0);
+          lineItemAnticipatedTotal += Number(item.anticipated_final ?? item.contract_sum ?? 0);
         });
         
+        // Use category-level totals if available, otherwise use line item sum
+        const originalTotal = categoryOriginalBudget > 0 ? categoryOriginalBudget : lineItemOriginalTotal;
+        const previousTotal = categoryPreviousReport > 0 ? categoryPreviousReport : lineItemPreviousTotal;
+        const anticipatedTotal = categoryAnticipatedFinal > 0 ? categoryAnticipatedFinal : lineItemAnticipatedTotal;
+        
+        console.log(`[CostReportPDF] Category "${catCode}" totals: original=${originalTotal}, previous=${previousTotal}, anticipated=${anticipatedTotal}`);
+        
         // Calculate category variance totals
-        const originalVarTotal = originalTotal - anticipatedTotal;
-        const currentVarTotal = previousTotal - anticipatedTotal;
+        const catOriginalVar = originalTotal - anticipatedTotal;
+        const catCurrentVar = previousTotal - anticipatedTotal;
         
         const itemTableBody: any[][] = [
           // Header row with themed background - matches UI columns
@@ -651,20 +666,17 @@ serve(async (req) => {
             { text: 'Orig. Variance', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
             { text: 'Variance', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
           ],
+          // Category summary row at top (matching UI expanded header)
+          [
+            { text: catCode, fontSize: 9, bold: true, fillColor: '#f0f9ff', alignment: 'center' },
+            { text: catDesc.toUpperCase(), fontSize: 9, bold: true, fillColor: '#f0f9ff' },
+            { text: formatCurrency(originalTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
+            { text: formatCurrency(previousTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
+            { text: formatCurrency(anticipatedTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
+            { text: formatVariance(catOriginalVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: catOriginalVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+            { text: formatVariance(catCurrentVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: catCurrentVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+          ],
         ];
-        
-        // Category summary row at top (matching UI expanded header)
-        const catOriginalVar = originalTotal - anticipatedTotal;
-        const catCurrentVar = previousTotal - anticipatedTotal;
-        itemTableBody.push([
-          { text: catCode, fontSize: 9, bold: true, fillColor: '#f0f9ff', alignment: 'center' },
-          { text: catDesc.toUpperCase(), fontSize: 9, bold: true, fillColor: '#f0f9ff' },
-          { text: formatCurrency(originalTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
-          { text: formatCurrency(previousTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
-          { text: formatCurrency(anticipatedTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
-          { text: formatVariance(catOriginalVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: catOriginalVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
-          { text: formatVariance(catCurrentVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: catCurrentVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
-        ]);
         
         // Data rows with zebra striping - include item number (e.g., A1, A2, A3)
         lineItems.forEach((item: any, rowIndex: number) => {
