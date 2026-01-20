@@ -156,10 +156,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       const companyDetails = {
         companyName: company?.company_name || "Company Name",
-        contactName: company?.client_name || "",
-        contactPhone: company?.client_phone || "",
+        contactName: company?.prepared_by_name || company?.client_name || "",
+        contactPhone: company?.prepared_by_phone || company?.client_phone || "",
         company_logo_url: company?.company_logo_url || null,
         client_logo_url: company?.client_logo_url || null,
+        // Company address
+        addressLine1: company?.company_address_line1 || company?.address_line1 || "",
+        addressLine2: company?.company_address_line2 || company?.address_line2 || "",
+        // Client details
+        clientName: company?.client_name || "",
+        clientAddressLine1: company?.client_address_line1 || "",
+        clientAddressLine2: company?.client_address_line2 || "",
+        clientPhone: company?.client_phone || "",
       };
       
       const useMargins = { ...STANDARD_MARGINS, ...margins };

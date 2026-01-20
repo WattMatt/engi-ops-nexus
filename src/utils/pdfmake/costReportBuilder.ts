@@ -48,90 +48,246 @@ export interface CostReportOptions {
 // Cover Page Builder
 // ============================================================================
 
+function isValidBase64Image(url: string | undefined | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  return url.length > 100 && 
+    url.startsWith('data:image/') && 
+    url !== 'data:,';
+}
+
 export function buildCoverPageContent(
   report: any,
   companyDetails: CompanyDetails
 ): Content[] {
-  // Validate logo URL - must be a proper data URL with content
-  const hasValidLogo = companyDetails.company_logo_url && 
-    typeof companyDetails.company_logo_url === 'string' &&
-    companyDetails.company_logo_url.length > 100 &&
-    companyDetails.company_logo_url.startsWith('data:image/') &&
-    companyDetails.company_logo_url !== 'data:,';
+  const hasCompanyLogo = isValidBase64Image(companyDetails.company_logo_url);
+  const hasClientLogo = isValidBase64Image(companyDetails.client_logo_url);
+  const content: Content[] = [];
+
+  // Gradient accent bar on left side
+  content.push({
+    canvas: [
+      {
+        type: 'rect',
+        x: 0,
+        y: 0,
+        w: 8,
+        h: 842, // A4 height in points
+        color: PDF_COLORS_HEX.primary,
+      },
+    ],
+    absolutePosition: { x: 0, y: 0 },
+  });
+
+  // Dual logo section - Company left, Client right
+  if (hasCompanyLogo || hasClientLogo) {
+    const logoColumns: any[] = [];
     
-  return [
-    // Logo placeholder (if available and valid)
-    hasValidLogo ? {
-      image: companyDetails.company_logo_url!,
-      width: 150,
-      alignment: 'center' as const,
-      margin: [0, 40, 0, 30] as [number, number, number, number],
-    } : { text: '', margin: [0, 80, 0, 0] as [number, number, number, number] },
+    if (hasCompanyLogo) {
+      logoColumns.push({
+        image: companyDetails.company_logo_url!,
+        width: 120,
+        alignment: 'center' as const,
+      });
+    } else {
+      logoColumns.push({ text: '', width: '*' as any });
+    }
     
-    // Report title
-    {
-      text: 'COST REPORT',
-      fontSize: 32,
-      bold: true,
-      color: PDF_COLORS_HEX.primary,
-      alignment: 'center' as const,
-      margin: [0, 0, 0, 20] as [number, number, number, number],
-    },
+    if (hasClientLogo) {
+      logoColumns.push({
+        image: companyDetails.client_logo_url!,
+        width: 120,
+        alignment: 'center' as const,
+      });
+    } else {
+      logoColumns.push({ text: '', width: '*' as any });
+    }
     
-    // Project name
-    {
-      text: report.project_name || 'Project Name',
-      fontSize: 20,
-      color: PDF_COLORS_HEX.text,
-      alignment: 'center' as const,
-      margin: [0, 0, 0, 40] as [number, number, number, number],
-    },
-    
-    // Report number and revision
-    {
-      columns: [
-        { text: '', width: '*' },
-        {
-          width: 'auto',
-          table: {
-            body: [
-              [
-                { text: 'Report No:', bold: true, fontSize: 10, color: PDF_COLORS_HEX.neutral },
-                { text: report.report_number || '-', fontSize: 10 },
-              ],
-              [
-                { text: 'Revision:', bold: true, fontSize: 10, color: PDF_COLORS_HEX.neutral },
-                { text: report.revision || 'A', fontSize: 10 },
-              ],
-              [
-                { text: 'Date:', bold: true, fontSize: 10, color: PDF_COLORS_HEX.neutral },
-                { text: format(new Date(report.report_date || new Date()), 'dd MMMM yyyy'), fontSize: 10 },
-              ],
-            ],
-          },
-          layout: 'noBorders',
-        },
-        { text: '', width: '*' },
-      ],
-      margin: [0, 0, 0, 40] as [number, number, number, number],
-    },
-    
-    // Company details
-    {
-      text: companyDetails.companyName || '',
+    content.push({
+      columns: logoColumns,
+      margin: [50, 50, 40, 30] as [number, number, number, number],
+    });
+  } else {
+    content.push({ text: '', margin: [0, 80, 0, 0] as [number, number, number, number] });
+  }
+
+  // Report title
+  content.push({
+    text: 'COST REPORT',
+    fontSize: 36,
+    bold: true,
+    color: PDF_COLORS_HEX.primary,
+    alignment: 'center' as const,
+    margin: [20, 20, 0, 10] as [number, number, number, number],
+  });
+
+  // Title underline
+  content.push({
+    canvas: [
+      {
+        type: 'line',
+        x1: 150,
+        y1: 0,
+        x2: 400,
+        y2: 0,
+        lineWidth: 2,
+        lineColor: PDF_COLORS_HEX.secondary || '#4a90a4',
+      },
+    ],
+    margin: [0, 0, 0, 20] as [number, number, number, number],
+  });
+
+  // Project name
+  content.push({
+    text: report.project_name || 'Project Name',
+    fontSize: 18,
+    bold: true,
+    color: PDF_COLORS_HEX.text,
+    alignment: 'center' as const,
+    margin: [20, 0, 0, 10] as [number, number, number, number],
+  });
+
+  // Client name (subtitle)
+  if (report.client_name || companyDetails.clientName) {
+    content.push({
+      text: report.client_name || companyDetails.clientName,
       fontSize: 12,
-      alignment: 'center' as const,
-      margin: [0, 0, 0, 5] as [number, number, number, number],
-    },
-    {
-      text: companyDetails.contactName || '',
-      fontSize: 10,
       color: PDF_COLORS_HEX.neutral,
       alignment: 'center' as const,
+      margin: [20, 0, 0, 30] as [number, number, number, number],
+    });
+  }
+
+  // Metadata table (Report No, Revision, Date)
+  content.push({
+    table: {
+      widths: [80, 120],
+      body: [
+        [
+          { text: 'Report No:', bold: true, fontSize: 10, color: PDF_COLORS_HEX.neutral, border: [false, false, false, true] },
+          { text: String(report.report_number || '-'), fontSize: 10, border: [false, false, false, true] },
+        ],
+        [
+          { text: 'Revision:', bold: true, fontSize: 10, color: PDF_COLORS_HEX.neutral, border: [false, false, false, true] },
+          { text: report.revision || 'A', fontSize: 10, border: [false, false, false, true] },
+        ],
+        [
+          { text: 'Date:', bold: true, fontSize: 10, color: PDF_COLORS_HEX.neutral, border: [false, false, false, false] },
+          { text: format(new Date(report.report_date || new Date()), 'dd MMMM yyyy'), fontSize: 10, border: [false, false, false, false] },
+        ],
+      ],
     },
-    
-    { text: '', pageBreak: 'after' as const },
-  ];
+    layout: {
+      hLineWidth: (i: number) => (i < 3 ? 0.5 : 0),
+      vLineWidth: () => 0,
+      hLineColor: () => '#e0e0e0',
+      paddingTop: () => 6,
+      paddingBottom: () => 6,
+    },
+    margin: [180, 10, 0, 40] as [number, number, number, number],
+  });
+
+  // Divider line
+  content.push({
+    canvas: [
+      {
+        type: 'line',
+        x1: 50,
+        y1: 0,
+        x2: 500,
+        y2: 0,
+        lineWidth: 0.5,
+        lineColor: '#cccccc',
+      },
+    ],
+    margin: [0, 10, 0, 20] as [number, number, number, number],
+  });
+
+  // PREPARED BY section
+  content.push({
+    stack: [
+      {
+        text: 'PREPARED BY:',
+        fontSize: 9,
+        bold: true,
+        color: PDF_COLORS_HEX.primary,
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: (companyDetails.companyName || 'Company Name').toUpperCase(),
+        fontSize: 11,
+        bold: true,
+        color: PDF_COLORS_HEX.text,
+      },
+      ...(companyDetails.addressLine1 ? [{
+        text: companyDetails.addressLine1,
+        fontSize: 9,
+        color: PDF_COLORS_HEX.neutral,
+        margin: [0, 2, 0, 0] as [number, number, number, number],
+      }] : []),
+      ...(companyDetails.addressLine2 ? [{
+        text: companyDetails.addressLine2,
+        fontSize: 9,
+        color: PDF_COLORS_HEX.neutral,
+      }] : []),
+      ...(companyDetails.contactPhone ? [{
+        text: `Tel: ${companyDetails.contactPhone}`,
+        fontSize: 9,
+        color: PDF_COLORS_HEX.neutral,
+        margin: [0, 2, 0, 0] as [number, number, number, number],
+      }] : []),
+      ...(companyDetails.contactName ? [{
+        text: `Contact: ${companyDetails.contactName}`,
+        fontSize: 9,
+        color: PDF_COLORS_HEX.neutral,
+      }] : []),
+    ],
+    margin: [60, 0, 0, 20] as [number, number, number, number],
+  });
+
+  // PREPARED FOR section (if client details available)
+  const clientName = report.client_name || companyDetails.clientName;
+  if (clientName) {
+    content.push({
+      stack: [
+        {
+          text: 'PREPARED FOR:',
+          fontSize: 9,
+          bold: true,
+          color: PDF_COLORS_HEX.primary,
+          margin: [0, 0, 0, 5] as [number, number, number, number],
+        },
+        {
+          text: clientName.toUpperCase(),
+          fontSize: 11,
+          bold: true,
+          color: PDF_COLORS_HEX.text,
+        },
+        ...(companyDetails.clientAddressLine1 ? [{
+          text: companyDetails.clientAddressLine1,
+          fontSize: 9,
+          color: PDF_COLORS_HEX.neutral,
+          margin: [0, 2, 0, 0] as [number, number, number, number],
+        }] : []),
+        ...(companyDetails.clientAddressLine2 ? [{
+          text: companyDetails.clientAddressLine2,
+          fontSize: 9,
+          color: PDF_COLORS_HEX.neutral,
+        }] : []),
+        ...(companyDetails.clientPhone ? [{
+          text: `Tel: ${companyDetails.clientPhone}`,
+          fontSize: 9,
+          color: PDF_COLORS_HEX.neutral,
+          margin: [0, 2, 0, 0] as [number, number, number, number],
+        }] : []),
+      ],
+      margin: [60, 0, 0, 20] as [number, number, number, number],
+    });
+  }
+
+  // Page break after cover
+  content.push({ text: '', pageBreak: 'after' as const });
+
+  return content;
 }
 
 // ============================================================================
