@@ -250,80 +250,128 @@ export class PDFDocumentBuilder {
   }
 
   /**
-   * Convert to blob using getBase64 - most reliable approach for complex documents
-   * getBlob/getBuffer callbacks can hang; getBase64 is more stable
+   * Convert to blob using multiple strategies with fallback
+   * Tries getBlob first (streaming), falls back to getBase64 (buffered)
    */
   private async toBlobViaBase64(docDefinition: TDocumentDefinitions, timeoutMs: number): Promise<Blob> {
+    // Strategy 1: Try getBlob with shorter timeout (often hangs)
+    try {
+      console.log('[PDFMake] Attempting getBlob strategy...');
+      const blob = await this.tryGetBlob(docDefinition, Math.min(timeoutMs, 30000));
+      console.log(`[PDFMake] getBlob success: ${Math.round(blob.size / 1024)}KB`);
+      return blob;
+    } catch (blobError) {
+      console.warn('[PDFMake] getBlob failed, trying getBuffer fallback:', blobError);
+    }
+    
+    // Strategy 2: Try getBuffer (more reliable than getBase64 for large docs)
+    try {
+      console.log('[PDFMake] Attempting getBuffer strategy...');
+      const blob = await this.tryGetBuffer(docDefinition, timeoutMs);
+      console.log(`[PDFMake] getBuffer success: ${Math.round(blob.size / 1024)}KB`);
+      return blob;
+    } catch (bufferError) {
+      console.error('[PDFMake] All blob strategies failed:', bufferError);
+      throw bufferError;
+    }
+  }
+
+  /**
+   * Try to get blob directly - fastest but can hang on complex documents
+   */
+  private tryGetBlob(docDefinition: TDocumentDefinitions, timeoutMs: number): Promise<Blob> {
     return new Promise((resolve, reject) => {
       let resolved = false;
       
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.error(`[PDFMake] Timed out after ${timeoutMs}ms`);
+          reject(new Error('getBlob timeout'));
+        }
+      }, timeoutMs);
+      
+      try {
+        const pdfDoc = pdfMake.createPdf(docDefinition);
+        console.log('[PDFMake] getBlob: PDF created, requesting blob...');
+        
+        pdfDoc.getBlob((blob: Blob) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
+          
+          if (!blob || blob.size === 0) {
+            reject(new Error('Empty blob returned'));
+            return;
+          }
+          
+          resolve(blob);
+        });
+      } catch (error) {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          reject(error);
+        }
+      }
+    });
+  }
+
+  /**
+   * Try to get buffer then convert to blob - more reliable for large documents
+   */
+  private tryGetBuffer(docDefinition: TDocumentDefinitions, timeoutMs: number): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      let resolved = false;
+      
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.error(`[PDFMake] getBuffer timed out after ${timeoutMs}ms`);
           reject(new Error(`PDF generation timed out after ${Math.round(timeoutMs / 1000)}s. The document may be too complex.`));
         }
       }, timeoutMs);
       
-      const handleSuccess = (blob: Blob) => {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(timeout);
-        console.log(`[PDFMake] Success: ${Math.round(blob.size / 1024)}KB`);
-        resolve(blob);
-      };
-      
-      const handleError = (error: any) => {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(timeout);
-        console.error('[PDFMake] Error:', error);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      };
-      
       try {
-        console.log('[PDFMake] Creating PDF document...');
+        console.log('[PDFMake] getBuffer: Creating PDF document...');
         const pdfDoc = pdfMake.createPdf(docDefinition);
-        console.log('[PDFMake] PDF document created, getting base64...');
+        console.log('[PDFMake] getBuffer: PDF created, requesting buffer...');
         
-        // Use getBase64 - most reliable per pdfmake best practices
-        // getBlob/getBuffer callbacks often hang for complex documents
-        pdfDoc.getBase64((base64: string) => {
-          console.log('[PDFMake] getBase64 callback received');
-          
+        pdfDoc.getBuffer((buffer: Uint8Array) => {
+          console.log('[PDFMake] getBuffer: callback received');
           if (resolved) {
-            console.log('[PDFMake] Already resolved, ignoring callback');
+            console.log('[PDFMake] getBuffer: already resolved, ignoring');
+            return;
+          }
+          resolved = true;
+          clearTimeout(timeout);
+          
+          if (!buffer || buffer.byteLength === 0) {
+            reject(new Error('Empty buffer returned'));
             return;
           }
           
-          if (!base64 || base64.length === 0) {
-            console.error('[PDFMake] Base64 is null/empty');
-            handleError(new Error('PDF generation returned empty base64'));
-            return;
-          }
+          console.log('[PDFMake] getBuffer: received', buffer.byteLength, 'bytes');
           
-          console.log('[PDFMake] Base64 received, length:', base64.length, 'chars');
-          
-          // Convert base64 to Blob
           try {
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: 'application/pdf' });
-            console.log('[PDFMake] Blob created, size:', blob.size, 'bytes');
-            handleSuccess(blob);
+            // Create blob from buffer
+            const bufferCopy = new Uint8Array(buffer);
+            const blob = new Blob([bufferCopy], { type: 'application/pdf' });
+            console.log('[PDFMake] getBuffer: blob created,', blob.size, 'bytes');
+            resolve(blob);
           } catch (conversionError) {
-            console.error('[PDFMake] Base64 to Blob conversion failed:', conversionError);
-            handleError(conversionError);
+            console.error('[PDFMake] getBuffer: conversion failed:', conversionError);
+            reject(conversionError);
           }
         });
         
-        console.log('[PDFMake] getBase64 called, waiting for callback...');
+        console.log('[PDFMake] getBuffer: waiting for callback...');
       } catch (error) {
-        console.error('[PDFMake] Exception during PDF creation:', error);
-        handleError(error);
+        console.error('[PDFMake] getBuffer: exception:', error);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          reject(error);
+        }
       }
     });
   }

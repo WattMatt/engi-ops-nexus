@@ -196,8 +196,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       const useMargins = { ...STANDARD_MARGINS, ...margins };
       
-      // Generate PDF blob with timeout
-      const pdfPromise = generateCostReportPdfmake({
+      const pdfData = {
         report,
         categoriesData,
         variationsData,
@@ -215,19 +214,56 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           includeVisualSummary: sections.visualSummary && chartImages.length > 0,
           chartImages,
           margins: useMargins,
-          onProgress: (step, progress) => {
+          onProgress: (step: string, progress: number) => {
             setExportStep(step);
             setExportProgress(50 + Math.round(progress * 0.35));
           },
         },
-      });
+      };
       
-      const pdfBlob = await Promise.race([
-        pdfPromise,
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error("PDF generation timeout (120s)")), PDF_TIMEOUT_MS)
-        )
-      ]);
+      // Generate PDF blob with timeout
+      let pdfBlob: Blob;
+      try {
+        const pdfPromise = generateCostReportPdfmake(pdfData);
+        pdfBlob = await Promise.race([
+          pdfPromise,
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error("PDF generation timeout (120s)")), PDF_TIMEOUT_MS)
+          )
+        ]);
+      } catch (blobError: any) {
+        console.warn('[CostReportPDF] Blob generation failed, attempting direct download fallback:', blobError.message);
+        
+        // Fallback: Use direct download (bypasses storage but ensures user gets PDF)
+        setExportStep("Using direct download fallback...");
+        const { downloadCostReportPdfmake } = await import("@/utils/pdfmake/costReport");
+        const downloadFilename = generateStandardizedPDFFilename({
+          projectNumber: report.project_number || report.project_id?.slice(0, 8),
+          reportType: "CostReport",
+          revision: report.revision || "A",
+          reportNumber: report.report_number,
+        });
+        
+        await downloadCostReportPdfmake(pdfData, downloadFilename);
+        
+        setExportStep("Complete!");
+        setExportProgress(100);
+        
+        toast({
+          title: "PDF Downloaded",
+          description: "Cost report exported directly. Note: Not saved to report history.",
+        });
+        
+        onReportGenerated?.();
+        
+        setTimeout(() => {
+          setIsExporting(false);
+          setExportStep("");
+          setExportProgress(0);
+        }, 1500);
+        
+        return; // Exit early - skip storage since we used fallback
+      }
       
       if (signal.aborted) throw new Error("Export cancelled");
       
