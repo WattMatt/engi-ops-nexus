@@ -197,16 +197,29 @@ export class PDFDocumentBuilder {
   /**
    * Generate and download the PDF directly
    * This uses pdfmake's internal download which is more reliable
+   * 
+   * IMPORTANT: pdfmake's download callback is unreliable and often doesn't fire.
+   * We use a fire-and-forget approach with a short delay to allow the download to start.
    */
   download(filename: string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         const docDefinition = this.build();
-        console.log('[PDFMake] Starting direct download...');
-        pdfMake.createPdf(docDefinition).download(filename, () => {
-          console.log('[PDFMake] Download completed');
+        console.log('[PDFMake] Starting direct download (fire-and-forget)...');
+        
+        // Create the PDF
+        const pdfDoc = pdfMake.createPdf(docDefinition);
+        
+        // Fire the download - DON'T rely on callback (it often doesn't fire)
+        pdfDoc.download(filename);
+        
+        // Give browser time to initiate download, then resolve
+        // The actual download continues in the background
+        setTimeout(() => {
+          console.log('[PDFMake] Download initiated (resolving after delay)');
           resolve();
-        });
+        }, 1500);
+        
       } catch (error) {
         console.error('[PDFMake] Download failed:', error);
         reject(error);
