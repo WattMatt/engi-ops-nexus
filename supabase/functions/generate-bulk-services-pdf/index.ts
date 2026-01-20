@@ -64,6 +64,162 @@ const COLORS = {
   background: '#f9fafb',
 };
 
+// Climatic zone colors and data
+const ZONE_COLORS: Record<string, string> = {
+  '1': '#3b82f6', // Blue - Cold Interior
+  '2': '#fbbf24', // Yellow - Temperate Interior
+  '3': '#f97316', // Orange - Hot Interior
+  '4': '#60a5fa', // Light Blue - Temperate Coastal
+  '5': '#22c55e', // Green - Sub-tropical Coastal
+  '6': '#eab308', // Yellow/Gold - Arid Interior
+};
+
+const ZONE_DATA: Record<string, { name: string; temp: string; description: string; examples: string }> = {
+  '1': {
+    name: 'Cold Interior',
+    temp: '14-16°C mean annual',
+    description: 'High altitude, cold winters, moderate summers',
+    examples: 'Johannesburg, Bloemfontein'
+  },
+  '2': {
+    name: 'Temperate Interior',
+    temp: '16-18°C mean annual',
+    description: 'Moderate climate, warm summers, mild winters',
+    examples: 'Pretoria, Polokwane'
+  },
+  '3': {
+    name: 'Hot Interior',
+    temp: '18-22°C mean annual',
+    description: 'Hot summers, warm winters, summer rainfall',
+    examples: 'Makhado, Nelspruit'
+  },
+  '4': {
+    name: 'Temperate Coastal',
+    temp: '14-18°C mean annual',
+    description: 'Moderate climate, winter rainfall, ocean influence',
+    examples: 'Cape Town, Port Elizabeth'
+  },
+  '5': {
+    name: 'Sub-tropical Coastal',
+    temp: '18-22°C mean annual',
+    description: 'Humid, warm year-round, high rainfall',
+    examples: 'Durban, Richards Bay, East London'
+  },
+  '6': {
+    name: 'Arid Interior',
+    temp: '16-20°C mean annual',
+    description: 'Very hot dry summers, cold nights, low rainfall',
+    examples: 'Kimberley, Upington'
+  },
+};
+
+// Generate SVG map of South Africa with climatic zones
+function generateZoneMapSVG(selectedZone: string | null): string {
+  const zoneOpacity = (zone: string) => selectedZone === zone ? '1' : '0.4';
+  const zoneBorder = (zone: string) => selectedZone === zone ? '3' : '1';
+  
+  return `
+    <svg viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 500px; height: auto;">
+      <!-- South Africa outline simplified -->
+      <defs>
+        <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#e0f2fe;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#bae6fd;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      
+      <!-- Background ocean -->
+      <rect width="400" height="320" fill="url(#oceanGrad)" rx="8"/>
+      
+      <!-- Zone 6: Arid Interior (Northern Cape - northwest) -->
+      <path d="M40,180 L80,140 L140,130 L160,160 L140,200 L100,220 L60,220 Z" 
+            fill="${ZONE_COLORS['6']}" opacity="${zoneOpacity('6')}" 
+            stroke="${selectedZone === '6' ? '#000' : '#fff'}" stroke-width="${zoneBorder('6')}"/>
+      
+      <!-- Zone 4: Temperate Coastal (Western Cape - southwest coast) -->
+      <path d="M40,180 L60,220 L100,220 L120,260 L80,280 L40,260 L30,220 Z" 
+            fill="${ZONE_COLORS['4']}" opacity="${zoneOpacity('4')}" 
+            stroke="${selectedZone === '4' ? '#000' : '#fff'}" stroke-width="${zoneBorder('4')}"/>
+      
+      <!-- Zone 4: Temperate Coastal (Eastern Cape - south coast) -->
+      <path d="M120,260 L180,250 L220,260 L200,280 L140,290 L80,280 Z" 
+            fill="${ZONE_COLORS['4']}" opacity="${zoneOpacity('4')}" 
+            stroke="${selectedZone === '4' ? '#000' : '#fff'}" stroke-width="${zoneBorder('4')}"/>
+      
+      <!-- Zone 1: Cold Interior (Gauteng/Free State - central) -->
+      <path d="M160,160 L200,150 L230,160 L240,200 L200,230 L160,220 L140,200 Z" 
+            fill="${ZONE_COLORS['1']}" opacity="${zoneOpacity('1')}" 
+            stroke="${selectedZone === '1' ? '#000' : '#fff'}" stroke-width="${zoneBorder('1')}"/>
+      
+      <!-- Zone 2: Temperate Interior (North West/Gauteng north - north central) -->
+      <path d="M140,130 L180,100 L230,90 L260,110 L260,140 L230,160 L200,150 L160,160 Z" 
+            fill="${ZONE_COLORS['2']}" opacity="${zoneOpacity('2')}" 
+            stroke="${selectedZone === '2' ? '#000' : '#fff'}" stroke-width="${zoneBorder('2')}"/>
+      
+      <!-- Zone 3: Hot Interior (Limpopo/Mpumalanga - northeast) -->
+      <path d="M260,110 L300,80 L340,90 L360,120 L350,160 L300,170 L260,140 Z" 
+            fill="${ZONE_COLORS['3']}" opacity="${zoneOpacity('3')}" 
+            stroke="${selectedZone === '3' ? '#000' : '#fff'}" stroke-width="${zoneBorder('3')}"/>
+      
+      <!-- Zone 5: Sub-tropical Coastal (KZN - east coast) -->
+      <path d="M300,170 L350,160 L370,200 L360,250 L320,280 L280,270 L260,230 L280,190 Z" 
+            fill="${ZONE_COLORS['5']}" opacity="${zoneOpacity('5')}" 
+            stroke="${selectedZone === '5' ? '#000' : '#fff'}" stroke-width="${zoneBorder('5')}"/>
+      
+      <!-- Zone 5: Sub-tropical Coastal extension (Eastern Cape coast) -->
+      <path d="M220,260 L280,270 L260,290 L200,280 Z" 
+            fill="${ZONE_COLORS['5']}" opacity="${zoneOpacity('5')}" 
+            stroke="${selectedZone === '5' ? '#000' : '#fff'}" stroke-width="${zoneBorder('5')}"/>
+      
+      <!-- Central fill connecting zones -->
+      <path d="M200,230 L240,200 L260,230 L280,190 L300,170 L260,140 L230,160 L240,200 Z" 
+            fill="${ZONE_COLORS['1']}" opacity="${zoneOpacity('1')}" 
+            stroke="${selectedZone === '1' ? '#000' : '#fff'}" stroke-width="1"/>
+      
+      <!-- Zone labels -->
+      <text x="90" y="175" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">6</text>
+      <text x="70" y="245" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">4</text>
+      <text x="160" y="270" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">4</text>
+      <text x="195" y="195" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">1</text>
+      <text x="200" y="125" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">2</text>
+      <text x="310" y="125" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">3</text>
+      <text x="320" y="220" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">5</text>
+      
+      <!-- Country label -->
+      <text x="200" y="310" font-size="11" fill="${COLORS.textLight}" font-weight="500" text-anchor="middle">SOUTH AFRICA - SANS 10400-XA CLIMATIC ZONES</text>
+      
+      ${selectedZone ? `
+        <!-- Selected zone indicator -->
+        <circle cx="380" cy="20" r="15" fill="${ZONE_COLORS[selectedZone]}" stroke="#fff" stroke-width="2"/>
+        <text x="380" y="25" font-size="12" fill="#fff" font-weight="bold" text-anchor="middle">${selectedZone}</text>
+      ` : ''}
+    </svg>
+  `;
+}
+
+// Generate zone legend HTML
+function generateZoneLegendHTML(selectedZone: string | null): string {
+  return Object.entries(ZONE_DATA).map(([zone, data]) => {
+    const isSelected = selectedZone === zone;
+    const borderStyle = isSelected ? `3px solid ${COLORS.primary}` : `1px solid ${COLORS.border}`;
+    const bgColor = isSelected ? '#f0f9ff' : '#fff';
+    
+    return `
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 10px; background: ${bgColor}; border: ${borderStyle}; border-radius: 6px; margin-bottom: 8px;">
+        <div style="width: 24px; height: 24px; background: ${ZONE_COLORS[zone]}; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+          <span style="color: #fff; font-weight: bold; font-size: 11px;">${zone}</span>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-weight: 600; color: ${COLORS.text}; font-size: 11px;">${data.name}${isSelected ? ' ✓' : ''}</div>
+          <div style="color: ${ZONE_COLORS[zone]}; font-size: 10px; font-weight: 500;">${data.temp}</div>
+          <div style="color: ${COLORS.textLight}; font-size: 9px; margin-top: 2px;">${data.description}</div>
+          <div style="color: ${COLORS.textLight}; font-size: 9px; font-style: italic;">e.g. ${data.examples}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   try {
@@ -293,6 +449,54 @@ function generateHTML(data: RequestBody): string {
       ${document.supply_authority ? `<tr><td>Supply Authority</td><td>${document.supply_authority}</td></tr>` : ''}
       ${document.tariff_structure ? `<tr><td>Tariff Structure</td><td>${document.tariff_structure}</td></tr>` : ''}
     </table>
+  ` : ''}
+
+  <!-- CLIMATIC ZONE SECTION -->
+  ${document.climatic_zone ? `
+    <div class="page-break"></div>
+    
+    <h2 class="page-header">CLIMATIC ZONE ANALYSIS</h2>
+    
+    <p style="color: ${COLORS.textLight}; font-size: 11px; margin-bottom: 20px;">
+      The climatic zone classification follows SANS 10400-XA standards for energy efficiency in buildings.
+      ${document.climatic_zone_city ? `Project location is near <strong>${document.climatic_zone_city}</strong>.` : ''}
+    </p>
+    
+    <div style="display: flex; gap: 30px; align-items: flex-start;">
+      <!-- Map -->
+      <div style="flex: 1;">
+        ${generateZoneMapSVG(document.climatic_zone)}
+      </div>
+      
+      <!-- Legend -->
+      <div style="flex: 1;">
+        <h3 style="font-size: 12px; margin: 0 0 15px 0; color: ${COLORS.primary};">Zone Classifications</h3>
+        ${generateZoneLegendHTML(document.climatic_zone)}
+      </div>
+    </div>
+    
+    <!-- Selected Zone Details -->
+    ${ZONE_DATA[document.climatic_zone] ? `
+      <div style="margin-top: 25px; padding: 20px; background: linear-gradient(135deg, ${ZONE_COLORS[document.climatic_zone]}15, ${ZONE_COLORS[document.climatic_zone]}05); border: 2px solid ${ZONE_COLORS[document.climatic_zone]}; border-radius: 8px;">
+        <h3 style="margin: 0 0 10px 0; color: ${COLORS.primary}; font-size: 14px;">
+          Selected Zone: Zone ${document.climatic_zone} - ${ZONE_DATA[document.climatic_zone].name}
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+          <div>
+            <div style="font-size: 10px; color: ${COLORS.textLight};">Mean Annual Temperature</div>
+            <div style="font-size: 12px; font-weight: 600; color: ${ZONE_COLORS[document.climatic_zone]};">${ZONE_DATA[document.climatic_zone].temp}</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; color: ${COLORS.textLight};">Climate Characteristics</div>
+            <div style="font-size: 11px; color: ${COLORS.text};">${ZONE_DATA[document.climatic_zone].description}</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; color: ${COLORS.textLight};">Example Cities</div>
+            <div style="font-size: 11px; color: ${COLORS.text};">${ZONE_DATA[document.climatic_zone].examples}</div>
+          </div>
+        </div>
+      </div>
+    ` : ''}
   ` : ''}
 
   ${sections.length > 0 ? `
