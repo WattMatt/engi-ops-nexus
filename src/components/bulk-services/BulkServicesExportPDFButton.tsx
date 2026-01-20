@@ -1,8 +1,7 @@
 /**
  * Bulk Services PDF Export Button
  * 
- * Full storage-backed export following the cost report pattern.
- * Uses 120s timeout and strict async handling.
+ * Uses PDFShift edge function for reliable PDF generation (matching cost report pattern).
  */
 
 import { Button } from "@/components/ui/button";
@@ -12,11 +11,39 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
-import { 
-  generateBulkServicesPDF,
-  type BulkServicesDocument,
-  type BulkServicesSection,
-} from "@/utils/pdfmake/bulkServices";
+import { format } from "date-fns";
+
+interface BulkServicesDocument {
+  id: string;
+  project_id: string;
+  document_number: string;
+  revision: string;
+  document_date: string;
+  created_at: string;
+  notes?: string | null;
+  building_calculation_type?: string | null;
+  project_area?: number | null;
+  climatic_zone?: string | null;
+  climatic_zone_city?: string | null;
+  va_per_sqm?: number | null;
+  diversity_factor?: number | null;
+  future_expansion_factor?: number | null;
+  maximum_demand?: number | null;
+  total_connected_load?: number | null;
+  primary_voltage?: string | null;
+  connection_size?: string | null;
+  supply_authority?: string | null;
+  tariff_structure?: string | null;
+}
+
+interface BulkServicesSection {
+  id: string;
+  document_id: string;
+  section_number: string;
+  section_title: string;
+  content?: string | null;
+  sort_order: number;
+}
 
 interface BulkServicesExportPDFButtonProps {
   documentId: string;
@@ -91,6 +118,20 @@ export function BulkServicesExportPDFButton({
     return project?.name || "Bulk Services";
   };
 
+  // Get company details
+  const getCompanyDetails = async () => {
+    const { data: settings } = await supabase
+      .from("company_settings")
+      .select("company_name, company_logo_url")
+      .limit(1)
+      .maybeSingle();
+    
+    return {
+      companyName: settings?.company_name,
+      companyLogoUrl: settings?.company_logo_url,
+    };
+  };
+
   const handleExport = async () => {
     if (!document) {
       toast.error("No document data available");
@@ -98,41 +139,42 @@ export function BulkServicesExportPDFButton({
     }
 
     setIsGenerating(true);
-    setCurrentStep("Initializing...");
+    setCurrentStep("Preparing...");
 
     try {
-      // Fetch revision and project name
-      setCurrentStep("Preparing...");
-      const [revision, projectName] = await Promise.all([
+      // Fetch all required data in parallel
+      const [revision, projectName, companyDetails] = await Promise.all([
         getNextRevision(),
         getProjectName(),
+        getCompanyDetails(),
       ]);
 
-      // Generate PDF blob
-      const { blob, filename } = await generateBulkServicesPDF(
-        document,
-        sections,
+      setCurrentStep("Generating PDF...");
+      
+      // Generate filename
+      const filename = `BulkServices_${document.document_number}_${revision}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+
+      // Call the edge function
+      console.log('[BulkServicesPDF] Calling edge function...');
+      const { data: result, error: fnError } = await supabase.functions.invoke(
+        'generate-bulk-services-pdf',
         {
-          projectName,
-          revision,
-          onProgress: (step) => setCurrentStep(step),
+          body: {
+            document,
+            sections,
+            projectName,
+            revision,
+            companyDetails,
+            filename,
+            storageBucket: 'bulk-services-reports',
+          },
         }
       );
 
-      console.log('[BulkServicesPDF] Generated blob size:', blob.size);
+      if (fnError) throw fnError;
+      if (!result?.success) throw new Error(result?.error || 'PDF generation failed');
 
-      // Upload to storage
-      setCurrentStep("Uploading...");
-      const filePath = `${document.project_id}/${filename}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from("bulk-services-reports")
-        .upload(filePath, blob, {
-          contentType: "application/pdf",
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
+      console.log('[BulkServicesPDF] PDF generated:', result.filePath);
 
       // Save report record
       setCurrentStep("Saving record...");
@@ -141,7 +183,7 @@ export function BulkServicesExportPDFButton({
         .insert({
           document_id: documentId,
           project_id: document.project_id,
-          file_path: filePath,
+          file_path: result.filePath,
           revision: revision,
         })
         .select()
