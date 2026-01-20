@@ -547,8 +547,9 @@ serve(async (req) => {
         });
         
         const itemTableBody: any[][] = [
-          // Header row with themed background
+          // Header row with themed background - includes Item No. column
           [
+            { text: 'Item No.', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
             { text: 'Description', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF' },
             { text: 'Original Budget', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
             { text: 'Previous Report', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
@@ -556,11 +557,14 @@ serve(async (req) => {
           ],
         ];
         
-        // Data rows with zebra striping
+        // Data rows with zebra striping - include item number (e.g., E1, E2, E3)
         lineItems.forEach((item: any, rowIndex: number) => {
           const rowBg = rowIndex % 2 === 1 ? '#f9fafb' : undefined;
+          // Generate item number: category code + sequential number (e.g., E1, E2, E3)
+          const itemNumber = item.item_number || item.code || `${catCode}${rowIndex + 1}`;
           
           itemTableBody.push([
+            { text: itemNumber, fontSize: 9, bold: true, alignment: 'center', fillColor: rowBg },
             { text: item.description || '-', fontSize: 9, fillColor: rowBg },
             { text: formatCurrency(item.original_budget ?? item.contract_sum ?? 0), fontSize: 9, alignment: 'right', fillColor: rowBg },
             { text: formatCurrency(item.previous_report ?? item.contract_sum ?? 0), fontSize: 9, alignment: 'right', fillColor: rowBg },
@@ -568,8 +572,9 @@ serve(async (req) => {
           ]);
         });
         
-        // Category total row
+        // Category total row - spans across Item No. column
         itemTableBody.push([
+          { text: '', fontSize: 9, fillColor: '#e5e7eb' },
           { text: `${catCode} Total`, bold: true, fontSize: 9, fillColor: '#e5e7eb' },
           { text: formatCurrency(originalTotal), bold: true, fontSize: 9, alignment: 'right', fillColor: '#e5e7eb' },
           { text: formatCurrency(previousTotal), bold: true, fontSize: 9, alignment: 'right', fillColor: '#e5e7eb' },
@@ -579,7 +584,7 @@ serve(async (req) => {
         content.push({
           table: {
             headerRows: 1,
-            widths: ['*', 80, 80, 90],
+            widths: [45, '*', 80, 80, 90],
             body: itemTableBody,
           },
           layout: {
