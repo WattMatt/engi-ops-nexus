@@ -201,7 +201,7 @@ serve(async (req) => {
         text: 'COST REPORT',
         fontSize: 32,
         bold: true,
-        color: PDF_COLORS.primary,
+        color: DEFAULT_PDF_COLORS.primary,
         alignment: 'center',
         margin: [0, 0, 0, 20],
       });
@@ -222,17 +222,17 @@ serve(async (req) => {
           {
             width: 'auto',
             table: {
-              body: [
+            body: [
                 [
-                  { text: 'Report No:', bold: true, fontSize: 10, color: PDF_COLORS.neutral },
+                  { text: 'Report No:', bold: true, fontSize: 10, color: DEFAULT_PDF_COLORS.neutral },
                   { text: String(report.report_number || '1'), fontSize: 10 },
                 ],
                 [
-                  { text: 'Revision:', bold: true, fontSize: 10, color: PDF_COLORS.neutral },
+                  { text: 'Revision:', bold: true, fontSize: 10, color: DEFAULT_PDF_COLORS.neutral },
                   { text: report.revision || 'A', fontSize: 10 },
                 ],
                 [
-                  { text: 'Date:', bold: true, fontSize: 10, color: PDF_COLORS.neutral },
+                  { text: 'Date:', bold: true, fontSize: 10, color: DEFAULT_PDF_COLORS.neutral },
                   { text: formatLongDate(report.report_date), fontSize: 10 },
                 ],
               ],
@@ -287,14 +287,14 @@ serve(async (req) => {
       
       // Header row - exact column headers from template
       tableBody.push([
-        { text: 'CODE', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
-        { text: 'CATEGORY', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF' },
-        { text: 'ORIGINAL BUDGET', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
-        { text: 'PREVIOUS REPORT', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
-        { text: 'ANTICIPATED FINAL', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
-        { text: '% OF CURRENT TOTAL', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
-        { text: 'ORIGINAL VARIANCE', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
-        { text: 'VARIANCE', bold: true, fontSize: 7, fillColor: PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: 'CODE', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
+        { text: 'CATEGORY', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF' },
+        { text: 'ORIGINAL BUDGET', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: 'PREVIOUS REPORT', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: 'ANTICIPATED FINAL', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: '% OF CURRENT TOTAL', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
+        { text: 'ORIGINAL VARIANCE', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: 'VARIANCE', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
       ]);
       
       // Data rows
@@ -314,8 +314,8 @@ serve(async (req) => {
           { text: formatCurrency(cat.previousReport || cat.originalBudget), fontSize: 7, alignment: 'right' },
           { text: formatCurrency(cat.anticipatedFinal), fontSize: 7, alignment: 'right' },
           { text: `${pct}%`, fontSize: 7, alignment: 'center' },
-          { text: formatVariance(originalVar), fontSize: 7, alignment: 'right', color: originalVar >= 0 ? PDF_COLORS.success : PDF_COLORS.danger },
-          { text: formatVariance(currentVar), fontSize: 7, alignment: 'right', color: currentVar >= 0 ? PDF_COLORS.success : PDF_COLORS.danger },
+          { text: formatVariance(originalVar), fontSize: 7, alignment: 'right', color: originalVar >= 0 ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger },
+          { text: formatVariance(currentVar), fontSize: 7, alignment: 'right', color: currentVar >= 0 ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger },
         ]);
       });
       
@@ -332,8 +332,8 @@ serve(async (req) => {
         { text: formatCurrency(grandPreviousReport), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6' },
         { text: formatCurrency(grandAnticipatedFinal), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6' },
         { text: '100.0%', bold: true, fontSize: 7, alignment: 'center', fillColor: '#f3f4f6' },
-        { text: formatVariance(grandOriginalVar), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6', color: grandOriginalVar >= 0 ? PDF_COLORS.success : PDF_COLORS.danger },
-        { text: formatVariance(grandCurrentVar), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6', color: grandCurrentVar >= 0 ? PDF_COLORS.success : PDF_COLORS.danger },
+        { text: formatVariance(grandOriginalVar), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6', color: grandOriginalVar >= 0 ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger },
+        { text: formatVariance(grandCurrentVar), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6', color: grandCurrentVar >= 0 ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger },
       ]);
       
       content.push({
@@ -353,7 +353,7 @@ serve(async (req) => {
           paddingBottom: () => 2,
           // Zebra striping for data rows
           fillColor: (rowIndex: number) => {
-            if (rowIndex === 0) return PDF_COLORS.tableHeader; // Header row
+            if (rowIndex === 0) return DEFAULT_PDF_COLORS.tableHeader; // Header row
             if (rowIndex === categoryTotals.length + 1) return '#f3f4f6'; // Total row
             return rowIndex % 2 === 0 ? '#f9fafb' : null;
           },
@@ -460,7 +460,7 @@ serve(async (req) => {
           text: `${catCode}  ${catDesc}`,
           fontSize: 11,
           bold: true,
-          color: PDF_COLORS.primary,
+          color: DEFAULT_PDF_COLORS.primary,
           margin: [0, 10, 0, 8],
         });
         
@@ -552,10 +552,10 @@ serve(async (req) => {
       
       const variationTableBody: any[][] = [
         [
-          { text: 'No.', bold: true, fontSize: 8, fillColor: PDF_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
-          { text: 'Description', bold: true, fontSize: 8, fillColor: PDF_COLORS.primary, color: '#FFFFFF' },
-          { text: 'Amount', bold: true, fontSize: 8, fillColor: PDF_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
-          { text: 'Type', bold: true, fontSize: 8, fillColor: PDF_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
+          { text: 'No.', bold: true, fontSize: 8, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
+          { text: 'Description', bold: true, fontSize: 8, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF' },
+          { text: 'Amount', bold: true, fontSize: 8, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+          { text: 'Type', bold: true, fontSize: 8, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
         ],
       ];
       
@@ -568,7 +568,7 @@ serve(async (req) => {
             text: v.is_credit ? 'Credit' : 'Debit', 
             fontSize: 8, 
             alignment: 'center',
-            color: v.is_credit ? PDF_COLORS.success : PDF_COLORS.danger,
+            color: v.is_credit ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger,
             bold: true,
           },
         ]);
@@ -591,7 +591,7 @@ serve(async (req) => {
           paddingBottom: () => 3,
           // Zebra striping for variations table
           fillColor: (rowIndex: number) => {
-            if (rowIndex === 0) return PDF_COLORS.primary;
+            if (rowIndex === 0) return DEFAULT_PDF_COLORS.primary;
             return rowIndex % 2 === 0 ? '#f9fafb' : null;
           },
         },
@@ -611,7 +611,7 @@ serve(async (req) => {
           text: 'TENANT ACCOUNT',
           fontSize: 14,
           bold: true,
-          color: PDF_COLORS.primary,
+          color: DEFAULT_PDF_COLORS.primary,
           margin: [0, 0, 0, 15],
         });
         
@@ -719,9 +719,9 @@ serve(async (req) => {
       },
       
       styles: {
-        title: { fontSize: 32, bold: true, color: PDF_COLORS.primary },
+        title: { fontSize: 32, bold: true, color: DEFAULT_PDF_COLORS.primary },
         subtitle: { fontSize: 20, color: '#374151' },
-        heading1: { fontSize: 16, bold: true, color: PDF_COLORS.primary },
+        heading1: { fontSize: 16, bold: true, color: DEFAULT_PDF_COLORS.primary },
         heading2: { fontSize: 12, bold: true, color: '#374151' },
       },
       
