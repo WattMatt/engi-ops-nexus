@@ -115,13 +115,15 @@ serve(async (req) => {
         { text: '\n' }
       );
       
-      // Categories summary table
+      // Categories summary table - use 'description' field (database column name) with 'code' prefix
       const categoryRows = categoriesData.map((cat: any) => {
         const totals = categoryTotals?.find((t: any) => t.categoryId === cat.id);
+        const categoryName = cat.description || cat.name || '-';
+        const categoryCode = cat.code ? `${cat.code} - ` : '';
         return [
-          { text: cat.name || '-', fontSize: 9 },
-          { text: formatCurrency(totals?.contractSum || 0), alignment: 'right', fontSize: 9 },
-          { text: formatCurrency(totals?.anticipatedFinal || 0), alignment: 'right', fontSize: 9 },
+          { text: `${categoryCode}${categoryName}`, fontSize: 9 },
+          { text: formatCurrency(totals?.contractSum || cat.original_budget || 0), alignment: 'right', fontSize: 9 },
+          { text: formatCurrency(totals?.anticipatedFinal || cat.anticipated_final || 0), alignment: 'right', fontSize: 9 },
         ];
       });
       
@@ -157,9 +159,12 @@ serve(async (req) => {
           const lineItems = category.cost_line_items || [];
           if (lineItems.length === 0) continue;
           
+          const catTitle = category.code 
+            ? `${category.code} - ${category.description || category.name || 'Category'}`
+            : (category.description || category.name || 'Category');
           content.push(
             { text: '', pageBreak: 'before' },
-            { text: category.name || 'Category', style: 'heading2' },
+            { text: catTitle, style: 'heading2' },
             { text: '\n' }
           );
           
