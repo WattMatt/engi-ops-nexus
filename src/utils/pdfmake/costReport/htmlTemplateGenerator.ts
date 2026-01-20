@@ -215,10 +215,22 @@ function buildFullDocument(sections: string[]): string {
       padding-top: 80px;
     }
     
+    .cover-logos {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 60px;
+      margin-bottom: 60px;
+    }
+    
     .company-logo {
-      max-width: 200px;
+      max-width: 150px;
       max-height: 80px;
       margin-bottom: 60px;
+    }
+    
+    .cover-logos .company-logo {
+      margin-bottom: 0;
     }
     
     .cover-title {
@@ -472,9 +484,22 @@ ${sections.join('\n')}
  * Build Cover Page
  */
 function buildCoverPage(report: CostReportHtmlData['report'], companyDetails: CostReportHtmlData['companyDetails']): string {
-  const logoHtml = companyDetails.company_logo_url 
-    ? `<img src="${companyDetails.company_logo_url}" alt="Company Logo" class="company-logo" />`
-    : '';
+  // Build logo section - show both logos side by side if both exist
+  let logoHtml = '';
+  
+  if (companyDetails.company_logo_url && companyDetails.client_logo_url) {
+    // Both logos - side by side
+    logoHtml = `
+      <div class="cover-logos">
+        <img src="${companyDetails.company_logo_url}" alt="Company Logo" class="company-logo" />
+        <img src="${companyDetails.client_logo_url}" alt="Client Logo" class="company-logo" />
+      </div>
+    `;
+  } else if (companyDetails.company_logo_url) {
+    logoHtml = `<img src="${companyDetails.company_logo_url}" alt="Company Logo" class="company-logo" />`;
+  } else if (companyDetails.client_logo_url) {
+    logoHtml = `<img src="${companyDetails.client_logo_url}" alt="Client Logo" class="company-logo" />`;
+  }
 
   return `
 <div class="page cover-page">

@@ -9,6 +9,7 @@ import { STANDARD_MARGINS } from "@/utils/pdfExportBase";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import { Progress } from "@/components/ui/progress";
+import { executeFallbackChain, type FallbackResult } from "@/utils/pdfmake/costReport/pdfFallbackChain";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -47,6 +48,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [exportStep, setExportStep] = useState("");
   const [exportProgress, setExportProgress] = useState(0);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [generationMethod, setGenerationMethod] = useState<string>("");
   
   // Abort controller for cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -158,8 +160,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       setExportProgress(45);
       
       // ========================================
-      // STEP 3: Generate PDF via Edge Function (50-90%)
-      // Server-side generation is more reliable
+      // STEP 2: Generate PDF using Fallback Chain (50-90%)
+      // Tries: pdfmake-server → PDFShift → client-side
       // ========================================
       setExportStep("Building PDF document...");
       setExportProgress(50);
@@ -198,85 +200,66 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         reportNumber: report.report_number,
       });
       
-      setExportStep("Generating PDF on server...");
-      setExportProgress(60);
+      // Execute the fallback chain
+      console.log('[CostReportPDF] Starting fallback chain...');
       
-      try {
-        // Call edge function for reliable server-side PDF generation
-        console.log('[CostReportPDF] Calling edge function...');
-        
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData?.session?.access_token;
-        
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cost-report-pdf`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`,
-              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({
-              reportId: report.id,
-              pdfData,
-              filename: storageFileName,
-              options: {
-                includeCoverPage: sections.coverPage,
-                includeExecutiveSummary: sections.executiveSummary,
-                includeCategoryDetails: sections.categoryDetails,
-                includeDetailedLineItems: sections.detailedLineItems,
-                includeVariations: sections.variations,
-              },
-            }),
-            signal,
-          }
-        );
-        
-        if (signal.aborted) throw new Error("Export cancelled");
-        
-        setExportProgress(85);
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Server error: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        console.log('[CostReportPDF] Edge function success:', result);
-        
-        if (signal.aborted) throw new Error("Export cancelled");
-        
-        // ========================================
-        // SUCCESS
-        // ========================================
-        setExportStep("Complete!");
-        setExportProgress(100);
-        
-        toast({
-          title: "PDF Generated",
-          description: "Report saved. Click to preview and download.",
-        });
-        
-        if (result.record) {
-          setPreviewReport(result.record);
-        }
-        
-        onReportGenerated?.();
-        
-        // Reset after showing success briefly
-        setTimeout(() => {
-          setIsExporting(false);
-          setExportStep("");
-          setExportProgress(0);
-        }, 1500);
-        
-        return;
-        
-      } catch (genError: any) {
-        console.error('[CostReportPDF] Generation failed:', genError);
-        throw new Error(`PDF generation failed: ${genError.message}`);
+      const result = await executeFallbackChain({
+        reportId: report.id,
+        pdfData,
+        filename: storageFileName,
+        sections: {
+          includeCoverPage: sections.coverPage,
+          includeExecutiveSummary: sections.executiveSummary,
+          includeCategoryDetails: sections.categoryDetails,
+          includeDetailedLineItems: sections.detailedLineItems,
+          includeVariations: sections.variations,
+        },
+        onProgress: (step, percent, method) => {
+          setExportStep(step);
+          setExportProgress(percent);
+          setGenerationMethod(method);
+        },
+        signal,
+      });
+      
+      if (signal.aborted) throw new Error("Export cancelled");
+      
+      if (!result.success) {
+        throw new Error(result.error || 'All generation methods failed');
       }
+      
+      // ========================================
+      // SUCCESS
+      // ========================================
+      setExportStep(`Complete! (via ${result.method})`);
+      setExportProgress(100);
+      
+      const methodNames: Record<string, string> = {
+        'pdfmake-server': 'Server-side',
+        'pdfshift': 'PDFShift',
+        'pdfmake-client': 'Local browser',
+      };
+      
+      toast({
+        title: "PDF Generated",
+        description: `Report saved via ${methodNames[result.method] || result.method}. Click to preview and download.`,
+      });
+      
+      if (result.record) {
+        setPreviewReport(result.record);
+      }
+      
+      onReportGenerated?.();
+      
+      // Reset after showing success briefly
+      setTimeout(() => {
+        setIsExporting(false);
+        setExportStep("");
+        setExportProgress(0);
+        setGenerationMethod("");
+      }, 1500);
+      
+      return;
     
     } catch (error: any) {
       console.error('[CostReportPDF] Export failed:', error);
@@ -296,6 +279,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       setTimeout(() => {
         setIsExporting(false);
         setExportError(null);
+        setGenerationMethod("");
       }, 3000);
     }
   }, [isExporting, report, sections, margins, toast, onReportGenerated]);
@@ -357,7 +341,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 )}
                 <span className="text-sm font-medium">{exportStep}</span>
               </div>
-              <span className="text-sm text-muted-foreground">{exportProgress}%</span>
+              <div className="flex items-center gap-2">
+                {generationMethod && (
+                  <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+                    {generationMethod}
+                  </span>
+                )}
+                <span className="text-sm text-muted-foreground">{exportProgress}%</span>
+              </div>
             </div>
             <Progress value={exportProgress} className="h-2" />
             {exportProgress < 100 && (
