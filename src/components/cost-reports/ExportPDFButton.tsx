@@ -209,9 +209,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           includeCategoryDetails: sections.categoryDetails,
           includeDetailedLineItems: sections.detailedLineItems,
           includeVariations: sections.variations,
-          // Watermark and theme options
+          // Watermark, theme options, and margins
           watermark: sections.watermark,
           colorTheme: sections.colorTheme,
+          margins: useMargins,
         },
         onProgress: (step, percent, method) => {
           setExportStep(step);

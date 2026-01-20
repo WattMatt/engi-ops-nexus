@@ -57,6 +57,7 @@ serve(async (req) => {
     }
     
     console.log('[CostReportPDF] Generating PDF for report:', reportId);
+    console.log('[CostReportPDF] Options received:', JSON.stringify(options || {}));
 
     // Dynamically import pdfmake
     const pdfMakeModule = await import("https://esm.sh/pdfmake@0.2.10/build/pdfmake.min.js");
@@ -68,6 +69,31 @@ serve(async (req) => {
     console.log('[CostReportPDF] pdfmake loaded');
 
     const { report, categoriesData, variationsData, variationLineItemsMap, companyDetails, categoryTotals, grandTotals } = pdfData;
+    
+    // ========================================
+    // APPLY COLOR THEME from options
+    // ========================================
+    const selectedTheme = options?.colorTheme || 'default';
+    const ACTIVE_COLORS = COLOR_THEMES[selectedTheme] || COLOR_THEMES.default;
+    console.log('[CostReportPDF] Using color theme:', selectedTheme, ACTIVE_COLORS);
+    
+    // ========================================
+    // WATERMARK CONFIG from options
+    // ========================================
+    const watermarkConfig = options?.watermark || { enabled: false, text: 'DRAFT', opacity: 20 };
+    console.log('[CostReportPDF] Watermark config:', watermarkConfig);
+    
+    // ========================================
+    // MARGINS from options
+    // ========================================
+    const customMargins = options?.margins || { top: 60, bottom: 50, left: 40, right: 40 };
+    const pageMargins: [number, number, number, number] = [
+      customMargins.left || 40,
+      customMargins.top || 60,
+      customMargins.right || 40,
+      customMargins.bottom || 50,
+    ];
+    console.log('[CostReportPDF] Page margins:', pageMargins);
     
     // Helper functions - South African currency format with spaces (not commas)
     const formatCurrency = (value: number | null | undefined): string => {
@@ -184,7 +210,7 @@ serve(async (req) => {
             y: 0,
             w: 8,
             h: 842, // A4 height
-            color: DEFAULT_PDF_COLORS.primary,
+            color: ACTIVE_COLORS.primary,
           },
         ],
         absolutePosition: { x: 0, y: 0 },
@@ -219,7 +245,7 @@ serve(async (req) => {
         text: 'COST REPORT',
         fontSize: 36,
         bold: true,
-        color: DEFAULT_PDF_COLORS.primary,
+        color: ACTIVE_COLORS.primary,
         alignment: 'center',
         margin: [20, 20, 0, 10],
       });
@@ -234,7 +260,7 @@ serve(async (req) => {
             x2: 400,
             y2: 0,
             lineWidth: 2,
-            lineColor: DEFAULT_PDF_COLORS.secondary || '#4a90a4',
+            lineColor: ACTIVE_COLORS.secondary || '#4a90a4',
           },
         ],
         margin: [0, 0, 0, 20],
@@ -255,7 +281,7 @@ serve(async (req) => {
         content.push({
           text: report.client_name || companyDetails?.clientName,
           fontSize: 12,
-          color: DEFAULT_PDF_COLORS.neutral,
+          color: ACTIVE_COLORS.neutral || '#6b7280',
           alignment: 'center',
           margin: [20, 0, 0, 30],
         });
@@ -267,15 +293,15 @@ serve(async (req) => {
           widths: [80, 120],
           body: [
             [
-              { text: 'Report No:', bold: true, fontSize: 10, color: DEFAULT_PDF_COLORS.neutral, border: [false, false, false, true] },
+              { text: 'Report No:', bold: true, fontSize: 10, color: ACTIVE_COLORS.neutral || '#6b7280', border: [false, false, false, true] },
               { text: String(report.report_number || '1'), fontSize: 10, border: [false, false, false, true] },
             ],
             [
-              { text: 'Revision:', bold: true, fontSize: 10, color: DEFAULT_PDF_COLORS.neutral, border: [false, false, false, true] },
+              { text: 'Revision:', bold: true, fontSize: 10, color: ACTIVE_COLORS.neutral || '#6b7280', border: [false, false, false, true] },
               { text: report.revision || 'A', fontSize: 10, border: [false, false, false, true] },
             ],
             [
-              { text: 'Date:', bold: true, fontSize: 10, color: DEFAULT_PDF_COLORS.neutral, border: [false, false, false, false] },
+              { text: 'Date:', bold: true, fontSize: 10, color: ACTIVE_COLORS.neutral || '#6b7280', border: [false, false, false, false] },
               { text: formatLongDate(report.report_date), fontSize: 10, border: [false, false, false, false] },
             ],
           ],
@@ -301,12 +327,12 @@ serve(async (req) => {
       // PREPARED BY section
       content.push({
         stack: [
-          { text: 'PREPARED BY:', fontSize: 9, bold: true, color: DEFAULT_PDF_COLORS.primary, margin: [0, 0, 0, 5] },
+          { text: 'PREPARED BY:', fontSize: 9, bold: true, color: ACTIVE_COLORS.primary, margin: [0, 0, 0, 5] },
           { text: (companyDetails?.companyName || 'Company Name').toUpperCase(), fontSize: 11, bold: true, color: '#374151' },
-          ...(companyDetails?.addressLine1 ? [{ text: companyDetails.addressLine1, fontSize: 9, color: DEFAULT_PDF_COLORS.neutral, margin: [0, 2, 0, 0] }] : []),
-          ...(companyDetails?.addressLine2 ? [{ text: companyDetails.addressLine2, fontSize: 9, color: DEFAULT_PDF_COLORS.neutral }] : []),
-          ...(companyDetails?.contactPhone ? [{ text: `Tel: ${companyDetails.contactPhone}`, fontSize: 9, color: DEFAULT_PDF_COLORS.neutral, margin: [0, 2, 0, 0] }] : []),
-          ...(companyDetails?.contactName ? [{ text: `Contact: ${companyDetails.contactName}`, fontSize: 9, color: DEFAULT_PDF_COLORS.neutral }] : []),
+          ...(companyDetails?.addressLine1 ? [{ text: companyDetails.addressLine1, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] }] : []),
+          ...(companyDetails?.addressLine2 ? [{ text: companyDetails.addressLine2, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280' }] : []),
+          ...(companyDetails?.contactPhone ? [{ text: `Tel: ${companyDetails.contactPhone}`, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] }] : []),
+          ...(companyDetails?.contactName ? [{ text: `Contact: ${companyDetails.contactName}`, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280' }] : []),
         ],
         margin: [60, 0, 0, 20],
       });
@@ -316,11 +342,11 @@ serve(async (req) => {
       if (clientName) {
         content.push({
           stack: [
-            { text: 'PREPARED FOR:', fontSize: 9, bold: true, color: DEFAULT_PDF_COLORS.primary, margin: [0, 0, 0, 5] },
+            { text: 'PREPARED FOR:', fontSize: 9, bold: true, color: ACTIVE_COLORS.primary, margin: [0, 0, 0, 5] },
             { text: clientName.toUpperCase(), fontSize: 11, bold: true, color: '#374151' },
-            ...(companyDetails?.clientAddressLine1 ? [{ text: companyDetails.clientAddressLine1, fontSize: 9, color: DEFAULT_PDF_COLORS.neutral, margin: [0, 2, 0, 0] }] : []),
-            ...(companyDetails?.clientAddressLine2 ? [{ text: companyDetails.clientAddressLine2, fontSize: 9, color: DEFAULT_PDF_COLORS.neutral }] : []),
-            ...(companyDetails?.clientPhone ? [{ text: `Tel: ${companyDetails.clientPhone}`, fontSize: 9, color: DEFAULT_PDF_COLORS.neutral, margin: [0, 2, 0, 0] }] : []),
+            ...(companyDetails?.clientAddressLine1 ? [{ text: companyDetails.clientAddressLine1, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] }] : []),
+            ...(companyDetails?.clientAddressLine2 ? [{ text: companyDetails.clientAddressLine2, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280' }] : []),
+            ...(companyDetails?.clientPhone ? [{ text: `Tel: ${companyDetails.clientPhone}`, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] }] : []),
           ],
           margin: [60, 0, 0, 20],
         });
@@ -368,14 +394,14 @@ serve(async (req) => {
       
       // Header row - exact column headers from template
       tableBody.push([
-        { text: 'CODE', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
-        { text: 'CATEGORY', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF' },
-        { text: 'ORIGINAL BUDGET', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
-        { text: 'PREVIOUS REPORT', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
-        { text: 'ANTICIPATED FINAL', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
-        { text: '% OF CURRENT TOTAL', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
-        { text: 'ORIGINAL VARIANCE', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
-        { text: 'VARIANCE', bold: true, fontSize: 7, fillColor: DEFAULT_PDF_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: 'CODE', bold: true, fontSize: 7, fillColor: ACTIVE_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
+        { text: 'CATEGORY', bold: true, fontSize: 7, fillColor: ACTIVE_COLORS.tableHeader, color: '#FFFFFF' },
+        { text: 'ORIGINAL BUDGET', bold: true, fontSize: 7, fillColor: ACTIVE_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: 'PREVIOUS REPORT', bold: true, fontSize: 7, fillColor: ACTIVE_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: 'ANTICIPATED FINAL', bold: true, fontSize: 7, fillColor: ACTIVE_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: '% OF CURRENT TOTAL', bold: true, fontSize: 7, fillColor: ACTIVE_COLORS.tableHeader, color: '#FFFFFF', alignment: 'center' },
+        { text: 'ORIGINAL VARIANCE', bold: true, fontSize: 7, fillColor: ACTIVE_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
+        { text: 'VARIANCE', bold: true, fontSize: 7, fillColor: ACTIVE_COLORS.tableHeader, color: '#FFFFFF', alignment: 'right' },
       ]);
       
       // Data rows
@@ -395,8 +421,8 @@ serve(async (req) => {
           { text: formatCurrency(cat.previousReport || cat.originalBudget), fontSize: 7, alignment: 'right' },
           { text: formatCurrency(cat.anticipatedFinal), fontSize: 7, alignment: 'right' },
           { text: `${pct}%`, fontSize: 7, alignment: 'center' },
-          { text: formatVariance(originalVar), fontSize: 7, alignment: 'right', color: originalVar >= 0 ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger },
-          { text: formatVariance(currentVar), fontSize: 7, alignment: 'right', color: currentVar >= 0 ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger },
+          { text: formatVariance(originalVar), fontSize: 7, alignment: 'right', color: originalVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+          { text: formatVariance(currentVar), fontSize: 7, alignment: 'right', color: currentVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
         ]);
       });
       
@@ -413,8 +439,8 @@ serve(async (req) => {
         { text: formatCurrency(grandPreviousReport), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6' },
         { text: formatCurrency(grandAnticipatedFinal), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6' },
         { text: '100.0%', bold: true, fontSize: 7, alignment: 'center', fillColor: '#f3f4f6' },
-        { text: formatVariance(grandOriginalVar), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6', color: grandOriginalVar >= 0 ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger },
-        { text: formatVariance(grandCurrentVar), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6', color: grandCurrentVar >= 0 ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger },
+        { text: formatVariance(grandOriginalVar), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6', color: grandOriginalVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+        { text: formatVariance(grandCurrentVar), bold: true, fontSize: 7, alignment: 'right', fillColor: '#f3f4f6', color: grandCurrentVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
       ]);
       
       content.push({
@@ -434,7 +460,7 @@ serve(async (req) => {
           paddingBottom: () => 2,
           // Zebra striping for data rows
           fillColor: (rowIndex: number) => {
-            if (rowIndex === 0) return DEFAULT_PDF_COLORS.tableHeader; // Header row
+            if (rowIndex === 0) return ACTIVE_COLORS.tableHeader; // Header row
             if (rowIndex === sortedCategoryTotals.length + 1) return '#f3f4f6'; // Total row
             return rowIndex % 2 === 0 ? '#f9fafb' : null;
           },
@@ -531,13 +557,13 @@ serve(async (req) => {
           text: `${catCode}  ${catDesc.toUpperCase()}`,
           fontSize: 14,
           bold: true,
-          color: DEFAULT_PDF_COLORS.primary,
+          color: ACTIVE_COLORS.primary,
           margin: [0, 0, 0, 15],
         });
         
         // Separator line under category header
         content.push({
-          canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: DEFAULT_PDF_COLORS.primary }],
+          canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: ACTIVE_COLORS.primary }],
           margin: [0, 0, 0, 15],
         });
         
@@ -555,11 +581,11 @@ serve(async (req) => {
         const itemTableBody: any[][] = [
           // Header row with themed background - includes Item No. column
           [
-            { text: 'Item No.', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
-            { text: 'Description', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF' },
-            { text: 'Original Budget', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
-            { text: 'Previous Report', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
-            { text: 'Anticipated Final', bold: true, fontSize: 9, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+            { text: 'Item No.', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
+            { text: 'Description', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF' },
+            { text: 'Original Budget', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+            { text: 'Previous Report', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+            { text: 'Anticipated Final', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
           ],
         ];
         
@@ -642,10 +668,10 @@ serve(async (req) => {
       
       const variationTableBody: any[][] = [
         [
-          { text: 'No.', bold: true, fontSize: 8, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
-          { text: 'Description', bold: true, fontSize: 8, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF' },
-          { text: 'Amount', bold: true, fontSize: 8, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
-          { text: 'Type', bold: true, fontSize: 8, fillColor: DEFAULT_PDF_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
+          { text: 'No.', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
+          { text: 'Description', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF' },
+          { text: 'Amount', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+          { text: 'Type', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
         ],
       ];
       
@@ -658,7 +684,7 @@ serve(async (req) => {
             text: v.is_credit ? 'Credit' : 'Debit', 
             fontSize: 8, 
             alignment: 'center',
-            color: v.is_credit ? DEFAULT_PDF_COLORS.success : DEFAULT_PDF_COLORS.danger,
+            color: v.is_credit ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger,
             bold: true,
           },
         ]);
@@ -681,7 +707,7 @@ serve(async (req) => {
           paddingBottom: () => 3,
           // Zebra striping for variations table
           fillColor: (rowIndex: number) => {
-            if (rowIndex === 0) return DEFAULT_PDF_COLORS.primary;
+            if (rowIndex === 0) return ACTIVE_COLORS.primary;
             return rowIndex % 2 === 0 ? '#f9fafb' : null;
           },
         },
@@ -701,7 +727,7 @@ serve(async (req) => {
           text: 'TENANT ACCOUNT',
           fontSize: 14,
           bold: true,
-          color: DEFAULT_PDF_COLORS.primary,
+          color: ACTIVE_COLORS.primary,
           margin: [0, 0, 0, 15],
         });
         
@@ -798,9 +824,9 @@ serve(async (req) => {
     }
     
     // Build document definition
-    const docDefinition = {
+    const docDefinition: any = {
       pageSize: 'A4' as const,
-      pageMargins: [40, 60, 40, 50] as [number, number, number, number],
+      pageMargins: pageMargins,
       
       defaultStyle: {
         font: 'Roboto',
@@ -809,9 +835,9 @@ serve(async (req) => {
       },
       
       styles: {
-        title: { fontSize: 32, bold: true, color: DEFAULT_PDF_COLORS.primary },
+        title: { fontSize: 32, bold: true, color: ACTIVE_COLORS.primary },
         subtitle: { fontSize: 20, color: '#374151' },
-        heading1: { fontSize: 16, bold: true, color: DEFAULT_PDF_COLORS.primary },
+        heading1: { fontSize: 16, bold: true, color: ACTIVE_COLORS.primary },
         heading2: { fontSize: 12, bold: true, color: '#374151' },
       },
       
@@ -823,14 +849,14 @@ serve(async (req) => {
               text: `${report.project_name || 'Cost Report'} - ${report.revision || 'A'}`, 
               fontSize: 9, 
               color: '#374151',
-              margin: [40, 25, 0, 0],
+              margin: [pageMargins[0], 25, 0, 0],
             },
             { 
               text: formatDate(report.report_date), 
               fontSize: 9, 
               color: '#374151',
               alignment: 'right', 
-              margin: [0, 25, 40, 0],
+              margin: [0, 25, pageMargins[2], 0],
             },
           ],
         };
@@ -850,7 +876,7 @@ serve(async (req) => {
               text: companyDetails?.companyName || '', 
               fontSize: 7, 
               color: '#9ca3af',
-              margin: [40, 0, 0, 0],
+              margin: [pageMargins[0], 0, 0, 0],
             },
             { 
               text: `Page ${displayPage} of ${displayTotal}`,
@@ -863,7 +889,7 @@ serve(async (req) => {
               fontSize: 7, 
               color: '#9ca3af',
               alignment: 'right',
-              margin: [0, 0, 40, 0],
+              margin: [0, 0, pageMargins[2], 0],
             },
           ],
           margin: [0, 15, 0, 0],
@@ -872,6 +898,19 @@ serve(async (req) => {
       
       content,
     };
+    
+    // Add watermark if enabled
+    if (watermarkConfig.enabled && watermarkConfig.text) {
+      console.log('[CostReportPDF] Adding watermark:', watermarkConfig.text, 'opacity:', watermarkConfig.opacity);
+      docDefinition.watermark = {
+        text: watermarkConfig.text,
+        color: ACTIVE_COLORS.primary,
+        opacity: (watermarkConfig.opacity || 20) / 100, // Convert percentage to decimal
+        bold: true,
+        italics: false,
+        angle: -45,
+      };
+    }
     
     console.log('[CostReportPDF] Document defined, generating buffer...');
     
