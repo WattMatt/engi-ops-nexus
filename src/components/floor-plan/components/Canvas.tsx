@@ -1,6 +1,7 @@
 
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
+import { Loader2 } from 'lucide-react';
 import { Tool, type ViewState, type Point, type EquipmentItem, type SupplyLine, type SupplyZone, type ScaleInfo, EquipmentType, type Containment, type Walkway, ContainmentType, PVPanelConfig, RoofMask, PVArrayItem, PanelOrientation, Task } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { TOOL_COLORS, EQUIPMENT_REAL_WORLD_SIZES, CONTAINMENT_COLORS } from '../constants';
@@ -10,7 +11,7 @@ import { findSnap, findWalkwaySnap, isPointInPolygon, isPointNearPolyline, calcu
 import { renderMarkupsToContext, drawPvArray, drawEquipmentIcon } from '../utils/drawing';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import { useThrottledCallback } from '../hooks/useThrottledCallback';
-
+import { renderPdfToCanvas, calculateInitialView } from '../utils/pdfRenderer';
 
 export interface CanvasHandles {
   getCanvases: () => {
@@ -112,6 +113,9 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   const [optimisticLines, setOptimisticLines] = useState<SupplyLine[]>(lines);
   const pendingUpdateRef = useRef<NodeJS.Timeout | null>(null);
 
+  // PDF rendering state
+  const [isRenderingPdf, setIsRenderingPdf] = useState(false);
+  const [renderProgress, setRenderProgress] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     getCanvases: () => ({
@@ -576,68 +580,48 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   useEffect(() => { draw(); }, [draw]);
 
   useEffect(() => {
-    const renderPdf = async () => {
-      console.log('[Canvas] renderPdf effect triggered, pdfDoc:', !!pdfDoc, 'pdfCanvas:', !!pdfCanvasRef.current, 'container:', !!containerRef.current);
+    const doRender = async () => {
       if (!pdfDoc || !pdfCanvasRef.current || !containerRef.current) {
-        console.log('[Canvas] Missing required refs, skipping PDF render');
         return;
       }
-      try {
-        console.log('[Canvas] Starting PDF render...');
-        const page = await pdfDoc.getPage(1);
-        const naturalViewport = page.getViewport({ scale: 1 });
-        const naturalWidth = naturalViewport.width;
-        const naturalHeight = naturalViewport.height;
-        
-        // Calculate optimal render scale - target max dimension of ~8000px for performance
-        // but allow larger if the PDF is naturally large
-        const maxDimension = Math.max(naturalWidth, naturalHeight);
-        let renderScale = 2.0;
-        if (maxDimension > 10000) {
-          renderScale = 0.5; // Very large PDF, render at half size
-        } else if (maxDimension > 5000) {
-          renderScale = 1.0; // Large PDF, render at native size
+      
+      setIsRenderingPdf(true);
+      setRenderProgress('Preparing PDF...');
+      
+      const result = await renderPdfToCanvas(
+        pdfDoc,
+        pdfCanvasRef.current,
+        drawingCanvasRef.current,
+        {
+          onProgress: setRenderProgress,
+          onError: (error) => {
+            console.error('[Canvas] PDF render error:', error);
+            setRenderProgress(`Error: ${error}`);
+          }
         }
-        console.log('[Canvas] PDF natural size:', naturalWidth, 'x', naturalHeight, 'using renderScale:', renderScale);
+      );
+      
+      if (result.success && containerRef.current) {
+        setCanvasSize({ width: result.width, height: result.height });
         
-        const viewport: PageViewport = page.getViewport({ scale: renderScale });
-        const pdfCanvas = pdfCanvasRef.current;
-        const drawingCanvas = drawingCanvasRef.current;
+        const { zoom, offsetX, offsetY } = calculateInitialView(
+          result.width,
+          result.height,
+          containerRef.current.clientWidth,
+          containerRef.current.clientHeight
+        );
         
-        pdfCanvas.width = viewport.width;
-        pdfCanvas.height = viewport.height;
-        console.log('[Canvas] Canvas size set to:', viewport.width, 'x', viewport.height);
-        
-        if (drawingCanvas) {
-          drawingCanvas.width = viewport.width;
-          drawingCanvas.height = viewport.height;
-        }
-        setCanvasSize({ width: viewport.width, height: viewport.height });
-        const context = pdfCanvas.getContext('2d');
-        if (!context) {
-          console.error('[Canvas] Could not get 2D context');
-          return;
-        }
-        // @ts-ignore - The pdfjs-dist types can be misaligned with the mjs build, causing a spurious error.
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
-        console.log('[Canvas] PDF rendered successfully, canvas dimensions:', pdfCanvas.width, 'x', pdfCanvas.height);
-        
-        const containerWidth = containerRef.current.clientWidth;
-        const containerHeight = containerRef.current.clientHeight;
-        console.log('[Canvas] Container dimensions:', containerWidth, 'x', containerHeight);
-        
-        const initialZoom = Math.min(containerWidth / viewport.width, containerHeight / viewport.height) * 0.95;
-        const initialOffsetX = (containerWidth - viewport.width * initialZoom) / 2;
-        const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
-        console.log('[Canvas] Calculated initial view:', { initialZoom, initialOffsetX, initialOffsetY });
-        onInitialViewCalculated({ zoom: initialZoom, offset: { x: initialOffsetX, y: initialOffsetY } });
-      } catch (error) {
-        console.error('[Canvas] Error rendering PDF:', error);
+        console.log('[Canvas] Initial view calculated:', { zoom, offsetX, offsetY });
+        onInitialViewCalculated({ zoom, offset: { x: offsetX, y: offsetY } });
       }
+      
+      setIsRenderingPdf(false);
+      setRenderProgress(null);
     };
-    renderPdf();
+    
+    doRender();
   }, [pdfDoc, onInitialViewCalculated]);
-  
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const drawingIsActive = isDrawingShape && currentDrawing.length > 0;
@@ -1520,7 +1504,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   return (
     <div 
         ref={containerRef} 
-        className="w-full h-full relative overflow-hidden bg-gray-700"
+        className="w-full h-full relative overflow-hidden bg-muted"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -1528,17 +1512,30 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         onWheel={handleWheel}
         style={{ cursor: getCursor() }}
     >
+        {/* PDF Loading Indicator */}
+        {isRenderingPdf && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-20">
+                <div className="flex flex-col items-center gap-3 p-6 bg-card rounded-lg shadow-lg border border-border">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm font-medium text-foreground">Rendering PDF...</p>
+                    {renderProgress && (
+                        <p className="text-xs text-muted-foreground max-w-xs text-center">{renderProgress}</p>
+                    )}
+                </div>
+            </div>
+        )}
+        
         {isDrawingShape && [Tool.ZONE, Tool.TOOL_ROOF_MASK].includes(activeTool) && (
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-gray-900/80 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-10 pointer-events-none animate-fade-in">
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-popover/95 text-popover-foreground text-sm px-4 py-2 rounded-lg shadow-lg z-10 pointer-events-none animate-fade-in border border-border">
                 Click to add points. Click the start point or press 'Enter' to finish. 'Esc' to cancel.
             </div>
         )}
         {activeTool === Tool.TOOL_ROOF_DIRECTION && (
-             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-gray-900/80 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-10 pointer-events-none animate-fade-in">
+             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-popover/95 text-popover-foreground text-sm px-4 py-2 rounded-lg shadow-lg z-10 pointer-events-none animate-fade-in border border-border">
                 {directionDrawStep === 1 
                     ? "Click the HIGHEST point of the roof slope." 
                     : "Click the LOWEST point of the roof slope."}
-                <span className="text-gray-400 ml-2">('Esc' to cancel)</span>
+                <span className="text-muted-foreground ml-2">('Esc' to cancel)</span>
             </div>
         )}
         <div
