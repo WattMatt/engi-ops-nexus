@@ -578,7 +578,6 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   useEffect(() => {
     const renderPdf = async () => {
       console.log('[Canvas] renderPdf effect triggered, pdfDoc:', !!pdfDoc, 'pdfCanvas:', !!pdfCanvasRef.current, 'container:', !!containerRef.current);
-      console.log('[Canvas] Current viewState:', viewState);
       if (!pdfDoc || !pdfCanvasRef.current || !containerRef.current) {
         console.log('[Canvas] Missing required refs, skipping PDF render');
         return;
@@ -586,26 +585,29 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
       try {
         console.log('[Canvas] Starting PDF render...');
         const page = await pdfDoc.getPage(1);
-        // Use a lower scale for very large PDFs to avoid browser canvas limits
-        const naturalWidth = page.getViewport({ scale: 1 }).width;
-        const naturalHeight = page.getViewport({ scale: 1 }).height;
-        // Browser canvas max is typically around 16384 pixels per dimension
+        const naturalViewport = page.getViewport({ scale: 1 });
+        const naturalWidth = naturalViewport.width;
+        const naturalHeight = naturalViewport.height;
+        
+        // Calculate optimal render scale - target max dimension of ~8000px for performance
+        // but allow larger if the PDF is naturally large
         const maxDimension = Math.max(naturalWidth, naturalHeight);
-        const renderScale = maxDimension > 8000 ? 1.0 : 2.0;
+        let renderScale = 2.0;
+        if (maxDimension > 10000) {
+          renderScale = 0.5; // Very large PDF, render at half size
+        } else if (maxDimension > 5000) {
+          renderScale = 1.0; // Large PDF, render at native size
+        }
         console.log('[Canvas] PDF natural size:', naturalWidth, 'x', naturalHeight, 'using renderScale:', renderScale);
         
         const viewport: PageViewport = page.getViewport({ scale: renderScale });
         const pdfCanvas = pdfCanvasRef.current;
         const drawingCanvas = drawingCanvasRef.current;
         
-        // Check if canvas size exceeds browser limits
-        if (viewport.width > 16384 || viewport.height > 16384) {
-          console.error('[Canvas] PDF too large for canvas rendering, dimensions:', viewport.width, 'x', viewport.height);
-          return;
-        }
-        
         pdfCanvas.width = viewport.width;
         pdfCanvas.height = viewport.height;
+        console.log('[Canvas] Canvas size set to:', viewport.width, 'x', viewport.height);
+        
         if (drawingCanvas) {
           drawingCanvas.width = viewport.width;
           drawingCanvas.height = viewport.height;
