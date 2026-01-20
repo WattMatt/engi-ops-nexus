@@ -133,8 +133,8 @@ export function BulkServicesExportPDFButton({
   };
 
   const handleExport = async () => {
-    if (!document) {
-      toast.error("No document data available");
+    if (!document || !document.id) {
+      toast.error("No document data available - please wait for data to load");
       return;
     }
 
@@ -154,21 +154,43 @@ export function BulkServicesExportPDFButton({
       // Generate filename
       const filename = `BulkServices_${document.document_number}_${revision}_${format(new Date(), 'yyyyMMdd')}.pdf`;
 
+      // Prepare request body with explicit document data
+      const requestBody = {
+        document: {
+          id: document.id,
+          project_id: document.project_id,
+          document_number: document.document_number,
+          revision: document.revision,
+          document_date: document.document_date,
+          created_at: document.created_at,
+          notes: document.notes,
+          building_calculation_type: document.building_calculation_type,
+          project_area: document.project_area,
+          climatic_zone: document.climatic_zone,
+          climatic_zone_city: document.climatic_zone_city,
+          va_per_sqm: document.va_per_sqm,
+          diversity_factor: document.diversity_factor,
+          future_expansion_factor: document.future_expansion_factor,
+          maximum_demand: document.maximum_demand,
+          total_connected_load: document.total_connected_load,
+          primary_voltage: document.primary_voltage,
+          connection_size: document.connection_size,
+          supply_authority: document.supply_authority,
+          tariff_structure: document.tariff_structure,
+        },
+        sections: sections || [],
+        projectName,
+        revision,
+        companyDetails,
+        filename,
+        storageBucket: 'bulk-services-reports',
+      };
+
       // Call the edge function
-      console.log('[BulkServicesPDF] Calling edge function...');
+      console.log('[BulkServicesPDF] Calling edge function with:', { documentId: document.id, sectionsCount: sections.length });
       const { data: result, error: fnError } = await supabase.functions.invoke(
         'generate-bulk-services-pdf',
-        {
-          body: {
-            document,
-            sections,
-            projectName,
-            revision,
-            companyDetails,
-            filename,
-            storageBucket: 'bulk-services-reports',
-          },
-        }
+        { body: requestBody }
       );
 
       if (fnError) throw fnError;
