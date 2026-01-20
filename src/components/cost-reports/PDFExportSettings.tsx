@@ -25,6 +25,32 @@ export interface PDFMargins {
   right: number;
 }
 
+// Custom color theme for PDF branding
+export interface PDFColorTheme {
+  primary: string;       // Main header/accent color
+  secondary: string;     // Secondary accent
+  tableHeader: string;   // Table header background
+  success: string;       // Positive values (savings)
+  danger: string;        // Negative values (extras)
+}
+
+// Watermark configuration
+export interface PDFWatermarkConfig {
+  enabled: boolean;
+  text: string;
+  opacity: number;  // 0-100
+}
+
+// Preset color themes
+export const COLOR_THEMES: Record<string, PDFColorTheme> = {
+  default: { primary: '#1e3a5f', secondary: '#374151', tableHeader: '#1e3a5f', success: '#16a34a', danger: '#dc2626' },
+  corporate: { primary: '#0f172a', secondary: '#1e293b', tableHeader: '#0f172a', success: '#059669', danger: '#dc2626' },
+  modern: { primary: '#2563eb', secondary: '#3b82f6', tableHeader: '#1e40af', success: '#10b981', danger: '#ef4444' },
+  warm: { primary: '#92400e', secondary: '#b45309', tableHeader: '#78350f', success: '#65a30d', danger: '#dc2626' },
+  ocean: { primary: '#0369a1', secondary: '#0284c7', tableHeader: '#075985', success: '#059669', danger: '#dc2626' },
+  professional: { primary: '#18181b', secondary: '#3f3f46', tableHeader: '#27272a', success: '#22c55e', danger: '#ef4444' },
+};
+
 export interface PDFSectionOptions {
   coverPage: boolean;
   tableOfContents: boolean;
@@ -37,6 +63,9 @@ export interface PDFSectionOptions {
   visualSummary: boolean; // Charts integration
   previewBeforeExport: boolean; // Preview before saving
   useQuickExport: boolean; // Direct download (more reliable for complex reports)
+  // Watermark & theme options
+  watermark: PDFWatermarkConfig;
+  colorTheme: string; // Key into COLOR_THEMES
 }
 
 interface PDFExportSettingsProps {
@@ -78,6 +107,12 @@ const MARGIN_PRESETS: Record<Exclude<MarginPreset, 'custom'>, PDFMargins> = {
 
 const DEFAULT_MARGINS: PDFMargins = MARGIN_PRESETS.normal;
 
+export const DEFAULT_WATERMARK: PDFWatermarkConfig = {
+  enabled: false,
+  text: 'DRAFT',
+  opacity: 15,
+};
+
 export const DEFAULT_SECTIONS: PDFSectionOptions = {
   coverPage: true,
   tableOfContents: true,
@@ -90,6 +125,8 @@ export const DEFAULT_SECTIONS: PDFSectionOptions = {
   visualSummary: true,
   previewBeforeExport: false,
   useQuickExport: false, // Deprecated - single reliable path now
+  watermark: DEFAULT_WATERMARK,
+  colorTheme: 'default',
 };
 
 export const PDFExportSettings = ({
@@ -197,6 +234,8 @@ export const PDFExportSettings = ({
       visualSummary: false,
       previewBeforeExport: false,
       useQuickExport: false,
+      watermark: localSections.watermark, // Keep watermark settings
+      colorTheme: localSections.colorTheme, // Keep color theme
     });
   };
 
@@ -409,6 +448,103 @@ export const PDFExportSettings = ({
                 PDF will be generated and saved to Report History automatically.
                 You can view or download it from there.
               </p>
+            </div>
+          </div>
+          
+          <Separator />
+          
+          {/* Watermark Settings */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Draft Watermark</Label>
+              <Checkbox
+                id="watermark-enabled"
+                checked={localSections.watermark.enabled}
+                onCheckedChange={(checked) => setLocalSections({
+                  ...localSections,
+                  watermark: { ...localSections.watermark, enabled: !!checked }
+                })}
+              />
+            </div>
+            
+            {localSections.watermark.enabled && (
+              <div className="grid grid-cols-2 gap-4 pl-2 border-l-2 border-muted">
+                <div className="space-y-2">
+                  <Label htmlFor="watermark-text">Watermark Text</Label>
+                  <Input
+                    id="watermark-text"
+                    value={localSections.watermark.text}
+                    onChange={(e) => setLocalSections({
+                      ...localSections,
+                      watermark: { ...localSections.watermark, text: e.target.value.toUpperCase() }
+                    })}
+                    placeholder="DRAFT"
+                    maxLength={20}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="watermark-opacity">Opacity ({localSections.watermark.opacity}%)</Label>
+                  <Input
+                    id="watermark-opacity"
+                    type="range"
+                    min="5"
+                    max="50"
+                    value={localSections.watermark.opacity}
+                    onChange={(e) => setLocalSections({
+                      ...localSections,
+                      watermark: { ...localSections.watermark, opacity: parseInt(e.target.value) }
+                    })}
+                    className="cursor-pointer"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <p className="text-xs text-muted-foreground">
+              {localSections.watermark.enabled 
+                ? `A diagonal "${localSections.watermark.text}" watermark will appear on every page.`
+                : "Enable to add a draft watermark to the PDF."}
+            </p>
+          </div>
+          
+          <Separator />
+          
+          {/* Color Theme Selection */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Color Theme</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(COLOR_THEMES).map(([key, theme]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant={localSections.colorTheme === key ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setLocalSections({ ...localSections, colorTheme: key })}
+                  className={cn(
+                    "transition-all capitalize flex items-center gap-2",
+                    localSections.colorTheme === key && "ring-2 ring-primary ring-offset-2"
+                  )}
+                >
+                  <div 
+                    className="w-3 h-3 rounded-full border"
+                    style={{ backgroundColor: theme.primary }}
+                  />
+                  {key}
+                </Button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 p-2 rounded bg-muted/50">
+              <span className="text-xs text-muted-foreground">Preview:</span>
+              <div className="flex gap-1">
+                {Object.entries(COLOR_THEMES[localSections.colorTheme] || COLOR_THEMES.default).map(([colorKey, color]) => (
+                  <div
+                    key={colorKey}
+                    className="w-4 h-4 rounded border"
+                    style={{ backgroundColor: color }}
+                    title={colorKey}
+                  />
+                ))}
+              </div>
             </div>
           </div>
           
