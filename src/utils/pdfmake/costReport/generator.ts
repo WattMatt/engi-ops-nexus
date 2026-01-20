@@ -460,16 +460,20 @@ export async function generateCostReportPdfmake(
 
   onProgress?.('Finalizing PDF...', 95);
 
-  console.log('[CostReportPDF] Building PDF blob...');
+  console.log('[CostReportPDF] Building PDF blob with multi-strategy approach...');
+  const blobStartTime = Date.now();
+  
   try {
-    // Use 120 second timeout for complex documents (canonical standard)
-    const blob = await doc.toBlob(120000);
+    // Use 60 second timeout - strategies inside documentBuilder have their own shorter timeouts
+    const blob = await doc.toBlob(60000);
+    const blobTime = Date.now() - blobStartTime;
     const elapsedTime = Date.now() - startTime;
-    console.log(`[CostReportPDF] PDF generated successfully in ${elapsedTime}ms, size: ${Math.round(blob.size / 1024)}KB`);
+    console.log(`[CostReportPDF] PDF generated successfully in ${elapsedTime}ms (blob: ${blobTime}ms), size: ${Math.round(blob.size / 1024)}KB`);
     return blob;
   } catch (error) {
+    const blobTime = Date.now() - blobStartTime;
     const elapsedTime = Date.now() - startTime;
-    console.error(`[CostReportPDF] PDF generation failed after ${elapsedTime}ms:`, error);
+    console.error(`[CostReportPDF] PDF generation failed after ${elapsedTime}ms (blob attempt: ${blobTime}ms):`, error);
     throw error;
   }
 }
