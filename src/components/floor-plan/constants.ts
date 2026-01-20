@@ -36,6 +36,8 @@ export const CONTAINMENT_DASH_STYLES: Record<string, number[]> = {
     '300mm': [15, 6],
     '450mm': [20, 7],
     '600mm': [],
+    '800mm': [],
+    '1000mm': [],
     // Keys for new trunking types (match the enum string value)
     'Sleeves': [5, 5],
     'Powerskirting': [],
