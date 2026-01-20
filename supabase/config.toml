@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.analyze-pdf-issue]
 verify_jwt = false
+
+[functions.generate-pdf-pdfshift]
+verify_jwt = false
