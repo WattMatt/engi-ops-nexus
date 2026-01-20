@@ -498,13 +498,13 @@ serve(async (req) => {
         // First card
         const cat1 = sortedCatPerformance[i];
         const color1 = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
-        row.push(buildCategoryCard(cat1, color1));
+        row.push(buildCategoryCard(cat1, color1, i));
         
         // Second card
         if (i + 1 < sortedCatPerformance.length) {
           const cat2 = sortedCatPerformance[i + 1];
           const color2 = CATEGORY_COLORS[(i + 1) % CATEGORY_COLORS.length];
-          row.push(buildCategoryCard(cat2, color2));
+          row.push(buildCategoryCard(cat2, color2, i + 1));
         } else {
           row.push({ text: '' });
         }
@@ -991,8 +991,8 @@ serve(async (req) => {
   }
 });
 
-// Helper function to build category cards
-function buildCategoryCard(cat: any, colorHex: string): any {
+// Helper function to build category cards - matching UI layout exactly
+function buildCategoryCard(cat: any, colorHex: string, cardIndex: number = 0): any {
   // Calculate variance: originalBudget - anticipatedFinal
   // Positive = under budget (saving), Negative = over budget (extra)
   const variance = (cat.originalBudget || 0) - (cat.anticipatedFinal || 0);
@@ -1006,7 +1006,7 @@ function buildCategoryCard(cat: any, colorHex: string): any {
   const badgeTextColor = isSaving ? '#15803d' : '#b91c1c';
   const varianceLabel = isSaving ? 'SAVING' : 'EXTRA';
 
-  // SA currency format with spaces
+  // SA currency format with spaces (matching UI)
   const formatCurrency = (value: number | null | undefined): string => {
     if (value == null || isNaN(value)) return 'R0,00';
     const formatted = Math.abs(value).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1015,64 +1015,97 @@ function buildCategoryCard(cat: any, colorHex: string): any {
 
   // Variance display: match UI - saving shows with - prefix, extra shows with + prefix
   const varianceDisplay = isSaving 
-    ? `-${formatCurrency(Math.abs(variance))}` 
-    : `+${formatCurrency(Math.abs(variance))}`;
+    ? `−R${Math.abs(variance).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/,/g, ' ')}` 
+    : `+R${Math.abs(variance).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/,/g, ' ')}`;
+
+  // Get category letter (A, B, C, etc.) from code or use index
+  const catLetter = cat.code?.charAt(0)?.toUpperCase() || String.fromCharCode(65 + cardIndex);
 
   return {
     stack: [
+      // Header row with circular badge and category name
       {
         columns: [
+          // Circular letter badge (matching UI's rounded-full design)
           {
-            text: cat.code || '-',
-            fontSize: 8,
+            width: 28,
+            stack: [
+              {
+                canvas: [
+                  {
+                    type: 'ellipse',
+                    x: 12,
+                    y: 12,
+                    r1: 12,
+                    r2: 12,
+                    color: colorHex,
+                  }
+                ],
+                width: 24,
+                height: 24,
+              }
+            ],
+          },
+          // Letter positioned over the circle
+          {
+            width: 0,
+            text: catLetter,
+            fontSize: 12,
             bold: true,
             color: '#ffffff',
-            background: colorHex,
-            margin: [4, 2, 4, 2],
+            relativePosition: { x: -20, y: 5 },
           },
+          // Category name (bold, uppercase like UI)
           {
-            text: cat.description || '-',
-            fontSize: 8,
+            text: (cat.description || '-').toUpperCase(),
+            fontSize: 10,
             bold: true,
-            margin: [5, 2, 0, 0],
+            color: '#1f2937',
+            margin: [8, 6, 0, 0],
           },
         ],
       },
+      // Financial details section
       {
+        margin: [0, 12, 0, 0],
         columns: [
+          // Left column: Budget labels and values
           {
+            width: '*',
             stack: [
-              { text: 'ORIGINAL BUDGET', fontSize: 6, color: '#646464', margin: [0, 5, 0, 2] },
-              { text: formatCurrency(cat.originalBudget), fontSize: 9, bold: true },
-              { text: 'ANTICIPATED FINAL', fontSize: 6, color: '#646464', margin: [0, 5, 0, 2] },
-              { text: formatCurrency(cat.anticipatedFinal), fontSize: 9, bold: true },
-            ],
-          },
-          {
-            stack: [
-              { 
-                text: varianceDisplay, 
-                fontSize: 12, 
-                bold: true, 
-                alignment: 'right',
-                color: varianceColor,
+              { text: 'ORIGINAL BUDGET', fontSize: 7, color: '#6b7280', letterSpacing: 0.3 },
+              { text: formatCurrency(cat.originalBudget), fontSize: 11, bold: true, color: '#111827', margin: [0, 2, 0, 0] },
+              { text: 'ANTICIPATED FINAL', fontSize: 7, color: '#6b7280', letterSpacing: 0.3, margin: [0, 10, 0, 0] },
+              { text: formatCurrency(cat.anticipatedFinal), fontSize: 11, bold: true, color: '#111827', margin: [0, 2, 0, 0] },
+              { text: 'VARIANCE', fontSize: 7, color: '#6b7280', letterSpacing: 0.3, margin: [0, 10, 0, 0] },
+              // Variance row with value and badge
+              {
+                columns: [
+                  { 
+                    text: varianceDisplay, 
+                    fontSize: 12, 
+                    bold: true, 
+                    color: varianceColor,
+                    width: 'auto',
+                  },
+                  {
+                    // Badge matching UI's rounded pill style
+                    text: ` ${varianceLabel} `,
+                    fontSize: 8,
+                    bold: true,
+                    color: badgeTextColor,
+                    background: badgeBgColor,
+                    margin: [8, 1, 0, 0],
+                    width: 'auto',
+                  },
+                ],
+                margin: [0, 2, 0, 0],
               },
-              { 
-                // Badge-style label matching UI styling
-                text: varianceLabel, 
-                fontSize: 7, 
-                bold: true, 
-                alignment: 'right',
-                color: badgeTextColor,
-                background: badgeBgColor,
-                margin: [0, 4, 0, 0],
-              },
             ],
-            width: 'auto',
           },
         ],
-        margin: [0, 5, 0, 0],
       },
     ],
+    margin: [0, 0, 0, 8],
   };
 }
