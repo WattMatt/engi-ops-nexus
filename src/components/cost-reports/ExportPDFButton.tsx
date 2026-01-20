@@ -241,74 +241,17 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         console.log('[CostReportPDF] Direct download completed successfully');
         
-        // Now try to generate blob for storage (with short timeout - don't block user)
-        setExportStep("Saving to history (optional)...");
-        setExportProgress(85);
-        
-        let savedToStorage = false;
-        try {
-          // Quick attempt to get blob for storage (15s timeout - don't wait too long)
-          const blobPromise = generateCostReportPdfmake(pdfData);
-          const pdfBlob = await Promise.race([
-            blobPromise,
-            new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error("Storage blob timeout")), 15000)
-            )
-          ]);
-          
-          // Save to storage
-          const storageFileName = generateStorageFilename({
-            projectNumber: report.project_number || report.project_id?.slice(0, 8),
-            reportType: "CostReport",
-            revision: report.revision || "A",
-            reportNumber: report.report_number,
-          });
-          
-          const filePath = `cost-reports/${report.project_id}/${storageFileName}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from("cost-report-pdfs")
-            .upload(filePath, pdfBlob, { upsert: true });
-          
-          if (!uploadError) {
-            // Save record to database
-            const { data: pdfRecord } = await supabase
-              .from("cost_report_pdfs")
-              .insert({
-                cost_report_id: report.id,
-                project_id: report.project_id,
-                file_path: filePath,
-                file_name: downloadFilename,
-                file_size: pdfBlob.size,
-                revision: `Report ${report.report_number}`,
-                generated_by: (await supabase.auth.getUser()).data.user?.id
-              })
-              .select()
-              .single();
-            
-            if (pdfRecord) {
-              savedToStorage = true;
-              setPreviewReport(pdfRecord);
-            }
-          }
-        } catch (storageError) {
-          console.warn('[CostReportPDF] Storage save skipped (timeout or error):', storageError);
-          // Don't fail - the user already got their PDF via download
-        }
-        
         if (signal.aborted) throw new Error("Export cancelled");
         
         // ========================================
-        // SUCCESS
+        // SUCCESS - PDF was downloaded
         // ========================================
         setExportStep("Complete!");
         setExportProgress(100);
         
         toast({
           title: "PDF Downloaded",
-          description: savedToStorage 
-            ? "Cost report exported and saved to history" 
-            : "Cost report exported (not saved to history)",
+          description: "Cost report exported successfully",
         });
         
         onReportGenerated?.();
