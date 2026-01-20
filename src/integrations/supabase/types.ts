@@ -7454,6 +7454,185 @@ export type Database = {
           },
         ]
       }
+      load_category_summary: {
+        Row: {
+          category_code: string | null
+          category_name: string
+          color_code: string | null
+          created_at: string
+          display_order: number | null
+          diversity_factor: number | null
+          id: string
+          max_demand_kva: number | null
+          profile_id: string
+          shop_count: number | null
+          total_area_sqm: number | null
+          total_connected_load_kva: number | null
+          updated_at: string
+          va_per_sqm: number | null
+        }
+        Insert: {
+          category_code?: string | null
+          category_name: string
+          color_code?: string | null
+          created_at?: string
+          display_order?: number | null
+          diversity_factor?: number | null
+          id?: string
+          max_demand_kva?: number | null
+          profile_id: string
+          shop_count?: number | null
+          total_area_sqm?: number | null
+          total_connected_load_kva?: number | null
+          updated_at?: string
+          va_per_sqm?: number | null
+        }
+        Update: {
+          category_code?: string | null
+          category_name?: string
+          color_code?: string | null
+          created_at?: string
+          display_order?: number | null
+          diversity_factor?: number | null
+          id?: string
+          max_demand_kva?: number | null
+          profile_id?: string
+          shop_count?: number | null
+          total_area_sqm?: number | null
+          total_connected_load_kva?: number | null
+          updated_at?: string
+          va_per_sqm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_category_summary_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "load_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      load_profile_readings: {
+        Row: {
+          created_at: string
+          demand_kva: number | null
+          energy_kwh: number | null
+          id: string
+          linkage_id: string | null
+          peak_demand_kva: number | null
+          power_factor: number | null
+          profile_id: string
+          reading_date: string
+          reading_hour: number | null
+          reading_source: string | null
+        }
+        Insert: {
+          created_at?: string
+          demand_kva?: number | null
+          energy_kwh?: number | null
+          id?: string
+          linkage_id?: string | null
+          peak_demand_kva?: number | null
+          power_factor?: number | null
+          profile_id: string
+          reading_date: string
+          reading_hour?: number | null
+          reading_source?: string | null
+        }
+        Update: {
+          created_at?: string
+          demand_kva?: number | null
+          energy_kwh?: number | null
+          id?: string
+          linkage_id?: string | null
+          peak_demand_kva?: number | null
+          power_factor?: number | null
+          profile_id?: string
+          reading_date?: string
+          reading_hour?: number | null
+          reading_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_profile_readings_linkage_id_fkey"
+            columns: ["linkage_id"]
+            isOneToOne: false
+            referencedRelation: "meter_shop_linkages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_profile_readings_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "load_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      load_profiles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_id: string | null
+          external_profile_id: string | null
+          id: string
+          is_synced_to_external: boolean | null
+          last_sync_at: string | null
+          name: string
+          profile_type: string | null
+          project_id: string
+          sync_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_id?: string | null
+          external_profile_id?: string | null
+          id?: string
+          is_synced_to_external?: boolean | null
+          last_sync_at?: string | null
+          name: string
+          profile_type?: string | null
+          project_id: string
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_id?: string | null
+          external_profile_id?: string | null
+          id?: string
+          is_synced_to_external?: boolean | null
+          last_sync_at?: string | null
+          name?: string
+          profile_type?: string | null
+          project_id?: string
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_profiles_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_services_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_profiles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       master_materials: {
         Row: {
           approved_by: string | null
@@ -8045,6 +8224,84 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meter_shop_linkages: {
+        Row: {
+          connected_load_kva: number | null
+          created_at: string
+          diversity_factor: number | null
+          external_linkage_id: string | null
+          id: string
+          is_active: boolean | null
+          max_demand_kva: number | null
+          meter_id: string
+          meter_name: string | null
+          meter_type: string | null
+          notes: string | null
+          power_factor: number | null
+          profile_id: string
+          project_id: string
+          shop_category: string | null
+          shop_name: string | null
+          shop_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          connected_load_kva?: number | null
+          created_at?: string
+          diversity_factor?: number | null
+          external_linkage_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_demand_kva?: number | null
+          meter_id: string
+          meter_name?: string | null
+          meter_type?: string | null
+          notes?: string | null
+          power_factor?: number | null
+          profile_id: string
+          project_id: string
+          shop_category?: string | null
+          shop_name?: string | null
+          shop_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          connected_load_kva?: number | null
+          created_at?: string
+          diversity_factor?: number | null
+          external_linkage_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_demand_kva?: number | null
+          meter_id?: string
+          meter_name?: string | null
+          meter_type?: string | null
+          notes?: string | null
+          power_factor?: number | null
+          profile_id?: string
+          project_id?: string
+          shop_category?: string | null
+          shop_name?: string | null
+          shop_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meter_shop_linkages_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "load_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meter_shop_linkages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
