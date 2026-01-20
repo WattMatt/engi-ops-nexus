@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText, Satellite } from "lucide-react";
+import { ArrowLeft, FileText, Satellite, ClipboardList } from "lucide-react";
 import { BulkServicesHeader } from "./BulkServicesHeader";
 import { BulkServicesSections } from "./BulkServicesSections";
 import { BulkServicesExportPDFButton } from "./BulkServicesExportPDFButton";
@@ -14,6 +14,7 @@ import { BulkServicesKPICard } from "./BulkServicesKPICard";
 import { SANS204Calculator } from "./SANS204Calculator";
 import { BulkServicesDrawingMarkup } from "./BulkServicesDrawingMarkup";
 import { SatelliteMarkup } from "./SatelliteMarkup";
+import { WorkflowDashboard } from "./workflow";
 interface BulkServicesOverviewProps {
   documentId: string;
   onBack: () => void;
@@ -92,8 +93,12 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         />
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs defaultValue="workflow" className="w-full">
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="workflow" className="flex items-center gap-1.5">
+            <ClipboardList className="h-4 w-4" />
+            Workflow
+          </TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="map">Zone Map</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
@@ -101,6 +106,10 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
           <TabsTrigger value="markup">Drawing Markup</TabsTrigger>
           <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="workflow" className="space-y-4">
+          <WorkflowDashboard documentId={documentId} document={document} />
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-4">
           <BulkServicesKPICard documentId={documentId} mapSelectedZone={mapSelectedZone} />
