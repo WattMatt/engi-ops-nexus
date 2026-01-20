@@ -32,6 +32,7 @@ export interface FallbackOptions {
     // Watermark and theme options
     watermark?: PDFWatermarkConfig;
     colorTheme?: string;
+    margins?: { top: number; bottom: number; left: number; right: number };
   };
   onProgress?: (step: string, percent: number, method: string) => void;
   signal?: AbortSignal;
@@ -142,6 +143,7 @@ async function tryPdfmakeServer(
             includeVariations: sections.includeVariations ?? true,
             watermark: sections.watermark,
             colorTheme: sections.colorTheme,
+            margins: sections.margins,
           },
         }),
         signal: combinedSignal.signal,
