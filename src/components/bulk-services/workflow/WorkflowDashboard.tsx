@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { WorkflowPhaseCard } from './WorkflowPhaseCard';
 import { useWorkflowInitializer } from './useWorkflowInitializer';
-import { BULK_SERVICES_WORKFLOW_TEMPLATE } from './workflowTemplate';
+import { BULK_SERVICES_WORKFLOW_TEMPLATE, NavigationTarget } from './workflowTemplate';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -38,12 +38,23 @@ import {
 interface WorkflowDashboardProps {
   documentId: string;
   document: any;
+  onNavigateToTab?: (tabId: string) => void;
 }
 
-export function WorkflowDashboard({ documentId, document }: WorkflowDashboardProps) {
+export function WorkflowDashboard({ documentId, document, onNavigateToTab }: WorkflowDashboardProps) {
   const queryClient = useQueryClient();
   const { initializeWorkflow, resetWorkflow } = useWorkflowInitializer(documentId);
   const [isInitializing, setIsInitializing] = useState(false);
+
+  // Handle navigation from workflow tasks
+  const handleNavigate = (target: NavigationTarget) => {
+    if (target.type === 'tab' && onNavigateToTab) {
+      onNavigateToTab(target.tabId);
+      toast.success(`Navigated to ${target.label.replace('Go to ', '').replace('Add to ', '').replace('Track in ', '')}`);
+    } else if (target.type === 'external') {
+      window.open(target.url, '_blank');
+    }
+  };
 
   // Fetch workflow phases
   const { data: phases, isLoading: phasesLoading, refetch: refetchPhases } = useQuery({
@@ -244,18 +255,33 @@ export function WorkflowDashboard({ documentId, document }: WorkflowDashboardPro
 
       {/* Phase Cards */}
       <div className="space-y-3">
-        {phases?.map((phase) => (
-          <WorkflowPhaseCard
-            key={phase.id}
-            phase={phase}
-            tasks={(tasks?.filter(t => t.phase_id === phase.id) || []).map(t => ({
-              ...t,
-              linked_data: t.linked_data as Record<string, any> | null
-            }))}
-            onTaskToggle={handleTaskToggle}
-            onPhaseStatusChange={handlePhaseStatusChange}
-          />
-        ))}
+        {phases?.map((phase) => {
+          // Get navigation info from template for each task
+          const templatePhase = BULK_SERVICES_WORKFLOW_TEMPLATE.find(
+            p => p.phaseNumber === phase.phase_number
+          );
+          
+          return (
+            <WorkflowPhaseCard
+              key={phase.id}
+              phase={phase}
+              tasks={(tasks?.filter(t => t.phase_id === phase.id) || []).map(t => {
+                // Find matching template task to get navigation info
+                const templateTask = templatePhase?.tasks.find(
+                  tt => tt.title === t.task_title
+                );
+                return {
+                  ...t,
+                  linked_data: t.linked_data as Record<string, any> | null,
+                  navigation: templateTask?.navigation
+                };
+              })}
+              onTaskToggle={handleTaskToggle}
+              onPhaseStatusChange={handlePhaseStatusChange}
+              onNavigate={handleNavigate}
+            />
+          );
+        })}
       </div>
     </div>
   );

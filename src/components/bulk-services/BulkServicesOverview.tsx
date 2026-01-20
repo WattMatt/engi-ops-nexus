@@ -21,11 +21,17 @@ interface BulkServicesOverviewProps {
 }
 
 export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOverviewProps) => {
+  const [activeTab, setActiveTab] = useState("workflow");
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
   const [mapSelectedZone, setMapSelectedZone] = useState<string | null>(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [detectedMunicipality, setDetectedMunicipality] = useState<string | null>(null);
   const [detectedProvince, setDetectedProvince] = useState<string | null>(null);
+
+  // Handler for workflow navigation to other tabs
+  const handleNavigateToTab = (tabId: string) => {
+    setActiveTab(tabId);
+  };
   
   const { data: document, isLoading } = useQuery({
     queryKey: ["bulk-services-document", documentId],
@@ -93,7 +99,7 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         />
       </div>
 
-      <Tabs defaultValue="workflow" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="workflow" className="flex items-center gap-1.5">
             <ClipboardList className="h-4 w-4" />
@@ -108,7 +114,11 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         </TabsList>
 
         <TabsContent value="workflow" className="space-y-4">
-          <WorkflowDashboard documentId={documentId} document={document} />
+          <WorkflowDashboard 
+            documentId={documentId} 
+            document={document}
+            onNavigateToTab={handleNavigateToTab}
+          />
         </TabsContent>
 
         <TabsContent value="overview" className="space-y-4">
