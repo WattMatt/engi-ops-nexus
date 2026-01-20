@@ -337,17 +337,65 @@ serve(async (req) => {
         margin: [60, 0, 0, 20],
       });
       
-      // PREPARED FOR section
-      const clientName = report.client_name || companyDetails?.clientName;
+      // PREPARED FOR section - use preparedFor contact from settings if available
+      const preparedFor = companyDetails?.preparedFor;
+      const clientName = preparedFor?.organizationName || report.client_name || companyDetails?.clientName;
+      
       if (clientName) {
+        const preparedForStack: any[] = [
+          { text: 'PREPARED FOR:', fontSize: 9, bold: true, color: ACTIVE_COLORS.primary, margin: [0, 0, 0, 5] },
+          { text: clientName.toUpperCase(), fontSize: 11, bold: true, color: '#374151' },
+        ];
+        
+        // Use preparedFor contact details if available, otherwise fall back to legacy client details
+        if (preparedFor) {
+          // Contact type (e.g., "Quantity Surveyor")
+          if (preparedFor.contactType) {
+            preparedForStack.push({ 
+              text: preparedFor.contactType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()), 
+              fontSize: 9, 
+              italics: true,
+              color: ACTIVE_COLORS.neutral || '#6b7280', 
+              margin: [0, 2, 0, 0] 
+            });
+          }
+          // Address
+          if (preparedFor.addressLine1) {
+            preparedForStack.push({ text: preparedFor.addressLine1, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 4, 0, 0] });
+          }
+          if (preparedFor.addressLine2) {
+            preparedForStack.push({ text: preparedFor.addressLine2, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280' });
+          }
+          if (preparedFor.city || preparedFor.postalCode) {
+            preparedForStack.push({ text: [preparedFor.city, preparedFor.postalCode].filter(Boolean).join(', '), fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280' });
+          }
+          // Contact person
+          if (preparedFor.contactName) {
+            preparedForStack.push({ text: `Contact: ${preparedFor.contactName}`, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 4, 0, 0] });
+          }
+          // Phone
+          if (preparedFor.phone) {
+            preparedForStack.push({ text: `Tel: ${preparedFor.phone}`, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] });
+          }
+          // Email
+          if (preparedFor.email) {
+            preparedForStack.push({ text: `Email: ${preparedFor.email}`, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280' });
+          }
+        } else {
+          // Fallback to legacy client details
+          if (companyDetails?.clientAddressLine1) {
+            preparedForStack.push({ text: companyDetails.clientAddressLine1, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] });
+          }
+          if (companyDetails?.clientAddressLine2) {
+            preparedForStack.push({ text: companyDetails.clientAddressLine2, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280' });
+          }
+          if (companyDetails?.clientPhone) {
+            preparedForStack.push({ text: `Tel: ${companyDetails.clientPhone}`, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] });
+          }
+        }
+        
         content.push({
-          stack: [
-            { text: 'PREPARED FOR:', fontSize: 9, bold: true, color: ACTIVE_COLORS.primary, margin: [0, 0, 0, 5] },
-            { text: clientName.toUpperCase(), fontSize: 11, bold: true, color: '#374151' },
-            ...(companyDetails?.clientAddressLine1 ? [{ text: companyDetails.clientAddressLine1, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] }] : []),
-            ...(companyDetails?.clientAddressLine2 ? [{ text: companyDetails.clientAddressLine2, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280' }] : []),
-            ...(companyDetails?.clientPhone ? [{ text: `Tel: ${companyDetails.clientPhone}`, fontSize: 9, color: ACTIVE_COLORS.neutral || '#6b7280', margin: [0, 2, 0, 0] }] : []),
-          ],
+          stack: preparedForStack,
           margin: [60, 0, 0, 20],
         });
       }

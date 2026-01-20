@@ -88,6 +88,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       if (signal.aborted) throw new Error("Export cancelled");
       const company = (companyResult as any).data;
       
+      // Fetch selected "Prepared For" contact if specified
+      let preparedForContact: any = null;
+      if (selectedContactId) {
+        const contactResult = await Promise.race([
+          supabase.from("project_contacts").select("*").eq("id", selectedContactId).maybeSingle(),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error("Contact fetch timeout")), DATA_TIMEOUT_MS)
+          )
+        ]);
+        preparedForContact = (contactResult as any).data;
+        console.log('[CostReportPDF] Loaded preparedFor contact:', preparedForContact?.organization_name);
+      }
+      
       setExportStep("Loading categories...");
       setExportProgress(15);
       
@@ -160,14 +173,26 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         contactPhone: company?.prepared_by_phone || company?.client_phone || "",
         company_logo_url: company?.company_logo_url || null,
         client_logo_url: company?.client_logo_url || null,
-        // Company address
+        // Company address (Prepared By)
         addressLine1: company?.company_address_line1 || company?.address_line1 || "",
         addressLine2: company?.company_address_line2 || company?.address_line2 || "",
-        // Client details
+        // Default client details (fallback)
         clientName: company?.client_name || "",
         clientAddressLine1: company?.client_address_line1 || "",
         clientAddressLine2: company?.client_address_line2 || "",
         clientPhone: company?.client_phone || "",
+        // Prepared For contact (from settings selection) - overrides client details
+        preparedFor: preparedForContact ? {
+          organizationName: preparedForContact.organization_name || "",
+          contactType: preparedForContact.contact_type || "",
+          contactName: preparedForContact.contact_name || "",
+          phone: preparedForContact.phone || "",
+          email: preparedForContact.email || "",
+          addressLine1: preparedForContact.address_line1 || "",
+          addressLine2: preparedForContact.address_line2 || "",
+          city: preparedForContact.city || "",
+          postalCode: preparedForContact.postal_code || "",
+        } : null,
       };
       
       const useMargins = { ...STANDARD_MARGINS, ...margins };
