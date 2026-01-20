@@ -87,9 +87,9 @@ export const DEFAULT_SECTIONS: PDFSectionOptions = {
   costSummary: false,
   detailedLineItems: true,
   variations: true,
-  visualSummary: true, // Charts and graphs
-  previewBeforeExport: false, // Disabled by default - Quick Export is more reliable
-  useQuickExport: true, // Direct download is now default (more reliable for complex reports)
+  visualSummary: true,
+  previewBeforeExport: false,
+  useQuickExport: false, // Deprecated - single reliable path now
 };
 
 export const PDFExportSettings = ({
@@ -403,51 +403,11 @@ export const PDFExportSettings = ({
               </div>
             </div>
             
-            {/* Preview Option */}
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="preview-before-export"
-                  checked={localSections.previewBeforeExport}
-                  onCheckedChange={() => handleSectionToggle('previewBeforeExport')}
-                  disabled={localSections.useQuickExport}
-                />
-                <label
-                  htmlFor="preview-before-export"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                  Preview before saving
-                </label>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 ml-6">
-                Review the PDF before it's saved to your reports
-              </p>
-            </div>
-            
-            {/* Quick Export Option - for when regular export hangs */}
-            <div className="mt-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="quick-export"
-                  checked={localSections.useQuickExport}
-                  onCheckedChange={() => {
-                    const newValue = !localSections.useQuickExport;
-                    setLocalSections({ 
-                      ...localSections, 
-                      useQuickExport: newValue,
-                      previewBeforeExport: newValue ? false : localSections.previewBeforeExport 
-                    });
-                  }}
-                />
-                <label
-                  htmlFor="quick-export"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-amber-700 dark:text-amber-400"
-                >
-                  Quick Export (Direct Download)
-                </label>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 ml-6">
-                Faster and more reliable for large reports. Skips preview and storage.
+            {/* Info about export */}
+            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <p className="text-xs text-muted-foreground">
+                PDF will be generated and saved to Report History automatically.
+                You can view or download it from there.
               </p>
             </div>
           </div>
