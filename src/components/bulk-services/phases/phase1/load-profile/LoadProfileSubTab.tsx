@@ -66,7 +66,7 @@ export function LoadProfileSubTab({ projectId, documentId }: LoadProfileSubTabPr
                 Load Profile Manager
               </CardTitle>
               <CardDescription>
-                Link meters to shops and visualize load distribution
+                Link meters to shops and visualize load distribution from tenant schedule
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -80,33 +80,30 @@ export function LoadProfileSubTab({ projectId, documentId }: LoadProfileSubTabPr
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => syncWithExternal('pull')}
+                  onClick={() => syncWithExternal('pull', 'local')}
                   disabled={syncingStatus === 'syncing'}
-                  title="Pull from wm-solar"
-                >
-                  <ArrowDownToLine className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => syncWithExternal('push')}
-                  disabled={syncingStatus === 'syncing'}
-                  title="Push to wm-solar"
-                >
-                  <ArrowUpFromLine className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => syncWithExternal('both')}
-                  disabled={syncingStatus === 'syncing'}
-                  title="Bi-directional sync"
+                  title="Sync from local tenant schedule"
+                  className="flex items-center gap-1"
                 >
                   {syncingStatus === 'syncing' ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <ArrowLeftRight className="h-4 w-4" />
+                    <>
+                      <ArrowDownToLine className="h-4 w-4" />
+                      <span className="hidden md:inline text-xs">Tenant Schedule</span>
+                    </>
                   )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => syncWithExternal('pull', 'external')}
+                  disabled={syncingStatus === 'syncing'}
+                  title="Sync from external wm-solar app"
+                  className="flex items-center gap-1"
+                >
+                  <Cloud className="h-4 w-4" />
+                  <span className="hidden md:inline text-xs">wm-solar</span>
                 </Button>
               </div>
 
@@ -127,13 +124,13 @@ export function LoadProfileSubTab({ projectId, documentId }: LoadProfileSubTabPr
               <p className="text-xs text-muted-foreground">Linked Meters</p>
             </div>
             <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <p className="text-2xl font-bold text-amber-600">
+              <p className="text-2xl font-bold text-accent-foreground">
                 {(totals.totalConnectedLoad / 1000).toFixed(2)}
               </p>
               <p className="text-xs text-muted-foreground">Total Load (MVA)</p>
             </div>
             <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-primary">
                 {(totals.totalMaxDemand / 1000).toFixed(2)}
               </p>
               <p className="text-xs text-muted-foreground">Max Demand (MVA)</p>

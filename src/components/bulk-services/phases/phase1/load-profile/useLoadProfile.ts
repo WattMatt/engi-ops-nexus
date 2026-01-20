@@ -220,8 +220,8 @@ export function useLoadProfile(projectId: string, documentId?: string) {
     },
   });
 
-  // Sync with external wm-solar app
-  const syncWithExternal = useCallback(async (direction: 'push' | 'pull' | 'both') => {
+  // Sync with tenant schedule (local or external wm-solar app)
+  const syncWithExternal = useCallback(async (direction: 'push' | 'pull' | 'both', source: 'local' | 'external' = 'local') => {
     if (!profile) return;
 
     setSyncingStatus('syncing');
@@ -231,6 +231,7 @@ export function useLoadProfile(projectId: string, documentId?: string) {
           profileId: profile.id,
           projectId,
           direction,
+          source,
         },
       });
 
@@ -240,12 +241,16 @@ export function useLoadProfile(projectId: string, documentId?: string) {
       await refetchLinkages();
       await refetchCategories();
 
-      toast.success(`Load profile ${direction === 'push' ? 'pushed' : direction === 'pull' ? 'pulled' : 'synced'} successfully`);
+      const sourceLabel = source === 'external' ? 'external wm-solar' : 'local tenant schedule';
+      toast.success(`Synced ${data?.tenantsProcessed || 0} tenants from ${sourceLabel}`);
       setSyncingStatus('idle');
+      
+      return data;
     } catch (error) {
       console.error('Sync error:', error);
-      toast.error('Failed to sync with external system');
+      toast.error('Failed to sync load profile');
       setSyncingStatus('error');
+      throw error;
     }
   }, [profile, projectId, refetchProfile, refetchLinkages, refetchCategories]);
 
