@@ -95,13 +95,24 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
     }
   }, [document]);
 
-  // Auto-sync zone from map when enabled
+  // Auto-sync zone from map when enabled or when map zone changes
   useEffect(() => {
     if (autoSyncZone && mapSelectedZone && mapSelectedZone !== climaticZone) {
       setClimaticZone(mapSelectedZone);
       toast.success(`Auto-synced to Zone ${mapSelectedZone}`);
     }
-  }, [mapSelectedZone, autoSyncZone]);
+  }, [mapSelectedZone, autoSyncZone, climaticZone]);
+
+  // Handle toggle - immediately sync if enabling and zone is available
+  const handleAutoSyncToggle = (enabled: boolean) => {
+    setAutoSyncZone(enabled);
+    if (enabled && mapSelectedZone && mapSelectedZone !== climaticZone) {
+      setClimaticZone(mapSelectedZone);
+      toast.success(`Synced to Zone ${mapSelectedZone} from map`);
+    } else if (enabled && !mapSelectedZone) {
+      toast.info('Select a location on the Zone Map tab to auto-sync');
+    }
+  };
 
   const handleImportFromTenantTracker = () => {
     if (tenantData?.totalArea) {
@@ -225,7 +236,7 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
                 <Switch
                   id="auto-sync"
                   checked={autoSyncZone}
-                  onCheckedChange={setAutoSyncZone}
+                  onCheckedChange={handleAutoSyncToggle}
                 />
                 <Label htmlFor="auto-sync" className="text-xs cursor-pointer">
                   Auto-sync from map
