@@ -36,6 +36,7 @@ import {
   FutureExpansionCard,
   ElectricalStandardsCard,
 } from './phase1';
+import { LoadProfileSubTab } from './phase1/load-profile';
 
 interface Phase1LoadEstimationProps {
   documentId: string;
@@ -136,30 +137,42 @@ export function Phase1LoadEstimation({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Mode Selector */}
-              <LoadEntryModeSelector mode={entryMode} onModeChange={setEntryMode} />
-
-              {/* Entry Content based on mode */}
-              <div className="pt-4 border-t">
-                {entryMode === 'itemized' && (
-                  <LoadScheduleTable
-                    items={loadItems}
-                    onItemsChange={setLoadItems}
-                    onTotalChange={handleTotalChange}
-                  />
-                )}
+              {/* Mode Selector with Load Profile option */}
+              <Tabs defaultValue="entry" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="entry">Load Entry</TabsTrigger>
+                  <TabsTrigger value="profile">Load Profile</TabsTrigger>
+                </TabsList>
                 
-                {entryMode === 'category' && (
-                  <CategoryTotalsCard onTotalChange={handleTotalChange} />
-                )}
+                <TabsContent value="entry" className="pt-4">
+                  <LoadEntryModeSelector mode={entryMode} onModeChange={setEntryMode} />
+                  <div className="pt-4 border-t mt-4">
+                    {entryMode === 'itemized' && (
+                      <LoadScheduleTable
+                        items={loadItems}
+                        onItemsChange={setLoadItems}
+                        onTotalChange={handleTotalChange}
+                      />
+                    )}
+                    {entryMode === 'category' && (
+                      <CategoryTotalsCard onTotalChange={handleTotalChange} />
+                    )}
+                    {entryMode === 'total' && (
+                      <BulkServicesKPICard 
+                        documentId={documentId} 
+                        mapSelectedZone={mapSelectedZone} 
+                      />
+                    )}
+                  </div>
+                </TabsContent>
                 
-                {entryMode === 'total' && (
-                  <BulkServicesKPICard 
+                <TabsContent value="profile" className="pt-4">
+                  <LoadProfileSubTab 
+                    projectId={document?.project_id || ''} 
                     documentId={documentId} 
-                    mapSelectedZone={mapSelectedZone} 
                   />
-                )}
-              </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
 
