@@ -7,6 +7,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { generateCostReportHtml, type CostReportHtmlData } from "./htmlTemplateGenerator";
+import type { PDFWatermarkConfig, PDFColorTheme } from "@/components/cost-reports/PDFExportSettings";
 
 export interface FallbackResult {
   success: boolean;
@@ -28,6 +29,9 @@ export interface FallbackOptions {
     includeCategoryDetails?: boolean;
     includeDetailedLineItems?: boolean;
     includeVariations?: boolean;
+    // Watermark and theme options
+    watermark?: PDFWatermarkConfig;
+    colorTheme?: string;
   };
   onProgress?: (step: string, percent: number, method: string) => void;
   signal?: AbortSignal;
@@ -136,6 +140,8 @@ async function tryPdfmakeServer(
             includeCategoryDetails: sections.includeCategoryDetails ?? true,
             includeDetailedLineItems: sections.includeDetailedLineItems ?? true,
             includeVariations: sections.includeVariations ?? true,
+            watermark: sections.watermark,
+            colorTheme: sections.colorTheme,
           },
         }),
         signal: combinedSignal.signal,

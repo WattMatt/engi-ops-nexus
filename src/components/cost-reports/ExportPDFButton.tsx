@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
-import { PDFExportSettings, DEFAULT_MARGINS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
+import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
 import { STANDARD_MARGINS } from "@/utils/pdfExportBase";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
@@ -16,20 +16,8 @@ interface ExportPDFButtonProps {
   onReportGenerated?: () => void;
 }
 
-// Simplified section defaults - no quick export toggle
-const SIMPLE_SECTIONS: PDFSectionOptions = {
-  coverPage: true,
-  tableOfContents: true,
-  executiveSummary: true,
-  categoryDetails: true,
-  projectInfo: true,
-  costSummary: false,
-  detailedLineItems: true,
-  variations: true,
-  visualSummary: true,
-  previewBeforeExport: false,
-  useQuickExport: false, // Ignored - we only have one path now
-};
+// Use the default sections from PDFExportSettings
+const SIMPLE_SECTIONS: PDFSectionOptions = DEFAULT_SECTIONS;
 
 // Timeouts
 const DATA_TIMEOUT_MS = 15000;  // 15s for each data query
@@ -213,6 +201,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           includeCategoryDetails: sections.categoryDetails,
           includeDetailedLineItems: sections.detailedLineItems,
           includeVariations: sections.variations,
+          // Watermark and theme options
+          watermark: sections.watermark,
+          colorTheme: sections.colorTheme,
         },
         onProgress: (step, percent, method) => {
           setExportStep(step);

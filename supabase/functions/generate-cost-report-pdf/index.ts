@@ -6,8 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// PDF Colors matching original template
-const PDF_COLORS = {
+// Default PDF Colors - can be overridden by colorTheme option
+const DEFAULT_PDF_COLORS = {
   primary: '#1e3a5f',
   success: '#16a34a',
   danger: '#dc2626',
@@ -15,6 +15,16 @@ const PDF_COLORS = {
   neutral: '#6b7280',
   tableHeader: '#1e3a5f',
   lightBg: '#f5f7fa',
+};
+
+// Color theme presets (matching PDFExportSettings)
+const COLOR_THEMES: Record<string, any> = {
+  default: { primary: '#1e3a5f', secondary: '#374151', tableHeader: '#1e3a5f', success: '#16a34a', danger: '#dc2626' },
+  corporate: { primary: '#0f172a', secondary: '#1e293b', tableHeader: '#0f172a', success: '#059669', danger: '#dc2626' },
+  modern: { primary: '#2563eb', secondary: '#3b82f6', tableHeader: '#1e40af', success: '#10b981', danger: '#ef4444' },
+  warm: { primary: '#92400e', secondary: '#b45309', tableHeader: '#78350f', success: '#65a30d', danger: '#dc2626' },
+  ocean: { primary: '#0369a1', secondary: '#0284c7', tableHeader: '#075985', success: '#059669', danger: '#dc2626' },
+  professional: { primary: '#18181b', secondary: '#3f3f46', tableHeader: '#27272a', success: '#22c55e', danger: '#ef4444' },
 };
 
 const CATEGORY_COLORS = [
