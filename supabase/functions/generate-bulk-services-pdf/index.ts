@@ -113,170 +113,29 @@ const ZONE_DATA: Record<string, { name: string; temp: string; description: strin
   },
 };
 
-// Generate professional SVG map of South Africa with climatic zones
-function generateZoneMapSVG(selectedZone: string | null): string {
-  const getZoneStyle = (zone: string) => {
-    const isSelected = selectedZone === zone;
-    return {
-      opacity: isSelected ? '1' : '0.7',
-      stroke: isSelected ? '#1e293b' : '#64748b',
-      strokeWidth: isSelected ? '2.5' : '0.8',
-      filter: isSelected ? 'url(#selectedGlow)' : 'none',
-    };
-  };
-  
-  // Accurate South Africa boundary paths by zone (simplified but recognizable)
+// Static climatic zone map image URL (official SANS 10400-XA zones)
+// Using a well-known public image of the SA climatic zones
+const CLIMATIC_ZONE_MAP_URL = 'https://www.energy.gov.za/EEE/images/climate_zones.jpg';
+
+// Alternative: Use base64 encoded placeholder for the map frame
+function generateZoneMapHTML(): string {
   return `
-    <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 480px; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-      <defs>
-        <!-- Gradients for each zone -->
-        <linearGradient id="zone1Grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#3b82f6"/>
-          <stop offset="100%" stop-color="#1d4ed8"/>
-        </linearGradient>
-        <linearGradient id="zone2Grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#fbbf24"/>
-          <stop offset="100%" stop-color="#d97706"/>
-        </linearGradient>
-        <linearGradient id="zone3Grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f97316"/>
-          <stop offset="100%" stop-color="#c2410c"/>
-        </linearGradient>
-        <linearGradient id="zone4Grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#60a5fa"/>
-          <stop offset="100%" stop-color="#3b82f6"/>
-        </linearGradient>
-        <linearGradient id="zone5Grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#22c55e"/>
-          <stop offset="100%" stop-color="#15803d"/>
-        </linearGradient>
-        <linearGradient id="zone6Grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#eab308"/>
-          <stop offset="100%" stop-color="#a16207"/>
-        </linearGradient>
-        
-        <!-- Ocean gradient -->
-        <linearGradient id="oceanGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#f0f9ff"/>
-          <stop offset="100%" stop-color="#e0f2fe"/>
-        </linearGradient>
-        
-        <!-- Selected zone glow effect -->
-        <filter id="selectedGlow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#1e3a5f" flood-opacity="0.4"/>
-        </filter>
-        
-        <!-- Subtle shadow for depth -->
-        <filter id="countryShadow">
-          <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.15"/>
-        </filter>
-      </defs>
-      
-      <!-- Background -->
-      <rect width="500" height="400" fill="url(#oceanGradient)"/>
-      
-      <!-- Decorative border -->
-      <rect x="5" y="5" width="490" height="390" fill="none" stroke="#cbd5e1" stroke-width="1" rx="6"/>
-      
-      <!-- Country outline group with shadow -->
-      <g filter="url(#countryShadow)">
-        
-        <!-- Zone 6: Arid Interior (Northern Cape interior) -->
-        <path d="M60,200 L75,170 L95,145 L130,125 L165,115 L195,120 L215,140 L210,175 L185,210 L155,235 L120,250 L85,250 L60,230 Z" 
-              fill="url(#zone6Grad)" opacity="${getZoneStyle('6').opacity}"
-              stroke="${getZoneStyle('6').stroke}" stroke-width="${getZoneStyle('6').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '6' ? 'filter="url(#selectedGlow)"' : ''}/>
-        
-        <!-- Zone 4: Temperate Coastal (Western Cape coast) -->
-        <path d="M35,235 L60,200 L60,230 L85,250 L95,280 L75,310 L50,325 L30,310 L25,275 Z" 
-              fill="url(#zone4Grad)" opacity="${getZoneStyle('4').opacity}"
-              stroke="${getZoneStyle('4').stroke}" stroke-width="${getZoneStyle('4').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '4' ? 'filter="url(#selectedGlow)"' : ''}/>
-        
-        <!-- Zone 4: Temperate Coastal (Southern coast extension) -->
-        <path d="M95,280 L120,250 L155,235 L185,245 L215,260 L235,280 L200,305 L150,320 L100,315 L75,310 Z" 
-              fill="url(#zone4Grad)" opacity="${getZoneStyle('4').opacity}"
-              stroke="${getZoneStyle('4').stroke}" stroke-width="${getZoneStyle('4').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '4' ? 'filter="url(#selectedGlow)"' : ''}/>
-        
-        <!-- Zone 1: Cold Interior (Highveld - Gauteng/Free State) -->
-        <path d="M215,140 L260,125 L295,130 L320,150 L315,185 L290,215 L255,235 L215,240 L185,210 L210,175 Z" 
-              fill="url(#zone1Grad)" opacity="${getZoneStyle('1').opacity}"
-              stroke="${getZoneStyle('1').stroke}" stroke-width="${getZoneStyle('1').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '1' ? 'filter="url(#selectedGlow)"' : ''}/>
-        
-        <!-- Zone 2: Temperate Interior (North-central) -->
-        <path d="M165,115 L195,95 L235,80 L280,75 L320,85 L350,105 L345,135 L320,150 L295,130 L260,125 L215,140 L195,120 Z" 
-              fill="url(#zone2Grad)" opacity="${getZoneStyle('2').opacity}"
-              stroke="${getZoneStyle('2').stroke}" stroke-width="${getZoneStyle('2').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '2' ? 'filter="url(#selectedGlow)"' : ''}/>
-        
-        <!-- Zone 3: Hot Interior (Limpopo/Mpumalanga) -->
-        <path d="M320,85 L365,60 L410,55 L450,75 L465,115 L455,160 L420,195 L380,210 L345,190 L345,135 L350,105 Z" 
-              fill="url(#zone3Grad)" opacity="${getZoneStyle('3').opacity}"
-              stroke="${getZoneStyle('3').stroke}" stroke-width="${getZoneStyle('3').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '3' ? 'filter="url(#selectedGlow)"' : ''}/>
-        
-        <!-- Zone 5: Sub-tropical Coastal (KZN/Eastern Cape coast) -->
-        <path d="M345,190 L380,210 L420,195 L455,160 L475,195 L470,245 L455,295 L420,330 L370,350 L320,345 L280,320 L260,290 L290,265 L315,240 L290,215 L315,185 L345,190 Z" 
-              fill="url(#zone5Grad)" opacity="${getZoneStyle('5').opacity}"
-              stroke="${getZoneStyle('5').stroke}" stroke-width="${getZoneStyle('5').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '5' ? 'filter="url(#selectedGlow)"' : ''}/>
-        
-        <!-- Zone 5: connection to south coast -->
-        <path d="M235,280 L260,290 L280,320 L245,325 L215,315 L200,305 Z" 
-              fill="url(#zone5Grad)" opacity="${getZoneStyle('5').opacity}"
-              stroke="${getZoneStyle('5').stroke}" stroke-width="${getZoneStyle('5').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '5' ? 'filter="url(#selectedGlow)"' : ''}/>
-              
-        <!-- Zone 1 extension connecting Free State -->
-        <path d="M185,210 L215,240 L255,235 L260,260 L235,280 L200,305 L185,245 L155,235 Z" 
-              fill="url(#zone1Grad)" opacity="${getZoneStyle('1').opacity}"
-              stroke="${getZoneStyle('1').stroke}" stroke-width="${getZoneStyle('1').strokeWidth}" stroke-linejoin="round"
-              ${selectedZone === '1' ? 'filter="url(#selectedGlow)"' : ''}/>
-      </g>
-      
-      <!-- Zone number labels with professional styling -->
-      <g font-family="system-ui, -apple-system, sans-serif">
-        <!-- Zone 6 label -->
-        <circle cx="135" cy="180" r="14" fill="#fff" stroke="${ZONE_COLORS['6']}" stroke-width="2"/>
-        <text x="135" y="185" font-size="13" font-weight="700" fill="${ZONE_COLORS['6']}" text-anchor="middle">6</text>
-        
-        <!-- Zone 4 labels -->
-        <circle cx="65" cy="275" r="14" fill="#fff" stroke="${ZONE_COLORS['4']}" stroke-width="2"/>
-        <text x="65" y="280" font-size="13" font-weight="700" fill="${ZONE_COLORS['4']}" text-anchor="middle">4</text>
-        <circle cx="155" cy="290" r="14" fill="#fff" stroke="${ZONE_COLORS['4']}" stroke-width="2"/>
-        <text x="155" y="295" font-size="13" font-weight="700" fill="${ZONE_COLORS['4']}" text-anchor="middle">4</text>
-        
-        <!-- Zone 1 label -->
-        <circle cx="255" cy="185" r="14" fill="#fff" stroke="${ZONE_COLORS['1']}" stroke-width="2"/>
-        <text x="255" y="190" font-size="13" font-weight="700" fill="${ZONE_COLORS['1']}" text-anchor="middle">1</text>
-        
-        <!-- Zone 2 label -->
-        <circle cx="270" cy="105" r="14" fill="#fff" stroke="${ZONE_COLORS['2']}" stroke-width="2"/>
-        <text x="270" y="110" font-size="13" font-weight="700" fill="${ZONE_COLORS['2']}" text-anchor="middle">2</text>
-        
-        <!-- Zone 3 label -->
-        <circle cx="400" cy="125" r="14" fill="#fff" stroke="${ZONE_COLORS['3']}" stroke-width="2"/>
-        <text x="400" y="130" font-size="13" font-weight="700" fill="${ZONE_COLORS['3']}" text-anchor="middle">3</text>
-        
-        <!-- Zone 5 label -->
-        <circle cx="380" cy="265" r="14" fill="#fff" stroke="${ZONE_COLORS['5']}" stroke-width="2"/>
-        <text x="380" y="270" font-size="13" font-weight="700" fill="${ZONE_COLORS['5']}" text-anchor="middle">5</text>
-      </g>
-      
-      <!-- Title bar at bottom -->
-      <rect x="0" y="365" width="500" height="35" fill="#1e3a5f"/>
-      <text x="250" y="387" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#fff" text-anchor="middle" letter-spacing="1">
+    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #e5e7eb;">
+      <div style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <img src="${CLIMATIC_ZONE_MAP_URL}" 
+             alt="South Africa Climatic Zones Map (SANS 10400-XA)" 
+             style="max-width: 100%; height: auto; border-radius: 6px;"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+        />
+        <div style="display: none; padding: 40px 20px; background: #f8fafc; border-radius: 6px; color: #64748b; font-size: 11px;">
+          <p style="margin: 0;">Climatic Zone Map</p>
+          <p style="margin: 5px 0 0; font-size: 10px;">Reference: SANS 10400-XA</p>
+        </div>
+      </div>
+      <p style="margin: 15px 0 0; font-size: 10px; color: #64748b; font-weight: 500; letter-spacing: 0.5px;">
         SOUTH AFRICA — SANS 10400-XA CLIMATIC ZONES
-      </text>
-      
-      ${selectedZone ? `
-        <!-- Selected zone badge -->
-        <rect x="420" y="15" width="65" height="28" rx="14" fill="${ZONE_COLORS[selectedZone]}" stroke="#fff" stroke-width="2"/>
-        <text x="452" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">Zone ${selectedZone}</text>
-      ` : ''}
-    </svg>
+      </p>
+    </div>
   `;
 }
 
@@ -551,7 +410,7 @@ function generateHTML(data: RequestBody): string {
     <div style="display: flex; gap: 30px; align-items: flex-start;">
       <!-- Map -->
       <div style="flex: 1;">
-        ${generateZoneMapSVG(document.climatic_zone)}
+        ${generateZoneMapHTML()}
       </div>
       
       <!-- Legend -->
