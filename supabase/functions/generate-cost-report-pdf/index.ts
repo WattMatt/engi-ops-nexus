@@ -626,45 +626,63 @@ serve(async (req) => {
           anticipatedTotal += Number(item.anticipated_final ?? item.contract_sum ?? 0);
         });
         
+        // Calculate category variance totals
+        const originalVarTotal = originalTotal - anticipatedTotal;
+        const currentVarTotal = previousTotal - anticipatedTotal;
+        
         const itemTableBody: any[][] = [
-          // Header row with themed background - includes Item No. column
+          // Header row with themed background - matches UI columns
           [
-            { text: 'Item No.', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
-            { text: 'Description', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF' },
-            { text: 'Original Budget', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
-            { text: 'Previous Report', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
-            { text: 'Anticipated Final', bold: true, fontSize: 9, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+            { text: 'Item', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'center' },
+            { text: 'Description', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF' },
+            { text: 'Original Budget', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+            { text: 'Previous Report', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+            { text: 'Anticipated Final', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+            { text: 'Orig. Variance', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
+            { text: 'Variance', bold: true, fontSize: 8, fillColor: ACTIVE_COLORS.primary, color: '#FFFFFF', alignment: 'right' },
           ],
         ];
         
-        // Data rows with zebra striping - include item number (e.g., E1, E2, E3)
+        // Category summary row at top (matching UI expanded header)
+        const catOriginalVar = originalTotal - anticipatedTotal;
+        const catCurrentVar = previousTotal - anticipatedTotal;
+        itemTableBody.push([
+          { text: catCode, fontSize: 9, bold: true, fillColor: '#f0f9ff', alignment: 'center' },
+          { text: catDesc.toUpperCase(), fontSize: 9, bold: true, fillColor: '#f0f9ff' },
+          { text: formatCurrency(originalTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
+          { text: formatCurrency(previousTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
+          { text: formatCurrency(anticipatedTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
+          { text: formatVariance(catOriginalVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: catOriginalVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+          { text: formatVariance(catCurrentVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: catCurrentVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+        ]);
+        
+        // Data rows with zebra striping - include item number (e.g., A1, A2, A3)
         lineItems.forEach((item: any, rowIndex: number) => {
           const rowBg = rowIndex % 2 === 1 ? '#f9fafb' : undefined;
-          // Generate item number: category code + sequential number (e.g., E1, E2, E3)
+          // Generate item number: category code + sequential number (e.g., A1, A2, A3)
           const itemNumber = item.item_number || item.code || `${catCode}${rowIndex + 1}`;
           
+          const itemOriginal = Number(item.original_budget ?? item.contract_sum ?? 0);
+          const itemPrevious = Number(item.previous_report ?? item.contract_sum ?? 0);
+          const itemAnticipated = Number(item.anticipated_final ?? item.contract_sum ?? 0);
+          const itemOriginalVar = itemOriginal - itemAnticipated;
+          const itemCurrentVar = itemPrevious - itemAnticipated;
+          
           itemTableBody.push([
-            { text: itemNumber, fontSize: 9, bold: true, alignment: 'center', fillColor: rowBg },
-            { text: item.description || '-', fontSize: 9, fillColor: rowBg },
-            { text: formatCurrency(item.original_budget ?? item.contract_sum ?? 0), fontSize: 9, alignment: 'right', fillColor: rowBg },
-            { text: formatCurrency(item.previous_report ?? item.contract_sum ?? 0), fontSize: 9, alignment: 'right', fillColor: rowBg },
-            { text: formatCurrency(item.anticipated_final ?? item.contract_sum ?? 0), fontSize: 9, alignment: 'right', bold: true, fillColor: rowBg },
+            { text: itemNumber, fontSize: 8, bold: true, alignment: 'center', fillColor: rowBg },
+            { text: item.description || '-', fontSize: 8, fillColor: rowBg },
+            { text: formatCurrency(itemOriginal), fontSize: 8, alignment: 'right', fillColor: rowBg },
+            { text: formatCurrency(itemPrevious), fontSize: 8, alignment: 'right', fillColor: rowBg },
+            { text: formatCurrency(itemAnticipated), fontSize: 8, alignment: 'right', fillColor: rowBg },
+            { text: formatVariance(itemOriginalVar), fontSize: 8, alignment: 'right', fillColor: rowBg, color: itemOriginalVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+            { text: formatVariance(itemCurrentVar), fontSize: 8, alignment: 'right', fillColor: rowBg, color: itemCurrentVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
           ]);
         });
-        
-        // Category total row - spans across Item No. column
-        itemTableBody.push([
-          { text: '', fontSize: 9, fillColor: '#e5e7eb' },
-          { text: `${catCode} Total`, bold: true, fontSize: 9, fillColor: '#e5e7eb' },
-          { text: formatCurrency(originalTotal), bold: true, fontSize: 9, alignment: 'right', fillColor: '#e5e7eb' },
-          { text: formatCurrency(previousTotal), bold: true, fontSize: 9, alignment: 'right', fillColor: '#e5e7eb' },
-          { text: formatCurrency(anticipatedTotal), bold: true, fontSize: 9, alignment: 'right', fillColor: '#e5e7eb' },
-        ]);
         
         content.push({
           table: {
             headerRows: 1,
-            widths: [45, '*', 80, 80, 90],
+            widths: [30, '*', 62, 62, 68, 55, 55],
             body: itemTableBody,
           },
           layout: {
@@ -672,10 +690,10 @@ serve(async (req) => {
             vLineWidth: () => 0.5,
             hLineColor: () => '#dcdcdc',
             vLineColor: () => '#dcdcdc',
-            paddingLeft: () => 6,
-            paddingRight: () => 6,
-            paddingTop: () => 5,
-            paddingBottom: () => 5,
+            paddingLeft: () => 4,
+            paddingRight: () => 4,
+            paddingTop: () => 4,
+            paddingBottom: () => 4,
           },
         });
         
