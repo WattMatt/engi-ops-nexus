@@ -529,9 +529,12 @@ serve(async (req) => {
     }
 
     const requestBody: RequestBody & { filename?: string; storageBucket?: string } = await req.json();
+    console.log('[BulkServicesPDF] Request body keys:', Object.keys(requestBody));
+    
     const { document, sections, projectName, revision, companyDetails, filename, storageBucket } = requestBody;
 
     if (!document || !document.id) {
+      console.error('[BulkServicesPDF] Missing document data. Document:', document ? 'exists' : 'null', 'ID:', document?.id);
       return new Response(
         JSON.stringify({ error: 'Missing document data' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
