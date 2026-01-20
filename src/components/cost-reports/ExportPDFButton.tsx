@@ -414,12 +414,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         });
         onReportGenerated?.();
         
-        // Reset after short delay
+        // Reset all states after short delay to show completion
         setTimeout(() => {
           setLoading(false);
           setIsGenerating(false);
+          setGenerationStep("");
+          setGenerationPercentage(0);
           resetProgress();
-        }, 1000);
+        }, 1500);
         return;
       }
 
