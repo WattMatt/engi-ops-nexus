@@ -1,16 +1,17 @@
 /**
  * Expandable phase card for the workflow checklist dashboard
+ * Each task includes a navigation button to the relevant tab/section
  */
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, CheckCircle2, Circle, AlertTriangle, Clock, Zap } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle2, Circle, AlertTriangle, Clock, Zap, ArrowRight, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import { getPhaseStatusColor, getPriorityColor } from './workflowTemplate';
+import { getPhaseStatusColor, getPriorityColor, NavigationTarget } from './workflowTemplate';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -23,6 +24,7 @@ interface WorkflowTask {
   priority: string;
   linked_data: Record<string, any> | null | unknown;
   display_order: number;
+  navigation?: NavigationTarget;
 }
 
 interface WorkflowPhase {
@@ -39,9 +41,10 @@ interface WorkflowPhaseCardProps {
   tasks: WorkflowTask[];
   onTaskToggle: (taskId: string, completed: boolean) => void;
   onPhaseStatusChange: (phaseId: string, status: string) => void;
+  onNavigate?: (target: NavigationTarget) => void;
 }
 
-export function WorkflowPhaseCard({ phase, tasks, onTaskToggle, onPhaseStatusChange }: WorkflowPhaseCardProps) {
+export function WorkflowPhaseCard({ phase, tasks, onTaskToggle, onPhaseStatusChange, onNavigate }: WorkflowPhaseCardProps) {
   const [isOpen, setIsOpen] = useState(phase.status === 'in_progress');
   
   const completedTasks = tasks.filter(t => t.is_completed).length;
@@ -90,6 +93,14 @@ export function WorkflowPhaseCard({ phase, tasks, onTaskToggle, onPhaseStatusCha
     } catch (error) {
       console.error('Error updating task:', error);
       toast.error('Failed to update task');
+    }
+  };
+
+  const handleNavigation = (target: NavigationTarget) => {
+    if (target.type === 'external') {
+      window.open(target.url, '_blank');
+    } else if (onNavigate) {
+      onNavigate(target);
     }
   };
 
@@ -184,7 +195,7 @@ export function WorkflowPhaseCard({ phase, tasks, onTaskToggle, onPhaseStatusCha
                     />
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className={cn(
                           "font-medium",
                           task.is_completed && "line-through text-muted-foreground"
@@ -213,9 +224,9 @@ export function WorkflowPhaseCard({ phase, tasks, onTaskToggle, onPhaseStatusCha
                         </p>
                       )}
                       
-                      {task.linked_data && Object.keys(task.linked_data).length > 0 && (
+                      {task.linked_data && typeof task.linked_data === 'object' && Object.keys(task.linked_data as Record<string, any>).length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {Object.entries(task.linked_data).map(([key, value]) => (
+                          {Object.entries(task.linked_data as Record<string, any>).map(([key, value]) => (
                             <Badge 
                               key={key} 
                               variant="secondary" 
@@ -227,6 +238,34 @@ export function WorkflowPhaseCard({ phase, tasks, onTaskToggle, onPhaseStatusCha
                         </div>
                       )}
                     </div>
+                    
+                    {/* Navigation Button */}
+                    {task.navigation && !task.is_completed && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 gap-1.5 text-xs h-8 px-3 hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNavigation(task.navigation!);
+                        }}
+                      >
+                        {task.navigation.label}
+                        {task.navigation.type === 'external' ? (
+                          <ExternalLink className="h-3 w-3" />
+                        ) : (
+                          <ArrowRight className="h-3 w-3" />
+                        )}
+                      </Button>
+                    )}
+                    
+                    {/* Completed indicator instead of navigation */}
+                    {task.is_completed && (
+                      <div className="shrink-0 flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Done
+                      </div>
+                    )}
                   </div>
                 ))}
             </div>

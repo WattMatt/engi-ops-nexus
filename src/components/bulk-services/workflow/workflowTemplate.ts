@@ -5,12 +5,17 @@
  * Based on South African electrical industry best practices
  */
 
+export type NavigationTarget = 
+  | { type: 'tab'; tabId: string; label: string }
+  | { type: 'external'; url: string; label: string };
+
 export interface WorkflowTask {
   title: string;
   description?: string;
   isCritical: boolean;
   priority: 'low' | 'medium' | 'high' | 'critical';
   linkedDataKey?: string; // Key to auto-populate from document
+  navigation?: NavigationTarget; // Where to go to complete this task
 }
 
 export interface WorkflowPhase {
@@ -31,34 +36,39 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         description: "Document all lighting, HVAC, machinery, IT equipment, and motors",
         isCritical: true,
         priority: "critical",
-        linkedDataKey: "total_connected_load"
+        linkedDataKey: "total_connected_load",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Calculate peak demand",
         description: "Estimate maximum simultaneous usage (kVA or MW)",
         isCritical: true,
         priority: "critical",
-        linkedDataKey: "maximum_demand"
+        linkedDataKey: "maximum_demand",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Apply diversity factor",
         description: "Apply diversity to avoid oversizing (not all loads run at once)",
         isCritical: true,
         priority: "high",
-        linkedDataKey: "diversity_factor"
+        linkedDataKey: "diversity_factor",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Plan for future growth",
         description: "Include expansion plans (typically 10-20 years horizon)",
         isCritical: false,
         priority: "medium",
-        linkedDataKey: "future_expansion_factor"
+        linkedDataKey: "future_expansion_factor",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Develop load profile",
         description: "Document daily/seasonal variations to understand demand curve",
         isCritical: false,
-        priority: "medium"
+        priority: "medium",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       }
     ]
   },
@@ -72,38 +82,44 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         description: "LV for small commercial/residential, MV (11-33kV) for larger facilities, HV for industrial/municipal",
         isCritical: true,
         priority: "critical",
-        linkedDataKey: "primary_voltage"
+        linkedDataKey: "primary_voltage",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Assess substation requirements",
         description: "Distribution or dedicated customer substation sized to peak demand + redundancy",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Add to Sections' }
       },
       {
         title: "Specify transformer sizing",
         description: "Size transformers based on calculated demand with appropriate margin",
         isCritical: true,
         priority: "high",
-        linkedDataKey: "connection_size"
+        linkedDataKey: "connection_size",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Define protection & metering requirements",
         description: "Circuit breakers, relays, and utility-approved metering equipment",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Add to Sections' }
       },
       {
         title: "Plan cable infrastructure",
         description: "Underground cables or overhead lines routing and specifications",
         isCritical: false,
-        priority: "medium"
+        priority: "medium",
+        navigation: { type: 'tab', tabId: 'markup', label: 'Go to Drawing Markup' }
       },
       {
         title: "Specify switchgear and panels",
         description: "Distribution equipment for premises internal distribution",
         isCritical: false,
-        priority: "medium"
+        priority: "medium",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Add to Sections' }
       }
     ]
   },
@@ -117,57 +133,66 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         description: "Complete utility application forms with load estimates and site plans",
         isCritical: true,
         priority: "critical",
-        linkedDataKey: "supply_authority"
+        linkedDataKey: "supply_authority",
+        navigation: { type: 'tab', tabId: 'details', label: 'Go to Details' }
       },
       {
         title: "Document maximum demand (kVA/MW)",
         description: "Provide detailed calculations and assumptions",
         isCritical: true,
         priority: "high",
-        linkedDataKey: "maximum_demand"
+        linkedDataKey: "maximum_demand",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Prepare load profile documentation",
         description: "Daily/seasonal load curves and usage patterns",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Add to Sections' }
       },
       {
         title: "Specify requested voltage level",
         description: "Document voltage requirements and justification",
         isCritical: true,
         priority: "high",
-        linkedDataKey: "primary_voltage"
+        linkedDataKey: "primary_voltage",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Document short-circuit rating",
         description: "Equipment short-circuit rating specifications",
         isCritical: false,
-        priority: "medium"
+        priority: "medium",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Add to Sections' }
       },
       {
         title: "Power factor correction plans",
         description: "Document PFC equipment and target power factor",
         isCritical: false,
-        priority: "medium"
+        priority: "medium",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Add to Sections' }
       },
       {
         title: "Prepare site layout drawings",
         description: "Show substation location, cable routes, and equipment positions",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'markup', label: 'Go to Drawing Markup' }
       },
       {
         title: "Obtain environmental approvals",
         description: "Environmental impact assessment if required",
         isCritical: false,
-        priority: "medium"
+        priority: "medium",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Add to Sections' }
       },
       {
         title: "Review connection fees and tariffs",
         description: "Understand bulk supply tariffs and service agreements",
         isCritical: false,
-        priority: "low"
+        priority: "low",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       }
     ]
   },
@@ -180,31 +205,36 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         title: "Utility technical review",
         description: "Utility engineers assess feasibility and grid impact",
         isCritical: true,
-        priority: "critical"
+        priority: "critical",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Network reinforcement assessment",
         description: "Utility evaluates if feeder or substation upgrades are needed",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Submit technical drawings",
         description: "Detailed drawings and protection schemes for utility approval",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'markup', label: 'Go to Drawing Markup' }
       },
       {
         title: "Protection scheme approval",
         description: "Coordination studies and relay settings approval",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Sign connection agreement",
         description: "Contract with terms of supply, tariffs, and responsibilities",
         isCritical: true,
-        priority: "critical"
+        priority: "critical",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       }
     ]
   },
@@ -217,44 +247,51 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         title: "Build internal electrical infrastructure",
         description: "Customer-owned switchgear, cabling, and transformers",
         isCritical: true,
-        priority: "critical"
+        priority: "critical",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Ensure utility specification compliance",
         description: "Verify all equipment meets utility technical specifications",
         isCritical: true,
         priority: "high",
-        linkedDataKey: "electrical_standard"
+        linkedDataKey: "electrical_standard",
+        navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {
         title: "Coordinate grid extension",
         description: "Utility extends grid to customer point of supply",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Install metering equipment",
         description: "Utility-approved metering and protection installation",
         isCritical: true,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Conduct joint inspection",
         description: "Utility and customer joint inspection before energization",
         isCritical: true,
-        priority: "critical"
+        priority: "critical",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Complete testing & commissioning",
         description: "Verify safety, protection, and metering accuracy",
         isCritical: true,
-        priority: "critical"
+        priority: "critical",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Initial energization",
         description: "First power-on with utility supervision",
         isCritical: true,
-        priority: "critical"
+        priority: "critical",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       }
     ]
   },
@@ -267,31 +304,36 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         title: "Maintain power factor",
         description: "Keep power factor above 0.95 to avoid penalties",
         isCritical: false,
-        priority: "high"
+        priority: "high",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Implement demand-side management",
         description: "Load management strategies to optimize consumption",
         isCritical: false,
-        priority: "medium"
+        priority: "medium",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Routine equipment maintenance",
         description: "Schedule maintenance for customer-owned equipment",
         isCritical: false,
-        priority: "medium"
+        priority: "medium",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Set up smart metering integration",
         description: "SCADA and monitoring system integration with utility",
         isCritical: false,
-        priority: "low"
+        priority: "low",
+        navigation: { type: 'tab', tabId: 'sections', label: 'Track in Sections' }
       },
       {
         title: "Establish reporting procedures",
         description: "Regular reporting and communication with utility",
         isCritical: false,
-        priority: "low"
+        priority: "low",
+        navigation: { type: 'tab', tabId: 'saved-reports', label: 'View Reports' }
       }
     ]
   }

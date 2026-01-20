@@ -12,5 +12,6 @@ export {
   getPhaseStatusColor,
   getPriorityColor,
   type WorkflowPhase,
-  type WorkflowTask
+  type WorkflowTask,
+  type NavigationTarget
 } from './workflowTemplate';
