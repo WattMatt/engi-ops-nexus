@@ -5,175 +5,188 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface PDFIssueData {
-  consoleLogs: string[];
-  documentStats: {
-    contentItems: number;
-    imageCount: number;
-    categoriesCount: number;
-    variationsCount: number;
+interface FlexibleIssueData {
+  issueDescription?: string;
+  logs?: string;
+  documentStructure?: Record<string, unknown>;
+  errorDetails?: string;
+  consoleLogs?: string[];
+  documentStats?: {
+    contentItems?: number;
+    imageCount?: number;
+    categoriesCount?: number;
+    variationsCount?: number;
   };
-  strategies: {
-    getBlob: { attempted: boolean; result: string; timeout: number };
-    getBuffer: { attempted: boolean; result: string; timeout: number };
-    getBase64: { attempted: boolean; result: string; timeout: number };
-  };
-  totalTimeMs: number;
-  errorMessage: string;
+  strategies?: Record<string, unknown>;
+  totalTimeMs?: number;
+  errorMessage?: string;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const ABACUS_API_KEY = Deno.env.get("ABACUS_AI_API_KEY");
+    const DEPLOYMENT_TOKEN = Deno.env.get("ABACUS_AI_DEPLOYMENT_ID"); // This is actually the deployment token
+    
     if (!ABACUS_API_KEY) {
       throw new Error("ABACUS_AI_API_KEY is not configured");
     }
-
-    const issueData: PDFIssueData = await req.json();
-    console.log("[Abacus AI] Analyzing PDF generation issue:", JSON.stringify(issueData, null, 2));
-
-    // Construct the prompt for analysis
-    const analysisPrompt = `You are a JavaScript/TypeScript debugging expert specializing in PDF generation libraries.
-
-## Problem Description
-A web application using pdfmake library is experiencing PDF generation hangs. All callback-based methods (getBlob, getBuffer, getBase64) fail to fire their callbacks.
-
-## Technical Details
-- **Library**: pdfmake (browser-based PDF generation)
-- **Document Stats**: ${issueData.documentStats.contentItems} content items, ${issueData.documentStats.imageCount} images
-- **Data**: ${issueData.documentStats.categoriesCount} categories, ${issueData.documentStats.variationsCount} variations
-- **Total Time Before Timeout**: ${issueData.totalTimeMs}ms
-- **Final Error**: ${issueData.errorMessage}
-
-## Strategy Results
-1. **getBlob (15s timeout)**: ${issueData.strategies.getBlob.result}
-2. **getBuffer (30s timeout)**: ${issueData.strategies.getBuffer.result}  
-3. **getBase64 (remaining timeout)**: ${issueData.strategies.getBase64.result}
-
-## Console Logs
-\`\`\`
-${issueData.consoleLogs.join('\n')}
-\`\`\`
-
-## Questions
-1. What is the root cause of pdfmake callbacks not firing?
-2. Are there known pdfmake issues with complex documents that cause this?
-3. What is the recommended solution that will work reliably?
-4. Should we use pdfmake's download() method instead of blob-based methods?
-5. Are there alternative approaches (Web Workers, chunking, simplifying content)?
-
-Please provide a detailed technical analysis and recommended solution.`;
-
-    // Try Abacus AI Chat LLM endpoint with proper format
-    console.log("[Abacus AI] Calling getChatResponse endpoint...");
     
-    const response = await fetch("https://api.abacus.ai/api/v0/getChatResponse", {
+    if (!DEPLOYMENT_TOKEN) {
+      throw new Error("ABACUS_AI_DEPLOYMENT_ID (deployment token) is not configured");
+    }
+
+    const issueData: FlexibleIssueData = await req.json();
+    console.log("[Abacus AI] Received issue data");
+    console.log("[Abacus AI] Using deployment token:", DEPLOYMENT_TOKEN.substring(0, 10) + "...");
+
+    const analysisPrompt = buildAnalysisPrompt(issueData);
+    console.log("[Abacus AI] Prompt length:", analysisPrompt.length);
+
+    // Method 1: Try getChatResponse with deploymentToken only (no deploymentId param)
+    console.log("[Abacus AI] Trying getChatResponse with deploymentToken...");
+    
+    const response1 = await fetch("https://api.abacus.ai/api/v0/getChatResponse", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${ABACUS_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        deploymentToken: ABACUS_API_KEY,
+        deploymentToken: DEPLOYMENT_TOKEN,
         messages: [
-          { 
-            role: "user", 
-            content: analysisPrompt 
-          }
+          { is_user: true, text: analysisPrompt }
         ],
-        llmName: "CLAUDE_V3_5_SONNET", // Use Claude for technical analysis
       }),
     });
 
-    console.log("[Abacus AI] Response status:", response.status);
+    console.log("[Abacus AI] Method 1 status:", response1.status);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[Abacus AI] getChatResponse error:", response.status, errorText);
-      
-      // Try alternative: getCompletion endpoint
-      console.log("[Abacus AI] Trying getCompletion endpoint...");
-      const completionResponse = await fetch("https://api.abacus.ai/api/v0/getCompletion", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${ABACUS_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          deploymentToken: ABACUS_API_KEY,
-          prompt: analysisPrompt,
-          llmName: "CLAUDE_V3_5_SONNET",
-          maxTokens: 4000,
-        }),
-      });
-
-      if (!completionResponse.ok) {
-        const completionError = await completionResponse.text();
-        console.error("[Abacus AI] getCompletion error:", completionResponse.status, completionError);
-        
-        // Try predict endpoint with queryData format
-        console.log("[Abacus AI] Trying predict endpoint with queryData...");
-        const predictResponse = await fetch("https://api.abacus.ai/api/v0/predict", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${ABACUS_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            deploymentToken: ABACUS_API_KEY,
-            queryData: {
-              prompt: analysisPrompt,
-            },
-          }),
-        });
-
-        if (!predictResponse.ok) {
-          const predictError = await predictResponse.text();
-          console.error("[Abacus AI] predict error:", predictResponse.status, predictError);
-          
-          return new Response(JSON.stringify({
-            success: false,
-            error: `All Abacus AI endpoints failed. Last error: ${predictError}`,
-            attemptedEndpoints: ["getChatResponse", "getCompletion", "predict"],
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        const predictData = await predictResponse.json();
-        return new Response(JSON.stringify({
-          success: true,
-          analysis: predictData.result || predictData,
-          source: "abacus-ai-predict",
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const completionData = await completionResponse.json();
+    if (response1.ok) {
+      const data = await response1.json();
       return new Response(JSON.stringify({
         success: true,
-        analysis: completionData.completion || completionData.result || completionData,
-        source: "abacus-ai-getCompletion",
+        analysis: data.response || data.message || data.content || data,
+        source: "getChatResponse",
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await response.json();
-    console.log("[Abacus AI] Analysis received successfully");
+    const error1 = await response1.text();
+    console.log("[Abacus AI] Method 1 error:", error1);
 
+    // Method 2: Try predict with deploymentToken
+    console.log("[Abacus AI] Trying predict endpoint...");
+    
+    const response2 = await fetch("https://api.abacus.ai/api/v0/predict", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        deploymentToken: DEPLOYMENT_TOKEN,
+        queryData: {
+          query: analysisPrompt,
+        },
+      }),
+    });
+
+    console.log("[Abacus AI] Method 2 status:", response2.status);
+
+    if (response2.ok) {
+      const data = await response2.json();
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: data.result || data,
+        source: "predict",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const error2 = await response2.text();
+    console.log("[Abacus AI] Method 2 error:", error2);
+
+    // Method 3: Try with API key as Bearer token + deployment token
+    console.log("[Abacus AI] Trying with Bearer auth...");
+    
+    const response3 = await fetch("https://api.abacus.ai/api/v0/getChatResponse", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${ABACUS_API_KEY}`,
+      },
+      body: JSON.stringify({
+        deploymentToken: DEPLOYMENT_TOKEN,
+        messages: [
+          { is_user: true, text: analysisPrompt }
+        ],
+      }),
+    });
+
+    console.log("[Abacus AI] Method 3 status:", response3.status);
+
+    if (response3.ok) {
+      const data = await response3.json();
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: data.response || data.message || data.content || data,
+        source: "getChatResponse-bearer",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const error3 = await response3.text();
+    console.log("[Abacus AI] Method 3 error:", error3);
+
+    // Method 4: Try getCompletion
+    console.log("[Abacus AI] Trying getCompletion...");
+    
+    const response4 = await fetch("https://api.abacus.ai/api/v0/getCompletion", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${ABACUS_API_KEY}`,
+      },
+      body: JSON.stringify({
+        deploymentToken: DEPLOYMENT_TOKEN,
+        prompt: analysisPrompt,
+      }),
+    });
+
+    console.log("[Abacus AI] Method 4 status:", response4.status);
+
+    if (response4.ok) {
+      const data = await response4.json();
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: data.completion || data.result || data,
+        source: "getCompletion",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const error4 = await response4.text();
+    console.log("[Abacus AI] Method 4 error:", error4);
+
+    // All methods failed
     return new Response(JSON.stringify({
-      success: true,
-      analysis: data.response || data.message || data.content || data,
-      source: "abacus-ai-getChatResponse",
+      success: false,
+      error: "All Abacus AI endpoints failed",
+      attempts: [
+        { method: "getChatResponse", status: response1.status, error: error1.substring(0, 200) },
+        { method: "predict", status: response2.status, error: error2.substring(0, 200) },
+        { method: "getChatResponse-bearer", status: response3.status, error: error3.substring(0, 200) },
+        { method: "getCompletion", status: response4.status, error: error4.substring(0, 200) },
+      ],
+      recommendation: "Please verify your Abacus AI deployment token is valid and the deployment is active.",
     }), {
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
@@ -188,3 +201,36 @@ Please provide a detailed technical analysis and recommended solution.`;
     });
   }
 });
+
+function buildAnalysisPrompt(data: FlexibleIssueData): string {
+  const parts: string[] = [
+    "You are a JavaScript/TypeScript debugging expert specializing in PDF generation libraries.",
+    "",
+    "## Problem Description",
+    data.issueDescription || "PDF generation using pdfmake library is experiencing issues.",
+  ];
+
+  if (data.documentStructure) {
+    parts.push("", "## Document Structure", JSON.stringify(data.documentStructure, null, 2));
+  }
+
+  if (data.logs) {
+    parts.push("", "## Logs", data.logs);
+  }
+
+  if (data.errorDetails || data.errorMessage) {
+    parts.push("", "## Error Details", data.errorDetails || data.errorMessage || "");
+  }
+
+  parts.push(
+    "",
+    "## Required Analysis",
+    "1. What is the root cause of this issue?",
+    "2. What is the recommended solution with code examples?",
+    "3. Are there alternative approaches?",
+    "",
+    "Provide a detailed technical analysis with implementable solutions."
+  );
+
+  return parts.join("\n");
+}
