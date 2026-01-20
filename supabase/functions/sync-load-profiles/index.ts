@@ -228,7 +228,28 @@ serve(async (req) => {
         0.9, 0.85, 0.7, 0.55, 0.45, 0.35  // 18:00-23:00
       ];
       
-      const totalMaxDemand = Array.from(categoryMap.values()).reduce((sum, c) => sum + c.maxDemand, 0);
+      // Sum of individual category max demands
+      const sumCategoryMaxDemand = Array.from(categoryMap.values()).reduce((sum, c) => sum + c.maxDemand, 0);
+      const tenantCount = tenantData.filter(t => !t.exclude_from_totals).length;
+      
+      // Apply aggregate diversity factor based on number of tenants
+      // SANS 10142-1 / NRS 034-1 guidelines for commercial buildings:
+      // - 1-5 tenants: 0.9
+      // - 6-20 tenants: 0.7
+      // - 21-50 tenants: 0.55
+      // - 50+ tenants: 0.45-0.5
+      let aggregateDiversityFactor = 0.9;
+      if (tenantCount > 50) {
+        aggregateDiversityFactor = 0.45;
+      } else if (tenantCount > 20) {
+        aggregateDiversityFactor = 0.55;
+      } else if (tenantCount > 5) {
+        aggregateDiversityFactor = 0.7;
+      }
+      
+      // After Diversity Maximum Demand (ADMD)
+      const buildingMaxDemand = sumCategoryMaxDemand * aggregateDiversityFactor;
+      console.log(`Tenant count: ${tenantCount}, Aggregate DF: ${aggregateDiversityFactor}, Building Max Demand: ${buildingMaxDemand.toFixed(2)} kVA`);
       
       for (let hour = 0; hour < 24; hour++) {
         readings.push({
@@ -236,10 +257,10 @@ serve(async (req) => {
           linkage_id: null,
           reading_date: today,
           reading_hour: hour,
-          demand_kva: Math.round(totalMaxDemand * HOURLY_PROFILE[hour] * 100) / 100,
+          demand_kva: Math.round(buildingMaxDemand * HOURLY_PROFILE[hour] * 100) / 100,
           power_factor: 0.9,
-          energy_kwh: Math.round(totalMaxDemand * HOURLY_PROFILE[hour] * 0.9 * 100) / 100,
-          peak_demand_kva: hour >= 9 && hour <= 11 ? totalMaxDemand : null,
+          energy_kwh: Math.round(buildingMaxDemand * HOURLY_PROFILE[hour] * 0.9 * 100) / 100,
+          peak_demand_kva: hour >= 9 && hour <= 11 ? buildingMaxDemand : null,
           reading_source: 'calculated',
         });
       }
