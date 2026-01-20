@@ -104,15 +104,28 @@ serve(async (req) => {
       return `R${formatted.replace(/,/g, ' ')}`;
     };
     
-    // Variance format: positive savings show WITHOUT + sign, negatives (extras) show WITH + sign
+    // Variance format: matches UI exactly
+    // Positive variance = under budget = SAVING (green, show with - prefix)
+    // Negative variance = over budget = EXTRA (red, show with + prefix)
     const formatVariance = (value: number | null | undefined): string => {
       if (value == null || isNaN(value)) return 'R0,00';
       const absFormatted = Math.abs(value).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/,/g, ' ');
-      // Positive = savings (no sign), Negative = extra (show + sign because it's added cost)
-      if (value < 0) {
+      if (value > 0) {
+        // Positive = under budget = savings = show with + sign (UI shows +R for savings)
         return `+R${absFormatted}`;
+      } else if (value < 0) {
+        // Negative = over budget = extra = show with - sign (UI shows -R for extras)
+        return `-R${absFormatted}`;
       }
-      return `R${absFormatted}`;
+      return `R0,00`;
+    };
+    
+    // Helper to get variance color - matches UI exactly
+    const getVarianceColor = (value: number | null | undefined): string => {
+      if (value == null || isNaN(value) || value === 0) return ACTIVE_COLORS.secondary;
+      // Positive variance = under budget = green (savings)
+      // Negative variance = over budget = red (extras)
+      return value > 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger;
     };
     
     const formatDate = (dateStr: string | null) => {
@@ -145,6 +158,18 @@ serve(async (req) => {
       
       const logoPromises: Promise<void>[] = [];
       
+      // Helper to convert ArrayBuffer to base64 without stack overflow
+      const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        const chunkSize = 8192; // Process in chunks to avoid stack overflow
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+          binary += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        return btoa(binary);
+      };
+      
       // Company logo
       if (companyDetails?.company_logo_url) {
         logoPromises.push(
@@ -154,14 +179,14 @@ serve(async (req) => {
               const logoResponse = await fetch(companyDetails.company_logo_url);
               if (logoResponse.ok) {
                 const logoBuffer = await logoResponse.arrayBuffer();
-                const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoBuffer)));
+                const logoBase64 = arrayBufferToBase64(logoBuffer);
                 const contentType = logoResponse.headers.get('content-type') || 'image/png';
                 companyLogoContent = {
                   image: `data:${contentType};base64,${logoBase64}`,
                   width: 120,
                   alignment: 'center',
                 };
-                console.log('[CostReportPDF] Company logo loaded');
+                console.log('[CostReportPDF] Company logo loaded successfully');
               }
             } catch (logoError) {
               console.warn('[CostReportPDF] Could not load company logo:', logoError);
@@ -179,14 +204,14 @@ serve(async (req) => {
               const logoResponse = await fetch(companyDetails.client_logo_url);
               if (logoResponse.ok) {
                 const logoBuffer = await logoResponse.arrayBuffer();
-                const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoBuffer)));
+                const logoBase64 = arrayBufferToBase64(logoBuffer);
                 const contentType = logoResponse.headers.get('content-type') || 'image/png';
                 clientLogoContent = {
                   image: `data:${contentType};base64,${logoBase64}`,
                   width: 120,
                   alignment: 'center',
                 };
-                console.log('[CostReportPDF] Client logo loaded');
+                console.log('[CostReportPDF] Client logo loaded successfully');
               }
             } catch (logoError) {
               console.warn('[CostReportPDF] Could not load client logo:', logoError);
@@ -673,8 +698,8 @@ serve(async (req) => {
             { text: formatCurrency(originalTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
             { text: formatCurrency(previousTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
             { text: formatCurrency(anticipatedTotal), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff' },
-            { text: formatVariance(catOriginalVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: catOriginalVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
-            { text: formatVariance(catCurrentVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: catCurrentVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+            { text: formatVariance(catOriginalVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: getVarianceColor(catOriginalVar) },
+            { text: formatVariance(catCurrentVar), fontSize: 9, bold: true, alignment: 'right', fillColor: '#f0f9ff', color: getVarianceColor(catCurrentVar) },
           ],
         ];
         
@@ -696,8 +721,8 @@ serve(async (req) => {
             { text: formatCurrency(itemOriginal), fontSize: 8, alignment: 'right', fillColor: rowBg },
             { text: formatCurrency(itemPrevious), fontSize: 8, alignment: 'right', fillColor: rowBg },
             { text: formatCurrency(itemAnticipated), fontSize: 8, alignment: 'right', fillColor: rowBg },
-            { text: formatVariance(itemOriginalVar), fontSize: 8, alignment: 'right', fillColor: rowBg, color: itemOriginalVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
-            { text: formatVariance(itemCurrentVar), fontSize: 8, alignment: 'right', fillColor: rowBg, color: itemCurrentVar >= 0 ? ACTIVE_COLORS.success : ACTIVE_COLORS.danger },
+            { text: formatVariance(itemOriginalVar), fontSize: 8, alignment: 'right', fillColor: rowBg, color: getVarianceColor(itemOriginalVar) },
+            { text: formatVariance(itemCurrentVar), fontSize: 8, alignment: 'right', fillColor: rowBg, color: getVarianceColor(itemCurrentVar) },
           ]);
         });
         
