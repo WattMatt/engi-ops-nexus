@@ -2,14 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Download, Loader2, Settings, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { PDFExportSettings, DEFAULT_MARGINS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
 import { STANDARD_MARGINS } from "@/utils/pdfExportBase";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
-import { captureCostReportCharts, waitForChartsToRender } from "./pdf-export";
-import { generateCostReportPdfmake } from "@/utils/pdfmake/costReport";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import { Progress } from "@/components/ui/progress";
 
@@ -151,34 +148,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       if (signal.aborted) throw new Error("Export cancelled");
       
-      // ========================================
-      // STEP 2: Capture charts if enabled (40-50%)
-      // ========================================
-      let chartImages: string[] = [];
-      if (sections.visualSummary) {
-        setExportStep("Capturing charts...");
-        setExportProgress(40);
-        
-        try {
-          await waitForChartsToRender();
-          const capturedCharts = await captureCostReportCharts();
-          chartImages = capturedCharts
-            .filter(chart => chart.canvas)
-            .map(chart => chart.canvas.toDataURL('image/png'))
-            .filter(dataUrl => dataUrl && dataUrl.length > 100 && dataUrl !== 'data:,');
-          console.log('[CostReportPDF] Captured', chartImages.length, 'charts');
-        } catch (chartError) {
-          console.warn('[CostReportPDF] Chart capture failed, continuing without charts:', chartError);
-          chartImages = [];
-        }
-      }
-      
       if (signal.aborted) throw new Error("Export cancelled");
       
+      setExportProgress(45);
+      
       // ========================================
-      // STEP 3: Generate PDF (50-90%)
-      // PRIMARY: Use direct download (most reliable)
-      // SECONDARY: Try blob for storage
+      // STEP 3: Generate PDF via Edge Function (50-90%)
+      // Server-side generation is more reliable
       // ========================================
       setExportStep("Building PDF document...");
       setExportProgress(50);
@@ -191,36 +167,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         client_logo_url: company?.client_logo_url || null,
       };
       
-      const variationLineItemsMap = new Map<string, any[]>();
-      variationsData.forEach((variation: any) => {
-        variationLineItemsMap.set(variation.id, variation.variation_line_items || []);
-      });
-      
       const useMargins = { ...STANDARD_MARGINS, ...margins };
       
       const pdfData = {
         report,
         categoriesData,
         variationsData,
-        variationLineItemsMap,
         companyDetails,
         categoryTotals,
         grandTotals,
-        options: {
-          includeCoverPage: sections.coverPage,
-          includeTableOfContents: sections.tableOfContents,
-          includeExecutiveSummary: sections.executiveSummary,
-          includeCategoryDetails: sections.categoryDetails,
-          includeDetailedLineItems: sections.detailedLineItems,
-          includeVariations: sections.variations,
-          includeVisualSummary: sections.visualSummary && chartImages.length > 0,
-          chartImages,
-          margins: useMargins,
-          onProgress: (step: string, progress: number) => {
-            setExportStep(step);
-            setExportProgress(50 + Math.round(progress * 0.35));
-          },
-        },
       };
       
       const downloadFilename = generateStandardizedPDFFilename({
@@ -230,61 +185,59 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         reportNumber: report.report_number,
       });
       
-      // Generate blob and save to storage FIRST, then user downloads from preview
-      setExportStep("Generating PDF...");
-      setExportProgress(70);
+      const storageFileName = generateStorageFilename({
+        projectNumber: report.project_number || report.project_id?.slice(0, 8),
+        reportType: "CostReport",
+        revision: report.revision || "A",
+        reportNumber: report.report_number,
+      });
+      
+      setExportStep("Generating PDF on server...");
+      setExportProgress(60);
       
       try {
-        // Generate PDF blob (90s timeout)
-        console.log('[CostReportPDF] Generating PDF blob...');
-        const pdfBlob = await generateCostReportPdfmake(pdfData);
-        console.log(`[CostReportPDF] Blob generated: ${Math.round(pdfBlob.size / 1024)}KB`);
+        // Call edge function for reliable server-side PDF generation
+        console.log('[CostReportPDF] Calling edge function...');
+        
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cost-report-pdf`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              reportId: report.id,
+              pdfData,
+              filename: storageFileName,
+              options: {
+                includeCoverPage: sections.coverPage,
+                includeExecutiveSummary: sections.executiveSummary,
+                includeCategoryDetails: sections.categoryDetails,
+                includeDetailedLineItems: sections.detailedLineItems,
+                includeVariations: sections.variations,
+              },
+            }),
+            signal,
+          }
+        );
         
         if (signal.aborted) throw new Error("Export cancelled");
         
-        // Save to storage
-        setExportStep("Saving to storage...");
         setExportProgress(85);
         
-        const storageFileName = generateStorageFilename({
-          projectNumber: report.project_number || report.project_id?.slice(0, 8),
-          reportType: "CostReport",
-          revision: report.revision || "A",
-          reportNumber: report.report_number,
-        });
-        
-        const filePath = `cost-reports/${report.project_id}/${storageFileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from("cost-report-pdfs")
-          .upload(filePath, pdfBlob, { upsert: true });
-        
-        if (uploadError) {
-          console.error('[CostReportPDF] Upload failed:', uploadError);
-          throw new Error(`Failed to save PDF: ${uploadError.message}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Server error: ${response.status}`);
         }
         
-        // Save record to database
-        setExportStep("Saving record...");
-        setExportProgress(92);
-        
-        const { data: pdfRecord, error: recordError } = await supabase
-          .from("cost_report_pdfs")
-          .insert({
-            cost_report_id: report.id,
-            project_id: report.project_id,
-            file_path: filePath,
-            file_name: downloadFilename,
-            file_size: pdfBlob.size,
-            revision: `Report ${report.report_number}`,
-            generated_by: (await supabase.auth.getUser()).data.user?.id
-          })
-          .select()
-          .single();
-        
-        if (recordError) {
-          console.warn('[CostReportPDF] Record save failed:', recordError);
-        }
+        const result = await response.json();
+        console.log('[CostReportPDF] Edge function success:', result);
         
         if (signal.aborted) throw new Error("Export cancelled");
         
@@ -299,8 +252,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           description: "Report saved. Click to preview and download.",
         });
         
-        if (pdfRecord) {
-          setPreviewReport(pdfRecord);
+        if (result.record) {
+          setPreviewReport(result.record);
         }
         
         onReportGenerated?.();
