@@ -300,7 +300,27 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
    * Phase 1: Data Fetching (via useCostReportData hook)
    * Phase 2: PDF Generation (via pdfmake)
    */
+  /**
+   * Cleanup helper - always resets all progress states
+   */
+  const cleanupExportState = (immediate = false) => {
+    const doCleanup = () => {
+      setLoading(false);
+      setIsGenerating(false);
+      setGenerationStep("");
+      setGenerationPercentage(0);
+      resetProgress();
+    };
+    
+    if (immediate) {
+      doCleanup();
+    } else {
+      setTimeout(doCleanup, 1500);
+    }
+  };
+
   const exportPDF = async () => {
+    // Initialize states
     setLoading(true);
     setIsGenerating(false);
     setGenerationStep("");
@@ -321,7 +341,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           description: "Unable to load report data. Please try again.",
           variant: "destructive",
         });
-        setLoading(false);
+        cleanupExportState(true);
         return;
       }
 
@@ -384,37 +404,47 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         setGenerationStep("Generating PDF (direct download)...");
         setGenerationPercentage(60);
         
-        await downloadCostReportPdfmake({
-          report,
-          categoriesData,
-          variationsData,
-          variationLineItemsMap,
-          companyDetails,
-          categoryTotals,
-          grandTotals,
-          options: {
-            includeCoverPage: useSections.coverPage,
-            includeTableOfContents: useSections.tableOfContents,
-            includeExecutiveSummary: useSections.executiveSummary,
-            includeCategoryDetails: useSections.categoryDetails,
-            includeDetailedLineItems: useSections.detailedLineItems,
-            includeVariations: useSections.variations,
-            includeVisualSummary: useSections.visualSummary,
-            chartImages,
-            margins: useMargins,
-          },
-        }, downloadFilename);
+        try {
+          await downloadCostReportPdfmake({
+            report,
+            categoriesData,
+            variationsData,
+            variationLineItemsMap,
+            companyDetails,
+            categoryTotals,
+            grandTotals,
+            options: {
+              includeCoverPage: useSections.coverPage,
+              includeTableOfContents: useSections.tableOfContents,
+              includeExecutiveSummary: useSections.executiveSummary,
+              includeCategoryDetails: useSections.categoryDetails,
+              includeDetailedLineItems: useSections.detailedLineItems,
+              includeVariations: useSections.variations,
+              includeVisualSummary: useSections.visualSummary,
+              chartImages,
+              margins: useMargins,
+            },
+          }, downloadFilename);
+          
+          setGenerationPercentage(100);
+          setGenerationStep("Complete!");
+          
+          toast({
+            title: "PDF Downloaded",
+            description: "Cost report exported successfully",
+          });
+          onReportGenerated?.();
+        } catch (downloadError: any) {
+          console.error('[CostReportPDF] Quick export failed:', downloadError);
+          toast({
+            title: "Download Failed",
+            description: downloadError.message || "Failed to download PDF. Please try again.",
+            variant: "destructive",
+          });
+        }
         
-        setGenerationPercentage(100);
-        setGenerationStep("Complete!");
-        
-        toast({
-          title: "PDF Downloaded",
-          description: "Cost report exported successfully",
-        });
-        onReportGenerated?.();
-        
-        // Quick export path - reset handled by finally block
+        // Always cleanup after quick export (success or fail)
+        cleanupExportState();
         return;
       }
 
@@ -442,8 +472,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           includeVisualSummary: useSections.visualSummary,
           chartImages,
           margins: useMargins,
-          onProgress: (section: string) => {
-            setGenerationStep(section);
+          onProgress: (step, progress) => {
+            setGenerationStep(step);
+            setGenerationPercentage(60 + (progress * 0.2));
           },
         },
       });
@@ -457,9 +488,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         revision: report.revision || "A",
         reportNumber: report.report_number,
       });
-      const filePath = `${report.project_id}/${storageFileName}`;
+      
+      const filePath = `cost-reports/${report.project_id}/${storageFileName}`;
 
-      // Show preview or save directly
+      // If preview is enabled, show preview first
       if (useSections.previewBeforeExport) {
         setPreviewBlob(pdfBlob);
         setPreviewFileName(downloadFilename);
@@ -472,8 +504,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         setPreviewDialogOpen(true);
         setGenerationPercentage(100);
         setGenerationStep("Preview ready");
-        setLoading(false);
-        setIsGenerating(false);
+        cleanupExportState();
         return;
       }
 
@@ -484,6 +515,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       setGenerationPercentage(100);
       setGenerationStep("Complete!");
+      
+      // Success - delayed cleanup
+      cleanupExportState();
 
     } catch (error: any) {
       console.error('[CostReportPDF] Export error:', error);
@@ -492,23 +526,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         description: error.message || "Failed to generate PDF. Please try again.",
         variant: "destructive",
       });
-      // Immediately reset on error - don't leave progress stuck
-      setLoading(false);
-      setIsGenerating(false);
-      setGenerationStep("");
-      setGenerationPercentage(0);
-      resetProgress();
-      return; // Exit early on error
+      // Immediate cleanup on error
+      cleanupExportState(true);
     }
-    
-    // Success path - delayed cleanup to show completion state briefly
-    setTimeout(() => {
-      setLoading(false);
-      setIsGenerating(false);
-      setGenerationStep("");
-      setGenerationPercentage(0);
-      resetProgress();
-    }, 1500);
   };
   
   const handleValidationProceed = () => {
