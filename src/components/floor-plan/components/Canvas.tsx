@@ -577,29 +577,43 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
 
   useEffect(() => {
     const renderPdf = async () => {
-      if (!pdfDoc || !pdfCanvasRef.current || !containerRef.current) return;
-      const page = await pdfDoc.getPage(1);
-      const renderScale = 2.0;
-      const viewport: PageViewport = page.getViewport({ scale: renderScale });
-      const pdfCanvas = pdfCanvasRef.current;
-      const drawingCanvas = drawingCanvasRef.current;
-      pdfCanvas.width = viewport.width;
-      pdfCanvas.height = viewport.height;
-      if (drawingCanvas) {
-        drawingCanvas.width = viewport.width;
-        drawingCanvas.height = viewport.height;
+      console.log('[Canvas] renderPdf effect triggered, pdfDoc:', !!pdfDoc, 'pdfCanvas:', !!pdfCanvasRef.current, 'container:', !!containerRef.current);
+      if (!pdfDoc || !pdfCanvasRef.current || !containerRef.current) {
+        console.log('[Canvas] Missing required refs, skipping PDF render');
+        return;
       }
-      setCanvasSize({ width: viewport.width, height: viewport.height });
-      const context = pdfCanvas.getContext('2d');
-      if (!context) return;
-      // @ts-ignore - The pdfjs-dist types can be misaligned with the mjs build, causing a spurious error.
-      await page.render({ canvasContext: context, viewport: viewport }).promise;
-      const containerWidth = containerRef.current.clientWidth;
-      const containerHeight = containerRef.current.clientHeight;
-      const initialZoom = Math.min(containerWidth / viewport.width, containerHeight / viewport.height) * 0.95;
-      const initialOffsetX = (containerWidth - viewport.width * initialZoom) / 2;
-      const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
-      onInitialViewCalculated({ zoom: initialZoom, offset: { x: initialOffsetX, y: initialOffsetY } });
+      try {
+        console.log('[Canvas] Starting PDF render...');
+        const page = await pdfDoc.getPage(1);
+        const renderScale = 2.0;
+        const viewport: PageViewport = page.getViewport({ scale: renderScale });
+        const pdfCanvas = pdfCanvasRef.current;
+        const drawingCanvas = drawingCanvasRef.current;
+        pdfCanvas.width = viewport.width;
+        pdfCanvas.height = viewport.height;
+        if (drawingCanvas) {
+          drawingCanvas.width = viewport.width;
+          drawingCanvas.height = viewport.height;
+        }
+        setCanvasSize({ width: viewport.width, height: viewport.height });
+        const context = pdfCanvas.getContext('2d');
+        if (!context) {
+          console.error('[Canvas] Could not get 2D context');
+          return;
+        }
+        // @ts-ignore - The pdfjs-dist types can be misaligned with the mjs build, causing a spurious error.
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        console.log('[Canvas] PDF rendered successfully, dimensions:', viewport.width, 'x', viewport.height);
+        const containerWidth = containerRef.current.clientWidth;
+        const containerHeight = containerRef.current.clientHeight;
+        const initialZoom = Math.min(containerWidth / viewport.width, containerHeight / viewport.height) * 0.95;
+        const initialOffsetX = (containerWidth - viewport.width * initialZoom) / 2;
+        const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
+        console.log('[Canvas] Calculated initial view:', { initialZoom, initialOffsetX, initialOffsetY });
+        onInitialViewCalculated({ zoom: initialZoom, offset: { x: initialOffsetX, y: initialOffsetY } });
+      } catch (error) {
+        console.error('[Canvas] Error rendering PDF:', error);
+      }
     };
     renderPdf();
   }, [pdfDoc, onInitialViewCalculated]);
