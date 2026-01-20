@@ -221,21 +221,47 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         },
       };
       
-      // Generate PDF blob with timeout
-      let pdfBlob: Blob;
+      // Generate PDF blob with multi-strategy approach
+      let pdfBlob: Blob | null = null;
+      let usedFallback = false;
+      
+      // Strategy 1: Try blob generation (with 60s initial timeout, then fallback strategies inside)
       try {
+        setExportStep("Generating PDF (Strategy 1: blob)...");
         const pdfPromise = generateCostReportPdfmake(pdfData);
         pdfBlob = await Promise.race([
           pdfPromise,
           new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error("PDF generation timeout (120s)")), PDF_TIMEOUT_MS)
+            setTimeout(() => reject(new Error("PDF generation timeout")), 60000)
           )
         ]);
-      } catch (blobError: any) {
-        console.warn('[CostReportPDF] Blob generation failed, attempting direct download fallback:', blobError.message);
+        console.log('[CostReportPDF] Strategy 1 success:', Math.round(pdfBlob.size / 1024), 'KB');
+      } catch (strategy1Error: any) {
+        console.warn('[CostReportPDF] Strategy 1 failed:', strategy1Error.message);
         
-        // Fallback: Use direct download (bypasses storage but ensures user gets PDF)
-        setExportStep("Using direct download fallback...");
+        // Strategy 2: Try with longer timeout
+        try {
+          setExportStep("Generating PDF (Strategy 2: extended)...");
+          const pdfPromise = generateCostReportPdfmake(pdfData);
+          pdfBlob = await Promise.race([
+            pdfPromise,
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error("Extended timeout")), PDF_TIMEOUT_MS)
+            )
+          ]);
+          console.log('[CostReportPDF] Strategy 2 success:', Math.round(pdfBlob.size / 1024), 'KB');
+        } catch (strategy2Error: any) {
+          console.warn('[CostReportPDF] Strategy 2 failed:', strategy2Error.message);
+          pdfBlob = null;
+        }
+      }
+      
+      // If all blob strategies failed, use direct download fallback
+      if (!pdfBlob) {
+        console.warn('[CostReportPDF] All blob strategies failed, using direct download...');
+        setExportStep("Using direct download (fallback)...");
+        usedFallback = true;
+        
         const { downloadCostReportPdfmake } = await import("@/utils/pdfmake/costReport");
         const downloadFilename = generateStandardizedPDFFilename({
           projectNumber: report.project_number || report.project_id?.slice(0, 8),
@@ -244,25 +270,30 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           reportNumber: report.report_number,
         });
         
-        await downloadCostReportPdfmake(pdfData, downloadFilename);
-        
-        setExportStep("Complete!");
-        setExportProgress(100);
-        
-        toast({
-          title: "PDF Downloaded",
-          description: "Cost report exported directly. Note: Not saved to report history.",
-        });
-        
-        onReportGenerated?.();
-        
-        setTimeout(() => {
-          setIsExporting(false);
-          setExportStep("");
-          setExportProgress(0);
-        }, 1500);
-        
-        return; // Exit early - skip storage since we used fallback
+        try {
+          await downloadCostReportPdfmake(pdfData, downloadFilename);
+          
+          setExportStep("Complete!");
+          setExportProgress(100);
+          
+          toast({
+            title: "PDF Downloaded",
+            description: "Cost report exported via direct download. Not saved to history.",
+          });
+          
+          onReportGenerated?.();
+          
+          setTimeout(() => {
+            setIsExporting(false);
+            setExportStep("");
+            setExportProgress(0);
+          }, 1500);
+          
+          return; // Exit early - skip storage since we used fallback
+        } catch (downloadError: any) {
+          console.error('[CostReportPDF] Direct download also failed:', downloadError.message);
+          throw new Error("All PDF generation methods failed. Please try again or contact support.");
+        }
       }
       
       if (signal.aborted) throw new Error("Export cancelled");
