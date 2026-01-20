@@ -140,3 +140,9 @@ verify_jwt = false
 
 [functions.generate-pdf-pdfshift]
 verify_jwt = false
+
+[functions.generate-bulk-services-pdf]
+verify_jwt = false
+
+[functions.generate-cost-report-pdf]
+verify_jwt = false
