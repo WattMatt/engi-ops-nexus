@@ -578,6 +578,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   useEffect(() => {
     const renderPdf = async () => {
       console.log('[Canvas] renderPdf effect triggered, pdfDoc:', !!pdfDoc, 'pdfCanvas:', !!pdfCanvasRef.current, 'container:', !!containerRef.current);
+      console.log('[Canvas] Current viewState:', viewState);
       if (!pdfDoc || !pdfCanvasRef.current || !containerRef.current) {
         console.log('[Canvas] Missing required refs, skipping PDF render');
         return;
@@ -585,10 +586,24 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
       try {
         console.log('[Canvas] Starting PDF render...');
         const page = await pdfDoc.getPage(1);
-        const renderScale = 2.0;
+        // Use a lower scale for very large PDFs to avoid browser canvas limits
+        const naturalWidth = page.getViewport({ scale: 1 }).width;
+        const naturalHeight = page.getViewport({ scale: 1 }).height;
+        // Browser canvas max is typically around 16384 pixels per dimension
+        const maxDimension = Math.max(naturalWidth, naturalHeight);
+        const renderScale = maxDimension > 8000 ? 1.0 : 2.0;
+        console.log('[Canvas] PDF natural size:', naturalWidth, 'x', naturalHeight, 'using renderScale:', renderScale);
+        
         const viewport: PageViewport = page.getViewport({ scale: renderScale });
         const pdfCanvas = pdfCanvasRef.current;
         const drawingCanvas = drawingCanvasRef.current;
+        
+        // Check if canvas size exceeds browser limits
+        if (viewport.width > 16384 || viewport.height > 16384) {
+          console.error('[Canvas] PDF too large for canvas rendering, dimensions:', viewport.width, 'x', viewport.height);
+          return;
+        }
+        
         pdfCanvas.width = viewport.width;
         pdfCanvas.height = viewport.height;
         if (drawingCanvas) {
@@ -603,9 +618,12 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         }
         // @ts-ignore - The pdfjs-dist types can be misaligned with the mjs build, causing a spurious error.
         await page.render({ canvasContext: context, viewport: viewport }).promise;
-        console.log('[Canvas] PDF rendered successfully, dimensions:', viewport.width, 'x', viewport.height);
+        console.log('[Canvas] PDF rendered successfully, canvas dimensions:', pdfCanvas.width, 'x', pdfCanvas.height);
+        
         const containerWidth = containerRef.current.clientWidth;
         const containerHeight = containerRef.current.clientHeight;
+        console.log('[Canvas] Container dimensions:', containerWidth, 'x', containerHeight);
+        
         const initialZoom = Math.min(containerWidth / viewport.width, containerHeight / viewport.height) * 0.95;
         const initialOffsetX = (containerWidth - viewport.width * initialZoom) / 2;
         const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
@@ -1523,10 +1541,24 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         )}
         <div
             ref={canvasesWrapperRef}
-            className="relative w-full h-full"
+            className="absolute inset-0 overflow-visible"
         >
-            <canvas ref={pdfCanvasRef} className="absolute top-0 left-0" style={{ transform: `translate(${viewState.offset.x}px, ${viewState.offset.y}px) scale(${viewState.zoom})`, transformOrigin: 'top left' }}/>
-            <canvas ref={drawingCanvasRef} width={containerRef.current?.clientWidth} height={containerRef.current?.clientHeight} className="absolute top-0 left-0" />
+            <canvas 
+              ref={pdfCanvasRef} 
+              className="absolute top-0 left-0" 
+              style={{ 
+                transform: `translate(${viewState.offset.x}px, ${viewState.offset.y}px) scale(${viewState.zoom})`, 
+                transformOrigin: 'top left',
+                willChange: 'transform',
+                imageRendering: 'auto'
+              }}
+            />
+            <canvas 
+              ref={drawingCanvasRef} 
+              width={containerRef.current?.clientWidth || 800} 
+              height={containerRef.current?.clientHeight || 600} 
+              className="absolute top-0 left-0" 
+            />
         </div>
     </div>
   );
