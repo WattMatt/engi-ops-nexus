@@ -179,7 +179,7 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calculator className="h-5 w-5" />
-          Project Parameters & KPIs
+          SANS 204 Load Estimation
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
