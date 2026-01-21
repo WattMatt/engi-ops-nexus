@@ -7,11 +7,12 @@ import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { 
   Zap, 
   Activity,
@@ -20,8 +21,12 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Database
+  Database,
+  ChevronsUpDown,
+  Check,
+  X
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { MeterShopLinkage } from './useLoadProfile';
@@ -75,6 +80,124 @@ function parseDbSizeToKva(dbSize: string | null): number {
     return (amps * 400 * 1.732) / 1000;
   }
   return (amps * 230) / 1000;
+}
+
+// Searchable combobox for meter profiles
+interface MeterProfileComboboxProps {
+  profiles: ExternalMeterProfile[];
+  value: string | null;
+  onChange: (value: string | null) => void;
+  tenantName: string | null;
+  tenantArea: number | null;
+}
+
+function MeterProfileCombobox({ profiles, value, onChange, tenantName, tenantArea }: MeterProfileComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  
+  const selectedProfile = profiles.find(p => p.id === value);
+  
+  // Filter profiles based on search
+  const filteredProfiles = useMemo(() => {
+    if (!search) return profiles;
+    const term = search.toLowerCase();
+    return profiles.filter(p => 
+      p.name.toLowerCase().includes(term) ||
+      p.kva.toFixed(1).includes(term) ||
+      p.area_sqm.toString().includes(term)
+    );
+  }, [profiles, search]);
+  
+  // Sort by relevance - prioritize matches to tenant name/area
+  const sortedProfiles = useMemo(() => {
+    return [...filteredProfiles].sort((a, b) => {
+      // If tenant name provided, boost matching names
+      if (tenantName) {
+        const aMatch = a.name.toLowerCase().includes(tenantName.toLowerCase().slice(0, 5));
+        const bMatch = b.name.toLowerCase().includes(tenantName.toLowerCase().slice(0, 5));
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+      }
+      // Sort by similar area
+      if (tenantArea) {
+        const aDiff = Math.abs(a.area_sqm - tenantArea);
+        const bDiff = Math.abs(b.area_sqm - tenantArea);
+        return aDiff - bDiff;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [filteredProfiles, tenantName, tenantArea]);
+  
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between bg-background"
+        >
+          <span className="truncate">
+            {selectedProfile ? (
+              <span>{selectedProfile.name} ({selectedProfile.kva.toFixed(1)} kVA)</span>
+            ) : (
+              <span className="text-muted-foreground">Select meter profile...</span>
+            )}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[350px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Search meters by name, kVA, or area..." 
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>No meters found.</CommandEmpty>
+            <CommandGroup heading={`${sortedProfiles.length} meters available`}>
+              <CommandItem
+                value="none"
+                onSelect={() => {
+                  onChange(null);
+                  setOpen(false);
+                  setSearch('');
+                }}
+              >
+                <X className={cn("mr-2 h-4 w-4", !value ? "opacity-100" : "opacity-0")} />
+                <span className="text-muted-foreground">No profile</span>
+              </CommandItem>
+              {sortedProfiles.slice(0, 100).map((profile) => (
+                <CommandItem
+                  key={profile.id}
+                  value={profile.id}
+                  onSelect={() => {
+                    onChange(profile.id);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === profile.id ? "opacity-100" : "opacity-0")} />
+                  <div className="flex flex-col">
+                    <span className="truncate">{profile.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {profile.kva.toFixed(1)} kVA · {profile.area_sqm}m² · {profile.monthly_kwh.toLocaleString()} kWh/mo
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+              {sortedProfiles.length > 100 && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
+                  Showing 100 of {sortedProfiles.length} - refine search
+                </div>
+              )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function MeterShopLinking({
@@ -388,35 +511,13 @@ export function MeterShopLinking({
                           )}
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={selectedProfileId || 'none'}
-                            onValueChange={(value) => handleProfileChange(tenant.id, value === 'none' ? null : value)}
-                          >
-                            <SelectTrigger className="w-full bg-background">
-                              <SelectValue placeholder="Select meter profile...">
-                                {linkedProfile ? (
-                                  <span className="truncate">{linkedProfile.name} ({linkedProfile.kva.toFixed(1)} kVA)</span>
-                                ) : (
-                                  <span className="text-muted-foreground">No profile</span>
-                                )}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent className="bg-popover z-50 max-h-[300px]">
-                              <SelectItem value="none">
-                                <span className="text-muted-foreground">No profile</span>
-                              </SelectItem>
-                              {externalProfiles.map((profile) => (
-                                <SelectItem key={profile.id} value={profile.id}>
-                                  <div className="flex items-center gap-2">
-                                    <span className="truncate max-w-[180px]">{profile.name}</span>
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                      {profile.kva.toFixed(1)} kVA · {profile.area_sqm}m²
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <MeterProfileCombobox
+                            profiles={externalProfiles}
+                            value={selectedProfileId}
+                            onChange={(value) => handleProfileChange(tenant.id, value)}
+                            tenantName={tenant.shop_name}
+                            tenantArea={tenant.area}
+                          />
                         </TableCell>
                       </TableRow>
                     );
