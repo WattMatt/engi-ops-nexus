@@ -81,11 +81,17 @@ const formatFileSize = (bytes?: number) => {
 export default function ClientDocumentsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { isClient, loading, hasReportAccess } = useClientAccess();
+  const { isClient, loading, hasReportAccess, getDocumentTabs } = useClientAccess();
   
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // Get allowed tabs for this project
+  const allowedTabs = getDocumentTabs(projectId || '');
+  
+  // Filter categories based on allowed tabs
+  const visibleCategories = DOCUMENT_CATEGORIES.filter(cat => allowedTabs.includes(cat.key));
 
   useEffect(() => {
     if (!loading && (!isClient || !hasReportAccess(projectId || '', 'project_documents', 'view'))) {
@@ -349,7 +355,7 @@ export default function ClientDocumentsPage() {
           <CardContent>
             <ScrollArea className="h-[280px]">
               <div className="space-y-2">
-                {DOCUMENT_CATEGORIES.filter(c => !c.isOverview).map((cat) => {
+                {visibleCategories.filter(c => !c.isOverview).map((cat) => {
                   const count = documentsByCategory[cat.key]?.length || 0;
                   const IconComponent = cat.icon;
                   const completion = cat.sourceType === 'tenant' && tenantsCount > 0 
@@ -663,7 +669,7 @@ export default function ClientDocumentsPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <ScrollArea className="w-full">
             <TabsList className="flex w-max gap-1 p-1">
-              {DOCUMENT_CATEGORIES.slice(0, 8).map((cat) => {
+              {visibleCategories.slice(0, 8).map((cat) => {
                 const count = cat.isOverview ? stats.totalDocs : (documentsByCategory[cat.key]?.length || 0);
                 const IconComponent = cat.icon;
                 return (
@@ -679,31 +685,33 @@ export default function ClientDocumentsPage() {
             </TabsList>
           </ScrollArea>
           
-          {/* Second row of tabs */}
-          <ScrollArea className="w-full mt-1">
-            <TabsList className="flex w-max gap-1 p-1">
-              {DOCUMENT_CATEGORIES.slice(8).map((cat) => {
-                const count = documentsByCategory[cat.key]?.length || 0;
-                const IconComponent = cat.icon;
-                return (
-                  <TabsTrigger key={cat.key} value={cat.key} className="gap-1.5 text-xs px-3">
-                    <IconComponent className={`h-4 w-4 ${cat.color}`} />
-                    <span className="hidden sm:inline">{cat.label}</span>
-                    {count > 0 && (
-                      <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 h-4">{count}</Badge>
-                    )}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </ScrollArea>
+          {/* Second row of tabs - only show if there are more than 8 visible categories */}
+          {visibleCategories.length > 8 && (
+            <ScrollArea className="w-full mt-1">
+              <TabsList className="flex w-max gap-1 p-1">
+                {visibleCategories.slice(8).map((cat) => {
+                  const count = documentsByCategory[cat.key]?.length || 0;
+                  const IconComponent = cat.icon;
+                  return (
+                    <TabsTrigger key={cat.key} value={cat.key} className="gap-1.5 text-xs px-3">
+                      <IconComponent className={`h-4 w-4 ${cat.color}`} />
+                      <span className="hidden sm:inline">{cat.label}</span>
+                      {count > 0 && (
+                        <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 h-4">{count}</Badge>
+                      )}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </ScrollArea>
+          )}
 
           {/* Tab Content */}
           <TabsContent value="overview" className="mt-4">
             {renderOverview()}
           </TabsContent>
 
-          {DOCUMENT_CATEGORIES.filter(c => !c.isOverview).map((cat) => (
+          {visibleCategories.filter(c => !c.isOverview).map((cat) => (
             <TabsContent key={cat.key} value={cat.key} className="mt-4">
               {renderCategoryContent(cat.key, cat)}
             </TabsContent>

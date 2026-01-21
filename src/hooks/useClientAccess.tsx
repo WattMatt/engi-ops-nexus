@@ -4,16 +4,19 @@ import { useNavigate } from "react-router-dom";
 
 export type ReportType = 'tenant_report' | 'generator_report' | 'cost_report' | 'project_documents';
 
+interface ReportPermission {
+  report_type: ReportType;
+  can_view: boolean;
+  can_comment: boolean;
+  can_approve: boolean;
+  document_tabs?: string[] | null;
+}
+
 interface ClientProjectAccess {
   id: string;
   project_id: string;
   project_name?: string;
-  permissions: {
-    report_type: ReportType;
-    can_view: boolean;
-    can_comment: boolean;
-    can_approve: boolean;
-  }[];
+  permissions: ReportPermission[];
 }
 
 export const useClientAccess = () => {
@@ -57,7 +60,8 @@ export const useClientAccess = () => {
               report_type,
               can_view,
               can_comment,
-              can_approve
+              can_approve,
+              document_tabs
             )
           `)
           .eq("user_id", user.id);
@@ -94,11 +98,27 @@ export const useClientAccess = () => {
     }
   };
 
+  const getDocumentTabs = (projectId: string): string[] => {
+    const project = clientProjects.find(p => p.project_id === projectId);
+    if (!project) return [];
+
+    const docsPermission = project.permissions.find(p => p.report_type === 'project_documents');
+    if (!docsPermission?.can_view) return [];
+
+    // Return allowed tabs or all tabs if null (backwards compatibility)
+    return docsPermission.document_tabs || [
+      'overview', 'as_built', 'generators', 'transformers', 'main_boards',
+      'lighting', 'cctv_access_control', 'lightning_protection', 'specifications',
+      'test_certificates', 'warranties', 'manuals', 'commissioning_docs', 'compliance_certs'
+    ];
+  };
+
   return {
     isClient,
     clientProjects,
     loading,
     hasReportAccess,
+    getDocumentTabs,
     refetch: checkClientAccess
   };
 };
