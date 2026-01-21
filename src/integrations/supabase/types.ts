@@ -1215,6 +1215,7 @@ export type Database = {
           future_expansion_factor: number | null
           id: string
           load_category: string | null
+          load_profile_completed: boolean | null
           maximum_demand: number | null
           notes: string | null
           prepared_by: string | null
@@ -1252,6 +1253,7 @@ export type Database = {
           future_expansion_factor?: number | null
           id?: string
           load_category?: string | null
+          load_profile_completed?: boolean | null
           maximum_demand?: number | null
           notes?: string | null
           prepared_by?: string | null
@@ -1289,6 +1291,7 @@ export type Database = {
           future_expansion_factor?: number | null
           id?: string
           load_category?: string | null
+          load_profile_completed?: boolean | null
           maximum_demand?: number | null
           notes?: string | null
           prepared_by?: string | null

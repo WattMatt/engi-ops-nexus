@@ -68,7 +68,7 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         description: "Document daily/seasonal variations to understand demand curve",
         isCritical: false,
         priority: "medium",
-        // No linkedDataKey - requires manual completion after analyzing load patterns
+        linkedDataKey: "load_profile_completed",
         navigation: { type: 'external', url: '/tenant-tracker', label: 'Open Tenant Tracker' }
       }
     ]
@@ -150,7 +150,7 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         description: "Export tenant loading schedule with category breakdowns",
         isCritical: true,
         priority: "high",
-        // No linkedDataKey - requires manual completion after documenting load profile
+        linkedDataKey: "load_profile_completed",
         navigation: { type: 'external', url: '/tenant-tracker', label: 'Open Tenant Tracker' }
       },
       {

@@ -24,6 +24,7 @@ const LINKED_DATA_VALIDATORS: Record<string, (value: any) => boolean> = {
   electrical_standard: (v) => v !== null && v !== undefined && v !== '',
   climatic_zone: (v) => v !== null && v !== undefined && v !== '',
   project_area: (v) => v !== null && v !== undefined && v > 0,
+  load_profile_completed: (v) => v === true,
 };
 
 // Build a mapping of linkedDataKey -> task titles for quick lookup
