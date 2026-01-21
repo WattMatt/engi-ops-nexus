@@ -184,26 +184,39 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
       const settings = allSettings.find(s => s.generator_zone_id === zone.id);
       if (!settings) return;
 
-      const numGenerators = zone.num_generators || 1;
+      // Get actual generator count and size from zone_generators table
+      const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id);
+      const numGenerators = zoneGens.length || 1;
       totalGenerators += numGenerators;
 
-      const netEnergyKVA = Number(settings.net_energy_kva);
+      // Get actual kVA from configured generator, not stale settings
+      const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
+      const generatorSize = firstGenerator?.generator_size || "";
+      const sizeMatch = generatorSize.match(/(\d+)/);
+      const actualKva = sizeMatch ? Number(sizeMatch[1]) : Number(settings.net_energy_kva);
+      
       const kvaToKwhConversion = Number(settings.kva_to_kwh_conversion);
-      const fuelConsumptionRate = Number(settings.fuel_consumption_rate);
       const dieselPricePerLitre = Number(settings.diesel_price_per_litre);
       const servicingCostPerYear = Number(settings.servicing_cost_per_year);
       const servicingCostPer250Hours = Number(settings.servicing_cost_per_250_hours);
       const expectedHoursPerMonth = Number(settings.expected_hours_per_month);
+      const runningLoad = Number(settings.running_load) || 75;
 
-      // Calculate capacity
-      const zoneCapacity = netEnergyKVA * kvaToKwhConversion * numGenerators;
+      // Recalculate fuel consumption from current generator config
+      let fuelConsumptionRate = getFuelConsumption(generatorSize, runningLoad);
+      if (fuelConsumptionRate === 0 && actualKva > 0) {
+        fuelConsumptionRate = actualKva * 0.15;
+      }
+
+      // Calculate capacity using actual generator kVA
+      const zoneCapacity = actualKva * kvaToKwhConversion * numGenerators;
       totalCapacity += zoneCapacity;
 
       // Calculate monthly energy
       const monthlyEnergy = zoneCapacity * expectedHoursPerMonth;
       totalMonthlyEnergy += monthlyEnergy;
 
-      // Calculate diesel cost
+      // Calculate diesel cost using recalculated fuel rate
       const dieselCostPerHour = fuelConsumptionRate * dieselPricePerLitre * numGenerators;
       const monthlyDieselCost = dieselCostPerHour * expectedHoursPerMonth;
       totalDieselCost += monthlyDieselCost;
@@ -265,7 +278,7 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
       servicingPercentage: totalServicingCost > 0 ? (totalServicingCost / totalMonthlyCost * 100) : 0,
       contingencyPercentage: contingencyCost > 0 ? (contingencyCost / totalWithContingency * 100) : 0,
     };
-  }, [zones, allSettings]);
+  }, [zones, allSettings, zoneGenerators, getFuelConsumption]);
 
   // Set up real-time subscription for updates
   useEffect(() => {
