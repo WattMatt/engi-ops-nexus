@@ -29,8 +29,8 @@ interface RoadmapItem {
   title: string;
   description: string | null;
   due_date: string | null;
-  status: string;
-  priority: string;
+  is_completed: boolean;
+  priority: string | null;
   phase: string;
   project_id: string;
 }
@@ -65,7 +65,7 @@ function formatDate(dateString: string): string {
   });
 }
 
-function getPriorityColor(priority: string): string {
+function getPriorityColor(priority: string | null | undefined): string {
   switch (priority?.toLowerCase()) {
     case "critical":
       return "#dc2626";
@@ -80,7 +80,8 @@ function getPriorityColor(priority: string): string {
   }
 }
 
-function getStatusDisplay(status: string): string {
+function getStatusDisplay(status: string | null | undefined): string {
+  if (!status) return "Pending";
   const statusMap: Record<string, string> = {
     pending: "Pending",
     in_progress: "In Progress",
@@ -136,7 +137,7 @@ function generateFallbackEmailHtml(
 <h2 style="margin:0 0 12px;font-size:18px;color:#1e293b;">${item.title}</h2>
 ${item.description ? `<p style="margin:0 0 16px;color:#475569;font-size:14px;">${item.description}</p>` : ""}
 <p style="margin:0;"><strong>Due:</strong> <span style="color:#dc2626;">${formatDate(item.due_date || "")}</span></p>
-<p style="margin:8px 0 0;"><strong>Status:</strong> ${getStatusDisplay(item.status)}</p>
+<p style="margin:8px 0 0;"><strong>Status:</strong> ${item.is_completed ? 'Completed' : 'Pending'}</p>
 <p style="margin:8px 0 0;"><strong>Priority:</strong> <span style="color:${priorityColor};">${item.priority?.toUpperCase() || "MEDIUM"}</span></p>
 </div>
 <table width="100%" style="margin:24px 0;"><tr><td align="center">
@@ -292,7 +293,7 @@ Deno.serve(async (req) => {
               item_title: typedRoadmapItem.title,
               item_description: typedRoadmapItem.description || "No description provided",
               due_date: formatDate(typedRoadmapItem.due_date || notification.metadata.due_date),
-              status: getStatusDisplay(typedRoadmapItem.status),
+              status: typedRoadmapItem.is_completed ? 'Completed' : 'Pending',
               priority: (typedRoadmapItem.priority || "medium").toUpperCase(),
               priority_color: getPriorityColor(typedRoadmapItem.priority),
               item_link: itemLink,
