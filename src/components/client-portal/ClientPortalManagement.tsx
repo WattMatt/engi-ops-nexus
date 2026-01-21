@@ -10,10 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Copy, ExternalLink, Link, Users, MessageSquare, Key, Mail, Clock, Trash2, Send, Settings, History, Loader2 } from "lucide-react";
+import { Copy, ExternalLink, Link, Users, MessageSquare, Key, Mail, Clock, Trash2, Send, Settings, History, Loader2, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { DocumentTabSelector, DOCUMENT_TABS } from "@/components/admin/DocumentTabSelector";
 
 interface ClientPortalManagementProps {
   projectId?: string;
@@ -28,6 +29,9 @@ export const ClientPortalManagement = ({ projectId: propProjectId }: ClientPorta
   const [password, setPassword] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLink, setGeneratedLink] = useState("");
+  const [selectedDocumentTabs, setSelectedDocumentTabs] = useState<string[]>(
+    DOCUMENT_TABS.map(t => t.key)
+  );
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -155,16 +159,21 @@ export const ClientPortalManagement = ({ projectId: propProjectId }: ClientPorta
       }
 
       const { data, error } = await supabase
-        .rpc('generate_client_portal_token', {
-          p_project_id: projectId,
-          p_email: newClientEmail.trim(),
-          p_expiry_hours: parseInt(expiryHours)
-        });
+        .from('client_portal_tokens')
+        .insert({
+          project_id: projectId,
+          email: newClientEmail.trim(),
+          expires_at: new Date(Date.now() + parseInt(expiryHours) * 60 * 60 * 1000).toISOString(),
+          token: crypto.randomUUID(),
+          document_tabs: selectedDocumentTabs
+        })
+        .select('token')
+        .single();
 
       if (error) throw error;
 
       const baseUrl = window.location.origin;
-      const link = `${baseUrl}/client-view?token=${data}`;
+      const link = `${baseUrl}/client-view?token=${data.token}`;
       setGeneratedLink(link);
       
       toast.success("Access link generated successfully!");
@@ -297,7 +306,7 @@ export const ClientPortalManagement = ({ projectId: propProjectId }: ClientPorta
           <TabsContent value="generate" className="space-y-4">
             <Alert>
               <AlertDescription>
-                Generate secure, time-limited access links for clients to view project reports.
+                Generate secure, time-limited access links for clients to view project reports. Select which document tabs to share before generating the link.
               </AlertDescription>
             </Alert>
 
@@ -336,7 +345,19 @@ export const ClientPortalManagement = ({ projectId: propProjectId }: ClientPorta
               </div>
             </div>
 
-            <Button onClick={handleGenerateToken} disabled={isGenerating || !newClientEmail}>
+            {/* Document Tab Selection */}
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <div className="flex items-center gap-2 mb-3">
+                <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-sm">Select Document Tabs to Share</span>
+              </div>
+              <DocumentTabSelector
+                selectedTabs={selectedDocumentTabs}
+                onTabsChange={setSelectedDocumentTabs}
+              />
+            </div>
+
+            <Button onClick={handleGenerateToken} disabled={isGenerating || !newClientEmail || selectedDocumentTabs.length === 0}>
               {isGenerating ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -346,10 +367,10 @@ export const ClientPortalManagement = ({ projectId: propProjectId }: ClientPorta
             </Button>
 
             {generatedLink && (
-              <Alert className="bg-green-50 border-green-200">
+              <Alert className="bg-accent/50 border-accent">
                 <AlertDescription>
                   <div className="space-y-2">
-                    <span className="text-sm font-medium text-green-800">Access link generated!</span>
+                    <span className="text-sm font-medium">Access link generated!</span>
                     <div className="flex items-center gap-2">
                       <Input
                         readOnly
