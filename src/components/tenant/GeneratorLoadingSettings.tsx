@@ -335,6 +335,9 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
       if (error) throw error;
       toast.success("Generator size updated");
       refetchZoneGenerators();
+      // Invalidate costing tab and capital recovery queries for bidirectional sync
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-costing", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-capital", projectId] });
     } catch (error) {
       console.error("Error updating generator size:", error);
       toast.error("Failed to update generator size");
@@ -351,9 +354,10 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
       if (error) throw error;
       toast.success("Generator cost updated");
       refetchZoneGenerators();
-      // Invalidate costing tab queries for bidirectional sync
+      // Invalidate costing tab and capital recovery queries for bidirectional sync
       queryClient.invalidateQueries({ queryKey: ["zone-generators-costing", projectId] });
       queryClient.invalidateQueries({ queryKey: ["zone-generators-report", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-capital", projectId] });
     } catch (error) {
       console.error("Error updating generator cost:", error);
       toast.error("Failed to update generator cost");

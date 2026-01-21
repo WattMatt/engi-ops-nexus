@@ -130,9 +130,10 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
       if (error) throw error;
       toast.success("Generator size updated");
       refetchZoneGenerators();
-      // Sync with settings tab
+      // Sync with settings tab and capital recovery
       queryClient.invalidateQueries({ queryKey: ["zone-generators", projectId] });
       queryClient.invalidateQueries({ queryKey: ["zone-generators-report", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-capital", projectId] });
     } catch (error) {
       console.error("Error updating generator size:", error);
       toast.error("Failed to update generator size");
@@ -149,9 +150,10 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
       if (error) throw error;
       toast.success("Generator cost updated");
       refetchZoneGenerators();
-      // Sync with settings tab
+      // Sync with settings tab and capital recovery
       queryClient.invalidateQueries({ queryKey: ["zone-generators", projectId] });
       queryClient.invalidateQueries({ queryKey: ["zone-generators-report", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-capital", projectId] });
     } catch (error) {
       console.error("Error updating generator cost:", error);
       toast.error("Failed to update generator cost");
@@ -187,6 +189,7 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
       refetchZoneGenerators();
       queryClient.invalidateQueries({ queryKey: ["generator-zones-costing", projectId] });
       queryClient.invalidateQueries({ queryKey: ["zone-generators", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators-capital", projectId] });
     } catch (error) {
       console.error("Error adding generator:", error);
       toast.error("Failed to add generator");
