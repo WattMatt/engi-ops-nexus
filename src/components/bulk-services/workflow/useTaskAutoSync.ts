@@ -27,11 +27,11 @@ const LINKED_DATA_VALIDATORS: Record<string, (value: any, documentData?: any) =>
   project_area: (v) => v !== null && v !== undefined && v > 0,
   load_profile_completed: (v) => v === true,
   // Compound validator for transformer sizing:
-  // - >400V: bulk supply, internal transformers, auto-complete
+  // - >400V: bulk supply, internal transformers, auto-complete (N/A)
   // - =400V: requires transformer_size_kva to be specified
   transformer_sizing_check: (_v, doc) => {
     if (!doc?.primary_voltage) return false;
-    const voltage = parseFloat(doc.primary_voltage);
+    const voltage = parseVoltageToVolts(doc.primary_voltage);
     if (isNaN(voltage)) return false;
     if (voltage > 400) return true; // Bulk supply - task not applicable
     if (voltage === 400) {
@@ -40,6 +40,21 @@ const LINKED_DATA_VALIDATORS: Record<string, (value: any, documentData?: any) =>
     return false;
   },
 };
+
+// Helper to parse voltage strings like "11KV", "11kV", "400V", "33 kV" to volts
+function parseVoltageToVolts(voltageStr: string | number): number {
+  if (typeof voltageStr === 'number') return voltageStr;
+  if (!voltageStr) return NaN;
+  
+  const str = String(voltageStr).trim().toUpperCase();
+  const match = str.match(/^([\d.]+)\s*(KV|V)?$/);
+  if (!match) return NaN;
+  
+  const value = parseFloat(match[1]);
+  const unit = match[2] || 'V';
+  
+  return unit === 'KV' ? value * 1000 : value;
+}
 
 // Build a mapping of linkedDataKey -> task titles for quick lookup
 function buildLinkedDataTaskMap(): Map<string, string[]> {
@@ -118,7 +133,7 @@ export function useTaskAutoSync(documentId: string, documentData: DocumentData |
           if (documentData.primary_voltage) linkedData.primary_voltage = documentData.primary_voltage;
           if (documentData.transformer_size_kva) linkedData.transformer_size_kva = documentData.transformer_size_kva;
           // Mark as "not applicable" if voltage > 400V
-          const voltage = parseFloat(documentData.primary_voltage);
+          const voltage = parseVoltageToVolts(documentData.primary_voltage);
           if (!isNaN(voltage) && voltage > 400) {
             linkedData.not_applicable = true;
             linkedData.reason = 'Bulk supply >400V uses internal transformers';
