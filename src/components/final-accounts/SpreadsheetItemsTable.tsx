@@ -439,8 +439,8 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
         <div 
           onClick={() => column.editable && startEditing(item.id, column.key)}
           className={cn(
-            "px-1.5 py-1 text-xs h-full",
-            column.editable && "cursor-cell hover:bg-muted/50"
+            "px-1.5 py-1 text-xs h-full w-full",
+            column.editable && "cursor-cell hover:bg-primary/5 border border-dashed border-transparent hover:border-muted-foreground/30 rounded-sm transition-all"
           )}
         >
           &nbsp;
@@ -510,20 +510,25 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       ? variationValue >= 0 ? 'text-green-600 font-medium' : 'text-destructive font-medium'
       : '';
     
+    // Check if cell is empty and editable - show placeholder
+    const isEmpty = displayValue === '' || displayValue === null || displayValue === undefined;
+    const showPlaceholder = isEmpty && column.editable && !isHeader && !isSubheader;
+    
     return (
       <div
         onClick={() => column.editable && startEditing(item.id, column.key)}
         className={cn(
-          "px-1.5 py-1 text-xs truncate",
-          column.editable && "cursor-cell hover:bg-muted/50",
+          "px-1.5 py-1 text-xs truncate w-full",
+          column.editable && "cursor-cell hover:bg-primary/5 border border-dashed border-transparent hover:border-muted-foreground/30 rounded-sm transition-all",
           column.align === 'right' && "text-right",
           variationClass,
           isHeader && "font-semibold text-primary",
-          isDescription && "italic text-muted-foreground"
+          isDescription && "italic text-muted-foreground",
+          showPlaceholder && "text-muted-foreground/40"
         )}
-        title={typeof value === 'string' ? value : undefined}
+        title={typeof value === 'string' ? value : (showPlaceholder ? "Click to edit" : undefined)}
       >
-        {displayValue}
+        {showPlaceholder ? "Click to edit..." : displayValue}
       </div>
     );
   };
