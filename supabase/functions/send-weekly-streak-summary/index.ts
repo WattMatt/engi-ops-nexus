@@ -82,12 +82,206 @@ function getMotivationalMessage(streak: number, isTopPerformer: boolean): string
   return "Start completing tasks to build your streak!";
 }
 
+function generateMockEmailHtml(testEmail: string): string {
+  // Mock data for demonstration
+  const mockProjects = [
+    { name: "Sandton City Mall Expansion", number: "PRJ-2024-001", streak: 14, best: 21, total: 47 },
+    { name: "Waterfall Office Tower", number: "PRJ-2024-002", streak: 7, best: 12, total: 28 },
+    { name: "Cape Town Waterfront Upgrade", number: "PRJ-2024-003", streak: 3, best: 8, total: 15 },
+  ];
+
+  const mockLeaderboard = [
+    { name: "Arno van der Merwe", completions: 127, isYou: true },
+    { name: "Johan Botha", completions: 98 },
+    { name: "Pieter Nel", completions: 85 },
+    { name: "Susan Venter", completions: 72 },
+    { name: "Maria Dlamini", completions: 65 },
+  ];
+
+  const bestStreak = 14;
+  const totalCompletions = 90;
+  const userRank = 1;
+
+  const projectRows = mockProjects.map(p => `
+    <tr>
+      <td style="padding:12px;border-bottom:1px solid #e2e8f0;">
+        <strong>${p.number} - ${p.name}</strong>
+      </td>
+      <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
+        ${getStreakEmoji(p.streak)} ${p.streak} days
+      </td>
+      <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
+        ${p.best} days
+      </td>
+      <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
+        ${p.total}
+      </td>
+    </tr>
+  `).join("");
+
+  const leaderboardRows = mockLeaderboard.map((p, index) => {
+    const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}.`;
+    return `
+      <tr style="${p.isYou ? "background-color:#f0fdf4;font-weight:600;" : ""}">
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${medal}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">
+          ${p.name} ${p.isYou ? "(You)" : ""}
+        </td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">
+          ${p.completions}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:24px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+          <!-- Test Banner -->
+          <tr>
+            <td style="background-color:#fef3c7;padding:12px 24px;text-align:center;border-bottom:1px solid #fcd34d;">
+              <p style="margin:0;font-size:12px;color:#92400e;font-weight:600;">🧪 TEST EMAIL - Sample Gamification Summary</p>
+            </td>
+          </tr>
+          
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#8b5cf6,#6366f1);padding:32px 24px;text-align:center;">
+              <p style="margin:0;font-size:48px;">🏆</p>
+              <p style="margin:12px 0 0;font-size:26px;font-weight:700;color:#ffffff;">Weekly Streak Summary</p>
+              <p style="margin:8px 0 0;font-size:14px;color:#e0e7ff;">Hi Arno! Here's your progress this week.</p>
+            </td>
+          </tr>
+          
+          <!-- Stats Summary -->
+          <tr>
+            <td style="padding:24px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="width:33%;text-align:center;padding:16px;">
+                    <p style="margin:0;font-size:32px;font-weight:700;color:#8b5cf6;">${bestStreak}</p>
+                    <p style="margin:4px 0 0;font-size:12px;color:#6b7280;text-transform:uppercase;">Best Streak</p>
+                  </td>
+                  <td style="width:33%;text-align:center;padding:16px;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
+                    <p style="margin:0;font-size:32px;font-weight:700;color:#10b981;">${totalCompletions}</p>
+                    <p style="margin:4px 0 0;font-size:12px;color:#6b7280;text-transform:uppercase;">Total Done</p>
+                  </td>
+                  <td style="width:33%;text-align:center;padding:16px;">
+                    <p style="margin:0;font-size:32px;font-weight:700;color:#f59e0b;">#${userRank}</p>
+                    <p style="margin:4px 0 0;font-size:12px;color:#6b7280;text-transform:uppercase;">Your Rank</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Motivational Message -->
+          <tr>
+            <td style="padding:0 24px 24px;">
+              <div style="background-color:#f0fdf4;border-radius:8px;padding:16px;border-left:4px solid #10b981;">
+                <p style="margin:0;font-size:14px;color:#166534;font-weight:500;">
+                  You're leading the pack! Keep up the amazing work!
+                </p>
+                <p style="margin:8px 0 0;font-size:12px;color:#15803d;">
+                  Status: <strong>On Fire 🔥</strong>
+                </p>
+              </div>
+            </td>
+          </tr>
+          
+          <!-- Project Breakdown -->
+          <tr>
+            <td style="padding:0 24px 24px;">
+              <p style="margin:0 0 12px;font-size:16px;font-weight:600;color:#1f2937;">Your Projects</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                <tr style="background-color:#f8fafc;">
+                  <th style="padding:12px;text-align:left;font-size:12px;color:#6b7280;text-transform:uppercase;">Project</th>
+                  <th style="padding:12px;text-align:center;font-size:12px;color:#6b7280;text-transform:uppercase;">Streak</th>
+                  <th style="padding:12px;text-align:center;font-size:12px;color:#6b7280;text-transform:uppercase;">Best</th>
+                  <th style="padding:12px;text-align:center;font-size:12px;color:#6b7280;text-transform:uppercase;">Total</th>
+                </tr>
+                ${projectRows}
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Leaderboard -->
+          <tr>
+            <td style="padding:0 24px 24px;">
+              <p style="margin:0 0 12px;font-size:16px;font-weight:600;color:#1f2937;">🏅 Top Performers</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                <tr style="background-color:#f8fafc;">
+                  <th style="padding:8px 12px;text-align:left;font-size:12px;color:#6b7280;width:40px;">Rank</th>
+                  <th style="padding:8px 12px;text-align:left;font-size:12px;color:#6b7280;">Name</th>
+                  <th style="padding:8px 12px;text-align:center;font-size:12px;color:#6b7280;">Completions</th>
+                </tr>
+                ${leaderboardRows}
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f8fafc;padding:24px;border-top:1px solid #e2e8f0;text-align:center;">
+              <p style="margin:0;color:#6b7280;font-size:13px;">Keep up the great work! Every task completed builds momentum.</p>
+              <p style="margin:12px 0 0;color:#94a3b8;font-size:11px;">EngiOps Platform - Watson Mattheus</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Check for test mode
+    let testEmail: string | null = null;
+    try {
+      const body = await req.json();
+      if (body.test_email) {
+        testEmail = body.test_email;
+      }
+    } catch {
+      // No body or invalid JSON, proceed normally
+    }
+
+    // If test mode, send mock email and return
+    if (testEmail) {
+      console.log(`Sending test gamification email to ${testEmail}...`);
+      const mockHtml = generateMockEmailHtml(testEmail);
+      await sendEmail(
+        testEmail,
+        "🏆 Your Weekly Streak Summary - On Fire (TEST)",
+        mockHtml
+      );
+      console.log(`Test email sent successfully to ${testEmail}`);
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: `Test email sent to ${testEmail}`,
+        emailsSent: 1 
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     console.log("Starting weekly streak summary job...");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
