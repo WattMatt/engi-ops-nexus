@@ -538,6 +538,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                     .from('floor_plan_reports')
                     .insert({
                         user_id: user.id,
+                        project_id: currentProjectId,
                         project_name: projectName,
                         file_path: filePath,
                         report_revision: nextRevision,
