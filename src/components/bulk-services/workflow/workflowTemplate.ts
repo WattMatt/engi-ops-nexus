@@ -95,10 +95,10 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
       },
       {
         title: "Specify transformer sizing",
-        description: "Size transformers based on calculated demand with appropriate margin",
+        description: "Size transformers based on calculated demand (only for 400V supply)",
         isCritical: true,
         priority: "high",
-        linkedDataKey: "connection_size",
+        linkedDataKey: "transformer_sizing_check", // Compound validator: auto-complete if >400V, or 400V with kVA specified
         navigation: { type: 'tab', tabId: 'overview', label: 'Go to Overview' }
       },
       {

@@ -13,7 +13,8 @@ import { toast } from 'sonner';
 
 // Map of document keys to their validation functions
 // A field is considered "completed" if it has a truthy value
-const LINKED_DATA_VALIDATORS: Record<string, (value: any) => boolean> = {
+// For compound validators, the documentData object is passed as second param
+const LINKED_DATA_VALIDATORS: Record<string, (value: any, documentData?: any) => boolean> = {
   total_connected_load: (v) => v !== null && v !== undefined && v > 0,
   maximum_demand: (v) => v !== null && v !== undefined && v > 0,
   diversity_factor: (v) => v !== null && v !== undefined && v > 0,
@@ -25,6 +26,19 @@ const LINKED_DATA_VALIDATORS: Record<string, (value: any) => boolean> = {
   climatic_zone: (v) => v !== null && v !== undefined && v !== '',
   project_area: (v) => v !== null && v !== undefined && v > 0,
   load_profile_completed: (v) => v === true,
+  // Compound validator for transformer sizing:
+  // - >400V: bulk supply, internal transformers, auto-complete
+  // - =400V: requires transformer_size_kva to be specified
+  transformer_sizing_check: (_v, doc) => {
+    if (!doc?.primary_voltage) return false;
+    const voltage = parseFloat(doc.primary_voltage);
+    if (isNaN(voltage)) return false;
+    if (voltage > 400) return true; // Bulk supply - task not applicable
+    if (voltage === 400) {
+      return doc?.transformer_size_kva !== null && doc?.transformer_size_kva !== undefined && doc?.transformer_size_kva > 0;
+    }
+    return false;
+  },
 };
 
 // Build a mapping of linkedDataKey -> task titles for quick lookup
@@ -94,11 +108,16 @@ export function useTaskAutoSync(documentId: string, documentData: DocumentData |
         if (!validator) continue;
 
         const documentValue = documentData[taskLinkedKey];
-        const shouldBeComplete = validator(documentValue);
+        // Pass full documentData for compound validators (e.g., transformer_sizing_check)
+        const shouldBeComplete = validator(documentValue, documentData);
 
-        // Build linked_data object
+        // Build linked_data object - for compound validators, include relevant fields
         const linkedData: Record<string, any> = {};
-        if (documentValue !== null && documentValue !== undefined) {
+        if (taskLinkedKey === 'transformer_sizing_check') {
+          // Store both voltage and transformer size for compound validator
+          if (documentData.primary_voltage) linkedData.primary_voltage = documentData.primary_voltage;
+          if (documentData.transformer_size_kva) linkedData.transformer_size_kva = documentData.transformer_size_kva;
+        } else if (documentValue !== null && documentValue !== undefined) {
           linkedData[taskLinkedKey] = documentValue;
         }
 
