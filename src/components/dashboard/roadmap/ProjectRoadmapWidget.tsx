@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import confetti from "canvas-confetti";
 import {
   DndContext,
   closestCenter,
@@ -23,6 +24,38 @@ import { toast } from "sonner";
 import { RoadmapItem } from "./RoadmapItem";
 import { AddRoadmapItemDialog } from "./AddRoadmapItemDialog";
 import { defaultRoadmapTemplate } from "./roadmapTemplates";
+
+// Celebration confetti effect
+const triggerCelebration = () => {
+  const duration = 2000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
+  const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+  const interval = setInterval(() => {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      return clearInterval(interval);
+    }
+
+    const particleCount = 50 * (timeLeft / duration);
+
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+      colors: ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#fbbf24', '#f59e0b'],
+    });
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+      colors: ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#fbbf24', '#f59e0b'],
+    });
+  }, 250);
+};
 
 interface ProjectRoadmapWidgetProps {
   projectId: string;
@@ -134,7 +167,7 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
   });
 
   const toggleComplete = useMutation({
-    mutationFn: async ({ id, isCompleted }: { id: string; isCompleted: boolean }) => {
+    mutationFn: async ({ id, isCompleted, item }: { id: string; isCompleted: boolean; item?: RoadmapItemData }) => {
       const { error } = await supabase
         .from("project_roadmap_items")
         .update({
@@ -143,10 +176,40 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
         })
         .eq("id", id);
       if (error) throw error;
+
+      // If marking as complete, send notification email
+      if (isCompleted && item) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          try {
+            await supabase.functions.invoke("send-roadmap-completion-notification", {
+              body: {
+                itemId: id,
+                itemTitle: item.title,
+                itemDescription: item.description,
+                projectId: projectId,
+                completedByUserId: user.id,
+              },
+            });
+          } catch (emailError) {
+            console.error("Failed to send completion notification:", emailError);
+            // Don't throw - email failure shouldn't block the completion
+          }
+        }
+      }
+
+      return { isCompleted };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
-      toast.success("Item updated");
+      
+      if (data?.isCompleted) {
+        // Trigger celebration effect
+        triggerCelebration();
+        toast.success("🎉 Item completed!");
+      } else {
+        toast.success("Item updated");
+      }
     },
   });
 
@@ -369,8 +432,8 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
                                 children={childrenByParent[item.id] || []}
                                 allChildrenByParent={childrenByParent}
                                 projectId={projectId}
-                                onToggleComplete={(id, isCompleted) => 
-                                  toggleComplete.mutate({ id, isCompleted })
+                                onToggleComplete={(id, isCompleted, item) => 
+                                  toggleComplete.mutate({ id, isCompleted, item })
                                 }
                                 onEdit={handleEditItem}
                                 onDelete={(id) => deleteItem.mutate(id)}
