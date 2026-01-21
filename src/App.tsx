@@ -67,6 +67,7 @@ import PRDManager from "./pages/PRDManager";
 import { EmailTemplatesAdmin } from "./components/admin/email-templates/EmailTemplatesAdmin";
 import { EmailTemplateEditor } from "./components/admin/email-templates/EmailTemplateEditor";
 import { HelpButton } from "./components/feedback/HelpButton";
+import GamificationAdmin from "./pages/GamificationAdmin";
 
 // Initialize React Query client
 const queryClient = new QueryClient();
@@ -106,6 +107,7 @@ const App = () => (
                 <Route path="staff" element={<StaffManagement />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="backup" element={<BackupManagement />} />
+                <Route path="gamification" element={<GamificationAdmin />} />
                 <Route path="ai-review" element={<AdminAIReview />} />
                 <Route path="feedback" element={<FeedbackManagement />} />
                 <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
