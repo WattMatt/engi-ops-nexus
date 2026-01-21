@@ -159,25 +159,22 @@ export function PhaseTaskList({ phaseId, phaseName, phaseDescription, onPhaseCom
                 key={task.id}
                 className={cn(
                   "flex items-start gap-3 p-4 rounded-lg border transition-all",
-                  isNotApplicable
-                    ? "bg-muted/50 border-muted opacity-70"
-                    : task.is_completed 
-                      ? "bg-muted/30 border-muted" 
-                      : "bg-background border-border hover:border-primary/30"
+                  task.is_completed 
+                    ? "bg-muted/30 border-muted" 
+                    : "bg-background border-border hover:border-primary/30"
                 )}
               >
                 <Checkbox
                   checked={task.is_completed}
                   onCheckedChange={() => handleTaskToggle(task.id, task.is_completed)}
                   className="mt-0.5"
-                  disabled={isNotApplicable}
                 />
                 
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={cn(
                       "font-medium",
-                      (task.is_completed || isNotApplicable) && "line-through text-muted-foreground"
+                      task.is_completed && "line-through text-muted-foreground"
                     )}>
                       {task.task_title}
                     </span>
@@ -185,7 +182,7 @@ export function PhaseTaskList({ phaseId, phaseName, phaseDescription, onPhaseCom
                     {isNotApplicable && (
                       <Badge variant="outline" className="text-xs bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600">
                         <Ban className="h-3 w-3 mr-1" />
-                        N/A
+                        Not Applicable
                       </Badge>
                     )}
                     
@@ -241,12 +238,7 @@ export function PhaseTaskList({ phaseId, phaseName, phaseDescription, onPhaseCom
                   )}
                 </div>
                 
-                {isNotApplicable ? (
-                  <div className="shrink-0 flex items-center gap-1 text-xs text-slate-500">
-                    <Ban className="h-4 w-4" />
-                    Not Applicable
-                  </div>
-                ) : task.is_completed && (
+                {task.is_completed && (
                   <div className="shrink-0 flex items-center gap-1 text-xs text-green-600">
                     <CheckCircle2 className="h-4 w-4" />
                     Done
