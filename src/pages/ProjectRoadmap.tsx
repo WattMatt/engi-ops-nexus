@@ -6,6 +6,7 @@ import { RoadmapExportPDFButton } from "@/components/dashboard/roadmap/RoadmapEx
 import { Button } from "@/components/ui/button";
 import { BarChart3 } from "lucide-react";
 import { ReviewModeButton } from "@/components/dashboard/roadmap/ReviewModeButton";
+import { toast } from "@/hooks/use-toast";
 import {
   Collapsible,
   CollapsibleContent,
@@ -28,6 +29,13 @@ export default function ProjectRoadmap() {
     const highlightId = searchParams.get("highlight");
     if (highlightId) {
       setHighlightedItemId(highlightId);
+      
+      // Show toast notification
+      toast({
+        title: "Roadmap Item Found",
+        description: "The linked item is highlighted below.",
+      });
+      
       // Clear the highlight after a delay
       setTimeout(() => setHighlightedItemId(null), 5000);
     }
