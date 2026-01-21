@@ -109,6 +109,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   });
 
   // Initialize zone settings when zones and saved settings are loaded
+  // Always recalculate fuel rate from current generator configuration
   useEffect(() => {
     if (!zones.length) return;
     
@@ -117,37 +118,38 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     zones.forEach((zone) => {
       const savedSetting = allSettings.find(s => s.generator_zone_id === zone.id);
       
+      // Always get the current generator size from zone_generators table
+      const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id);
+      const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
+      const generatorSize = firstGenerator?.generator_size || "";
+      
+      const sizeMatch = generatorSize.match(/(\d+)/);
+      const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200; // Default to 200 kVA if no size set
+      
+      // Calculate fuel rate from sizing table based on current generator and running load
+      const runningLoad = savedSetting ? Number(savedSetting.running_load) : 75;
+      let fuelRate = getFuelConsumption(generatorSize, runningLoad);
+      
+      // If no fuel rate found (generator size not in table), estimate based on kVA
+      if (fuelRate === 0 && kvaValue > 0) {
+        fuelRate = kvaValue * 0.15;
+      }
+      
       if (savedSetting) {
-        // Load saved settings
+        // Load saved settings but recalculate fuel rate from current generator config
         initialSettings.set(zone.id, {
           generator_zone_id: zone.id,
           plant_name: savedSetting.plant_name,
           running_load: Number(savedSetting.running_load),
-          net_energy_kva: Number(savedSetting.net_energy_kva),
+          net_energy_kva: kvaValue, // Use current generator size
           kva_to_kwh_conversion: Number(savedSetting.kva_to_kwh_conversion),
-          fuel_consumption_rate: Number(savedSetting.fuel_consumption_rate),
+          fuel_consumption_rate: fuelRate, // Recalculated from current config
           diesel_price_per_litre: Number(savedSetting.diesel_price_per_litre),
           servicing_cost_per_year: Number(savedSetting.servicing_cost_per_year),
           servicing_cost_per_250_hours: Number(savedSetting.servicing_cost_per_250_hours),
           expected_hours_per_month: Number(savedSetting.expected_hours_per_month),
         });
       } else {
-        // Get generator size from zone_generators table (first generator in zone)
-        const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id);
-        const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
-        const generatorSize = firstGenerator?.generator_size || "";
-        
-        const sizeMatch = generatorSize.match(/(\d+)/);
-        const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200; // Default to 200 kVA if no size set
-        let fuelRate = getFuelConsumption(generatorSize, 75);
-        
-        // If no fuel rate found (generator size not in table), estimate based on kVA
-        // Typical fuel consumption is approximately 0.25-0.35 L/kWh at 75% load
-        if (fuelRate === 0) {
-          // Use a conservative estimate: ~0.15 L per kVA at 75% load
-          fuelRate = kvaValue * 0.15;
-        }
-        
         initialSettings.set(zone.id, {
           generator_zone_id: zone.id,
           plant_name: zone.zone_name,
