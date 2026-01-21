@@ -59,6 +59,7 @@ import Finance from "./pages/Finance";
 import ClientPortal from "./pages/ClientPortal";
 import ClientTenantReport from "./pages/client/ClientTenantReport";
 import ClientGeneratorReport from "./pages/client/ClientGeneratorReport";
+import ClientDocumentsPage from "./pages/client/ClientDocumentsPage";
 import ClientView from "./pages/ClientView";
 import ContractorReviewPortal from "./pages/ContractorReviewPortal";
 import ClientGeneratorReportView from "./pages/ClientGeneratorReportView";
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="/client-portal" element={<ClientPortal />} />
               <Route path="/client/tenant-report/:projectId" element={<ClientTenantReport />} />
               <Route path="/client/generator-report/:projectId" element={<ClientGeneratorReport />} />
+              <Route path="/client/documents/:projectId" element={<ClientDocumentsPage />} />
               <Route path="/client-view" element={<ClientView />} />
               <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
               <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
