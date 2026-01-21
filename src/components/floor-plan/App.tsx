@@ -546,7 +546,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
 
                 if (dbError) throw dbError;
 
-                toast.success(`PDF exported and saved to cloud (Rev ${nextRevision})`);
+                toast.success(`PDF saved to cloud (Rev ${nextRevision}). Access via "View Saved Reports" in File Actions.`);
             } catch (error) {
                 console.error('Error saving to cloud:', error);
                 toast.error('PDF downloaded but failed to save to cloud');

@@ -191,6 +191,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           
           <GlobalToolButton icon={FolderOpen} label="My Saved Designs" onClick={onLoadFromCloud} disabled={!user} />
           <GlobalToolButton icon={Printer} label="Export as PDF" onClick={onPrint} disabled={!isPdfLoaded} />
+          <GlobalToolButton icon={FileText} label="View Saved Reports" onClick={onOpenSavedReports} disabled={!user} />
         </CollapsibleContent>
       </Collapsible>
 
@@ -201,8 +202,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
           {isAdvancedActionsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-1 mt-1">
-          <GlobalToolButton icon={FileText} label="Saved Reports" onClick={onOpenSavedReports} disabled={!user} />
-          
           {onLinkToFinalAccount && (
             <GlobalToolButton 
               icon={Link2} 
