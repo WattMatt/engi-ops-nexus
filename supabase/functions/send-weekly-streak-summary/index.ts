@@ -82,7 +82,57 @@ function getMotivationalMessage(streak: number, isTopPerformer: boolean): string
   return "Start completing tasks to build your streak!";
 }
 
-function generateMockEmailHtml(testEmail: string): string {
+interface PrizeProposal {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string;
+  default_value: number | null;
+}
+
+function generatePrizeOptionsHtml(proposals: PrizeProposal[]): string {
+  if (!proposals || proposals.length === 0) return '';
+  
+  const prizeRows = proposals.map(p => `
+    <tr>
+      <td style="padding:12px;border-bottom:1px solid #e2e8f0;">
+        <span style="font-size:20px;">${p.icon}</span>
+      </td>
+      <td style="padding:12px;border-bottom:1px solid #e2e8f0;">
+        <strong>${p.name}</strong>
+        ${p.description ? `<br><span style="font-size:12px;color:#6b7280;">${p.description}</span>` : ''}
+      </td>
+      <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">
+        ${p.default_value ? `<span style="font-weight:600;color:#10b981;">R${p.default_value}</span>` : '-'}
+      </td>
+    </tr>
+  `).join("");
+
+  return `
+    <!-- Prize Selection Section -->
+    <tr>
+      <td style="padding:0 24px 24px;">
+        <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;padding:20px;border:2px solid #f59e0b;">
+          <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#92400e;">🎁 Choose Your Prize!</p>
+          <p style="margin:0 0 16px;font-size:13px;color:#a16207;">As this week's winner, select one of the following rewards:</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
+            <tr style="background-color:#fffbeb;">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:#92400e;text-transform:uppercase;width:50px;"></th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:#92400e;text-transform:uppercase;">Prize</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;color:#92400e;text-transform:uppercase;">Value</th>
+            </tr>
+            ${prizeRows}
+          </table>
+          <p style="margin:16px 0 0;font-size:12px;color:#a16207;text-align:center;">
+            Reply to this email with your choice, or speak to your manager to claim your prize! 🏆
+          </p>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function generateMockEmailHtml(testEmail: string, prizeProposals?: PrizeProposal[]): string {
   // Mock data for demonstration
   const mockProjects = [
     { name: "Sandton City Mall Expansion", number: "PRJ-2024-001", streak: 14, best: 21, total: 47 },
@@ -96,6 +146,14 @@ function generateMockEmailHtml(testEmail: string): string {
     { name: "Pieter Nel", completions: 85 },
     { name: "Susan Venter", completions: 72 },
     { name: "Maria Dlamini", completions: 65 },
+  ];
+
+  // Use provided proposals or mock ones for testing
+  const proposals = prizeProposals || [
+    { id: '1', name: 'R500 Takealot Voucher', description: 'Digital voucher for online shopping', icon: '🛒', default_value: 500 },
+    { id: '2', name: 'R250 Coffee Shop Voucher', description: 'Enjoy a coffee break on us', icon: '☕', default_value: 250 },
+    { id: '3', name: '4 Hours Extra Leave', description: 'Take an afternoon off', icon: '🏖️', default_value: null },
+    { id: '4', name: 'Team Lunch', description: 'Lunch for you and your team', icon: '🍕', default_value: 500 },
   ];
 
   const bestStreak = 14;
@@ -134,6 +192,8 @@ function generateMockEmailHtml(testEmail: string): string {
     `;
   }).join("");
 
+  const prizeOptionsHtml = generatePrizeOptionsHtml(proposals);
+
   return `
 <!DOCTYPE html>
 <html>
@@ -162,6 +222,16 @@ function generateMockEmailHtml(testEmail: string): string {
             </td>
           </tr>
           
+          <!-- Winner Banner -->
+          <tr>
+            <td style="padding:24px 24px 0;">
+              <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:12px;padding:20px;text-align:center;">
+                <p style="margin:0;font-size:14px;color:#d1fae5;text-transform:uppercase;letter-spacing:1px;">Congratulations!</p>
+                <p style="margin:8px 0 0;font-size:22px;font-weight:700;color:#ffffff;">🥇 You're This Week's Winner!</p>
+              </div>
+            </td>
+          </tr>
+          
           <!-- Stats Summary -->
           <tr>
             <td style="padding:24px;">
@@ -183,6 +253,9 @@ function generateMockEmailHtml(testEmail: string): string {
               </table>
             </td>
           </tr>
+          
+          <!-- Prize Selection (for winners) -->
+          ${prizeOptionsHtml}
           
           <!-- Motivational Message -->
           <tr>
@@ -262,20 +335,35 @@ const handler = async (req: Request): Promise<Response> => {
       // No body or invalid JSON, proceed normally
     }
 
-    // If test mode, send mock email and return
+    // If test mode, send mock email with prize proposals from DB
     if (testEmail) {
       console.log(`Sending test gamification email to ${testEmail}...`);
-      const mockHtml = generateMockEmailHtml(testEmail);
+      
+      // Fetch enabled prize proposals from database
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data: prizeProposals } = await supabase
+        .from("gamification_prize_proposals")
+        .select("id, name, description, icon, default_value")
+        .eq("is_enabled", true)
+        .order("display_order", { ascending: true });
+      
+      console.log(`Found ${prizeProposals?.length || 0} enabled prize proposals`);
+      
+      const mockHtml = generateMockEmailHtml(testEmail, prizeProposals || undefined);
       await sendEmail(
         testEmail,
-        "🏆 Your Weekly Streak Summary - On Fire (TEST)",
+        "🏆 Your Weekly Streak Summary - You're This Week's Winner! (TEST)",
         mockHtml
       );
       console.log(`Test email sent successfully to ${testEmail}`);
       return new Response(JSON.stringify({ 
         success: true, 
         message: `Test email sent to ${testEmail}`,
-        emailsSent: 1 
+        emailsSent: 1,
+        prizeOptionsIncluded: prizeProposals?.length || 0
       }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },

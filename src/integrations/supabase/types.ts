@@ -5642,6 +5642,48 @@ export type Database = {
           },
         ]
       }
+      gamification_prize_proposals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          default_value: number | null
+          description: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_enabled: boolean
+          name: string
+          prize_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          default_value?: number | null
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_enabled?: boolean
+          name: string
+          prize_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          default_value?: number | null
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_enabled?: boolean
+          name?: string
+          prize_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gamification_prizes: {
         Row: {
           awarded_at: string | null
