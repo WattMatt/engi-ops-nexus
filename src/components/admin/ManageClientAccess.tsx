@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { UserPlus, Trash2, Eye, MessageSquare, CheckCircle, Users } from "lucide-react";
+import { UserPlus, Trash2, Eye, MessageSquare, CheckCircle, Users, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DocumentTabSelector, DOCUMENT_TABS } from "./DocumentTabSelector";
 
 interface ClientAccess {
   id: string;
@@ -41,6 +42,9 @@ export const ManageClientAccess = ({ projectId }: ManageClientAccessProps) => {
     cost_report: { view: true, comment: false, approve: false },
     project_documents: { view: true, comment: false, approve: false }
   });
+  const [selectedDocumentTabs, setSelectedDocumentTabs] = useState<string[]>(
+    DOCUMENT_TABS.map(t => t.key)
+  );
 
   const queryClient = useQueryClient();
 
@@ -138,7 +142,8 @@ export const ManageClientAccess = ({ projectId }: ManageClientAccessProps) => {
         report_type: reportType,
         can_view: perms.view,
         can_comment: perms.comment,
-        can_approve: perms.approve
+        can_approve: perms.approve,
+        document_tabs: reportType === 'project_documents' ? selectedDocumentTabs : null
       }));
 
       const { error: permError } = await supabase
@@ -279,6 +284,14 @@ export const ManageClientAccess = ({ projectId }: ManageClientAccessProps) => {
                     </div>
                   ))}
                 </div>
+
+                {/* Document Tabs Selection - only show if project_documents is enabled */}
+                {permissions.project_documents.view && (
+                  <DocumentTabSelector
+                    selectedTabs={selectedDocumentTabs}
+                    onTabsChange={setSelectedDocumentTabs}
+                  />
+                )}
 
                 <Button 
                   className="w-full" 

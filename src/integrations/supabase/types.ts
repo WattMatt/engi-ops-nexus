@@ -2476,6 +2476,7 @@ export type Database = {
           can_view: boolean | null
           client_access_id: string
           created_at: string | null
+          document_tabs: string[] | null
           id: string
           report_type: string
         }
@@ -2485,6 +2486,7 @@ export type Database = {
           can_view?: boolean | null
           client_access_id: string
           created_at?: string | null
+          document_tabs?: string[] | null
           id?: string
           report_type: string
         }
@@ -2494,6 +2496,7 @@ export type Database = {
           can_view?: boolean | null
           client_access_id?: string
           created_at?: string | null
+          document_tabs?: string[] | null
           id?: string
           report_type?: string
         }
