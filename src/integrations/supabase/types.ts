@@ -5642,6 +5642,131 @@ export type Database = {
           },
         ]
       }
+      gamification_prizes: {
+        Row: {
+          awarded_at: string | null
+          awarded_by: string | null
+          claimed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          prize_description: string
+          prize_type: string
+          prize_value: number | null
+          status: string
+          updated_at: string
+          user_id: string
+          winner_id: string | null
+        }
+        Insert: {
+          awarded_at?: string | null
+          awarded_by?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          prize_description: string
+          prize_type: string
+          prize_value?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          winner_id?: string | null
+        }
+        Update: {
+          awarded_at?: string | null
+          awarded_by?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          prize_description?: string
+          prize_type?: string
+          prize_value?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamification_prizes_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_winners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gamification_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      gamification_winners: {
+        Row: {
+          announced_at: string | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          period_type: string
+          rank: number
+          total_completions: number
+          total_streak_days: number
+          user_id: string
+        }
+        Insert: {
+          announced_at?: string | null
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+          period_type: string
+          rank?: number
+          total_completions?: number
+          total_streak_days?: number
+          user_id: string
+        }
+        Update: {
+          announced_at?: string | null
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          rank?: number
+          total_completions?: number
+          total_streak_days?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       generator_report_shares: {
         Row: {
           created_at: string
