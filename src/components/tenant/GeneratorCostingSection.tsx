@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { MoreVertical, Settings } from "lucide-react";
+import { MoreVertical, Settings, Plus, AlertCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 import {
@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GeneratorCostSettingsDialog } from "./GeneratorCostSettingsDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface GeneratorCostingSectionProps {
   projectId: string;
@@ -157,6 +158,41 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     }
   };
 
+  const handleAddGenerator = async (zoneId: string) => {
+    try {
+      const existingGenerators = zoneGenerators.filter(g => g.zone_id === zoneId);
+      const newGeneratorNumber = existingGenerators.length + 1;
+      
+      // Update zone's num_generators
+      const zone = zones.find(z => z.id === zoneId);
+      const newNumGenerators = Math.max((zone?.num_generators || 0) + 1, newGeneratorNumber);
+      
+      await supabase
+        .from("generator_zones")
+        .update({ num_generators: newNumGenerators })
+        .eq("id", zoneId);
+
+      // Insert new generator
+      const { error } = await supabase
+        .from("zone_generators")
+        .insert({
+          zone_id: zoneId,
+          generator_number: newGeneratorNumber,
+          generator_size: null,
+          generator_cost: 0,
+        });
+
+      if (error) throw error;
+      toast.success("Generator added");
+      refetchZoneGenerators();
+      queryClient.invalidateQueries({ queryKey: ["generator-zones-costing", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["zone-generators", projectId] });
+    } catch (error) {
+      console.error("Error adding generator:", error);
+      toast.error("Failed to add generator");
+    }
+  };
+
   return (
     <>
       <Card>
@@ -220,6 +256,18 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                                 style={{ backgroundColor: zone.zone_color || "#3b82f6" }}
                               />
                               {zone.zone_name}
+                              {generators.length === 0 && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertCircle className="h-4 w-4 text-amber-500" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>No generators configured - add one to enter costs</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-mono font-bold">
@@ -228,7 +276,24 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                         </TableRow>
                         
                         {/* Generator rows - always visible, directly editable */}
-                        {generators.map((gen) => (
+                        {generators.length === 0 ? (
+                          <TableRow>
+                            <TableCell className="pl-6"></TableCell>
+                            <TableCell colSpan={3}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleAddGenerator(zone.id)}
+                                className="text-primary hover:text-primary/80"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Add Generator
+                              </Button>
+                            </TableCell>
+                            <TableCell></TableCell>
+                          </TableRow>
+                        ) : (
+                          generators.map((gen) => (
                           <TableRow key={gen.id}>
                             <TableCell className="text-muted-foreground text-xs pl-6">
                               #{gen.generator_number}
@@ -276,7 +341,8 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                               {formatCurrency(Number(gen.generator_cost) || 0)}
                             </TableCell>
                           </TableRow>
-                        ))}
+                          ))
+                        )}
                       </React.Fragment>
                     );
                   })}
