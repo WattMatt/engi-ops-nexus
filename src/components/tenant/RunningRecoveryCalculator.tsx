@@ -383,18 +383,27 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   }, [zoneSettings, zones]);
 
   // Memoize expanded generators to prevent recalculation on unrelated renders
+  // Use actual generator sizes from zone_generators table, not the deprecated generator_zones.generator_size
   const expandedGenerators = useMemo(() => {
     return zones.flatMap(zone => {
       const numGenerators = zone.num_generators || 1;
-      return Array.from({ length: numGenerators }, (_, index) => ({
-        zoneId: zone.id,
-        zoneName: zone.zone_name,
-        generatorSize: zone.generator_size,
-        generatorIndex: index + 1,
-        totalInZone: numGenerators,
-      }));
+      const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id).sort((a, b) => a.generator_number - b.generator_number);
+      
+      return Array.from({ length: numGenerators }, (_, index) => {
+        // Get the actual configured size from zone_generators table
+        const generator = zoneGens[index];
+        const configuredSize = generator?.generator_size || zone.generator_size || "Not configured";
+        
+        return {
+          zoneId: zone.id,
+          zoneName: zone.zone_name,
+          generatorSize: configuredSize,
+          generatorIndex: index + 1,
+          totalInZone: numGenerators,
+        };
+      });
     }).slice(0, 4); // Limit to 4 generators
-  }, [zones]);
+  }, [zones, zoneGenerators]);
 
   // Memoize average tariff calculation
   const averageTariff = useMemo(() => {
