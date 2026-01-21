@@ -316,6 +316,9 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
       toast.success("Number of generators updated");
       refetchZones();
       refetchZoneGenerators();
+      
+      // Auto-expand the zone to show generator configuration
+      setExpandedZones(prev => new Set(prev).add(zoneId));
     } catch (error) {
       console.error("Error updating number of generators:", error);
       toast.error("Failed to update number of generators");
@@ -715,15 +718,21 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                             </Select>
                             
                             <Button
-                              variant="ghost"
+                              variant={isExpanded ? "secondary" : "default"}
                               size="sm"
-                              className="h-8 w-8 p-0"
+                              className="h-8 px-3 text-xs"
                               onClick={() => toggleZoneExpanded(zone.id)}
                             >
                               {isExpanded ? (
-                                <ChevronDown className="h-4 w-4" />
+                                <>
+                                  <ChevronDown className="h-3 w-3 mr-1" />
+                                  Hide
+                                </>
                               ) : (
-                                <ChevronRight className="h-4 w-4" />
+                                <>
+                                  <ChevronRight className="h-3 w-3 mr-1" />
+                                  Configure
+                                </>
                               )}
                             </Button>
                             
