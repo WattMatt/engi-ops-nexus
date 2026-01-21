@@ -385,25 +385,31 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   }, [zoneSettings, zones]);
 
   // Memoize expanded generators to prevent recalculation on unrelated renders
-  // Use actual generator sizes from zone_generators table, not the deprecated generator_zones.generator_size
+  // Use actual generator data from zone_generators table, not deprecated generator_zones fields
   const expandedGenerators = useMemo(() => {
     return zones.flatMap(zone => {
-      const numGenerators = zone.num_generators || 1;
       const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id).sort((a, b) => a.generator_number - b.generator_number);
+      // Use actual count of configured generators, not the potentially stale num_generators field
+      const actualGeneratorCount = zoneGens.length || 1;
       
-      return Array.from({ length: numGenerators }, (_, index) => {
-        // Get the actual configured size from zone_generators table
-        const generator = zoneGens[index];
-        const configuredSize = generator?.generator_size || zone.generator_size || "Not configured";
-        
-        return {
+      // If no generators configured yet, show one placeholder
+      if (zoneGens.length === 0) {
+        return [{
           zoneId: zone.id,
           zoneName: zone.zone_name,
-          generatorSize: configuredSize,
-          generatorIndex: index + 1,
-          totalInZone: numGenerators,
-        };
-      });
+          generatorSize: zone.generator_size || "Not configured",
+          generatorIndex: 1,
+          totalInZone: 1,
+        }];
+      }
+      
+      return zoneGens.map((generator, index) => ({
+        zoneId: zone.id,
+        zoneName: zone.zone_name,
+        generatorSize: generator.generator_size || "Not configured",
+        generatorIndex: index + 1,
+        totalInZone: actualGeneratorCount,
+      }));
     }).slice(0, 4); // Limit to 4 generators
   }, [zones, zoneGenerators]);
 
