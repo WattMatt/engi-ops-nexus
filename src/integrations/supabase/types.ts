@@ -10197,6 +10197,7 @@ export type Database = {
           city: string | null
           client_logo_url: string | null
           client_name: string | null
+          completion_notification_email: string | null
           connection_size: string | null
           consultant_logo_url: string | null
           created_at: string
@@ -10235,6 +10236,7 @@ export type Database = {
           city?: string | null
           client_logo_url?: string | null
           client_name?: string | null
+          completion_notification_email?: string | null
           connection_size?: string | null
           consultant_logo_url?: string | null
           created_at?: string
@@ -10273,6 +10275,7 @@ export type Database = {
           city?: string | null
           client_logo_url?: string | null
           client_name?: string | null
+          completion_notification_email?: string | null
           connection_size?: string | null
           consultant_logo_url?: string | null
           created_at?: string
@@ -10769,6 +10772,50 @@ export type Database = {
             columns: ["review_id"]
             isOneToOne: false
             referencedRelation: "application_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_completion_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          id: string
+          last_completion_date: string | null
+          longest_streak: number
+          project_id: string
+          total_completions: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_completion_date?: string | null
+          longest_streak?: number
+          project_id: string
+          total_completions?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_completion_date?: string | null
+          longest_streak?: number
+          project_id?: string
+          total_completions?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_completion_streaks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -13543,6 +13590,15 @@ export type Database = {
       queue_roadmap_due_notifications: {
         Args: { days_ahead?: number }
         Returns: number
+      }
+      update_completion_streak: {
+        Args: { p_project_id: string; p_user_id: string }
+        Returns: {
+          current_streak: number
+          is_new_record: boolean
+          longest_streak: number
+          total_completions: number
+        }[]
       }
       user_has_floor_plan_access: {
         Args: { _floor_plan_id: string }
