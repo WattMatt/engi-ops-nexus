@@ -53,6 +53,25 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
     enabled: !!projectId,
   });
 
+  // Fetch zone generators (individual generator units with sizes)
+  const zoneIds = zones.map(z => z.id);
+  const { data: zoneGenerators = [] } = useQuery({
+    queryKey: ["zone-generators-overview", projectId, zoneIds],
+    queryFn: async () => {
+      if (!zoneIds.length) return [];
+      
+      const { data, error } = await supabase
+        .from("zone_generators")
+        .select("*")
+        .in("zone_id", zoneIds)
+        .order("generator_number");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && zoneIds.length > 0,
+  });
+
   // Fetch all saved settings
   const { data: allSettings = [], refetch: refetchSettings } = useQuery({
     queryKey: ["running-recovery-settings-overview", projectId],
@@ -96,12 +115,17 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
       const settingsToUpsert = zones.map(zone => {
         const existingSetting = allSettings.find(s => s.generator_zone_id === zone.id);
         
+        // Get generator size from zone_generators table (first generator in zone)
+        const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id);
+        const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
+        const generatorSize = firstGenerator?.generator_size || "";
+        
         // Get kVA from generator size or use default
-        const sizeMatch = zone.generator_size?.match(/(\d+)/);
+        const sizeMatch = generatorSize.match(/(\d+)/);
         const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200;
         
         // Get fuel rate from sizing table or estimate
-        let fuelRate = getFuelConsumption(zone.generator_size || "", 75);
+        let fuelRate = getFuelConsumption(generatorSize, 75);
         if (fuelRate === 0) {
           // Estimate: ~0.15 L per kVA at 75% load
           fuelRate = kvaValue * 0.15;

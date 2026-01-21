@@ -715,9 +715,9 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="z-50 bg-popover">
-                                <SelectItem value="1">1 Gen</SelectItem>
-                                <SelectItem value="2">2 Sync</SelectItem>
-                                <SelectItem value="3">3 Sync</SelectItem>
+                                <SelectItem value="1">1 Unit</SelectItem>
+                                <SelectItem value="2">2 Units (Sync)</SelectItem>
+                                <SelectItem value="3">3 Units (Sync)</SelectItem>
                               </SelectContent>
                             </Select>
                             

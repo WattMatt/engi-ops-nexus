@@ -74,6 +74,25 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     enabled: !!projectId,
   });
 
+  // Fetch zone generators (individual generator units with sizes)
+  const zoneIds = zones.map(z => z.id);
+  const { data: zoneGenerators = [] } = useQuery({
+    queryKey: ["zone-generators-running", projectId, zoneIds],
+    queryFn: async () => {
+      if (!zoneIds.length) return [];
+      
+      const { data, error } = await supabase
+        .from("zone_generators")
+        .select("*")
+        .in("zone_id", zoneIds)
+        .order("generator_number");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && zoneIds.length > 0,
+  });
+
   // Fetch all saved settings for all zones
   const { data: allSettings = [] } = useQuery({
     queryKey: ["running-recovery-settings-all", projectId],
@@ -113,10 +132,14 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
           expected_hours_per_month: Number(savedSetting.expected_hours_per_month),
         });
       } else {
-        // Initialize with defaults
-        const sizeMatch = zone.generator_size?.match(/(\d+)/);
+        // Get generator size from zone_generators table (first generator in zone)
+        const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id);
+        const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
+        const generatorSize = firstGenerator?.generator_size || "";
+        
+        const sizeMatch = generatorSize.match(/(\d+)/);
         const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200; // Default to 200 kVA if no size set
-        let fuelRate = getFuelConsumption(zone.generator_size || "", 75);
+        let fuelRate = getFuelConsumption(generatorSize, 75);
         
         // If no fuel rate found (generator size not in table), estimate based on kVA
         // Typical fuel consumption is approximately 0.25-0.35 L/kWh at 75% load
@@ -150,7 +173,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
       
       return hasChanged ? initialSettings : prev;
     });
-  }, [zones, allSettings, getFuelConsumption]);
+  }, [zones, allSettings, zoneGenerators, getFuelConsumption]);
 
   // Get display value (local input or saved setting)
   const getDisplayValue = (zoneId: string, field: keyof ZoneSettings): number | string => {
@@ -286,12 +309,17 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
       const settingsToUpsert = zones.map(zone => {
         const existingSetting = allSettings.find(s => s.generator_zone_id === zone.id);
         
+        // Get generator size from zone_generators table (first generator in zone)
+        const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id);
+        const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
+        const generatorSize = firstGenerator?.generator_size || "";
+        
         // Get kVA from generator size or use default
-        const sizeMatch = zone.generator_size?.match(/(\d+)/);
+        const sizeMatch = generatorSize.match(/(\d+)/);
         const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200;
         
         // Get fuel rate from sizing table or estimate
-        let fuelRate = getFuelConsumption(zone.generator_size || "", 75);
+        let fuelRate = getFuelConsumption(generatorSize, 75);
         if (fuelRate === 0) {
           fuelRate = kvaValue * 0.15;
         }
