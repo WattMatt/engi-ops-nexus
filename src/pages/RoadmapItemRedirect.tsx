@@ -83,7 +83,7 @@ export default function RoadmapItemRedirect() {
 
       // Navigate to the roadmap page with the item highlighted
       setTimeout(() => {
-        navigate(`/project-roadmap?highlight=${itemId}`, { replace: true });
+        navigate(`/dashboard/roadmap?highlight=${itemId}`, { replace: true });
       }, 500);
 
     } catch (error) {
