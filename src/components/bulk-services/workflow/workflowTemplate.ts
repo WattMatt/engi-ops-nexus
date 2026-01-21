@@ -65,10 +65,10 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
       },
       {
         title: "Develop load profile",
-        description: "Import tenant schedule data to understand load distribution by category and area",
+        description: "Document daily/seasonal variations to understand demand curve",
         isCritical: false,
         priority: "medium",
-        linkedDataKey: "project_area", // Links to tenant tracker data import
+        // No linkedDataKey - requires manual completion after analyzing load patterns
         navigation: { type: 'external', url: '/tenant-tracker', label: 'Open Tenant Tracker' }
       }
     ]
@@ -150,7 +150,7 @@ export const BULK_SERVICES_WORKFLOW_TEMPLATE: WorkflowPhase[] = [
         description: "Export tenant loading schedule with category breakdowns",
         isCritical: true,
         priority: "high",
-        linkedDataKey: "project_area", // Auto-completes when tenant data imported
+        // No linkedDataKey - requires manual completion after documenting load profile
         navigation: { type: 'external', url: '/tenant-tracker', label: 'Open Tenant Tracker' }
       },
       {
