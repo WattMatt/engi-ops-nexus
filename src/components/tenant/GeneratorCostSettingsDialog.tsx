@@ -23,6 +23,8 @@ interface GeneratorCostSettings {
   rate_per_main_board: number;
   additional_cabling_cost: number;
   control_wiring_cost: number;
+  capital_recovery_period_years: number;
+  capital_recovery_rate_percent: number;
 }
 
 interface GeneratorCostSettingsDialogProps {
@@ -48,6 +50,8 @@ export const GeneratorCostSettingsDialog = ({
     ratePerMainBoard: 0,
     additionalCablingCost: 0,
     controlWiringCost: 0,
+    capitalRecoveryPeriodYears: 10,
+    capitalRecoveryRatePercent: 12,
   });
 
   // Initialize form values when dialog opens
@@ -59,6 +63,8 @@ export const GeneratorCostSettingsDialog = ({
         ratePerMainBoard: settings.rate_per_main_board || 0,
         additionalCablingCost: settings.additional_cabling_cost || 0,
         controlWiringCost: settings.control_wiring_cost || 0,
+        capitalRecoveryPeriodYears: settings.capital_recovery_period_years || 10,
+        capitalRecoveryRatePercent: settings.capital_recovery_rate_percent || 12,
       });
     } else if (open && !settings) {
       setFormValues({
@@ -67,6 +73,8 @@ export const GeneratorCostSettingsDialog = ({
         ratePerMainBoard: 0,
         additionalCablingCost: 0,
         controlWiringCost: 0,
+        capitalRecoveryPeriodYears: 10,
+        capitalRecoveryRatePercent: 12,
       });
     }
   }, [open, settings]);
@@ -80,6 +88,8 @@ export const GeneratorCostSettingsDialog = ({
         rate_per_main_board: formValues.ratePerMainBoard,
         additional_cabling_cost: formValues.additionalCablingCost,
         control_wiring_cost: formValues.controlWiringCost,
+        capital_recovery_period_years: formValues.capitalRecoveryPeriodYears,
+        capital_recovery_rate_percent: formValues.capitalRecoveryRatePercent,
       };
 
       if (!settings?.id) {
@@ -107,6 +117,7 @@ export const GeneratorCostSettingsDialog = ({
       // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["generator-settings-tenant-rate", projectId] });
       queryClient.invalidateQueries({ queryKey: ["generator-settings", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["capital-recovery-settings", projectId] });
       
       onSaved();
       onOpenChange(false);
@@ -122,17 +133,16 @@ export const GeneratorCostSettingsDialog = ({
     return `R ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  // Calculate preview totals (assuming some placeholder counts)
-  const previewTenantDBsCost = formValues.numMainBoards > 0 ? formValues.ratePerTenantDB * formValues.numMainBoards : formValues.ratePerTenantDB;
+  // Calculate preview totals
   const previewMainBoardsCost = formValues.numMainBoards * formValues.ratePerMainBoard;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Generator Cost Settings</DialogTitle>
           <DialogDescription>
-            Configure rates and quantities for generator costing calculations
+            Configure all rates and costs for generator calculations
           </DialogDescription>
         </DialogHeader>
 
@@ -236,6 +246,48 @@ export const GeneratorCostSettingsDialog = ({
                   placeholder="0.00"
                 />
               </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Capital Recovery Settings */}
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm">Capital Recovery</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="capitalRecoveryPeriodYears" className="text-xs text-muted-foreground">
+                  Recovery Period (Years)
+                </Label>
+                <Input
+                  id="capitalRecoveryPeriodYears"
+                  type="number"
+                  min="1"
+                  value={formValues.capitalRecoveryPeriodYears}
+                  onChange={(e) => setFormValues({ ...formValues, capitalRecoveryPeriodYears: Number(e.target.value) })}
+                  className="font-mono"
+                  placeholder="10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="capitalRecoveryRatePercent" className="text-xs text-muted-foreground">
+                  Interest Rate (%)
+                </Label>
+                <Input
+                  id="capitalRecoveryRatePercent"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formValues.capitalRecoveryRatePercent}
+                  onChange={(e) => setFormValues({ ...formValues, capitalRecoveryRatePercent: Number(e.target.value) })}
+                  className="font-mono"
+                  placeholder="12.00"
+                />
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Used to calculate monthly capital recovery charges for tenants
             </div>
           </div>
         </div>
