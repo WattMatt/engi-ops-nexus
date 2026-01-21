@@ -51,11 +51,11 @@ export default function GamificationAdmin() {
           <HallOfFame />
         </TabsContent>
 
-        <TabsContent value="prizes">
+        <TabsContent value="prizes" className="overflow-auto">
           <PrizeTracking />
         </TabsContent>
 
-        <TabsContent value="settings">
+        <TabsContent value="settings" className="overflow-auto pb-6">
           <GamificationSettings />
         </TabsContent>
       </Tabs>
