@@ -1228,6 +1228,7 @@ export type Database = {
           supply_authority: string | null
           tariff_structure: string | null
           total_connected_load: number | null
+          transformer_size_kva: number | null
           updated_at: string
           va_per_sqm: number | null
         }
@@ -1266,6 +1267,7 @@ export type Database = {
           supply_authority?: string | null
           tariff_structure?: string | null
           total_connected_load?: number | null
+          transformer_size_kva?: number | null
           updated_at?: string
           va_per_sqm?: number | null
         }
@@ -1304,6 +1306,7 @@ export type Database = {
           supply_authority?: string | null
           tariff_structure?: string | null
           total_connected_load?: number | null
+          transformer_size_kva?: number | null
           updated_at?: string
           va_per_sqm?: number | null
         }
