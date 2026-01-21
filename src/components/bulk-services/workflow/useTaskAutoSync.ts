@@ -117,6 +117,12 @@ export function useTaskAutoSync(documentId: string, documentData: DocumentData |
           // Store both voltage and transformer size for compound validator
           if (documentData.primary_voltage) linkedData.primary_voltage = documentData.primary_voltage;
           if (documentData.transformer_size_kva) linkedData.transformer_size_kva = documentData.transformer_size_kva;
+          // Mark as "not applicable" if voltage > 400V
+          const voltage = parseFloat(documentData.primary_voltage);
+          if (!isNaN(voltage) && voltage > 400) {
+            linkedData.not_applicable = true;
+            linkedData.reason = 'Bulk supply >400V uses internal transformers';
+          }
         } else if (documentValue !== null && documentValue !== undefined) {
           linkedData[taskLinkedKey] = documentValue;
         }

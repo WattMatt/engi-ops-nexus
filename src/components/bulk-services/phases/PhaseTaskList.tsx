@@ -16,7 +16,8 @@ import {
   Circle, 
   Zap, 
   FileText,
-  AlertCircle
+  AlertCircle,
+  Ban
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -149,81 +150,111 @@ export function PhaseTaskList({ phaseId, phaseName, phaseDescription, onPhaseCom
       
       <CardContent>
         <div className="space-y-3">
-          {tasks?.map((task) => (
-            <div 
-              key={task.id}
-              className={cn(
-                "flex items-start gap-3 p-4 rounded-lg border transition-all",
-                task.is_completed 
-                  ? "bg-muted/30 border-muted" 
-                  : "bg-background border-border hover:border-primary/30"
-              )}
-            >
-              <Checkbox
-                checked={task.is_completed}
-                onCheckedChange={() => handleTaskToggle(task.id, task.is_completed)}
-                className="mt-0.5"
-              />
-              
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={cn(
-                    "font-medium",
-                    task.is_completed && "line-through text-muted-foreground"
-                  )}>
-                    {task.task_title}
-                  </span>
+          {tasks?.map((task) => {
+            const linkedData = task.linked_data as Record<string, any> | null;
+            const isNotApplicable = linkedData?.not_applicable === true;
+            
+            return (
+              <div 
+                key={task.id}
+                className={cn(
+                  "flex items-start gap-3 p-4 rounded-lg border transition-all",
+                  isNotApplicable
+                    ? "bg-muted/50 border-muted opacity-70"
+                    : task.is_completed 
+                      ? "bg-muted/30 border-muted" 
+                      : "bg-background border-border hover:border-primary/30"
+                )}
+              >
+                <Checkbox
+                  checked={task.is_completed}
+                  onCheckedChange={() => handleTaskToggle(task.id, task.is_completed)}
+                  className="mt-0.5"
+                  disabled={isNotApplicable}
+                />
+                
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={cn(
+                      "font-medium",
+                      (task.is_completed || isNotApplicable) && "line-through text-muted-foreground"
+                    )}>
+                      {task.task_title}
+                    </span>
+                    
+                    {isNotApplicable && (
+                      <Badge variant="outline" className="text-xs bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600">
+                        <Ban className="h-3 w-3 mr-1" />
+                        N/A
+                      </Badge>
+                    )}
+                    
+                    {task.is_critical && !isNotApplicable && (
+                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                        <Zap className="h-3 w-3 mr-1" />
+                        Critical
+                      </Badge>
+                    )}
+                    
+                    {!isNotApplicable && (
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-xs capitalize",
+                          task.priority === 'critical' && "text-red-700 bg-red-100 dark:bg-red-900/20 dark:text-red-400",
+                          task.priority === 'high' && "text-orange-700 bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400",
+                          task.priority === 'medium' && "text-yellow-700 bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400",
+                          task.priority === 'low' && "text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-400"
+                        )}
+                      >
+                        {task.priority}
+                      </Badge>
+                    )}
+                  </div>
                   
-                  {task.is_critical && (
-                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-                      <Zap className="h-3 w-3 mr-1" />
-                      Critical
-                    </Badge>
+                  {task.task_description && !isNotApplicable && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {task.task_description}
+                    </p>
                   )}
                   
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "text-xs capitalize",
-                      task.priority === 'critical' && "text-red-700 bg-red-100 dark:bg-red-900/20 dark:text-red-400",
-                      task.priority === 'high' && "text-orange-700 bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400",
-                      task.priority === 'medium' && "text-yellow-700 bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400",
-                      task.priority === 'low' && "text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-400"
-                    )}
-                  >
-                    {task.priority}
-                  </Badge>
+                  {isNotApplicable && linkedData?.reason && (
+                    <p className="text-xs text-muted-foreground mt-1 italic">
+                      {linkedData.reason}
+                    </p>
+                  )}
+                  
+                  {linkedData && !isNotApplicable && Object.keys(linkedData).filter(k => k !== 'not_applicable' && k !== 'reason').length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {Object.entries(linkedData)
+                        .filter(([key]) => key !== 'not_applicable' && key !== 'reason')
+                        .map(([key, value]) => (
+                          <Badge 
+                            key={key} 
+                            variant="secondary" 
+                            className="text-xs font-mono"
+                          >
+                            {key.replace(/_/g, ' ')}: {value}
+                          </Badge>
+                        ))}
+                    </div>
+                  )}
                 </div>
                 
-                {task.task_description && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {task.task_description}
-                  </p>
-                )}
-                
-                {task.linked_data && typeof task.linked_data === 'object' && Object.keys(task.linked_data as Record<string, any>).length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {Object.entries(task.linked_data as Record<string, any>).map(([key, value]) => (
-                      <Badge 
-                        key={key} 
-                        variant="secondary" 
-                        className="text-xs font-mono"
-                      >
-                        {key.replace(/_/g, ' ')}: {value}
-                      </Badge>
-                    ))}
+                {isNotApplicable ? (
+                  <div className="shrink-0 flex items-center gap-1 text-xs text-slate-500">
+                    <Ban className="h-4 w-4" />
+                    Not Applicable
+                  </div>
+                ) : task.is_completed && (
+                  <div className="shrink-0 flex items-center gap-1 text-xs text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Done
                   </div>
                 )}
               </div>
-              
-              {task.is_completed && (
-                <div className="shrink-0 flex items-center gap-1 text-xs text-green-600">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Done
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
           
           {(!tasks || tasks.length === 0) && (
             <div className="text-center py-8 text-muted-foreground">
