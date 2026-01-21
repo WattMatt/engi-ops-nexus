@@ -186,7 +186,7 @@ export default function RoadmapReviewMode() {
 
   // Toggle item completion - track for review
   const toggleComplete = useMutation({
-    mutationFn: async ({ id, isCompleted }: { id: string; isCompleted: boolean }) => {
+    mutationFn: async ({ id, isCompleted, item: passedItem }: { id: string; isCompleted: boolean; item?: any }) => {
       // Capture original state BEFORE the mutation
       const item = items.find(i => i.id === id);
       const wasCompleted = item?.is_completed ?? false;
@@ -535,8 +535,8 @@ export default function RoadmapReviewMode() {
                                 children={childrenByParent[item.id] || []}
                                 allChildrenByParent={childrenByParent}
                                 projectId={projectId}
-                                onToggleComplete={(id, isCompleted) => 
-                                  toggleComplete.mutate({ id, isCompleted })
+                                onToggleComplete={(id, isCompleted, item) => 
+                                  toggleComplete.mutate({ id, isCompleted, item })
                                 }
                                 onEdit={handleEditItem}
                                 onDelete={() => {}} // Disabled in review mode

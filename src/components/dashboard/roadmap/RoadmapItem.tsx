@@ -90,7 +90,7 @@ interface RoadmapItemProps {
   children: RoadmapItemData[];
   allChildrenByParent: Record<string, RoadmapItemData[]>;
   projectId: string;
-  onToggleComplete: (id: string, isCompleted: boolean) => void;
+  onToggleComplete: (id: string, isCompleted: boolean, item: RoadmapItemData) => void;
   onEdit: (item: RoadmapItemData) => void;
   onDelete: (id: string) => void;
   onAddChild: (parentId: string) => void;
@@ -273,7 +273,7 @@ export const RoadmapItem = ({
 
         <Checkbox
           checked={item.is_completed}
-          onCheckedChange={(checked) => onToggleComplete(item.id, checked as boolean)}
+          onCheckedChange={(checked) => onToggleComplete(item.id, checked as boolean, item)}
           className="mt-0.5"
         />
 
