@@ -21,18 +21,21 @@ serve(async (req) => {
 
     const externalSupabase = createClient(externalUrl, externalKey);
     
-    // Tables to check for in wm-solar
+    // Tables to check for in wm-solar - comprehensive meter library search
     const tablesToCheck = [
       'project_tenants',
       'tenants', 
       'shops',
       'meters',
+      'meter_library',
+      'meter_profiles',
       'energy_meters',
       'meter_readings',
       'meter_data',
       'scada_meters',
       'scada_readings',
       'scada_data',
+      'scada_profiles',
       'meter_tenant_links',
       'meter_shop_links',
       'load_profiles',
@@ -44,8 +47,23 @@ serve(async (req) => {
       'power_allocations',
       'projects',
       'buildings',
+      'sites',
+      'site_meters',
       'units',
-      'unit_meters'
+      'unit_meters',
+      'imported_meters',
+      'meter_imports',
+      'meter_sources',
+      // Additional meter table variations
+      'meter_catalog',
+      'all_meters',
+      'meter_master',
+      'meter_index',
+      'meter_register',
+      'meter_inventory',
+      'site_meter_links',
+      'meter_site_links',
+      'meter_list'
     ];
 
     const discoveredTables: any[] = [];
