@@ -2398,6 +2398,7 @@ export type Database = {
           access_count: number | null
           accessed_at: string | null
           created_at: string | null
+          document_tabs: string[] | null
           email: string
           expires_at: string
           id: string
@@ -2408,6 +2409,7 @@ export type Database = {
           access_count?: number | null
           accessed_at?: string | null
           created_at?: string | null
+          document_tabs?: string[] | null
           email: string
           expires_at: string
           id?: string
@@ -2418,6 +2420,7 @@ export type Database = {
           access_count?: number | null
           accessed_at?: string | null
           created_at?: string | null
+          document_tabs?: string[] | null
           email?: string
           expires_at?: string
           id?: string
