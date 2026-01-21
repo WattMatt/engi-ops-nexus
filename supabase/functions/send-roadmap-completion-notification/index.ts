@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const NOTIFICATION_EMAIL = "arno@wmeng.co.za";
+const DEFAULT_NOTIFICATION_EMAIL = "arno@wmeng.co.za";
 
 interface CompletionNotificationRequest {
   itemId: string;
@@ -64,12 +64,15 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get project details
+    // Get project details including custom notification email
     const { data: project } = await supabase
       .from("projects")
-      .select("name, project_number")
+      .select("name, project_number, completion_notification_email")
       .eq("id", projectId)
       .single();
+
+    // Use project-specific email or fall back to default
+    const notificationEmail = project?.completion_notification_email || DEFAULT_NOTIFICATION_EMAIL;
 
     // Get user details
     const { data: userProfile } = await supabase
@@ -181,16 +184,16 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     await sendEmail(
-      NOTIFICATION_EMAIL,
+      notificationEmail,
       `🎉 Completed: ${itemTitle} - ${projectName}`,
       htmlBody
     );
 
-    console.log(`Completion notification sent to ${NOTIFICATION_EMAIL} for item: ${itemTitle}`);
+    console.log(`Completion notification sent to ${notificationEmail} for item: ${itemTitle}`);
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: `Notification sent to ${NOTIFICATION_EMAIL}`
+      message: `Notification sent to ${notificationEmail}`
     }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },

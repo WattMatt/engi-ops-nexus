@@ -24,6 +24,8 @@ import { toast } from "sonner";
 import { RoadmapItem } from "./RoadmapItem";
 import { AddRoadmapItemDialog } from "./AddRoadmapItemDialog";
 import { defaultRoadmapTemplate } from "./roadmapTemplates";
+import { CompletionStreakBadge } from "./CompletionStreakBadge";
+import { useCompletionStreak } from "@/hooks/useCompletionStreak";
 
 // Celebration confetti effect
 const triggerCelebration = () => {
@@ -89,6 +91,10 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItemData | null>(null);
   const [parentId, setParentId] = useState<string | null>(null);
+  const [isNewRecord, setIsNewRecord] = useState(false);
+  
+  // Streak tracking
+  const { streak, updateStreak } = useCompletionStreak(projectId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -206,7 +212,20 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
       if (data?.isCompleted) {
         // Trigger celebration effect
         triggerCelebration();
-        toast.success("🎉 Item completed!");
+        
+        // Update streak and check for new record
+        updateStreak.mutateAsync().then((result) => {
+          if (result?.is_new_record) {
+            setIsNewRecord(true);
+            toast.success(`🏆 New record! ${result.current_streak} day streak!`);
+            // Clear the new record animation after a few seconds
+            setTimeout(() => setIsNewRecord(false), 5000);
+          } else {
+            toast.success("🎉 Item completed!");
+          }
+        }).catch(() => {
+          toast.success("🎉 Item completed!");
+        });
       } else {
         toast.success("Item updated");
       }
@@ -345,7 +364,15 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
             </div>
             Project Roadmap
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {streak && (
+              <CompletionStreakBadge
+                currentStreak={streak.current_streak}
+                longestStreak={streak.longest_streak}
+                totalCompletions={streak.total_completions}
+                isNewRecord={isNewRecord}
+              />
+            )}
             <span className="text-sm text-muted-foreground">
               {completedCount}/{items.length} completed ({progress}%)
             </span>

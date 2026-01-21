@@ -53,6 +53,7 @@ export default function ProjectSettings() {
     tariff_structure: "",
     metering_requirements: "",
     protection_philosophy: "",
+    completion_notification_email: "",
   });
 
   useEffect(() => {
@@ -105,6 +106,7 @@ export default function ProjectSettings() {
         tariff_structure: data.tariff_structure || "",
         metering_requirements: data.metering_requirements || "",
         protection_philosophy: data.protection_philosophy || "",
+        completion_notification_email: data.completion_notification_email || "",
       });
     }
   };
@@ -142,6 +144,7 @@ export default function ProjectSettings() {
           tariff_structure: formData.tariff_structure || null,
           metering_requirements: formData.metering_requirements || null,
           protection_philosophy: formData.protection_philosophy || null,
+          completion_notification_email: formData.completion_notification_email || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", projectId);
@@ -259,6 +262,32 @@ export default function ProjectSettings() {
                       <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Notifications</CardTitle>
+                <CardDescription>Configure project notification settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="completion_notification_email">
+                    Roadmap Completion Notification Email
+                  </Label>
+                  <Input
+                    id="completion_notification_email"
+                    type="email"
+                    placeholder="arno@wmeng.co.za"
+                    value={formData.completion_notification_email}
+                    onChange={(e) => updateField("completion_notification_email", e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Email address to receive notifications when roadmap items are completed. 
+                    If empty, defaults to arno@wmeng.co.za.
+                  </p>
                 </div>
               </CardContent>
             </Card>
