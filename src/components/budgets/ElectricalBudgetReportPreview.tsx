@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -51,7 +51,23 @@ export const ElectricalBudgetReportPreview = ({
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageLoading, setPageLoading] = useState(false);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Measure container width for responsive PDF scaling
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        // Subtract padding for the page to fit nicely
+        setContainerWidth(containerRef.current.clientWidth - 48);
+      }
+    };
+    
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, [open]);
 
   useEffect(() => {
     if (open && report?.file_path) {
@@ -203,14 +219,17 @@ export const ElectricalBudgetReportPreview = ({
         )}
 
         {/* Preview Area */}
-        <div className="flex-1 min-h-[500px] border rounded-lg bg-muted/30 overflow-auto flex flex-col items-center">
+        <div 
+          ref={containerRef}
+          className="flex-1 min-h-[400px] border rounded-lg bg-muted/30 overflow-auto flex flex-col items-center"
+        >
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">Loading preview...</p>
             </div>
-          ) : pdfUrl ? (
-            <div className="w-full flex flex-col items-center py-4">
+          ) : pdfUrl && containerWidth > 0 ? (
+            <div className="w-full flex flex-col items-center py-2">
               <Document
                 file={pdfUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
@@ -224,7 +243,7 @@ export const ElectricalBudgetReportPreview = ({
               >
                 <Page
                   pageNumber={currentPage}
-                  width={800}
+                  width={containerWidth}
                   loading={
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
