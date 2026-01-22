@@ -29,14 +29,11 @@ const ClientPortal = () => {
   const navigate = useNavigate();
   const { isClient, clientProjects, loading } = useClientAccess();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [projectBranding, setProjectBranding] = useState<Record<string, ProjectBranding>>({});
 
   // Fetch branding for all projects the client has access to
-  useQuery({
+  const { data: projectBranding = {} } = useQuery({
     queryKey: ['client-project-branding', clientProjects.map(p => p.project_id)],
     queryFn: async () => {
-      if (clientProjects.length === 0) return {};
-      
       const projectIds = clientProjects.map(p => p.project_id);
       const { data, error } = await supabase
         .from('projects')
@@ -53,7 +50,6 @@ const ClientPortal = () => {
           consultant_logo_url: p.consultant_logo_url
         };
       });
-      setProjectBranding(brandingMap);
       return brandingMap;
     },
     enabled: clientProjects.length > 0
