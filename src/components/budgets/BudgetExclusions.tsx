@@ -1,13 +1,42 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Save, XCircle, Bold, Italic, List, ListOrdered } from "lucide-react";
+import { 
+  AlertCircle, 
+  Save, 
+  XCircle, 
+  Bold, 
+  Italic, 
+  Underline,
+  List, 
+  ListOrdered,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Heading1,
+  Heading2,
+  Heading3,
+  Undo,
+  Redo,
+  Minus,
+  Quote
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import UnderlineExtension from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
 import { Toggle } from "@/components/ui/toggle";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface BudgetExclusionsProps {
   budgetId: string;
@@ -21,9 +50,17 @@ export const BudgetExclusions = ({ budgetId, initialValue, onUpdate }: BudgetExc
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+      }),
+      UnderlineExtension,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
       Placeholder.configure({
-        placeholder: `List items explicitly excluded from this budget estimate:
+        placeholder: `List items explicitly excluded from this budget estimate...
 
 • Structural works and building modifications
 • HVAC electrical connections (by mechanical contractor)
@@ -39,7 +76,7 @@ export const BudgetExclusions = ({ budgetId, initialValue, onUpdate }: BudgetExc
     },
     editorProps: {
       attributes: {
-        class: "prose prose-sm max-w-none min-h-[250px] p-4 focus:outline-none",
+        class: "prose prose-sm max-w-none min-h-[400px] p-6 focus:outline-none",
       },
     },
   });
@@ -78,11 +115,33 @@ export const BudgetExclusions = ({ budgetId, initialValue, onUpdate }: BudgetExc
     }
   };
 
+  const handleHeadingChange = (value: string) => {
+    if (!editor) return;
+    
+    if (value === "paragraph") {
+      editor.chain().focus().setParagraph().run();
+    } else if (value === "heading1") {
+      editor.chain().focus().toggleHeading({ level: 1 }).run();
+    } else if (value === "heading2") {
+      editor.chain().focus().toggleHeading({ level: 2 }).run();
+    } else if (value === "heading3") {
+      editor.chain().focus().toggleHeading({ level: 3 }).run();
+    }
+  };
+
+  const getCurrentHeading = () => {
+    if (!editor) return "paragraph";
+    if (editor.isActive("heading", { level: 1 })) return "heading1";
+    if (editor.isActive("heading", { level: 2 })) return "heading2";
+    if (editor.isActive("heading", { level: 3 })) return "heading3";
+    return "paragraph";
+  };
+
   if (!editor) return null;
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="flex flex-col h-full">
+      <CardHeader className="pb-3 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <XCircle className="h-5 w-5 text-destructive" />
@@ -102,56 +161,192 @@ export const BudgetExclusions = ({ budgetId, initialValue, onUpdate }: BudgetExc
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
+      <CardContent className="flex-1 flex flex-col space-y-3 overflow-hidden">
+        <p className="text-sm text-muted-foreground shrink-0">
           Document items that are explicitly <strong>not included</strong> in this budget estimate. 
           These exclusions will appear at the end of the budget report.
         </p>
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-1 border-b pb-2">
-          <Toggle
-            size="sm"
-            pressed={editor.isActive("bold")}
-            onPressedChange={() => editor.chain().focus().toggleBold().run()}
-            aria-label="Bold"
-          >
-            <Bold className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor.isActive("italic")}
-            onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-            aria-label="Italic"
-          >
-            <Italic className="h-4 w-4" />
-          </Toggle>
-          <div className="w-px h-6 bg-border mx-1" />
-          <Toggle
-            size="sm"
-            pressed={editor.isActive("bulletList")}
-            onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
-            aria-label="Bullet List"
-          >
-            <List className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor.isActive("orderedList")}
-            onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
-            aria-label="Numbered List"
-          >
-            <ListOrdered className="h-4 w-4" />
-          </Toggle>
-        </div>
-        
-        {/* Editor */}
-        <div className="border rounded-md bg-background">
-          <EditorContent editor={editor} />
+        {/* Word Processor Container */}
+        <div className="flex-1 flex flex-col border rounded-lg bg-muted/30 overflow-hidden">
+          {/* Toolbar */}
+          <div className="bg-background border-b px-2 py-1.5 flex flex-wrap items-center gap-0.5 shrink-0">
+            {/* Undo/Redo */}
+            <Toggle
+              size="sm"
+              pressed={false}
+              onPressedChange={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+              aria-label="Undo"
+              className="h-8 w-8 p-0"
+            >
+              <Undo className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={false}
+              onPressedChange={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+              aria-label="Redo"
+              className="h-8 w-8 p-0"
+            >
+              <Redo className="h-4 w-4" />
+            </Toggle>
+
+            <Separator orientation="vertical" className="mx-1 h-6" />
+
+            {/* Heading Selector */}
+            <Select value={getCurrentHeading()} onValueChange={handleHeadingChange}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue placeholder="Paragraph" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="paragraph">Paragraph</SelectItem>
+                <SelectItem value="heading1">Heading 1</SelectItem>
+                <SelectItem value="heading2">Heading 2</SelectItem>
+                <SelectItem value="heading3">Heading 3</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Separator orientation="vertical" className="mx-1 h-6" />
+
+            {/* Text Formatting */}
+            <Toggle
+              size="sm"
+              pressed={editor.isActive("bold")}
+              onPressedChange={() => editor.chain().focus().toggleBold().run()}
+              aria-label="Bold"
+              className="h-8 w-8 p-0"
+            >
+              <Bold className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={editor.isActive("italic")}
+              onPressedChange={() => editor.chain().focus().toggleItalic().run()}
+              aria-label="Italic"
+              className="h-8 w-8 p-0"
+            >
+              <Italic className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={editor.isActive("underline")}
+              onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
+              aria-label="Underline"
+              className="h-8 w-8 p-0"
+            >
+              <Underline className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={editor.isActive("strike")}
+              onPressedChange={() => editor.chain().focus().toggleStrike().run()}
+              aria-label="Strikethrough"
+              className="h-8 w-8 p-0 line-through"
+            >
+              S
+            </Toggle>
+
+            <Separator orientation="vertical" className="mx-1 h-6" />
+
+            {/* Alignment */}
+            <Toggle
+              size="sm"
+              pressed={editor.isActive({ textAlign: 'left' })}
+              onPressedChange={() => editor.chain().focus().setTextAlign('left').run()}
+              aria-label="Align Left"
+              className="h-8 w-8 p-0"
+            >
+              <AlignLeft className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={editor.isActive({ textAlign: 'center' })}
+              onPressedChange={() => editor.chain().focus().setTextAlign('center').run()}
+              aria-label="Align Center"
+              className="h-8 w-8 p-0"
+            >
+              <AlignCenter className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={editor.isActive({ textAlign: 'right' })}
+              onPressedChange={() => editor.chain().focus().setTextAlign('right').run()}
+              aria-label="Align Right"
+              className="h-8 w-8 p-0"
+            >
+              <AlignRight className="h-4 w-4" />
+            </Toggle>
+
+            <Separator orientation="vertical" className="mx-1 h-6" />
+
+            {/* Lists */}
+            <Toggle
+              size="sm"
+              pressed={editor.isActive("bulletList")}
+              onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
+              aria-label="Bullet List"
+              className="h-8 w-8 p-0"
+            >
+              <List className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={editor.isActive("orderedList")}
+              onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
+              aria-label="Numbered List"
+              className="h-8 w-8 p-0"
+            >
+              <ListOrdered className="h-4 w-4" />
+            </Toggle>
+
+            <Separator orientation="vertical" className="mx-1 h-6" />
+
+            {/* Block Elements */}
+            <Toggle
+              size="sm"
+              pressed={editor.isActive("blockquote")}
+              onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
+              aria-label="Quote"
+              className="h-8 w-8 p-0"
+            >
+              <Quote className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={false}
+              onPressedChange={() => editor.chain().focus().setHorizontalRule().run()}
+              aria-label="Horizontal Rule"
+              className="h-8 w-8 p-0"
+            >
+              <Minus className="h-4 w-4" />
+            </Toggle>
+          </div>
+
+          {/* Document Area - styled like a word processor */}
+          <div className="flex-1 overflow-auto bg-muted/50 p-4 flex justify-center">
+            <div className="w-full max-w-[800px] bg-background shadow-lg rounded border min-h-full">
+              <EditorContent 
+                editor={editor} 
+                className="[&_.ProseMirror]:min-h-[400px] [&_.ProseMirror]:p-8 [&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h3]:text-lg [&_.ProseMirror_h3]:font-medium [&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_p]:mb-3 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6 [&_.ProseMirror_ul]:mb-3 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_ol]:mb-3 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-muted-foreground/30 [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-muted-foreground [&_.ProseMirror_hr]:my-6 [&_.ProseMirror_hr]:border-border"
+              />
+            </div>
+          </div>
+
+          {/* Status Bar */}
+          <div className="bg-background border-t px-3 py-1.5 flex items-center justify-between text-xs text-muted-foreground shrink-0">
+            <span>
+              {editor.storage.characterCount?.characters?.() || editor.getText().length} characters
+            </span>
+            <span>
+              {hasChanges ? "Modified" : "Saved"}
+            </span>
+          </div>
         </div>
 
         {editor.getText().trim() && (
-          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 shrink-0">
             <p className="text-sm text-destructive flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               <span>This section will be displayed prominently at the end of the budget report.</span>
