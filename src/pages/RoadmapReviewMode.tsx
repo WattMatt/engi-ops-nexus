@@ -191,11 +191,15 @@ export default function RoadmapReviewMode() {
       const item = items.find(i => i.id === id);
       const wasCompleted = item?.is_completed ?? false;
       
+      // Get current user for attribution
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
         .from("project_roadmap_items")
         .update({
           is_completed: isCompleted,
           completed_at: isCompleted ? new Date().toISOString() : null,
+          completed_by: isCompleted && user ? user.id : null,
         })
         .eq("id", id);
       if (error) throw error;
