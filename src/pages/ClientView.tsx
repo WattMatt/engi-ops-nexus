@@ -1054,7 +1054,8 @@ const ClientView = () => {
                           <TableHead>Tenant Name</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead className="text-right">Area (m²)</TableHead>
-                          <TableHead>Opening Date</TableHead>
+                          <TableHead>BO Date</TableHead>
+                          <TableHead>Connection</TableHead>
                           <TableHead className="text-center">
                             <div className="flex items-center justify-center gap-1">
                               <FileText className="h-3 w-3" /> Layout
@@ -1093,6 +1094,13 @@ const ClientView = () => {
                                   <Calendar className="h-3 w-3" />
                                   {format(new Date(tenant.opening_date), 'MMM d, yyyy')}
                                 </span>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell>
+                              {tenant.db_size_allowance ? (
+                                <Badge variant="secondary" className="text-xs font-mono">
+                                  {tenant.db_size_allowance}
+                                </Badge>
                               ) : '-'}
                             </TableCell>
                             <TableCell className="text-center">{getDeliverableStatus(tenant.layout_received)}</TableCell>
