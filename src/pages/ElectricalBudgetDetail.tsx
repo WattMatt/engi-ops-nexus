@@ -12,6 +12,7 @@ import { BudgetExtractionReview } from "@/components/budgets/BudgetExtractionRev
 import { AreaScheduleSync } from "@/components/budgets/AreaScheduleSync";
 import { BudgetReferenceDrawings } from "@/components/budgets/BudgetReferenceDrawings";
 import { BudgetBaselineAllowances } from "@/components/budgets/BudgetBaselineAllowances";
+import { BudgetExclusions } from "@/components/budgets/BudgetExclusions";
 
 interface ExtractedData {
   budget_number: string;
@@ -125,6 +126,7 @@ const ElectricalBudgetDetail = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="sections">Sections & Items</TabsTrigger>
           <TabsTrigger value="allowances">Baseline Allowances</TabsTrigger>
+          <TabsTrigger value="exclusions">Exclusions</TabsTrigger>
           <TabsTrigger value="drawings">Reference Drawings</TabsTrigger>
           <TabsTrigger value="import">Import from PDF</TabsTrigger>
           {extractedData?.area_schedule && extractedData.area_schedule.length > 0 && (
@@ -144,6 +146,14 @@ const ElectricalBudgetDetail = () => {
           <BudgetBaselineAllowances 
             budgetId={budgetId!} 
             initialValue={budget.baseline_allowances}
+            onUpdate={refetch}
+          />
+        </TabsContent>
+
+        <TabsContent value="exclusions" className="mt-4">
+          <BudgetExclusions 
+            budgetId={budgetId!} 
+            initialValue={budget.exclusions}
             onUpdate={refetch}
           />
         </TabsContent>
