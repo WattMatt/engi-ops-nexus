@@ -110,13 +110,15 @@ export function generateElectricalBudgetHtml(data: ElectricalBudgetPdfData): str
     sections.push(buildReferenceDrawingsPage(data));
   }
   
-  // 6. BOQ Sections & Items
-  sections.push(buildBoqSummaryPage(data));
+  // 6. BOQ Section Details (individual sections first)
   data.sections.forEach((section, index) => {
     sections.push(buildSectionDetailPage(section, index + 1, data));
   });
   
-  // 7. Exclusions (if available)
+  // 7. BOQ Summary (moved to end, before exclusions)
+  sections.push(buildBoqSummaryPage(data));
+  
+  // 8. Exclusions (if available)
   if (data.budget.exclusions && data.budget.exclusions !== '<p></p>') {
     sections.push(buildExclusionsPage(data));
   }
@@ -742,33 +744,33 @@ function buildCoverPage(data: ElectricalBudgetPdfData): string {
 
 function buildIndexPage(data: ElectricalBudgetPdfData): string {
   const items: Array<{ number: string; title: string }> = [];
-  let pageNum = 1;
+  let sectionNum = 1;
   
-  items.push({ number: '1', title: 'Introduction' });
-  pageNum++;
+  items.push({ number: String(sectionNum++), title: 'Introduction' });
   
   if (data.budget.baseline_allowances && data.budget.baseline_allowances !== '<p></p>') {
-    pageNum++;
-    items.push({ number: '2', title: 'Baseline Allowances' });
+    items.push({ number: String(sectionNum++), title: 'Baseline Allowances' });
   }
   
   if (data.referenceDrawings.length > 0) {
-    pageNum++;
-    items.push({ number: String(items.length + 1), title: 'Reference Drawings' });
+    items.push({ number: String(sectionNum++), title: 'Reference Drawings' });
   }
   
-  const boqStartNum = items.length + 1;
-  items.push({ number: String(boqStartNum), title: 'Bill of Quantities - Summary' });
-  
+  // Individual BOQ sections first
+  const boqStartNum = sectionNum;
   data.sections.forEach((section, idx) => {
     items.push({ 
       number: `${boqStartNum}.${idx + 1}`, 
       title: `${section.section_code} - ${section.section_name}` 
     });
   });
+  sectionNum++;
+  
+  // BOQ Summary comes after all sections
+  items.push({ number: String(sectionNum++), title: 'Bill of Quantities - Summary' });
   
   if (data.budget.exclusions && data.budget.exclusions !== '<p></p>') {
-    items.push({ number: String(boqStartNum + 1), title: 'Exclusions' });
+    items.push({ number: String(sectionNum++), title: 'Exclusions' });
   }
   
   return `
