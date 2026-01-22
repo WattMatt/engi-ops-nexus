@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Package, MessageSquarePlus, AlertTriangle } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle, Users } from "lucide-react";
 import { ContractorDocumentStatus } from "@/components/contractor-portal/ContractorDocumentStatus";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
 import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
+import { ContractorTenantTracker } from "@/components/contractor-portal/ContractorTenantTracker";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 
 interface TokenData {
@@ -141,10 +142,14 @@ export default function ContractorPortal() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
         <Tabs defaultValue="documents" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
             <TabsTrigger value="documents" className="gap-2">
               <FileText className="h-4 w-4" />
               Documentation
+            </TabsTrigger>
+            <TabsTrigger value="tenants" className="gap-2">
+              <Users className="h-4 w-4" />
+              Tenant Tracker
             </TabsTrigger>
             <TabsTrigger value="procurement" className="gap-2">
               <Package className="h-4 w-4" />
@@ -161,6 +166,10 @@ export default function ContractorPortal() {
               projectId={project.id}
               documentCategories={tokenData.document_categories}
             />
+          </TabsContent>
+
+          <TabsContent value="tenants">
+            <ContractorTenantTracker projectId={project.id} />
           </TabsContent>
 
           <TabsContent value="procurement">

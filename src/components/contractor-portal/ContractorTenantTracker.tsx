@@ -1,0 +1,262 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { 
+  Users, 
+  FileText, 
+  LayoutGrid, 
+  Package, 
+  Lightbulb,
+  CheckCircle2,
+  XCircle,
+  Search
+} from "lucide-react";
+import { useState, useMemo } from "react";
+
+interface ContractorTenantTrackerProps {
+  projectId: string;
+}
+
+interface Tenant {
+  id: string;
+  shop_number: string;
+  shop_name: string | null;
+  shop_category: string | null;
+  area: number | null;
+  sow_received: boolean | null;
+  layout_received: boolean | null;
+  db_ordered: boolean | null;
+  lighting_ordered: boolean | null;
+  status: string | null;
+}
+
+export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: tenants, isLoading } = useQuery({
+    queryKey: ['contractor-tenant-tracker', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, shop_number, shop_name, shop_category, area, sow_received, layout_received, db_ordered, lighting_ordered')
+        .eq('project_id', projectId);
+      
+      if (error) throw error;
+      
+      // Sort numerically by shop number
+      return (data || []).sort((a, b) => {
+        const matchA = a.shop_number.match(/\d+/);
+        const matchB = b.shop_number.match(/\d+/);
+        const numA = matchA ? parseInt(matchA[0]) : 0;
+        const numB = matchB ? parseInt(matchB[0]) : 0;
+        if (numA !== numB) return numA - numB;
+        return a.shop_number.localeCompare(b.shop_number, undefined, { numeric: true });
+      }) as Tenant[];
+    }
+  });
+
+  // Filter tenants based on search
+  const filteredTenants = useMemo(() => {
+    if (!tenants) return [];
+    if (!searchQuery.trim()) return tenants;
+    
+    const query = searchQuery.toLowerCase();
+    return tenants.filter(t => 
+      t.shop_number.toLowerCase().includes(query) ||
+      t.shop_name?.toLowerCase().includes(query) ||
+      t.shop_category?.toLowerCase().includes(query)
+    );
+  }, [tenants, searchQuery]);
+
+  // Calculate metrics
+  const metrics = useMemo(() => {
+    if (!tenants || tenants.length === 0) {
+      return { total: 0, sowReceived: 0, layoutReceived: 0, dbOrdered: 0, lightingOrdered: 0 };
+    }
+    
+    return {
+      total: tenants.length,
+      sowReceived: tenants.filter(t => t.sow_received).length,
+      layoutReceived: tenants.filter(t => t.layout_received).length,
+      dbOrdered: tenants.filter(t => t.db_ordered).length,
+      lightingOrdered: tenants.filter(t => t.lighting_ordered).length,
+    };
+  }, [tenants]);
+
+  const progressItems = [
+    { 
+      label: 'SOW Documents', 
+      icon: FileText, 
+      count: metrics.sowReceived, 
+      total: metrics.total,
+      colorClass: 'text-primary bg-primary/10'
+    },
+    { 
+      label: 'Layout Plans', 
+      icon: LayoutGrid, 
+      count: metrics.layoutReceived, 
+      total: metrics.total,
+      colorClass: 'text-blue-500 bg-blue-500/10'
+    },
+    { 
+      label: 'DB Orders', 
+      icon: Package, 
+      count: metrics.dbOrdered, 
+      total: metrics.total,
+      colorClass: 'text-emerald-500 bg-emerald-500/10'
+    },
+    { 
+      label: 'Lighting Orders', 
+      icon: Lightbulb, 
+      count: metrics.lightingOrdered, 
+      total: metrics.total,
+      colorClass: 'text-amber-500 bg-amber-500/10'
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Overview Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Tenant Overview
+          </CardTitle>
+          <CardDescription>
+            Current status of tenant documentation and orders
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {progressItems.map((item) => {
+              const Icon = item.icon;
+              const percent = item.total > 0 ? (item.count / item.total) * 100 : 0;
+              return (
+                <div key={item.label} className="space-y-3 p-4 rounded-lg bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-md ${item.colorClass}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="font-medium text-sm">{item.label}</span>
+                    </div>
+                    <Badge variant={percent === 100 ? "default" : "secondary"}>
+                      {item.count}/{item.total}
+                    </Badge>
+                  </div>
+                  <Progress value={percent} className="h-2" />
+                  <p className="text-xs text-muted-foreground text-right">
+                    {percent.toFixed(0)}% complete
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tenant List */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle>Tenant Status</CardTitle>
+              <CardDescription>{metrics.total} tenants in project</CardDescription>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tenants..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredTenants.length > 0 ? (
+            <div className="rounded-md border overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Shop</TableHead>
+                    <TableHead>Tenant Name</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-center">SOW</TableHead>
+                    <TableHead className="text-center">Layout</TableHead>
+                    <TableHead className="text-center">DB</TableHead>
+                    <TableHead className="text-center">Lighting</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTenants.map((tenant) => (
+                    <TableRow key={tenant.id}>
+                      <TableCell className="font-medium">{tenant.shop_number}</TableCell>
+                      <TableCell>{tenant.shop_name || '—'}</TableCell>
+                      <TableCell>
+                        {tenant.shop_category ? (
+                          <Badge variant="outline" className="text-xs">
+                            {tenant.shop_category}
+                          </Badge>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <StatusIcon checked={tenant.sow_received} />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <StatusIcon checked={tenant.layout_received} />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <StatusIcon checked={tenant.db_ordered} />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <StatusIcon checked={tenant.lighting_ordered} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="font-medium">
+                {searchQuery ? 'No tenants match your search' : 'No tenants found'}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function StatusIcon({ checked }: { checked: boolean | null }) {
+  if (checked) {
+    return <CheckCircle2 className="h-5 w-5 text-emerald-500 mx-auto" />;
+  }
+  return <XCircle className="h-5 w-5 text-muted-foreground/40 mx-auto" />;
+}
