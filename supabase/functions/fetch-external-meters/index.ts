@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 // Calculate kVA from db_size_allowance string (e.g., "60A TP" -> 60 * 0.4 * 1.732 = 41.57 kVA for 3-phase)
-// This matches the sync-load-profiles logic exactly
 function parseDbSizeToKva(dbSize: string | null): number {
   if (!dbSize) return 0;
   
@@ -53,8 +52,7 @@ serve(async (req) => {
 
     const externalSupabase = createClient(externalUrl, externalKey);
     
-    // Fetch ALL tenants using pagination to bypass default 1000 row limit
-    // Include db_size field for proper kVA calculation
+    // Fetch ALL tenants using pagination - use * to get all available columns
     const pageSize = 1000;
     let allTenants: any[] = [];
     let page = 0;
@@ -66,7 +64,7 @@ serve(async (req) => {
       
       const { data: tenants, error } = await externalSupabase
         .from('project_tenants')
-        .select('id, name, area_sqm, monthly_kwh_override, shop_type_id, db_size, circuit_size, breaker_size, supply_size')
+        .select('*')
         .order('name')
         .range(from, to);
 
@@ -83,13 +81,19 @@ serve(async (req) => {
       }
     }
 
+    // Log available columns from first record
+    if (allTenants.length > 0) {
+      console.log('Available columns:', Object.keys(allTenants[0]));
+    }
+
     // Map to a simpler structure for the dropdown
-    // Priority: db_size/circuit_size/breaker_size -> monthly_kwh -> area-based estimate
+    // Dynamically check for db_size columns that might exist
     const meterProfiles = allTenants.map((t: any) => {
-      // Try to get db_size from various possible column names
-      const dbSize = t.db_size || t.circuit_size || t.breaker_size || t.supply_size;
+      // Try various possible column names for db_size
+      const dbSize = t.db_size || t.circuit_size || t.breaker_size || t.supply_size || 
+                     t.db_size_allowance || t.connection_size || null;
       
-      // Calculate kVA using the same logic as sync-load-profiles
+      // Calculate kVA - prioritize db_size parsing if available
       let kva = parseDbSizeToKva(dbSize);
       
       // Fallback to energy/area-based estimate if no db_size
