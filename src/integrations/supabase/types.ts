@@ -3492,6 +3492,7 @@ export type Database = {
       }
       electrical_budgets: {
         Row: {
+          baseline_allowances: string | null
           budget_date: string
           budget_number: string
           client_logo_url: string | null
@@ -3511,6 +3512,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          baseline_allowances?: string | null
           budget_date: string
           budget_number: string
           client_logo_url?: string | null
@@ -3530,6 +3532,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          baseline_allowances?: string | null
           budget_date?: string
           budget_number?: string
           client_logo_url?: string | null
