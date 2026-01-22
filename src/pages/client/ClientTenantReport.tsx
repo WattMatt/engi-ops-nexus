@@ -53,6 +53,7 @@ const ClientTenantReport = () => {
           shop_name,
           area,
           shop_category,
+          db_size_allowance,
           opening_date,
           layout_received,
           sow_received,
@@ -174,6 +175,7 @@ const ClientTenantReport = () => {
                     <TableHead>Shop #</TableHead>
                     <TableHead>Tenant Name</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Connection</TableHead>
                     <TableHead className="text-right">Area (m²)</TableHead>
                     <TableHead>Opening Date</TableHead>
                     <TableHead>Status</TableHead>
@@ -186,6 +188,13 @@ const ClientTenantReport = () => {
                       <TableCell>{tenant.shop_name || '-'}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{tenant.shop_category || 'Retail'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {tenant.db_size_allowance ? (
+                          <Badge variant="secondary" className="text-xs font-mono">
+                            {tenant.db_size_allowance}
+                          </Badge>
+                        ) : '-'}
                       </TableCell>
                       <TableCell className="text-right">{tenant.area?.toLocaleString() || '-'}</TableCell>
                       <TableCell>
