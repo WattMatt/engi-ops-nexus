@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { AddLineItemDialog } from "./AddLineItemDialog";
+import { EditLineItemDialog } from "./EditLineItemDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -33,8 +34,15 @@ interface BudgetSectionCardProps {
 
 export const BudgetSectionCard = ({ section, lineItems }: BudgetSectionCardProps) => {
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [editItemOpen, setEditItemOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const handleEditItem = (item: any) => {
+    setSelectedItem(item);
+    setEditItemOpen(true);
+  };
 
   const sectionTotal = lineItems.reduce((sum, item) => sum + Number(item.total), 0);
 
@@ -120,6 +128,7 @@ export const BudgetSectionCard = ({ section, lineItems }: BudgetSectionCardProps
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Area</TableHead>
@@ -130,7 +139,17 @@ export const BudgetSectionCard = ({ section, lineItems }: BudgetSectionCardProps
             </TableHeader>
             <TableBody>
               {lineItems.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow key={item.id} className="group">
+                  <TableCell className="p-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleEditItem(item)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
                   <TableCell className="font-medium">{item.item_number || "-"}</TableCell>
                   <TableCell>{item.description}</TableCell>
                   <TableCell className="text-right">
@@ -148,7 +167,7 @@ export const BudgetSectionCard = ({ section, lineItems }: BudgetSectionCardProps
                 </TableRow>
               ))}
               <TableRow className="font-bold bg-muted/50">
-                <TableCell colSpan={5}>Total for Section {section.section_code}</TableCell>
+                <TableCell colSpan={6}>Total for Section {section.section_code}</TableCell>
                 <TableCell className="text-right">{formatCurrency(sectionTotal)}</TableCell>
               </TableRow>
             </TableBody>
@@ -163,6 +182,17 @@ export const BudgetSectionCard = ({ section, lineItems }: BudgetSectionCardProps
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["budget-line-items"] });
           setAddItemOpen(false);
+        }}
+      />
+
+      <EditLineItemDialog
+        open={editItemOpen}
+        onOpenChange={setEditItemOpen}
+        lineItem={selectedItem}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["budget-line-items"] });
+          setEditItemOpen(false);
+          setSelectedItem(null);
         }}
       />
     </Card>
