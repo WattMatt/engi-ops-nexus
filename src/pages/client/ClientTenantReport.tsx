@@ -177,7 +177,7 @@ const ClientTenantReport = () => {
                     <TableHead>Category</TableHead>
                     <TableHead>Connection</TableHead>
                     <TableHead className="text-right">Area (m²)</TableHead>
-                    <TableHead>Opening Date</TableHead>
+                    <TableHead>BO Date</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
