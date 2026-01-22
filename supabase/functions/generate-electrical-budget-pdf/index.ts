@@ -48,7 +48,7 @@ serve(async (req) => {
     console.log('[ElectricalBudgetPDF] Sending request to PDFShift API...');
     console.log('[ElectricalBudgetPDF] HTML length:', html.length, 'characters');
 
-    // Build PDFShift request
+    // Build PDFShift request - note: printBackground is not a valid field
     const pdfShiftPayload = {
       source: html,
       format: 'A4',
@@ -58,7 +58,7 @@ serve(async (req) => {
         bottom: '20mm',
         left: '15mm',
       },
-      printBackground: true,
+      use_print: true,
     };
 
     // Call PDFShift API
