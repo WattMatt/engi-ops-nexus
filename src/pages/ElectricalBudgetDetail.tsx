@@ -14,6 +14,7 @@ import { BudgetReferenceDrawings } from "@/components/budgets/BudgetReferenceDra
 import { BudgetBaselineAllowances } from "@/components/budgets/BudgetBaselineAllowances";
 import { BudgetExclusions } from "@/components/budgets/BudgetExclusions";
 import { ElectricalBudgetExportPDFButton } from "@/components/budgets/ElectricalBudgetExportPDFButton";
+import { ElectricalBudgetReportHistory } from "@/components/budgets/ElectricalBudgetReportHistory";
 interface ExtractedData {
   budget_number: string;
   revision: string;
@@ -131,6 +132,7 @@ const ElectricalBudgetDetail = () => {
           <TabsTrigger value="allowances">Baseline Allowances</TabsTrigger>
           <TabsTrigger value="exclusions">Exclusions</TabsTrigger>
           <TabsTrigger value="drawings">Reference Drawings</TabsTrigger>
+          <TabsTrigger value="reports">Report History</TabsTrigger>
           <TabsTrigger value="import">Import from PDF</TabsTrigger>
           {extractedData?.area_schedule && extractedData.area_schedule.length > 0 && (
             <TabsTrigger value="area-sync">Area Schedule Sync</TabsTrigger>
@@ -163,6 +165,10 @@ const ElectricalBudgetDetail = () => {
 
         <TabsContent value="drawings" className="mt-4">
           <BudgetReferenceDrawings budgetId={budgetId!} projectId={budget.project_id} />
+        </TabsContent>
+
+        <TabsContent value="reports" className="mt-4">
+          <ElectricalBudgetReportHistory budgetId={budgetId!} />
         </TabsContent>
 
         <TabsContent value="import" className="mt-4 space-y-4">
