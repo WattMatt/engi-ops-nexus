@@ -102,6 +102,21 @@ export const ClientComments = ({ projectId, reportType, referenceId, canComment 
 
       if (error) throw error;
 
+      // Send notification to team
+      try {
+        await supabase.functions.invoke("send-client-portal-notification", {
+          body: {
+            projectId,
+            notificationType: "comment",
+            reportType,
+            userEmail: user.email || "Unknown",
+            content: newComment.trim()
+          }
+        });
+      } catch (notifyError) {
+        console.error("Failed to send notification:", notifyError);
+      }
+
       setNewComment("");
       setReplyingTo(null);
       toast.success("Comment added");
