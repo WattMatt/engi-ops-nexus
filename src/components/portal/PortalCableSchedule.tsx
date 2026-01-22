@@ -18,7 +18,7 @@ interface PortalCableScheduleProps {
 }
 
 export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => {
-  // First fetch all cable schedules for this project
+  // Fetch cable schedules for this project
   const { data: schedules, isLoading: schedulesLoading } = useQuery({
     queryKey: ["portal-cable-schedules-list", projectId],
     queryFn: async () => {
@@ -34,15 +34,34 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
     enabled: !!projectId,
   });
 
-  // Then fetch all cable entries for these schedules
-  const { data: cables, isLoading: cablesLoading } = useQuery({
-    queryKey: ["portal-cable-schedule-entries", projectId, schedules?.map(s => s.id)],
+  // Fetch floor plan IDs for this project
+  const { data: floorPlans, isLoading: floorPlansLoading } = useQuery({
+    queryKey: ["portal-floor-plans-list", projectId],
     queryFn: async () => {
-      if (!schedules || schedules.length === 0) return [];
-
-      const scheduleIds = schedules.map(s => s.id);
-
       const { data, error } = await supabase
+        .from("floor_plan_projects")
+        .select("id, name")
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch all cable entries for schedules AND floor plans (matching dashboard behavior)
+  const { data: cables, isLoading: cablesLoading } = useQuery({
+    queryKey: ["portal-cable-schedule-entries", projectId, schedules?.map(s => s.id), floorPlans?.map(f => f.id)],
+    queryFn: async () => {
+      const scheduleIds = schedules?.map(s => s.id) || [];
+      const floorPlanIds = floorPlans?.map(f => f.id) || [];
+
+      if (scheduleIds.length === 0 && floorPlanIds.length === 0) {
+        return [];
+      }
+
+      // Build OR query to match dashboard behavior
+      let query = supabase
         .from("cable_entries")
         .select(`
           id, 
@@ -64,23 +83,30 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
           insulation_type,
           core_configuration,
           schedule_id,
+          floor_plan_id,
           display_order
-        `)
-        .in("schedule_id", scheduleIds)
-        .order("display_order", { ascending: true });
+        `);
+
+      // Build conditions for OR query
+      const conditions: string[] = [];
+      if (scheduleIds.length > 0) {
+        conditions.push(`schedule_id.in.(${scheduleIds.join(",")})`);
+      }
+      if (floorPlanIds.length > 0) {
+        conditions.push(`floor_plan_id.in.(${floorPlanIds.join(",")})`);
+      }
+
+      if (conditions.length > 0) {
+        query = query.or(conditions.join(","));
+      }
+
+      const { data, error } = await query.order("display_order", { ascending: true });
 
       if (error) throw error;
 
-      // Sort by schedule, then by display_order, then by cable_tag
+      // Sort by display_order, then by cable_tag
       return (data || []).sort((a, b) => {
-        // First by schedule_id
-        if (a.schedule_id !== b.schedule_id) {
-          const scheduleIndexA = scheduleIds.indexOf(a.schedule_id || '');
-          const scheduleIndexB = scheduleIds.indexOf(b.schedule_id || '');
-          return scheduleIndexA - scheduleIndexB;
-        }
-        
-        // Then by display_order
+        // First by display_order
         if ((a.display_order || 0) !== (b.display_order || 0)) {
           return (a.display_order || 0) - (b.display_order || 0);
         }
@@ -91,10 +117,10 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
         return tagA.localeCompare(tagB, undefined, { numeric: true, sensitivity: "base" });
       });
     },
-    enabled: !!projectId && !!schedules && schedules.length > 0,
+    enabled: !!projectId && (!!schedules || !!floorPlans),
   });
 
-  const isLoading = schedulesLoading || cablesLoading;
+  const isLoading = schedulesLoading || floorPlansLoading || cablesLoading;
 
   if (isLoading) {
     return (
@@ -156,7 +182,7 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
   const totalLength = cables?.reduce((sum, c) => sum + (c.total_length || 0), 0) || 0;
   const totalLoad = cables?.reduce((sum, c) => sum + (c.load_amps || 0), 0) || 0;
 
-  const hasNoSchedules = !schedules || schedules.length === 0;
+  const hasNoData = (!schedules || schedules.length === 0) && (!floorPlans || floorPlans.length === 0);
   const hasNoCables = !cables || cables.length === 0;
 
   return (
@@ -171,33 +197,30 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {hasNoSchedules ? (
+        {hasNoData ? (
           <div className="text-center py-12 text-muted-foreground">
             <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p>No cable schedules found for this project.</p>
-            <p className="text-sm mt-2">Cable schedules are created in the Cable Schedules module.</p>
+            <p>No cable schedules or floor plans found for this project.</p>
           </div>
         ) : hasNoCables ? (
           <div className="text-center py-12 text-muted-foreground">
             <Cable className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p>No cable entries found in the schedules.</p>
-            <p className="text-sm mt-2">Add cables to your cable schedules to see them here.</p>
+            <p>No cable entries found.</p>
+            <p className="text-sm mt-2">Add cables to your cable schedules or floor plans to see them here.</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Schedule Info */}
-            {schedules && schedules.length > 0 && (
-              <div className="flex flex-wrap gap-2 text-sm">
-                {schedules.map(schedule => (
-                  <Badge key={schedule.id} variant="outline" className="gap-1">
-                    <FileText className="h-3 w-3" />
-                    {schedule.schedule_name} 
-                    {schedule.schedule_number && ` (#${schedule.schedule_number})`}
-                    {schedule.revision && ` Rev ${schedule.revision}`}
-                  </Badge>
-                ))}
-              </div>
-            )}
+            {/* Schedule/Source Info */}
+            <div className="flex flex-wrap gap-2 text-sm">
+              {schedules && schedules.map(schedule => (
+                <Badge key={schedule.id} variant="outline" className="gap-1">
+                  <FileText className="h-3 w-3" />
+                  {schedule.schedule_name} 
+                  {schedule.schedule_number && ` (#${schedule.schedule_number})`}
+                  {schedule.revision && ` Rev ${schedule.revision}`}
+                </Badge>
+              ))}
+            </div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
