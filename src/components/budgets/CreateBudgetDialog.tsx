@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { LogoUpload } from "@/components/LogoUpload";
+import { Switch } from "@/components/ui/switch";
 
 interface CreateBudgetDialogProps {
   open: boolean;
@@ -26,6 +28,8 @@ export const CreateBudgetDialog = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [useCustomConsultantLogo, setUseCustomConsultantLogo] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string>("");
   const [formData, setFormData] = useState({
     budget_number: "",
     revision: "Rev 0",
@@ -36,6 +40,37 @@ export const CreateBudgetDialog = ({
     notes: "",
     consultant_logo_url: "",
     client_logo_url: "",
+  });
+
+  // Fetch company settings for default consultant logo
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch project contacts for client selection
+  const { data: projectContacts = [] } = useQuery({
+    queryKey: ["project-contacts", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_contacts")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("is_primary", { ascending: false })
+        .order("organization_name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!projectId,
   });
 
   const { data: project } = useQuery({
@@ -51,6 +86,42 @@ export const CreateBudgetDialog = ({
     },
     enabled: open && !!projectId,
   });
+
+  // Auto-populate consultant logo from company settings
+  useEffect(() => {
+    if (companySettings?.company_logo_url && !useCustomConsultantLogo) {
+      setFormData(prev => ({ ...prev, consultant_logo_url: companySettings.company_logo_url }));
+    }
+  }, [companySettings, useCustomConsultantLogo]);
+
+  // Auto-populate client details when contact is selected
+  useEffect(() => {
+    if (selectedContactId) {
+      const contact = projectContacts.find(c => c.id === selectedContactId);
+      if (contact) {
+        setFormData(prev => ({
+          ...prev,
+          prepared_for_company: contact.organization_name || "",
+          prepared_for_contact: contact.contact_person_name || "",
+          prepared_for_tel: contact.phone || "",
+          client_logo_url: contact.logo_url || "",
+        }));
+      }
+    }
+  }, [selectedContactId, projectContacts]);
+
+  const getContactTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      client: "Client",
+      quantity_surveyor: "Quantity Surveyor",
+      architect: "Architect",
+      contractor: "Contractor",
+      engineer: "Engineer",
+      consultant: "Consultant",
+      other: "Other",
+    };
+    return labels[type] || type;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,27 +218,93 @@ export const CreateBudgetDialog = ({
           <div className="space-y-4 border-t pt-4">
             <h4 className="font-medium">Company Logos</h4>
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-3">
                 <Label>Consultant Logo (Your Company)</Label>
-                <LogoUpload
-                  currentUrl={formData.consultant_logo_url}
-                  onUrlChange={(url) =>
-                    setFormData({ ...formData, consultant_logo_url: url })
-                  }
-                  label="Upload Logo"
-                  id="consultant-logo"
-                />
+                <div className="flex items-center gap-2 text-sm">
+                  <Switch
+                    checked={useCustomConsultantLogo}
+                    onCheckedChange={(checked) => {
+                      setUseCustomConsultantLogo(checked);
+                      if (!checked && companySettings?.company_logo_url) {
+                        setFormData(prev => ({ ...prev, consultant_logo_url: companySettings.company_logo_url }));
+                      }
+                    }}
+                  />
+                  <span className="text-muted-foreground">Use custom logo</span>
+                </div>
+                {useCustomConsultantLogo ? (
+                  <LogoUpload
+                    currentUrl={formData.consultant_logo_url}
+                    onUrlChange={(url) =>
+                      setFormData({ ...formData, consultant_logo_url: url })
+                    }
+                    label="Upload Logo"
+                    id="consultant-logo"
+                  />
+                ) : (
+                  <div className="border rounded-lg p-3 bg-muted/50">
+                    {formData.consultant_logo_url ? (
+                      <img
+                        src={formData.consultant_logo_url}
+                        alt="Company logo"
+                        className="max-h-16 object-contain"
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No company logo set. Configure in Settings.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-              <div>
+              <div className="space-y-3">
                 <Label>Client Logo</Label>
-                <LogoUpload
-                  currentUrl={formData.client_logo_url}
-                  onUrlChange={(url) =>
-                    setFormData({ ...formData, client_logo_url: url })
-                  }
-                  label="Upload Logo"
-                  id="client-logo"
-                />
+                <Select value={selectedContactId} onValueChange={setSelectedContactId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select from project contacts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">Custom upload...</SelectItem>
+                    {projectContacts.map((contact) => (
+                      <SelectItem key={contact.id} value={contact.id}>
+                        {contact.organization_name} ({getContactTypeLabel(contact.contact_type)})
+                        {contact.is_primary && " ⭐"}
+                        {contact.logo_url && " 🖼️"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedContactId === "custom" ? (
+                  <LogoUpload
+                    currentUrl={formData.client_logo_url}
+                    onUrlChange={(url) =>
+                      setFormData({ ...formData, client_logo_url: url })
+                    }
+                    label="Upload Logo"
+                    id="client-logo"
+                  />
+                ) : formData.client_logo_url ? (
+                  <div className="border rounded-lg p-3 bg-muted/50">
+                    <img
+                      src={formData.client_logo_url}
+                      alt="Client logo"
+                      className="max-h-16 object-contain"
+                    />
+                  </div>
+                ) : selectedContactId ? (
+                  <p className="text-sm text-muted-foreground">
+                    Selected contact has no logo. You can upload one in Project Contacts.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Select a contact to use their logo, or choose "Custom upload".
+                  </p>
+                )}
+                {projectContacts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No contacts available. Add contacts in Project Settings.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -190,6 +327,11 @@ export const CreateBudgetDialog = ({
 
           <div className="space-y-4 border-t pt-4">
             <h4 className="font-medium">Prepared For</h4>
+            {selectedContactId && selectedContactId !== "custom" && (
+              <p className="text-sm text-muted-foreground">
+                Auto-populated from selected contact. You can edit below if needed.
+              </p>
+            )}
             <div>
               <Label htmlFor="prepared_for_company">Company</Label>
               <Input
