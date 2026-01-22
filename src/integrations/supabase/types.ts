@@ -2691,6 +2691,110 @@ export type Database = {
         }
         Relationships: []
       }
+      contractor_portal_access_log: {
+        Row: {
+          accessed_at: string
+          contractor_email: string | null
+          id: string
+          ip_address: string | null
+          project_id: string | null
+          token_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          accessed_at?: string
+          contractor_email?: string | null
+          id?: string
+          ip_address?: string | null
+          project_id?: string | null
+          token_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          accessed_at?: string
+          contractor_email?: string | null
+          id?: string
+          ip_address?: string | null
+          project_id?: string | null
+          token_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_portal_access_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_portal_access_log_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_portal_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contractor_portal_tokens: {
+        Row: {
+          access_count: number | null
+          accessed_at: string | null
+          company_name: string | null
+          contractor_email: string
+          contractor_name: string
+          contractor_type: string
+          created_at: string
+          created_by: string | null
+          document_categories: string[] | null
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          project_id: string
+          token: string
+        }
+        Insert: {
+          access_count?: number | null
+          accessed_at?: string | null
+          company_name?: string | null
+          contractor_email: string
+          contractor_name: string
+          contractor_type: string
+          created_at?: string
+          created_by?: string | null
+          document_categories?: string[] | null
+          expires_at: string
+          id?: string
+          is_active?: boolean | null
+          project_id: string
+          token?: string
+        }
+        Update: {
+          access_count?: number | null
+          accessed_at?: string | null
+          company_name?: string | null
+          contractor_email?: string
+          contractor_name?: string
+          contractor_type?: string
+          created_at?: string
+          created_by?: string | null
+          document_categories?: string[] | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          project_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_portal_tokens_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -11058,6 +11162,119 @@ export type Database = {
           },
         ]
       }
+      rfi_responses: {
+        Row: {
+          attachments: Json | null
+          created_at: string
+          id: string
+          is_official_response: boolean | null
+          responded_by: string | null
+          responded_by_name: string | null
+          response_text: string
+          rfi_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          created_at?: string
+          id?: string
+          is_official_response?: boolean | null
+          responded_by?: string | null
+          responded_by_name?: string | null
+          response_text: string
+          rfi_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          created_at?: string
+          id?: string
+          is_official_response?: boolean | null
+          responded_by?: string | null
+          responded_by_name?: string | null
+          response_text?: string
+          rfi_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfi_responses_rfi_id_fkey"
+            columns: ["rfi_id"]
+            isOneToOne: false
+            referencedRelation: "rfis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rfis: {
+        Row: {
+          attachments: Json | null
+          category: string | null
+          contractor_token_id: string | null
+          created_at: string
+          description: string
+          due_date: string | null
+          id: string
+          priority: string | null
+          project_id: string
+          rfi_number: string
+          status: string | null
+          subject: string
+          submitted_by_company: string | null
+          submitted_by_email: string
+          submitted_by_name: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json | null
+          category?: string | null
+          contractor_token_id?: string | null
+          created_at?: string
+          description: string
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          project_id: string
+          rfi_number: string
+          status?: string | null
+          subject: string
+          submitted_by_company?: string | null
+          submitted_by_email: string
+          submitted_by_name: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json | null
+          category?: string | null
+          contractor_token_id?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          project_id?: string
+          rfi_number?: string
+          status?: string | null
+          subject?: string
+          submitted_by_company?: string | null
+          submitted_by_email?: string
+          submitted_by_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfis_contractor_token_id_fkey"
+            columns: ["contractor_token_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_portal_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rfis_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roadmap_completion_streaks: {
         Row: {
           created_at: string
@@ -13822,6 +14039,7 @@ export type Database = {
         Returns: string
       }
       generate_review_access_token: { Args: never; Returns: string }
+      generate_rfi_number: { Args: { p_project_id: string }; Returns: string }
       get_current_tenant_schedule_version: {
         Args: { p_project_id: string }
         Returns: number
@@ -13894,6 +14112,19 @@ export type Database = {
         Args: { p_ip_address?: string; p_token: string; p_user_agent?: string }
         Returns: {
           email: string
+          expires_at: string
+          is_valid: boolean
+          project_id: string
+        }[]
+      }
+      validate_contractor_portal_token: {
+        Args: { p_ip_address?: string; p_token: string; p_user_agent?: string }
+        Returns: {
+          company_name: string
+          contractor_email: string
+          contractor_name: string
+          contractor_type: string
+          document_categories: string[]
           expires_at: string
           is_valid: boolean
           project_id: string
