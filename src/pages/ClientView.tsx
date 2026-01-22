@@ -677,46 +677,85 @@ const ClientView = () => {
       {/* Header */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <Shield className="h-4 w-4 text-green-500" />
+          <div className="flex items-start justify-between gap-4">
+            {/* Left side - Logos and project info */}
+            <div className="flex items-center gap-4 min-w-0">
+              {/* Logo section */}
+              {(project.client_logo_url || project.project_logo_url || project.consultant_logo_url) ? (
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {/* Primary logo - prioritize client logo for client portal */}
+                  {(project.client_logo_url || project.project_logo_url || project.consultant_logo_url) && (
+                    <div className="h-14 w-auto flex items-center">
+                      <img 
+                        src={project.client_logo_url || project.project_logo_url || project.consultant_logo_url} 
+                        alt="Logo" 
+                        className="h-14 w-auto object-contain max-w-[140px]"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Secondary logo if both client and project logos exist */}
+                  {project.client_logo_url && (project.project_logo_url || project.consultant_logo_url) && (
+                    <>
+                      <div className="h-10 w-px bg-border hidden sm:block" />
+                      <div className="h-12 w-auto hidden sm:flex items-center">
+                        <img 
+                          src={project.project_logo_url || project.consultant_logo_url} 
+                          alt="Partner Logo" 
+                          className="h-12 w-auto object-contain max-w-[100px] opacity-80"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
-                <span className="text-sm text-green-600 font-medium">Secure Client Portal</span>
-              </div>
-              <h1 className="text-3xl font-bold text-foreground mb-1">
-                {project.name}
-              </h1>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                {project.client_name && (
-                  <span className="flex items-center gap-1">
-                    <Building2 className="h-4 w-4" />
-                    {project.client_name}
-                  </span>
-                )}
-                {project.project_number && (
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-4 w-4" />
-                    {project.project_number}
-                  </span>
-                )}
-                {clientEmail && (
-                  <span className="flex items-center gap-1">
-                    <Mail className="h-4 w-4" />
-                    {clientEmail}
-                  </span>
-                )}
-              </div>
-              {expiresAt && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Access expires: {format(new Date(expiresAt), 'MMM d, yyyy h:mm a')}
-                </p>
+              ) : (
+                <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Building2 className="h-7 w-7 text-primary" />
+                </div>
               )}
+              
+              {/* Project info */}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="h-6 w-6 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <Shield className="h-3 w-3 text-green-500" />
+                  </div>
+                  <span className="text-xs text-green-600 font-medium">Secure Client Portal</span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
+                  {project.name}
+                </h1>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mt-1">
+                  {project.client_name && (
+                    <span className="flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {project.client_name}
+                    </span>
+                  )}
+                  {project.project_number && (
+                    <span className="flex items-center gap-1">
+                      <FileText className="h-3.5 w-3.5" />
+                      {project.project_number}
+                    </span>
+                  )}
+                  {clientEmail && (
+                    <span className="flex items-center gap-1">
+                      <Mail className="h-3.5 w-3.5" />
+                      {clientEmail}
+                    </span>
+                  )}
+                </div>
+                {expiresAt && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Access expires: {format(new Date(expiresAt), 'MMM d, yyyy h:mm a')}
+                  </p>
+                )}
+              </div>
             </div>
+            
             <Badge 
               variant={project.status === 'active' ? 'default' : 'secondary'} 
-              className="text-sm px-4 py-1"
+              className="text-sm px-4 py-1 flex-shrink-0"
             >
               {project.status}
             </Badge>
