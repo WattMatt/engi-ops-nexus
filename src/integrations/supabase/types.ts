@@ -1162,6 +1162,59 @@ export type Database = {
           },
         ]
       }
+      budget_reference_drawings: {
+        Row: {
+          budget_id: string
+          created_at: string
+          description: string | null
+          drawing_number: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          revision: string | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          budget_id: string
+          created_at?: string
+          description?: string | null
+          drawing_number?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          revision?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          budget_id?: string
+          created_at?: string
+          description?: string | null
+          drawing_number?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          revision?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_reference_drawings_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "electrical_budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_sections: {
         Row: {
           budget_id: string

@@ -10,6 +10,7 @@ import { BudgetSectionsManager } from "@/components/budgets/BudgetSectionsManage
 import { BudgetPdfUpload } from "@/components/budgets/BudgetPdfUpload";
 import { BudgetExtractionReview } from "@/components/budgets/BudgetExtractionReview";
 import { AreaScheduleSync } from "@/components/budgets/AreaScheduleSync";
+import { BudgetReferenceDrawings } from "@/components/budgets/BudgetReferenceDrawings";
 
 interface ExtractedData {
   budget_number: string;
@@ -122,6 +123,7 @@ const ElectricalBudgetDetail = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="sections">Sections & Items</TabsTrigger>
+          <TabsTrigger value="drawings">Reference Drawings</TabsTrigger>
           <TabsTrigger value="import">Import from PDF</TabsTrigger>
           {extractedData?.area_schedule && extractedData.area_schedule.length > 0 && (
             <TabsTrigger value="area-sync">Area Schedule Sync</TabsTrigger>
@@ -134,6 +136,10 @@ const ElectricalBudgetDetail = () => {
 
         <TabsContent value="sections" className="mt-4">
           <BudgetSectionsManager budgetId={budgetId!} />
+        </TabsContent>
+
+        <TabsContent value="drawings" className="mt-4">
+          <BudgetReferenceDrawings budgetId={budgetId!} projectId={budget.project_id} />
         </TabsContent>
 
         <TabsContent value="import" className="mt-4 space-y-4">
