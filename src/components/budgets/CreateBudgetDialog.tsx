@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { LogoUpload } from "@/components/LogoUpload";
 import { Switch } from "@/components/ui/switch";
+import { ContactCombobox } from "@/components/shared/ContactCombobox";
 
 interface CreateBudgetDialogProps {
   open: boolean;
@@ -57,22 +57,6 @@ export const CreateBudgetDialog = ({
     enabled: open,
   });
 
-  // Fetch project contacts for client selection
-  const { data: projectContacts = [] } = useQuery({
-    queryKey: ["project-contacts", projectId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_contacts")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("is_primary", { ascending: false })
-        .order("organization_name");
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: open && !!projectId,
-  });
-
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
     queryFn: async () => {
@@ -94,33 +78,32 @@ export const CreateBudgetDialog = ({
     }
   }, [companySettings, useCustomConsultantLogo]);
 
-  // Auto-populate client details when contact is selected
-  useEffect(() => {
-    if (selectedContactId) {
-      const contact = projectContacts.find(c => c.id === selectedContactId);
-      if (contact) {
-        setFormData(prev => ({
-          ...prev,
-          prepared_for_company: contact.organization_name || "",
-          prepared_for_contact: contact.contact_person_name || "",
-          prepared_for_tel: contact.phone || "",
-          client_logo_url: contact.logo_url || "",
-        }));
-      }
+  // Handle contact selection with auto-population
+  const handleContactSelect = (contact: { 
+    id: string; 
+    organization_name: string | null; 
+    contact_person_name: string | null; 
+    phone: string | null; 
+    logo_url: string | null;
+  } | null) => {
+    if (contact) {
+      setFormData(prev => ({
+        ...prev,
+        prepared_for_company: contact.organization_name || "",
+        prepared_for_contact: contact.contact_person_name || "",
+        prepared_for_tel: contact.phone || "",
+        client_logo_url: contact.logo_url || "",
+      }));
+    } else {
+      // Clear client fields when custom or cleared
+      setFormData(prev => ({
+        ...prev,
+        prepared_for_company: "",
+        prepared_for_contact: "",
+        prepared_for_tel: "",
+        client_logo_url: "",
+      }));
     }
-  }, [selectedContactId, projectContacts]);
-
-  const getContactTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      client: "Client",
-      quantity_surveyor: "Quantity Surveyor",
-      architect: "Architect",
-      contractor: "Contractor",
-      engineer: "Engineer",
-      consultant: "Consultant",
-      other: "Other",
-    };
-    return labels[type] || type;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -258,22 +241,14 @@ export const CreateBudgetDialog = ({
                 )}
               </div>
               <div className="space-y-3">
-                <Label>Client Logo</Label>
-                <Select value={selectedContactId} onValueChange={setSelectedContactId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select from project contacts" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="custom">Custom upload...</SelectItem>
-                    {projectContacts.map((contact) => (
-                      <SelectItem key={contact.id} value={contact.id}>
-                        {contact.organization_name} ({getContactTypeLabel(contact.contact_type)})
-                        {contact.is_primary && " ⭐"}
-                        {contact.logo_url && " 🖼️"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ContactCombobox
+                  projectId={projectId}
+                  value={selectedContactId}
+                  onValueChange={setSelectedContactId}
+                  onContactSelect={handleContactSelect}
+                  label="Client Contact"
+                  includeCustomOption={true}
+                />
                 {selectedContactId === "custom" ? (
                   <LogoUpload
                     currentUrl={formData.client_logo_url}
@@ -295,16 +270,7 @@ export const CreateBudgetDialog = ({
                   <p className="text-sm text-muted-foreground">
                     Selected contact has no logo. You can upload one in Project Contacts.
                   </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Select a contact to use their logo, or choose "Custom upload".
-                  </p>
-                )}
-                {projectContacts.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No contacts available. Add contacts in Project Settings.
-                  </p>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
