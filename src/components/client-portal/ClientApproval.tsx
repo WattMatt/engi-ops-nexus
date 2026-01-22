@@ -98,6 +98,21 @@ export const ClientApproval = ({ projectId, reportType, reportVersion, canApprov
         if (error) throw error;
       }
 
+      // Send notification to team
+      try {
+        await supabase.functions.invoke("send-client-portal-notification", {
+          body: {
+            projectId,
+            notificationType: status,
+            reportType,
+            userEmail: user.email || "Unknown",
+            notes: notes.trim() || undefined
+          }
+        });
+      } catch (notifyError) {
+        console.error("Failed to send notification:", notifyError);
+      }
+
       toast.success(`Report ${status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'revision requested'}`);
       setShowSignature(false);
       setNotes("");
