@@ -16,7 +16,7 @@ import {
   Building2, FileText, Zap, Loader2, AlertCircle, CheckCircle, 
   Clock, MessageSquare, Send, Download, FolderOpen, Shield, Lock, Mail,
   LayoutDashboard, Users, BarChart3, CheckCircle2, XCircle, Calendar,
-  MapPin, TrendingUp, Activity, Package, Lightbulb, CircuitBoard
+  MapPin, TrendingUp, Activity, Package, Lightbulb, CircuitBoard, Cable
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -27,6 +27,7 @@ import { ClientHandoverDocuments } from "@/components/client-portal/ClientHandov
 import { ClientGeneratorCostingSection } from "@/components/client-portal/ClientGeneratorCostingSection";
 import { ClientCapitalRecoverySection } from "@/components/client-portal/ClientCapitalRecoverySection";
 import { ClientRunningRecoverySection } from "@/components/client-portal/ClientRunningRecoverySection";
+import { PortalCableSchedule } from "@/components/portal/PortalCableSchedule";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DollarSign, ChevronDown } from "lucide-react";
 
@@ -766,7 +767,7 @@ const ClientView = () => {
       {/* Content */}
       <main className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-5 w-full max-w-3xl bg-card border">
+          <TabsList className="grid grid-cols-6 w-full max-w-4xl bg-card border">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -774,6 +775,10 @@ const ClientView = () => {
             <TabsTrigger value="tenants" className="gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Tenants</span>
+            </TabsTrigger>
+            <TabsTrigger value="cables" className="gap-2">
+              <Cable className="h-4 w-4" />
+              <span className="hidden sm:inline">Cables</span>
             </TabsTrigger>
             <TabsTrigger value="generator" className="gap-2">
               <Zap className="h-4 w-4" />
@@ -1116,6 +1121,11 @@ const ClientView = () => {
                 </ScrollArea>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Cables Tab */}
+          <TabsContent value="cables" className="space-y-6">
+            {projectId && <PortalCableSchedule projectId={projectId} />}
           </TabsContent>
 
           {/* Generator Tab */}

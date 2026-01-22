@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Package, MessageSquarePlus, AlertTriangle, Users } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable } from "lucide-react";
 import { ContractorDocumentStatus } from "@/components/contractor-portal/ContractorDocumentStatus";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
 import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
 import { ContractorTenantTracker } from "@/components/contractor-portal/ContractorTenantTracker";
 import { PortalHeader } from "@/components/portal/PortalHeader";
+import { PortalCableSchedule } from "@/components/portal/PortalCableSchedule";
 
 interface TokenData {
   project_id: string;
@@ -142,22 +143,26 @@ export default function ContractorPortal() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
         <Tabs defaultValue="documents" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
             <TabsTrigger value="documents" className="gap-2">
               <FileText className="h-4 w-4" />
-              Documentation
+              <span className="hidden sm:inline">Documentation</span>
             </TabsTrigger>
             <TabsTrigger value="tenants" className="gap-2">
               <Users className="h-4 w-4" />
-              Tenant Tracker
+              <span className="hidden sm:inline">Tenant Tracker</span>
+            </TabsTrigger>
+            <TabsTrigger value="cables" className="gap-2">
+              <Cable className="h-4 w-4" />
+              <span className="hidden sm:inline">Cable Schedule</span>
             </TabsTrigger>
             <TabsTrigger value="procurement" className="gap-2">
               <Package className="h-4 w-4" />
-              Procurement
+              <span className="hidden sm:inline">Procurement</span>
             </TabsTrigger>
             <TabsTrigger value="rfi" className="gap-2">
               <MessageSquarePlus className="h-4 w-4" />
-              RFI Tracker
+              <span className="hidden sm:inline">RFI Tracker</span>
             </TabsTrigger>
           </TabsList>
 
@@ -170,6 +175,10 @@ export default function ContractorPortal() {
 
           <TabsContent value="tenants">
             <ContractorTenantTracker projectId={project.id} />
+          </TabsContent>
+
+          <TabsContent value="cables">
+            <PortalCableSchedule projectId={project.id} />
           </TabsContent>
 
           <TabsContent value="procurement">
