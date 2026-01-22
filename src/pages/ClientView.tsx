@@ -28,6 +28,7 @@ import { ClientGeneratorCostingSection } from "@/components/client-portal/Client
 import { ClientCapitalRecoverySection } from "@/components/client-portal/ClientCapitalRecoverySection";
 import { ClientRunningRecoverySection } from "@/components/client-portal/ClientRunningRecoverySection";
 import { PortalCableSchedule } from "@/components/portal/PortalCableSchedule";
+import { PortalBulkServices } from "@/components/portal/PortalBulkServices";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DollarSign, ChevronDown } from "lucide-react";
 
@@ -767,7 +768,7 @@ const ClientView = () => {
       {/* Content */}
       <main className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-6 w-full max-w-4xl bg-card border">
+          <TabsList className="grid grid-cols-7 w-full max-w-5xl bg-card border">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -779,6 +780,10 @@ const ClientView = () => {
             <TabsTrigger value="cables" className="gap-2">
               <Cable className="h-4 w-4" />
               <span className="hidden sm:inline">Cables</span>
+            </TabsTrigger>
+            <TabsTrigger value="bulk" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Bulk Services</span>
             </TabsTrigger>
             <TabsTrigger value="generator" className="gap-2">
               <Zap className="h-4 w-4" />
@@ -1126,6 +1131,11 @@ const ClientView = () => {
           {/* Cables Tab */}
           <TabsContent value="cables" className="space-y-6">
             {projectId && <PortalCableSchedule projectId={projectId} />}
+          </TabsContent>
+
+          {/* Bulk Services Tab */}
+          <TabsContent value="bulk" className="space-y-6">
+            {projectId && <PortalBulkServices projectId={projectId} />}
           </TabsContent>
 
           {/* Generator Tab */}
