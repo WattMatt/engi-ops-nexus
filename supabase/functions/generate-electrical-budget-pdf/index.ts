@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,7 +49,7 @@ serve(async (req) => {
     console.log('[ElectricalBudgetPDF] Sending request to PDFShift API...');
     console.log('[ElectricalBudgetPDF] HTML length:', html.length, 'characters');
 
-    // Build PDFShift request - note: printBackground is not a valid field
+    // Build PDFShift request
     const pdfShiftPayload = {
       source: html,
       format: 'A4',
@@ -126,8 +127,8 @@ serve(async (req) => {
 
     console.log('[ElectricalBudgetPDF] Upload complete!');
 
-    // Also return base64 for immediate download
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+    // Use Deno's built-in base64 encoding to avoid stack overflow
+    const base64 = base64Encode(pdfBuffer);
 
     return new Response(
       JSON.stringify({
