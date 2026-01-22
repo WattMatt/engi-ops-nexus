@@ -51,40 +51,49 @@ export const ElectricalBudgetReportPreview = ({
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageLoading, setPageLoading] = useState(false);
-  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [pageScale, setPageScale] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Measure container width for responsive PDF scaling
+  // A4 aspect ratio (210mm x 297mm)
+  const A4_ASPECT_RATIO = 297 / 210;
+
+  // Calculate scale to fit full page in container
   useEffect(() => {
     if (!open) return;
     
-    const updateWidth = () => {
+    const calculateScale = () => {
       if (containerRef.current) {
-        const width = containerRef.current.clientWidth - 48;
-        if (width > 0) {
-          setContainerWidth(width);
+        const containerWidth = containerRef.current.clientWidth - 48; // padding
+        const containerHeight = containerRef.current.clientHeight - 80; // space for nav controls
+        
+        if (containerWidth > 0 && containerHeight > 0) {
+          // Calculate what width would make the page fit height-wise
+          const widthFromHeight = containerHeight / A4_ASPECT_RATIO;
+          
+          // Use the smaller of the two to ensure full page fits
+          const optimalWidth = Math.min(containerWidth, widthFromHeight);
+          
+          if (optimalWidth > 0) {
+            setPageScale(optimalWidth);
+          }
         }
       }
     };
     
-    // Use ResizeObserver for more reliable width detection
-    const observer = new ResizeObserver(() => {
-      updateWidth();
-    });
+    const observer = new ResizeObserver(calculateScale);
     
     if (containerRef.current) {
       observer.observe(containerRef.current);
     }
     
-    // Also update on initial render with a small delay
-    const timer = setTimeout(updateWidth, 100);
+    const timer = setTimeout(calculateScale, 100);
+    window.addEventListener('resize', calculateScale);
     
-    window.addEventListener('resize', updateWidth);
     return () => {
       observer.disconnect();
       clearTimeout(timer);
-      window.removeEventListener('resize', updateWidth);
+      window.removeEventListener('resize', calculateScale);
     };
   }, [open]);
 
@@ -240,15 +249,15 @@ export const ElectricalBudgetReportPreview = ({
         {/* Preview Area */}
         <div 
           ref={containerRef}
-          className="flex-1 min-h-[400px] border rounded-lg bg-muted/30 overflow-auto flex flex-col items-center"
+          className="flex-1 min-h-[400px] border rounded-lg bg-muted/30 overflow-hidden flex flex-col items-center justify-center"
         >
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">Loading preview...</p>
             </div>
-          ) : pdfUrl && containerWidth > 0 ? (
-            <div className="w-full flex flex-col items-center py-2">
+          ) : pdfUrl && pageScale ? (
+            <div className="flex flex-col items-center">
               <Document
                 file={pdfUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
@@ -262,7 +271,7 @@ export const ElectricalBudgetReportPreview = ({
               >
                 <Page
                   pageNumber={currentPage}
-                  width={containerWidth}
+                  width={pageScale}
                   loading={
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
