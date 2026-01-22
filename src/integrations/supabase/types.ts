@@ -3490,6 +3490,56 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_budget_reports: {
+        Row: {
+          budget_id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          revision: string
+        }
+        Insert: {
+          budget_id: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          revision: string
+        }
+        Update: {
+          budget_id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          revision?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_budget_reports_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "electrical_budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_budgets: {
         Row: {
           baseline_allowances: string | null
