@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Outlet } from "react-router-dom";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -10,14 +10,21 @@ import { LogOut } from "lucide-react";
 import { FirstLoginModal } from "@/components/auth/FirstLoginModal";
 import { useQuery } from "@tanstack/react-query";
 import { ProjectContextHeader } from "@/components/common/ProjectContextHeader";
+import { useProjectClientCheck } from "@/hooks/useProjectClientCheck";
+import { ProjectContactSetupBanner } from "@/components/project/ProjectContactSetupBanner";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string>("");
   const [projectNumber, setProjectNumber] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+
+  // Check if project has a client contact assigned
+  const { hasClient, isLoading: isCheckingClient } = useProjectClientCheck(projectId);
 
   // Check user's profile for password change requirements
   const { data: profile, refetch: refetchProfile } = useQuery({
@@ -64,16 +71,18 @@ const DashboardLayout = () => {
   }, [profile]);
 
   const loadProjectInfo = async () => {
-    const projectId = localStorage.getItem("selectedProjectId");
-    if (!projectId) {
+    const storedProjectId = localStorage.getItem("selectedProjectId");
+    if (!storedProjectId) {
       navigate("/projects");
       return;
     }
 
+    setProjectId(storedProjectId);
+
     const { data: project } = await supabase
       .from("projects")
       .select("name, project_number")
-      .eq("id", projectId)
+      .eq("id", storedProjectId)
       .maybeSingle();
 
     if (project) {
@@ -88,6 +97,21 @@ const DashboardLayout = () => {
     localStorage.removeItem("selectedProjectId");
     navigate("/auth");
   };
+
+  // Check if user is on allowed pages when no client is assigned
+  const isOnContactLibrary = location.pathname.includes("contact-library");
+  const isOnProjectSettings = location.pathname.includes("project-settings");
+  const allowedWithoutClient = isOnContactLibrary || isOnProjectSettings;
+
+  // Determine if we should block the content
+  const shouldBlockContent = !loading && !isCheckingClient && projectId && !hasClient && !allowedWithoutClient;
+
+  // Redirect to contact library if no client and trying to access other pages
+  useEffect(() => {
+    if (shouldBlockContent) {
+      navigate("/dashboard/contact-library");
+    }
+  }, [shouldBlockContent, navigate]);
 
   // Show password change modal if required
   if (mustChangePassword) {
@@ -124,6 +148,11 @@ const DashboardLayout = () => {
             projectName={projectName} 
             projectNumber={projectNumber} 
           />
+
+          {/* Show warning banner if no client assigned */}
+          {!hasClient && projectId && !isCheckingClient && (
+            <ProjectContactSetupBanner projectName={projectName} />
+          )}
 
           {/* Main Content */}
           <main className="flex-1 bg-gradient-to-b from-background to-muted/20 overflow-auto">
