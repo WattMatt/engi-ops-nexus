@@ -272,30 +272,13 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                         cable.parallel_total_count &&
                         cable.parallel_total_count > 1;
 
-                      // Build proper base tag - if malformed (has : or →), construct from from/to locations
-                      // Target format: "Main Board 1.2-Shop 1-Alu-185mm"
-                      let baseTag = cable.base_cable_tag || '';
+                      // Use cable_tag directly - same as dashboard VirtualizedCableTable
+                      let displayTag = cable.cable_tag || '';
                       
-                      // Check if base_cable_tag is malformed (contains : or → symbols)
-                      const isMalformed = !baseTag || baseTag.includes(':') || baseTag.includes('→');
-                      if (isMalformed && cable.from_location && cable.to_location) {
-                        baseTag = `${cable.from_location}-${cable.to_location}`;
-                      } else if (isMalformed && cable.cable_tag) {
-                        // Try to clean up the cable_tag if base is bad
-                        baseTag = cable.cable_tag.replace(/[:\s]*→\s*/g, '-').replace(/^[:\s]+/, '');
-                      }
-                      
-                      const materialShort = cable.cable_type === 'Aluminium' ? 'Alu' : 
-                                            cable.cable_type === 'Copper' ? 'Cu' : 
-                                            cable.cable_type || '';
-                      const sizeShort = cable.cable_size?.replace('mm²', 'mm') || '';
-                      
-                      let displayTag = baseTag;
-                      if (materialShort) displayTag += `-${materialShort}`;
-                      if (sizeShort) displayTag += `-${sizeShort}`;
-                      
+                      // For parallel cables, show base tag with parallel numbering
                       if (isParallel) {
-                        displayTag += ` (${cableNumber}/${cable.parallel_total_count})`;
+                        const baseTag = cable.base_cable_tag || cable.cable_tag || '';
+                        displayTag = `${baseTag} (${cableNumber}/${cable.parallel_total_count})`;
                       }
 
                       return (
