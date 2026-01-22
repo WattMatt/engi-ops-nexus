@@ -63,6 +63,7 @@ import ClientDocumentsPage from "./pages/client/ClientDocumentsPage";
 import ClientView from "./pages/ClientView";
 import ContractorReviewPortal from "./pages/ContractorReviewPortal";
 import ClientGeneratorReportView from "./pages/ClientGeneratorReportView";
+import ContractorPortal from "./pages/ContractorPortal";
 import PRDManager from "./pages/PRDManager";
 import { EmailTemplatesAdmin } from "./components/admin/email-templates/EmailTemplatesAdmin";
 import { EmailTemplateEditor } from "./components/admin/email-templates/EmailTemplateEditor";
@@ -97,6 +98,7 @@ const App = () => (
               <Route path="/client-view" element={<ClientView />} />
               <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
               <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
+              <Route path="/contractor-portal" element={<ContractorPortal />} />
               <Route path="/master-library" element={<MasterLibrary />} />
               <Route path="/contact-library" element={<ContactLibrary />} />
               <Route path="/projects/:projectId/roadmap" element={<RoadmapItemRedirect />} />

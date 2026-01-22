@@ -1,0 +1,190 @@
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { FileText, Package, MessageSquarePlus, Building2, AlertTriangle } from "lucide-react";
+import { ContractorDocumentStatus } from "@/components/contractor-portal/ContractorDocumentStatus";
+import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
+import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
+
+interface TokenData {
+  project_id: string;
+  contractor_type: string;
+  contractor_name: string;
+  contractor_email: string;
+  company_name: string | null;
+  document_categories: string[];
+  expires_at: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  project_number: string;
+}
+
+export default function ContractorPortal() {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token");
+  
+  const [loading, setLoading] = useState(true);
+  const [tokenData, setTokenData] = useState<TokenData | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (token) {
+      validateToken();
+    } else {
+      setError("No access token provided");
+      setLoading(false);
+    }
+  }, [token]);
+
+  const validateToken = async () => {
+    try {
+      const { data, error: rpcError } = await supabase.rpc('validate_contractor_portal_token', {
+        p_token: token,
+        p_ip_address: null,
+        p_user_agent: navigator.userAgent
+      });
+
+      if (rpcError) throw rpcError;
+
+      if (!data || data.length === 0 || !data[0].is_valid) {
+        setError("Invalid or expired access link");
+        setLoading(false);
+        return;
+      }
+
+      const tokenInfo = data[0];
+      setTokenData({
+        project_id: tokenInfo.project_id,
+        contractor_type: tokenInfo.contractor_type,
+        contractor_name: tokenInfo.contractor_name,
+        contractor_email: tokenInfo.contractor_email,
+        company_name: tokenInfo.company_name,
+        document_categories: tokenInfo.document_categories || [],
+        expires_at: tokenInfo.expires_at
+      });
+
+      // Fetch project details
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('id, name, project_number')
+        .eq('id', tokenInfo.project_id)
+        .single();
+
+      if (projectError) throw projectError;
+      setProject(projectData);
+
+    } catch (err) {
+      console.error("Token validation error:", err);
+      setError("Failed to validate access. Please try again or request a new link.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !tokenData || !project) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              {error || "Unable to access contractor portal"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center text-sm text-muted-foreground">
+            If you believe this is an error, please contact the project team for a new access link.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const contractorTypeLabel = tokenData.contractor_type === 'main_contractor' ? 'Main Contractor' : 'Subcontractor';
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b bg-card">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Building2 className="h-8 w-8 text-primary" />
+              <div>
+                <h1 className="text-xl font-semibold">{project.name}</h1>
+                <p className="text-sm text-muted-foreground">
+                  Project #{project.project_number}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="font-medium">{tokenData.contractor_name}</p>
+              <Badge variant="outline">{contractorTypeLabel}</Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        <Tabs defaultValue="documents" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="documents" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Documentation
+            </TabsTrigger>
+            <TabsTrigger value="procurement" className="gap-2">
+              <Package className="h-4 w-4" />
+              Procurement
+            </TabsTrigger>
+            <TabsTrigger value="rfi" className="gap-2">
+              <MessageSquarePlus className="h-4 w-4" />
+              RFI Tracker
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="documents">
+            <ContractorDocumentStatus 
+              projectId={project.id}
+              documentCategories={tokenData.document_categories}
+            />
+          </TabsContent>
+
+          <TabsContent value="procurement">
+            <ContractorProcurementStatus projectId={project.id} />
+          </TabsContent>
+
+          <TabsContent value="rfi">
+            <ContractorRFISection 
+              projectId={project.id}
+              contractorName={tokenData.contractor_name}
+              contractorEmail={tokenData.contractor_email}
+              companyName={tokenData.company_name}
+              token={token || ''}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
