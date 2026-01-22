@@ -966,6 +966,13 @@ function buildSectionDetailPage(
   // Determine if we have area-based items
   const hasAreaItems = section.items.some(item => item.area && item.area > 0);
   
+  // Sort items numerically by item_number
+  const sortedItems = [...section.items].sort((a, b) => {
+    const numA = parseInt(a.item_number || '0', 10) || a.display_order || 0;
+    const numB = parseInt(b.item_number || '0', 10) || b.display_order || 0;
+    return numA - numB;
+  });
+  
   return `
   <div class="page">
     ${buildPageHeader(data)}
@@ -988,7 +995,7 @@ function buildSectionDetailPage(
         </tr>
       </thead>
       <tbody>
-        ${section.items.map((item, idx) => `
+        ${sortedItems.map((item, idx) => `
           <tr>
             <td>${item.item_number || (idx + 1)}</td>
             <td>${item.description}</td>
