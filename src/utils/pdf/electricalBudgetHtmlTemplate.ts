@@ -110,18 +110,8 @@ export function generateElectricalBudgetHtml(data: ElectricalBudgetPdfData): str
     sections.push(buildReferenceDrawingsPage(data));
   }
   
-  // 6. BOQ Section Details (individual sections first)
-  data.sections.forEach((section, index) => {
-    sections.push(buildSectionDetailPage(section, index + 1, data));
-  });
-  
-  // 7. BOQ Summary (moved to end, before exclusions)
-  sections.push(buildBoqSummaryPage(data));
-  
-  // 8. Exclusions (if available)
-  if (data.budget.exclusions && data.budget.exclusions !== '<p></p>') {
-    sections.push(buildExclusionsPage(data));
-  }
+  // 6. Combined BOQ - All sections in one continuous table with exclusions at bottom
+  sections.push(buildCombinedBoqPage(data));
   
   return buildFullDocument(sections, data);
 }
@@ -626,6 +616,45 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     }
     
     /* ============================================================
+       COMBINED BOQ TABLE - Continuous Flow
+       ============================================================ */
+    .combined-boq-table {
+      font-size: 8pt;
+    }
+    
+    .combined-boq-table .section-header-row {
+      background: #f1f5f9 !important;
+      border-top: 2px solid #1e3a5f;
+    }
+    
+    .combined-boq-table .section-header-row td {
+      padding: 8px;
+      font-weight: 700;
+      color: #1e3a5f;
+    }
+    
+    .combined-boq-table .item-code {
+      color: #64748b;
+      font-size: 7pt;
+    }
+    
+    .combined-boq-table .spacer-row td {
+      padding: 4px;
+      border: none;
+      background: white !important;
+    }
+    
+    .combined-boq-table .exclusions-content {
+      padding: 12px;
+      background: #fefce8 !important;
+      border-left: 3px solid #eab308;
+    }
+    
+    .combined-boq-table .exclusions-content .rich-content {
+      font-size: 8pt;
+    }
+    
+    /* ============================================================
        PAGE FOOTER - Fixed at Bottom
        ============================================================ */
     .page-footer {
@@ -756,22 +785,16 @@ function buildIndexPage(data: ElectricalBudgetPdfData): string {
     items.push({ number: String(sectionNum++), title: 'Reference Drawings' });
   }
   
-  // Individual BOQ sections first
-  const boqStartNum = sectionNum;
+  // Combined BOQ with all sections
+  items.push({ number: String(sectionNum++), title: 'Bill of Quantities' });
+  
+  // List individual sections as sub-items
   data.sections.forEach((section, idx) => {
     items.push({ 
-      number: `${boqStartNum}.${idx + 1}`, 
+      number: `${sectionNum - 1}.${idx + 1}`, 
       title: `${section.section_code} - ${section.section_name}` 
     });
   });
-  sectionNum++;
-  
-  // BOQ Summary comes after all sections
-  items.push({ number: String(sectionNum++), title: 'Bill of Quantities - Summary' });
-  
-  if (data.budget.exclusions && data.budget.exclusions !== '<p></p>') {
-    items.push({ number: String(sectionNum++), title: 'Exclusions' });
-  }
   
   return `
   <div class="page">
@@ -910,133 +933,90 @@ function buildReferenceDrawingsPage(data: ElectricalBudgetPdfData): string {
   </div>`;
 }
 
-function buildBoqSummaryPage(data: ElectricalBudgetPdfData): string {
-  const sectionTotals = data.sections.map(section => ({
-    code: section.section_code,
-    name: section.section_name,
-    items: section.items.length,
-    total: section.items.reduce((sum, item) => sum + (item.total || 0), 0)
-  }));
+function buildCombinedBoqPage(data: ElectricalBudgetPdfData): string {
+  const grandTotal = data.sections.reduce((sum, section) => 
+    sum + section.items.reduce((itemSum, item) => itemSum + (item.total || 0), 0), 0
+  );
   
-  const grandTotal = sectionTotals.reduce((sum, s) => sum + s.total, 0);
+  // Build all section rows continuously
+  let tableRows = '';
+  
+  data.sections.forEach((section) => {
+    const sectionTotal = section.items.reduce((sum, item) => sum + (item.total || 0), 0);
+    
+    // Sort items numerically by item_number
+    const sortedItems = [...section.items].sort((a, b) => {
+      const numA = parseInt(a.item_number || '0', 10) || a.display_order || 0;
+      const numB = parseInt(b.item_number || '0', 10) || b.display_order || 0;
+      return numA - numB;
+    });
+    
+    // Section header row
+    tableRows += `
+      <tr class="section-header-row">
+        <td><strong>${section.section_code}</strong></td>
+        <td colspan="2"><strong>${section.section_name.toUpperCase()}</strong></td>
+        <td class="right"><strong>${formatCurrency(sectionTotal)}</strong></td>
+      </tr>
+    `;
+    
+    // Section items
+    sortedItems.forEach((item) => {
+      tableRows += `
+        <tr>
+          <td class="item-code">${section.section_code}${item.item_number || ''}</td>
+          <td>${item.description}</td>
+          <td class="right">${item.area ? `${item.area.toLocaleString()} ${item.area_unit || 'm²'}` : ''}</td>
+          <td class="right">${formatCurrency(item.total)}</td>
+        </tr>
+      `;
+    });
+    
+    // Empty row for spacing between sections
+    tableRows += `<tr class="spacer-row"><td colspan="4"></td></tr>`;
+  });
+  
+  // Build exclusions list if available
+  let exclusionsHtml = '';
+  if (data.budget.exclusions && data.budget.exclusions !== '<p></p>') {
+    exclusionsHtml = `
+      <tr class="spacer-row"><td colspan="4"></td></tr>
+      <tr class="section-header-row">
+        <td colspan="4"><strong>EXCLUSIONS:</strong></td>
+      </tr>
+      <tr>
+        <td colspan="4" class="exclusions-content">
+          <div class="rich-content">${data.budget.exclusions}</div>
+        </td>
+      </tr>
+    `;
+  }
   
   return `
-  <div class="page">
+  <div class="content-flow-page">
     ${buildPageHeader(data)}
     
-    <h1 class="section-title">Bill of Quantities - Summary</h1>
-    <p class="section-subtitle">Overview of all budget sections</p>
+    <h1 class="section-title">Bill of Quantities</h1>
+    <p class="section-subtitle">Detailed breakdown of all budget sections</p>
     
-    <table>
+    <table class="combined-boq-table">
       <thead>
         <tr>
-          <th>Section Code</th>
-          <th>Description</th>
-          <th class="center">Items</th>
-          <th class="right">Total (Excl. VAT)</th>
+          <th style="width: 10%;">Item</th>
+          <th style="width: 50%;">Description</th>
+          <th class="right" style="width: 15%;">Area</th>
+          <th class="right" style="width: 25%;">Amount</th>
         </tr>
       </thead>
       <tbody>
-        ${sectionTotals.map(section => `
-          <tr>
-            <td><strong>${section.code}</strong></td>
-            <td>${section.name}</td>
-            <td class="center">${section.items}</td>
-            <td class="right">${formatCurrency(section.total)}</td>
-          </tr>
-        `).join('')}
+        ${tableRows}
+        ${exclusionsHtml}
         <tr class="total-row">
-          <td colspan="3"><strong>GRAND TOTAL (Excl. VAT)</strong></td>
+          <td colspan="3"><strong>TOTAL EXCLUSIVE OF VAT</strong></td>
           <td class="right"><strong>${formatCurrency(grandTotal)}</strong></td>
         </tr>
       </tbody>
     </table>
-    
-    ${buildPageFooter(data, '4')}
-  </div>`;
-}
-
-function buildSectionDetailPage(
-  section: ElectricalBudgetPdfData['sections'][0], 
-  sectionNum: number,
-  data: ElectricalBudgetPdfData
-): string {
-  const sectionTotal = section.items.reduce((sum, item) => sum + (item.total || 0), 0);
-  
-  // Determine if we have area-based items
-  const hasAreaItems = section.items.some(item => item.area && item.area > 0);
-  
-  // Sort items numerically by item_number
-  const sortedItems = [...section.items].sort((a, b) => {
-    const numA = parseInt(a.item_number || '0', 10) || a.display_order || 0;
-    const numB = parseInt(b.item_number || '0', 10) || b.display_order || 0;
-    return numA - numB;
-  });
-  
-  return `
-  <div class="page">
-    ${buildPageHeader(data)}
-    
-    <span class="section-badge">Section ${section.section_code}</span>
-    <h1 class="section-title">${section.section_name}</h1>
-    <p class="section-subtitle">Detailed line items and pricing</p>
-    
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 6%;">Item</th>
-          <th style="width: ${hasAreaItems ? '38%' : '54%'};">Description</th>
-          ${hasAreaItems ? `
-          <th class="right" style="width: 14%;">Area</th>
-          <th class="right" style="width: 12%;">Base Rate</th>
-          <th class="right" style="width: 12%;">TI Rate</th>
-          ` : ''}
-          <th class="right" style="width: ${hasAreaItems ? '18%' : '40%'};">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${sortedItems.map((item, idx) => `
-          <tr>
-            <td>${item.item_number || (idx + 1)}</td>
-            <td>${item.description}</td>
-            ${hasAreaItems ? `
-            <td class="right">${item.area ? `${item.area.toLocaleString()} ${item.area_unit || 'm²'}` : '-'}</td>
-            <td class="right">${item.base_rate ? formatCurrency(item.base_rate) : '-'}</td>
-            <td class="right">${item.ti_rate ? formatCurrency(item.ti_rate) : '-'}</td>
-            ` : ''}
-            <td class="right"><strong>${formatCurrency(item.total)}</strong></td>
-          </tr>
-        `).join('')}
-        <tr class="subtotal-row">
-          <td colspan="${hasAreaItems ? '5' : '2'}"><strong>Section Total</strong></td>
-          <td class="right"><strong>${formatCurrency(sectionTotal)}</strong></td>
-        </tr>
-      </tbody>
-    </table>
-    
-    ${buildPageFooter(data, String(4 + sectionNum))}
-  </div>`;
-}
-
-function buildExclusionsPage(data: ElectricalBudgetPdfData): string {
-  return `
-  <div class="page content-flow-page">
-    ${buildPageHeader(data)}
-    
-    <h1 class="section-title">Exclusions</h1>
-    <p class="section-subtitle">Items and scope not included in this budget estimate</p>
-    
-    <div class="rich-content">
-      ${data.budget.exclusions || ''}
-    </div>
-    
-    <div class="info-box" style="margin-top: 20px;">
-      <div class="info-box-title">Important Notice</div>
-      <div class="info-box-content">
-        The items listed above are explicitly excluded from this budget estimate. 
-        Should any of these items be required, separate quotations should be requested.
-      </div>
-    </div>
   </div>`;
 }
 
