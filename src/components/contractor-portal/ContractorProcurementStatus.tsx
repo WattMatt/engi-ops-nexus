@@ -16,6 +16,8 @@ interface ProcurementItem {
   procurement_status: string | null;
   supplier_name: string | null;
   expected_delivery: string | null;
+  pc_allowance: number;
+  pc_actual_cost: number;
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -32,6 +34,7 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode }> = {
 
 async function fetchProcurementItems(projectId: string): Promise<ProcurementItem[]> {
   // Chain: final_accounts -> final_account_bills -> final_account_sections -> final_account_items
+  // Only fetch Prime Cost (PC) items which are the items that need procurement tracking
   
   // Step 1: Get final accounts for this project
   const { data: finalAccounts, error: faError } = await supabase
@@ -70,11 +73,11 @@ async function fetchProcurementItems(projectId: string): Promise<ProcurementItem
   
   if (!validSectionIds.length) return [];
   
-  // Step 4: Get items with procurement status
+  // Step 4: Get Prime Cost items - these are the items that require procurement
   const { data: items, error: itemsError } = await supabase
     .from('final_account_items')
-    .select('id, description, procurement_status, supplier_name, expected_delivery, section_id')
-    .not('procurement_status', 'is', null)
+    .select('id, description, procurement_status, supplier_name, expected_delivery, section_id, is_prime_cost, pc_allowance, pc_actual_cost')
+    .eq('is_prime_cost', true)
     .order('created_at', { ascending: false });
   
   if (itemsError) throw itemsError;
@@ -82,7 +85,11 @@ async function fetchProcurementItems(projectId: string): Promise<ProcurementItem
   // Filter by valid section IDs client-side
   const result = (items || [])
     .filter(item => validSectionIds.includes(item.section_id))
-    .map(({ section_id: _, ...rest }) => rest);
+    .map(({ section_id: _, is_prime_cost: __, ...rest }) => ({
+      ...rest,
+      pc_allowance: Number(rest.pc_allowance) || 0,
+      pc_actual_cost: Number(rest.pc_actual_cost) || 0,
+    }));
   
   return result;
 }
@@ -156,10 +163,18 @@ export function ContractorProcurementStatus({ projectId }: ContractorProcurement
             {procurementItems?.map((item) => {
               const status = item.procurement_status || 'not_started';
               const config = statusConfig[status] || statusConfig.not_started;
+              const formatCurrency = (val: number) => 
+                new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(val);
               return (
-                <div key={item.id} className="py-4 flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="font-medium">{item.description}</p>
+                <div key={item.id} className="py-4 flex items-center justify-between gap-4">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <p className="font-medium truncate">{item.description}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <span>PC Allowance: <span className="font-medium text-foreground">{formatCurrency(item.pc_allowance)}</span></span>
+                      {item.pc_actual_cost > 0 && (
+                        <span>Actual: <span className="font-medium text-foreground">{formatCurrency(item.pc_actual_cost)}</span></span>
+                      )}
+                    </div>
                     {item.supplier_name && (
                       <p className="text-sm text-muted-foreground">Supplier: {item.supplier_name}</p>
                     )}
@@ -169,7 +184,7 @@ export function ContractorProcurementStatus({ projectId }: ContractorProcurement
                       </p>
                     )}
                   </div>
-                  <Badge variant="secondary" className="flex items-center gap-1">
+                  <Badge variant="secondary" className="flex items-center gap-1 shrink-0">
                     {config.icon}
                     <span>{config.label}</span>
                   </Badge>
