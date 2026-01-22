@@ -21,15 +21,33 @@ serve(async (req) => {
 
     const externalSupabase = createClient(externalUrl, externalKey);
     
-    // Fetch all tenants from wm-solar's project_tenants table
-    // These are the actual meter/load profiles
-    const { data: tenants, error } = await externalSupabase
-      .from('project_tenants')
-      .select('id, name, area_sqm, monthly_kwh_override, shop_type_id')
-      .order('name');
+    // Fetch ALL tenants using pagination to bypass default 1000 row limit
+    const pageSize = 1000;
+    let allTenants: any[] = [];
+    let page = 0;
+    let hasMore = true;
 
-    if (error) {
-      throw error;
+    while (hasMore) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      
+      const { data: tenants, error } = await externalSupabase
+        .from('project_tenants')
+        .select('id, name, area_sqm, monthly_kwh_override, shop_type_id')
+        .order('name')
+        .range(from, to);
+
+      if (error) {
+        throw error;
+      }
+
+      if (tenants && tenants.length > 0) {
+        allTenants = [...allTenants, ...tenants];
+        hasMore = tenants.length === pageSize;
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
 
     // Calculate kVA from monthly_kwh
@@ -46,15 +64,15 @@ serve(async (req) => {
     };
 
     // Map to a simpler structure for the dropdown
-    const meterProfiles = tenants?.map((t: any) => ({
+    const meterProfiles = allTenants.map((t: any) => ({
       id: t.id,
       name: t.name || 'Unknown',
       area_sqm: t.area_sqm || 0,
       kva: estimateKvaFromMonthlyKwh(t.monthly_kwh_override, t.area_sqm),
       monthly_kwh: t.monthly_kwh_override || 0,
-    })) || [];
+    }));
 
-    console.log(`Fetched ${meterProfiles.length} meter profiles from wm-solar`);
+    console.log(`Fetched ${meterProfiles.length} meter profiles from wm-solar (${page} page(s))`);
 
     return new Response(JSON.stringify({
       success: true,
