@@ -75,6 +75,8 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
           from_location,
           to_location,
           total_length,
+          measured_length,
+          extra_length,
           installation_method,
           circuit_type,
           voltage,
@@ -178,8 +180,10 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
     );
   };
 
-  // Calculate summary stats
-  const totalLength = cables?.reduce((sum, c) => sum + (c.total_length || 0), 0) || 0;
+  // Calculate summary stats - use same logic as dashboard: total_length || (measured_length + extra_length)
+  const getCableLength = (c: typeof cables[0]) => 
+    c.total_length || ((c.measured_length || 0) + (c.extra_length || 0));
+  const totalLength = cables?.reduce((sum, c) => sum + getCableLength(c), 0) || 0;
   const totalLoad = cables?.reduce((sum, c) => sum + (c.load_amps || 0), 0) || 0;
 
   const hasNoData = (!schedules || schedules.length === 0) && (!floorPlans || floorPlans.length === 0);
@@ -330,7 +334,10 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                             )}
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">
-                            {cable.total_length?.toFixed(2) || "-"}
+                            {(() => {
+                              const length = cable.total_length || ((cable.measured_length || 0) + (cable.extra_length || 0));
+                              return length > 0 ? length.toFixed(2) : "-";
+                            })()}
                           </TableCell>
                         </TableRow>
                       );
