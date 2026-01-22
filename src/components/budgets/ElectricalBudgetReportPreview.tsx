@@ -64,18 +64,21 @@ export const ElectricalBudgetReportPreview = ({
     
     const calculateScale = () => {
       if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth - 48; // padding
-        const containerHeight = containerRef.current.clientHeight - 80; // space for nav controls
+        const containerWidth = containerRef.current.clientWidth - 32; // minimal padding
+        const containerHeight = containerRef.current.clientHeight - 60; // space for nav controls
         
         if (containerWidth > 0 && containerHeight > 0) {
           // Calculate what width would make the page fit height-wise
           const widthFromHeight = containerHeight / A4_ASPECT_RATIO;
           
-          // Use the smaller of the two to ensure full page fits
+          // Use the smaller of the two to ensure full page fits, but allow larger sizes
           const optimalWidth = Math.min(containerWidth, widthFromHeight);
           
-          if (optimalWidth > 0) {
-            setPageScale(optimalWidth);
+          // Ensure a reasonable minimum size
+          const finalWidth = Math.max(optimalWidth, 400);
+          
+          if (finalWidth > 0) {
+            setPageScale(finalWidth);
           }
         }
       }
@@ -218,7 +221,7 @@ export const ElectricalBudgetReportPreview = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col">
+      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
