@@ -57,16 +57,35 @@ export const ElectricalBudgetReportPreview = ({
 
   // Measure container width for responsive PDF scaling
   useEffect(() => {
+    if (!open) return;
+    
     const updateWidth = () => {
       if (containerRef.current) {
-        // Subtract padding for the page to fit nicely
-        setContainerWidth(containerRef.current.clientWidth - 48);
+        const width = containerRef.current.clientWidth - 48;
+        if (width > 0) {
+          setContainerWidth(width);
+        }
       }
     };
     
-    updateWidth();
+    // Use ResizeObserver for more reliable width detection
+    const observer = new ResizeObserver(() => {
+      updateWidth();
+    });
+    
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+    
+    // Also update on initial render with a small delay
+    const timer = setTimeout(updateWidth, 100);
+    
     window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateWidth);
+    };
   }, [open]);
 
   useEffect(() => {
