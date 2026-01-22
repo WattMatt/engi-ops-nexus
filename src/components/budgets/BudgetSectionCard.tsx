@@ -44,6 +44,13 @@ export const BudgetSectionCard = ({ section, lineItems }: BudgetSectionCardProps
     setEditItemOpen(true);
   };
 
+  // Sort line items by item_number numerically
+  const sortedLineItems = [...lineItems].sort((a, b) => {
+    const numA = parseInt(a.item_number || "0", 10);
+    const numB = parseInt(b.item_number || "0", 10);
+    return numA - numB;
+  });
+
   const sectionTotal = lineItems.reduce((sum, item) => sum + Number(item.total), 0);
 
   const handleDeleteSection = async () => {
@@ -120,7 +127,7 @@ export const BudgetSectionCard = ({ section, lineItems }: BudgetSectionCardProps
         </div>
       </CardHeader>
       <CardContent>
-        {lineItems.length === 0 ? (
+        {sortedLineItems.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No line items yet. Click "Add Item" to get started.
           </div>
@@ -138,7 +145,7 @@ export const BudgetSectionCard = ({ section, lineItems }: BudgetSectionCardProps
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lineItems.map((item) => (
+              {sortedLineItems.map((item) => (
                 <TableRow key={item.id} className="group">
                   <TableCell className="p-1">
                     <Button
