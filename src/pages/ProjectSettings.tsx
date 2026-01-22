@@ -21,6 +21,7 @@ import { ProjectMembers } from "@/components/settings/ProjectMembers";
 import { ProjectContacts } from "@/components/settings/ProjectContacts";
 import { GlobalContactsManager } from "@/components/settings/GlobalContactsManager";
 import { ClientPortalManagement } from "@/components/client-portal/ClientPortalManagement";
+import { ContractorPortalSettings } from "@/components/project-settings/ContractorPortalSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -189,12 +190,13 @@ export default function ProjectSettings() {
       </div>
 
       <Tabs defaultValue="settings" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="settings">Project Settings</TabsTrigger>
           <TabsTrigger value="contacts">Project Contacts</TabsTrigger>
           <TabsTrigger value="global-contacts">Contacts Library</TabsTrigger>
           <TabsTrigger value="members">Team Members</TabsTrigger>
           <TabsTrigger value="client-portal">Client Portal</TabsTrigger>
+          <TabsTrigger value="contractor-portal">Contractor Portal</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -717,6 +719,10 @@ export default function ProjectSettings() {
 
         <TabsContent value="client-portal">
           {projectId && <ClientPortalManagement projectId={projectId} />}
+        </TabsContent>
+
+        <TabsContent value="contractor-portal">
+          {projectId && <ContractorPortalSettings projectId={projectId} />}
         </TabsContent>
       </Tabs>
     </div>
