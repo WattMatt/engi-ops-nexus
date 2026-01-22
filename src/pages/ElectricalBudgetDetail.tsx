@@ -13,7 +13,7 @@ import { AreaScheduleSync } from "@/components/budgets/AreaScheduleSync";
 import { BudgetReferenceDrawings } from "@/components/budgets/BudgetReferenceDrawings";
 import { BudgetBaselineAllowances } from "@/components/budgets/BudgetBaselineAllowances";
 import { BudgetExclusions } from "@/components/budgets/BudgetExclusions";
-
+import { ElectricalBudgetExportPDFButton } from "@/components/budgets/ElectricalBudgetExportPDFButton";
 interface ExtractedData {
   budget_number: string;
   revision: string;
@@ -103,22 +103,25 @@ const ElectricalBudgetDetail = () => {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/dashboard/budgets/electrical")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">
-            Budget #{budget.budget_number} - {budget.revision}
-          </h1>
-          <p className="text-muted-foreground">
-            {new Date(budget.budget_date).toLocaleDateString()}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/dashboard/budgets/electrical")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">
+              Budget #{budget.budget_number} - {budget.revision}
+            </h1>
+            <p className="text-muted-foreground">
+              {new Date(budget.budget_date).toLocaleDateString()}
+            </p>
+          </div>
         </div>
+        <ElectricalBudgetExportPDFButton budgetId={budgetId!} />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
