@@ -148,8 +148,8 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     
     body {
       font-family: 'Roboto', Arial, sans-serif;
-      font-size: 9pt;
-      line-height: 1.45;
+      font-size: 8pt;
+      line-height: 1.4;
       color: #1f2937;
       background: white;
       -webkit-print-color-adjust: exact;
@@ -385,21 +385,21 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     .index-item {
       display: flex;
       align-items: baseline;
-      padding: 8px 0;
+      padding: 6px 0;
       border-bottom: 1px dotted #d1d5db;
       page-break-inside: avoid;
     }
     
     .index-number {
-      font-size: 11pt;
+      font-size: 9pt;
       font-weight: 700;
       color: #3b82f6;
-      min-width: 35px;
+      min-width: 30px;
     }
     
     .index-title {
       flex: 1;
-      font-size: 10pt;
+      font-size: 8pt;
       color: #1f2937;
     }
     
@@ -407,40 +407,40 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
        RICH TEXT CONTENT (Baseline Allowances, Exclusions)
        ============================================================ */
     .rich-content {
-      font-size: 9pt;
-      line-height: 1.55;
+      font-size: 8pt;
+      line-height: 1.45;
       color: #374151;
     }
     
     .rich-content h1 { 
-      font-size: 14pt; 
+      font-size: 12pt; 
       font-weight: 700; 
-      margin: 14px 0 8px; 
+      margin: 10px 0 6px; 
       color: #1e3a5f; 
       page-break-after: avoid;
     }
     .rich-content h2 { 
-      font-size: 11pt; 
+      font-size: 10pt; 
       font-weight: 600; 
-      margin: 12px 0 6px; 
+      margin: 8px 0 5px; 
       color: #1e3a5f; 
       page-break-after: avoid;
     }
     .rich-content h3 { 
-      font-size: 10pt; 
+      font-size: 9pt; 
       font-weight: 600; 
-      margin: 10px 0 5px; 
+      margin: 6px 0 4px; 
       color: #374151; 
       page-break-after: avoid;
     }
     .rich-content p { 
-      margin-bottom: 8px; 
+      margin-bottom: 6px; 
     }
     .rich-content ul, .rich-content ol { 
-      margin: 6px 0 10px 20px; 
+      margin: 4px 0 8px 18px; 
     }
     .rich-content li { 
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       page-break-inside: avoid;
     }
     .rich-content blockquote {
@@ -457,8 +457,8 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 12px 0;
-      font-size: 8pt;
+      margin: 8px 0;
+      font-size: 7pt;
       table-layout: fixed;
     }
     
@@ -476,7 +476,7 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     }
     
     th, td {
-      padding: 6px 8px;
+      padding: 4px 6px;
       border: 1px solid #e5e7eb;
       text-align: left;
       vertical-align: top;
@@ -491,7 +491,7 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.3px;
-      font-size: 7pt;
+      font-size: 6.5pt;
       white-space: nowrap;
     }
     
@@ -616,10 +616,10 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     }
     
     /* ============================================================
-       COMBINED BOQ TABLE - Continuous Flow
+       COMBINED BOQ TABLE - Continuous Flow with Reduced Font
        ============================================================ */
     .combined-boq-table {
-      font-size: 8pt;
+      font-size: 7pt;
     }
     
     .combined-boq-table .section-header-row {
@@ -628,30 +628,31 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     }
     
     .combined-boq-table .section-header-row td {
-      padding: 8px;
+      padding: 5px 6px;
       font-weight: 700;
       color: #1e3a5f;
+      font-size: 7.5pt;
     }
     
     .combined-boq-table .item-code {
       color: #64748b;
-      font-size: 7pt;
+      font-size: 6.5pt;
     }
     
     .combined-boq-table .spacer-row td {
-      padding: 4px;
+      padding: 2px;
       border: none;
       background: white !important;
     }
     
     .combined-boq-table .exclusions-content {
-      padding: 12px;
+      padding: 8px;
       background: #fefce8 !important;
       border-left: 3px solid #eab308;
     }
     
     .combined-boq-table .exclusions-content .rich-content {
-      font-size: 8pt;
+      font-size: 7pt;
     }
     
     /* ============================================================
