@@ -12,12 +12,11 @@ interface ContractorProcurementStatusProps {
 
 interface ProcurementItem {
   id: string;
-  description: string;
-  procurement_status: string | null;
+  name: string;
+  description: string | null;
+  status: string;
   supplier_name: string | null;
   expected_delivery: string | null;
-  pc_allowance: number;
-  pc_actual_cost: number;
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -33,65 +32,15 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode }> = {
 };
 
 async function fetchProcurementItems(projectId: string): Promise<ProcurementItem[]> {
-  // Chain: final_accounts -> final_account_bills -> final_account_sections -> final_account_items
-  // Only fetch Prime Cost (PC) items which are the items that need procurement tracking
+  // Fetch from the curated project_procurement_items table
+  const { data, error } = await supabase
+    .from('project_procurement_items')
+    .select('id, name, description, status, supplier_name, expected_delivery')
+    .eq('project_id', projectId)
+    .order('display_order', { ascending: true });
   
-  // Step 1: Get final accounts for this project
-  const { data: finalAccounts, error: faError } = await supabase
-    .from('final_accounts')
-    .select('id')
-    .eq('project_id', projectId);
-  
-  if (faError) throw faError;
-  if (!finalAccounts?.length) return [];
-  
-  const faIds = finalAccounts.map(fa => fa.id);
-  
-  // Step 2: Get bills for these final accounts
-  const { data: bills, error: billsError } = await supabase
-    .from('final_account_bills')
-    .select('id, final_account_id');
-  
-  if (billsError) throw billsError;
-  
-  const validBillIds = (bills || [])
-    .filter(b => faIds.includes(b.final_account_id))
-    .map(b => b.id);
-  
-  if (!validBillIds.length) return [];
-  
-  // Step 3: Get sections for these bills
-  const { data: sections, error: secError } = await supabase
-    .from('final_account_sections')
-    .select('id, bill_id');
-  
-  if (secError) throw secError;
-  
-  const validSectionIds = (sections || [])
-    .filter(s => validBillIds.includes(s.bill_id))
-    .map(s => s.id);
-  
-  if (!validSectionIds.length) return [];
-  
-  // Step 4: Get Prime Cost items - these are the items that require procurement
-  const { data: items, error: itemsError } = await supabase
-    .from('final_account_items')
-    .select('id, description, procurement_status, supplier_name, expected_delivery, section_id, is_prime_cost, pc_allowance, pc_actual_cost')
-    .eq('is_prime_cost', true)
-    .order('created_at', { ascending: false });
-  
-  if (itemsError) throw itemsError;
-  
-  // Filter by valid section IDs client-side
-  const result = (items || [])
-    .filter(item => validSectionIds.includes(item.section_id))
-    .map(({ section_id: _, is_prime_cost: __, ...rest }) => ({
-      ...rest,
-      pc_allowance: Number(rest.pc_allowance) || 0,
-      pc_actual_cost: Number(rest.pc_actual_cost) || 0,
-    }));
-  
-  return result;
+  if (error) throw error;
+  return data || [];
 }
 
 export function ContractorProcurementStatus({ projectId }: ContractorProcurementStatusProps) {
@@ -110,7 +59,7 @@ export function ContractorProcurementStatus({ projectId }: ContractorProcurement
   }
 
   const statusCounts = procurementItems?.reduce((acc, item) => {
-    const status = item.procurement_status || 'not_started';
+    const status = item.status || 'not_started';
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>) || {};
@@ -161,12 +110,12 @@ export function ContractorProcurementStatus({ projectId }: ContractorProcurement
         <CardContent>
           <div className="divide-y">
             {procurementItems?.map((item) => {
-              const status = item.procurement_status || 'not_started';
+              const status = item.status || 'not_started';
               const config = statusConfig[status] || statusConfig.not_started;
               return (
                 <div key={item.id} className="py-4 flex items-center justify-between gap-4">
                   <div className="space-y-1 flex-1 min-w-0">
-                    <p className="font-medium">{item.description}</p>
+                    <p className="font-medium">{item.name}</p>
                     {item.supplier_name && (
                       <p className="text-sm text-muted-foreground">Supplier: {item.supplier_name}</p>
                     )}

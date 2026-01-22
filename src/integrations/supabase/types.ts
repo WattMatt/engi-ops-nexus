@@ -10434,6 +10434,72 @@ export type Database = {
           },
         ]
       }
+      project_procurement_items: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_order: number | null
+          expected_delivery: string | null
+          id: string
+          name: string
+          notes: string | null
+          project_id: string
+          source_item_id: string | null
+          source_type: string
+          status: string
+          supplier_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_order?: number | null
+          expected_delivery?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          project_id: string
+          source_item_id?: string | null
+          source_type?: string
+          status?: string
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_order?: number | null
+          expected_delivery?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          project_id?: string
+          source_item_id?: string | null
+          source_type?: string
+          status?: string
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_procurement_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_procurement_items_source_item_id_fkey"
+            columns: ["source_item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_roadmap_items: {
         Row: {
           comments: string | null

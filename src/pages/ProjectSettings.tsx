@@ -22,6 +22,7 @@ import { ProjectContacts } from "@/components/settings/ProjectContacts";
 import { GlobalContactsManager } from "@/components/settings/GlobalContactsManager";
 import { ClientPortalManagement } from "@/components/client-portal/ClientPortalManagement";
 import { ContractorPortalSettings } from "@/components/project-settings/ContractorPortalSettings";
+import { ProcurementTrackingSettings } from "@/components/project-settings/ProcurementTrackingSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -197,6 +198,7 @@ export default function ProjectSettings() {
           <TabsTrigger value="members">Team Members</TabsTrigger>
           <TabsTrigger value="client-portal">Client Portal</TabsTrigger>
           <TabsTrigger value="contractor-portal">Contractor Portal</TabsTrigger>
+          <TabsTrigger value="procurement">Procurement Tracking</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -723,6 +725,10 @@ export default function ProjectSettings() {
 
         <TabsContent value="contractor-portal">
           {projectId && <ContractorPortalSettings projectId={projectId} />}
+        </TabsContent>
+
+        <TabsContent value="procurement">
+          {projectId && <ProcurementTrackingSettings projectId={projectId} />}
         </TabsContent>
       </Tabs>
     </div>
