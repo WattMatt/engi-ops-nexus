@@ -3,26 +3,61 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useClientAccess } from "@/hooks/useClientAccess";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Building2, 
   FileText, 
   Zap, 
   DollarSign, 
   FolderOpen, 
-  LogOut,
   Eye,
   MessageSquare,
-  CheckCircle
+  CheckCircle,
+  Building2
 } from "lucide-react";
 import { toast } from "sonner";
+import { PortalHeader } from "@/components/portal/PortalHeader";
+import { useQuery } from "@tanstack/react-query";
+
+interface ProjectBranding {
+  project_logo_url: string | null;
+  client_logo_url: string | null;
+  consultant_logo_url: string | null;
+}
 
 const ClientPortal = () => {
   const navigate = useNavigate();
   const { isClient, clientProjects, loading } = useClientAccess();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [projectBranding, setProjectBranding] = useState<Record<string, ProjectBranding>>({});
+
+  // Fetch branding for all projects the client has access to
+  useQuery({
+    queryKey: ['client-project-branding', clientProjects.map(p => p.project_id)],
+    queryFn: async () => {
+      if (clientProjects.length === 0) return {};
+      
+      const projectIds = clientProjects.map(p => p.project_id);
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, project_logo_url, client_logo_url, consultant_logo_url')
+        .in('id', projectIds);
+      
+      if (error) throw error;
+      
+      const brandingMap: Record<string, ProjectBranding> = {};
+      data?.forEach(p => {
+        brandingMap[p.id] = {
+          project_logo_url: p.project_logo_url,
+          client_logo_url: p.client_logo_url,
+          consultant_logo_url: p.consultant_logo_url
+        };
+      });
+      setProjectBranding(brandingMap);
+      return brandingMap;
+    },
+    enabled: clientProjects.length > 0
+  });
 
   useEffect(() => {
     if (!loading && !isClient) {
@@ -35,6 +70,11 @@ const ClientPortal = () => {
     await supabase.auth.signOut();
     navigate("/auth");
   };
+
+  // Get current project branding
+  const currentProjectId = selectedProject || clientProjects[0]?.project_id;
+  const currentProject = clientProjects.find(p => p.project_id === currentProjectId);
+  const currentBranding = currentProjectId ? projectBranding[currentProjectId] : null;
 
   const getReportIcon = (reportType: string) => {
     switch (reportType) {
@@ -83,25 +123,19 @@ const ClientPortal = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Building2 className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-xl font-semibold">Client Portal</h1>
-              <p className="text-sm text-muted-foreground">View and review project reports</p>
-            </div>
-          </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
-      </header>
+      <PortalHeader
+        projectName={currentProject?.project_name || "Client Portal"}
+        projectLogoUrl={currentBranding?.project_logo_url}
+        clientLogoUrl={currentBranding?.client_logo_url}
+        consultantLogoUrl={currentBranding?.consultant_logo_url}
+        portalType="client"
+        subtitle="View and review project reports"
+        onLogout={handleLogout}
+        showLogout={true}
+      />
 
       {/* Main content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {clientProjects.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">

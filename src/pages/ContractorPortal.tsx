@@ -3,13 +3,12 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
-import { FileText, Package, MessageSquarePlus, Building2, AlertTriangle } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle } from "lucide-react";
 import { ContractorDocumentStatus } from "@/components/contractor-portal/ContractorDocumentStatus";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
 import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
+import { PortalHeader } from "@/components/portal/PortalHeader";
 
 interface TokenData {
   project_id: string;
@@ -25,6 +24,9 @@ interface Project {
   id: string;
   name: string;
   project_number: string;
+  project_logo_url: string | null;
+  client_logo_url: string | null;
+  consultant_logo_url: string | null;
 }
 
 export default function ContractorPortal() {
@@ -72,10 +74,10 @@ export default function ContractorPortal() {
         expires_at: tokenInfo.expires_at
       });
 
-      // Fetch project details
+      // Fetch project details with branding
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
-        .select('id, name, project_number')
+        .select('id, name, project_number, project_logo_url, client_logo_url, consultant_logo_url')
         .eq('id', tokenInfo.project_id)
         .single();
 
@@ -124,26 +126,17 @@ export default function ContractorPortal() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Building2 className="h-8 w-8 text-primary" />
-              <div>
-                <h1 className="text-xl font-semibold">{project.name}</h1>
-                <p className="text-sm text-muted-foreground">
-                  Project #{project.project_number}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="font-medium">{tokenData.contractor_name}</p>
-              <Badge variant="outline">{contractorTypeLabel}</Badge>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PortalHeader
+        projectName={project.name}
+        projectNumber={project.project_number}
+        projectLogoUrl={project.project_logo_url}
+        clientLogoUrl={project.client_logo_url}
+        consultantLogoUrl={project.consultant_logo_url}
+        portalType="contractor"
+        userName={tokenData.contractor_name}
+        userBadge={contractorTypeLabel}
+        showLogout={false}
+      />
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
