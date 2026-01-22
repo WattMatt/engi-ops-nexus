@@ -140,37 +140,73 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     
+    /* ============================================================
+       PDF PRINT OPTIMIZATION - Core Reset
+       ============================================================ */
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
     
-    body {
-      font-family: 'Roboto', Arial, sans-serif;
-      font-size: 10pt;
-      line-height: 1.5;
-      color: #1f2937;
-      background: white;
+    @page {
+      size: A4 portrait;
+      margin: 15mm 15mm 20mm 15mm;
     }
     
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      font-size: 9pt;
+      line-height: 1.45;
+      color: #1f2937;
+      background: white;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    /* ============================================================
+       PAGE STRUCTURE & BREAKS
+       ============================================================ */
     .page {
       page-break-after: always;
-      padding: 50px;
-      min-height: 100vh;
+      page-break-inside: avoid;
       position: relative;
+      padding: 0;
+      min-height: auto;
     }
     
     .page:last-child {
       page-break-after: avoid;
     }
     
-    /* Cover Page Styles */
+    /* Content-flow pages allow content to span multiple pages naturally */
+    .content-flow-page {
+      page-break-after: always;
+      page-break-inside: auto;
+    }
+    
+    /* Prevent orphans/widows in text content */
+    p, li {
+      orphans: 3;
+      widows: 3;
+    }
+    
+    /* Keep headings with their content */
+    h1, h2, h3, .section-title, .section-badge {
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    
+    /* ============================================================
+       COVER PAGE - Fixed Full Page Layout
+       ============================================================ */
     .cover-page {
       display: flex;
       flex-direction: column;
+      min-height: 100vh;
       padding: 0;
       background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      page-break-after: always;
     }
     
     .cover-accent {
@@ -178,7 +214,7 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       left: 0;
       top: 0;
       bottom: 0;
-      width: 12px;
+      width: 10px;
       background: linear-gradient(180deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
     }
     
@@ -186,12 +222,12 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      padding: 40px 50px;
+      padding: 30px 40px;
     }
     
     .cover-logo {
-      max-width: 160px;
-      max-height: 70px;
+      max-width: 140px;
+      max-height: 60px;
       object-fit: contain;
     }
     
@@ -201,37 +237,37 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      padding: 40px 50px;
+      padding: 30px 40px;
       text-align: center;
     }
     
     .cover-doc-type {
-      font-size: 14pt;
+      font-size: 12pt;
       font-weight: 500;
       color: #3b82f6;
       text-transform: uppercase;
-      letter-spacing: 3px;
-      margin-bottom: 20px;
+      letter-spacing: 2px;
+      margin-bottom: 15px;
     }
     
     .cover-title {
-      font-size: 32pt;
+      font-size: 26pt;
       font-weight: 700;
       color: #1e3a5f;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
       line-height: 1.2;
     }
     
     .cover-project {
-      font-size: 16pt;
+      font-size: 13pt;
       color: #475569;
-      margin-bottom: 50px;
+      margin-bottom: 35px;
     }
     
     .cover-meta {
       display: flex;
-      gap: 40px;
-      margin-bottom: 50px;
+      gap: 30px;
+      margin-bottom: 35px;
     }
     
     .cover-meta-item {
@@ -239,15 +275,15 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     }
     
     .cover-meta-label {
-      font-size: 9pt;
+      font-size: 8pt;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
     
     .cover-meta-value {
-      font-size: 14pt;
+      font-size: 12pt;
       font-weight: 600;
       color: #1e3a5f;
     }
@@ -255,7 +291,7 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     .cover-footer {
       display: flex;
       justify-content: space-between;
-      padding: 40px 50px;
+      padding: 30px 40px;
       background: #f1f5f9;
       border-top: 1px solid #e2e8f0;
     }
@@ -265,65 +301,87 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     }
     
     .cover-contact-title {
-      font-size: 10pt;
+      font-size: 9pt;
       font-weight: 700;
       color: #3b82f6;
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     
     .cover-contact-name {
-      font-size: 12pt;
+      font-size: 11pt;
       font-weight: 600;
       color: #1e3a5f;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
     
     .cover-contact-detail {
-      font-size: 10pt;
+      font-size: 9pt;
       color: #64748b;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
     
-    /* Page Header */
+    /* ============================================================
+       PAGE HEADER (non-cover pages)
+       ============================================================ */
     .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 15px;
-      margin-bottom: 25px;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
       border-bottom: 2px solid #e5e7eb;
     }
     
     .page-header-left {
-      font-size: 9pt;
+      font-size: 8pt;
       color: #64748b;
+      max-width: 60%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     
     .page-header-right {
-      font-size: 9pt;
+      font-size: 8pt;
       font-weight: 600;
       color: #1e3a5f;
     }
     
-    /* Section Titles */
+    /* ============================================================
+       SECTION TITLES & HEADINGS
+       ============================================================ */
     .section-title {
-      font-size: 20pt;
+      font-size: 16pt;
       font-weight: 700;
       color: #1e3a5f;
-      margin-bottom: 10px;
-      padding-bottom: 10px;
+      margin-bottom: 6px;
+      padding-bottom: 6px;
       border-bottom: 3px solid #3b82f6;
+      page-break-after: avoid;
     }
     
     .section-subtitle {
-      font-size: 11pt;
+      font-size: 9pt;
       color: #64748b;
-      margin-bottom: 25px;
+      margin-bottom: 15px;
     }
     
-    /* Index Page */
+    .section-badge {
+      display: inline-block;
+      background: #3b82f6;
+      color: white;
+      padding: 3px 10px;
+      border-radius: 3px;
+      font-size: 8pt;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    
+    /* ============================================================
+       INDEX PAGE
+       ============================================================ */
     .index-list {
       list-style: none;
       padding: 0;
@@ -332,62 +390,104 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     .index-item {
       display: flex;
       align-items: baseline;
-      padding: 12px 0;
+      padding: 8px 0;
       border-bottom: 1px dotted #d1d5db;
+      page-break-inside: avoid;
     }
     
     .index-number {
-      font-size: 14pt;
+      font-size: 11pt;
       font-weight: 700;
       color: #3b82f6;
-      min-width: 40px;
+      min-width: 35px;
     }
     
     .index-title {
       flex: 1;
-      font-size: 12pt;
+      font-size: 10pt;
       color: #1f2937;
     }
     
-    .index-page {
-      font-size: 12pt;
-      color: #64748b;
-      font-weight: 500;
-    }
-    
-    /* Rich Text Content */
+    /* ============================================================
+       RICH TEXT CONTENT (Baseline Allowances, Exclusions)
+       ============================================================ */
     .rich-content {
-      font-size: 11pt;
-      line-height: 1.7;
+      font-size: 9pt;
+      line-height: 1.55;
       color: #374151;
     }
     
-    .rich-content h1 { font-size: 18pt; font-weight: 700; margin: 20px 0 10px; color: #1e3a5f; }
-    .rich-content h2 { font-size: 14pt; font-weight: 600; margin: 18px 0 8px; color: #1e3a5f; }
-    .rich-content h3 { font-size: 12pt; font-weight: 600; margin: 15px 0 8px; color: #374151; }
-    .rich-content p { margin-bottom: 12px; }
-    .rich-content ul, .rich-content ol { margin: 10px 0 15px 25px; }
-    .rich-content li { margin-bottom: 6px; }
+    .rich-content h1 { 
+      font-size: 14pt; 
+      font-weight: 700; 
+      margin: 14px 0 8px; 
+      color: #1e3a5f; 
+      page-break-after: avoid;
+    }
+    .rich-content h2 { 
+      font-size: 11pt; 
+      font-weight: 600; 
+      margin: 12px 0 6px; 
+      color: #1e3a5f; 
+      page-break-after: avoid;
+    }
+    .rich-content h3 { 
+      font-size: 10pt; 
+      font-weight: 600; 
+      margin: 10px 0 5px; 
+      color: #374151; 
+      page-break-after: avoid;
+    }
+    .rich-content p { 
+      margin-bottom: 8px; 
+    }
+    .rich-content ul, .rich-content ol { 
+      margin: 6px 0 10px 20px; 
+    }
+    .rich-content li { 
+      margin-bottom: 4px;
+      page-break-inside: avoid;
+    }
     .rich-content blockquote {
-      border-left: 4px solid #3b82f6;
-      padding-left: 15px;
-      margin: 15px 0;
+      border-left: 3px solid #3b82f6;
+      padding-left: 12px;
+      margin: 10px 0;
       color: #64748b;
       font-style: italic;
     }
     
-    /* Tables */
+    /* ============================================================
+       TABLES - Optimized for PDF Print
+       ============================================================ */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 20px 0;
+      margin: 12px 0;
+      font-size: 8pt;
+      table-layout: fixed;
+    }
+    
+    thead {
+      display: table-header-group;
+    }
+    
+    tbody {
+      display: table-row-group;
+    }
+    
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     
     th, td {
-      padding: 10px 12px;
-      font-size: 9pt;
+      padding: 6px 8px;
       border: 1px solid #e5e7eb;
       text-align: left;
+      vertical-align: top;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
     }
     
     th {
@@ -395,8 +495,9 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       color: white;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-size: 8pt;
+      letter-spacing: 0.3px;
+      font-size: 7pt;
+      white-space: nowrap;
     }
     
     th.right, td.right {
@@ -415,10 +516,6 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       background: white;
     }
     
-    tbody tr:hover {
-      background: #f1f5f9;
-    }
-    
     .total-row {
       background: #1e3a5f !important;
       color: white;
@@ -427,6 +524,7 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     
     .total-row td {
       border-color: #1e3a5f;
+      padding: 8px;
     }
     
     .subtotal-row {
@@ -434,32 +532,39 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       font-weight: 600;
     }
     
-    /* Summary Cards */
+    .subtotal-row td {
+      padding: 7px 8px;
+    }
+    
+    /* ============================================================
+       SUMMARY CARDS
+       ============================================================ */
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin: 25px 0;
+      gap: 12px;
+      margin: 15px 0;
+      page-break-inside: avoid;
     }
     
     .summary-card {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 20px;
+      border-radius: 6px;
+      padding: 12px;
       text-align: center;
     }
     
     .summary-card-label {
-      font-size: 9pt;
+      font-size: 7pt;
       color: #64748b;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
     }
     
     .summary-card-value {
-      font-size: 18pt;
+      font-size: 14pt;
       font-weight: 700;
       color: #1e3a5f;
     }
@@ -477,57 +582,87 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       color: white;
     }
     
-    /* Reference Drawings Table */
-    .drawings-table th:first-child { width: 10%; }
-    .drawings-table th:nth-child(2) { width: 20%; }
-    .drawings-table th:nth-child(3) { width: 50%; }
-    .drawings-table th:nth-child(4) { width: 20%; }
+    /* ============================================================
+       REFERENCE DRAWINGS TABLE - Specific Widths
+       ============================================================ */
+    .drawings-table th:first-child { width: 6%; }
+    .drawings-table th:nth-child(2) { width: 18%; }
+    .drawings-table th:nth-child(3) { width: 62%; }
+    .drawings-table th:nth-child(4) { width: 14%; }
     
-    /* Section Header Badge */
-    .section-badge {
-      display: inline-block;
-      background: #3b82f6;
-      color: white;
-      padding: 4px 12px;
-      border-radius: 4px;
-      font-size: 9pt;
-      font-weight: 600;
-      margin-bottom: 10px;
+    .drawings-table td {
+      font-size: 7.5pt;
     }
     
-    /* Info Box */
+    /* ============================================================
+       INFO BOX
+       ============================================================ */
     .info-box {
       background: #f0f9ff;
       border: 1px solid #bae6fd;
-      border-left: 4px solid #0284c7;
-      padding: 15px 20px;
-      margin: 20px 0;
-      border-radius: 0 8px 8px 0;
+      border-left: 3px solid #0284c7;
+      padding: 10px 14px;
+      margin: 12px 0;
+      border-radius: 0 6px 6px 0;
+      page-break-inside: avoid;
     }
     
     .info-box-title {
       font-weight: 600;
       color: #0369a1;
-      margin-bottom: 5px;
+      margin-bottom: 3px;
+      font-size: 9pt;
     }
     
     .info-box-content {
       color: #0c4a6e;
-      font-size: 10pt;
+      font-size: 8pt;
+      line-height: 1.4;
     }
     
-    /* Footer */
+    /* ============================================================
+       PAGE FOOTER - Running Footer
+       ============================================================ */
     .page-footer {
-      position: absolute;
-      bottom: 30px;
-      left: 50px;
-      right: 50px;
+      margin-top: 20px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e7eb;
       display: flex;
       justify-content: space-between;
-      font-size: 8pt;
+      font-size: 7pt;
       color: #94a3b8;
-      padding-top: 15px;
-      border-top: 1px solid #e5e7eb;
+    }
+    
+    /* ============================================================
+       PRINT-SPECIFIC OVERRIDES
+       ============================================================ */
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      
+      .page {
+        page-break-after: always;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .cover-page {
+        height: 100vh;
+      }
+      
+      table {
+        page-break-inside: auto;
+      }
+      
+      thead {
+        display: table-header-group;
+      }
+      
+      tr {
+        page-break-inside: avoid;
+      }
     }
   </style>
 </head>
@@ -709,8 +844,9 @@ function buildIntroductionPage(data: ElectricalBudgetPdfData): string {
 }
 
 function buildBaselineAllowancesPage(data: ElectricalBudgetPdfData): string {
+  // Rich content can span multiple pages - use a content-flow approach
   return `
-  <div class="page">
+  <div class="page content-flow-page">
     ${buildPageHeader(data)}
     
     <h1 class="section-title">2. Baseline Allowances</h1>
@@ -719,8 +855,6 @@ function buildBaselineAllowancesPage(data: ElectricalBudgetPdfData): string {
     <div class="rich-content">
       ${data.budget.baseline_allowances || ''}
     </div>
-    
-    ${buildPageFooter(data, '2')}
   </div>`;
 }
 
@@ -820,6 +954,9 @@ function buildSectionDetailPage(
 ): string {
   const sectionTotal = section.items.reduce((sum, item) => sum + (item.total || 0), 0);
   
+  // Determine if we have area-based items
+  const hasAreaItems = section.items.some(item => item.area && item.area > 0);
+  
   return `
   <div class="page">
     ${buildPageHeader(data)}
@@ -831,12 +968,14 @@ function buildSectionDetailPage(
     <table>
       <thead>
         <tr>
-          <th style="width: 8%">Item</th>
-          <th style="width: 42%">Description</th>
-          <th class="right" style="width: 12%">Area</th>
-          <th class="right" style="width: 12%">Base Rate</th>
-          <th class="right" style="width: 12%">TI Rate</th>
-          <th class="right" style="width: 14%">Total</th>
+          <th style="width: 6%;">Item</th>
+          <th style="width: ${hasAreaItems ? '38%' : '54%'};">Description</th>
+          ${hasAreaItems ? `
+          <th class="right" style="width: 14%;">Area</th>
+          <th class="right" style="width: 12%;">Base Rate</th>
+          <th class="right" style="width: 12%;">TI Rate</th>
+          ` : ''}
+          <th class="right" style="width: ${hasAreaItems ? '18%' : '40%'};">Total</th>
         </tr>
       </thead>
       <tbody>
@@ -844,14 +983,16 @@ function buildSectionDetailPage(
           <tr>
             <td>${item.item_number || (idx + 1)}</td>
             <td>${item.description}</td>
+            ${hasAreaItems ? `
             <td class="right">${item.area ? `${item.area.toLocaleString()} ${item.area_unit || 'm²'}` : '-'}</td>
             <td class="right">${item.base_rate ? formatCurrency(item.base_rate) : '-'}</td>
             <td class="right">${item.ti_rate ? formatCurrency(item.ti_rate) : '-'}</td>
+            ` : ''}
             <td class="right"><strong>${formatCurrency(item.total)}</strong></td>
           </tr>
         `).join('')}
         <tr class="subtotal-row">
-          <td colspan="5"><strong>Section Total</strong></td>
+          <td colspan="${hasAreaItems ? '5' : '2'}"><strong>Section Total</strong></td>
           <td class="right"><strong>${formatCurrency(sectionTotal)}</strong></td>
         </tr>
       </tbody>
@@ -863,7 +1004,7 @@ function buildSectionDetailPage(
 
 function buildExclusionsPage(data: ElectricalBudgetPdfData): string {
   return `
-  <div class="page">
+  <div class="page content-flow-page">
     ${buildPageHeader(data)}
     
     <h1 class="section-title">Exclusions</h1>
@@ -873,15 +1014,13 @@ function buildExclusionsPage(data: ElectricalBudgetPdfData): string {
       ${data.budget.exclusions || ''}
     </div>
     
-    <div class="info-box" style="margin-top: 40px;">
+    <div class="info-box" style="margin-top: 20px;">
       <div class="info-box-title">Important Notice</div>
       <div class="info-box-content">
         The items listed above are explicitly excluded from this budget estimate. 
         Should any of these items be required, separate quotations should be requested.
       </div>
     </div>
-    
-    ${buildPageFooter(data, 'E')}
   </div>`;
 }
 

@@ -275,95 +275,235 @@ export function generate[Feature]Html(data: [Feature]PdfData): string {
   box-sizing: border-box;
 }
 
-body {
-  font-family: 'Roboto', Arial, sans-serif;
-  font-size: 11pt;
-  line-height: 1.5;
-  color: #1a1a1a;
-  background: white;
+@page {
+  size: A4 portrait;
+  margin: 15mm 15mm 20mm 15mm;
 }
 
-/* Page breaks - CRITICAL for PDFShift */
+body {
+  font-family: 'Roboto', Arial, sans-serif;
+  font-size: 9pt;
+  line-height: 1.45;
+  color: #1f2937;
+  background: white;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ============================================================
+   PAGE STRUCTURE & BREAKS
+   ============================================================ */
 .page {
   page-break-after: always;
   page-break-inside: avoid;
-  min-height: 100vh;
-  padding: 20mm;
   position: relative;
+  padding: 0;
+  min-height: auto;
 }
 
 .page:last-child {
-  page-break-after: auto;
-}
-
-/* Prevent orphans/widows */
-h1, h2, h3, h4, h5, h6 {
   page-break-after: avoid;
 }
 
-table, figure {
-  page-break-inside: avoid;
+/* Content-flow pages allow content to span multiple pages naturally */
+.content-flow-page {
+  page-break-after: always;
+  page-break-inside: auto;
 }
 
-/* Tables */
+/* Prevent orphans/widows */
+p, li {
+  orphans: 3;
+  widows: 3;
+}
+
+/* Keep headings with their content */
+h1, h2, h3, .section-title, .section-badge {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+/* ============================================================
+   TABLE OPTIMIZATION FOR PRINT
+   ============================================================ */
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
+  margin: 12px 0;
+  font-size: 8pt;
+  table-layout: fixed;
+  page-break-inside: auto;
+}
+
+thead {
+  display: table-header-group; /* Repeat headers on each page */
+}
+
+tbody {
+  display: table-row-group;
+}
+
+tr {
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 th, td {
-  padding: 10px 12px;
+  padding: 6px 8px;
+  border: 1px solid #e5e7eb;
   text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  vertical-align: top;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 th {
-  background: #1e40af;
+  background: #1e3a5f;
   color: white;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 7pt;
+  white-space: nowrap;
 }
 
 /* Zebra striping */
-tr:nth-child(even) {
-  background: #f9fafb;
+tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+tbody tr:nth-child(odd) {
+  background: white;
+}
+
+/* Total rows */
+.total-row {
+  background: #1e3a5f !important;
+  color: white;
+  font-weight: 700;
+}
+
+.subtotal-row {
+  background: #e2e8f0 !important;
+  font-weight: 600;
 }
 
 /* Currency formatting */
-.currency {
+.right, .currency {
   text-align: right;
   font-family: 'Roboto Mono', monospace;
   white-space: nowrap;
 }
 
-/* Cover page */
+/* ============================================================
+   COVER PAGE
+   ============================================================ */
 .cover-page {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  height: 100vh;
+  min-height: 100vh;
+  padding: 0;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  page-break-after: always;
 }
 
 .cover-logo {
-  max-width: 200px;
-  max-height: 80px;
+  max-width: 140px;
+  max-height: 60px;
   object-fit: contain;
 }
 
 .cover-title {
-  font-size: 32pt;
+  font-size: 26pt;
   font-weight: 700;
-  color: #1e40af;
-  margin: 40px 0 20px;
+  color: #1e3a5f;
+  margin-bottom: 10px;
+  line-height: 1.2;
 }
 
 .cover-subtitle {
-  font-size: 16pt;
-  color: #6b7280;
+  font-size: 13pt;
+  color: #475569;
+}
+
+/* ============================================================
+   RICH CONTENT (Multi-page text sections)
+   ============================================================ */
+.rich-content {
+  font-size: 9pt;
+  line-height: 1.55;
+  color: #374151;
+}
+
+.rich-content h1 { 
+  font-size: 14pt; 
+  font-weight: 700; 
+  margin: 14px 0 8px; 
+  page-break-after: avoid;
+}
+
+.rich-content h2 { 
+  font-size: 11pt; 
+  font-weight: 600; 
+  margin: 12px 0 6px; 
+  page-break-after: avoid;
+}
+
+.rich-content p { 
+  margin-bottom: 8px; 
+}
+
+.rich-content ul, .rich-content ol { 
+  margin: 6px 0 10px 20px; 
+}
+
+.rich-content li { 
+  margin-bottom: 4px;
+  page-break-inside: avoid;
+}
+
+/* ============================================================
+   PRINT-SPECIFIC OVERRIDES
+   ============================================================ */
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .page {
+    page-break-after: always;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .cover-page {
+    height: 100vh;
+  }
+  
+  thead {
+    display: table-header-group;
+  }
+  
+  tr {
+    page-break-inside: avoid;
+  }
 }
 ```
+
+### Key Print Optimization Rules
+
+| Rule | Purpose |
+|------|---------|
+| `page-break-after: always` on `.page` | Forces each section to start on a new page |
+| `page-break-inside: avoid` on `.page` | Prevents content from breaking mid-section |
+| `content-flow-page` class | Allows long content (baseline allowances) to flow across pages naturally |
+| `thead { display: table-header-group }` | Repeats table headers on each new page |
+| `tr { page-break-inside: avoid }` | Prevents table rows from being split across pages |
+| `orphans: 3; widows: 3` | Prevents single lines at page top/bottom |
+| `table-layout: fixed` | Enables predictable column widths |
+| Font size: 9pt body, 7-8pt tables | Compact yet readable for dense documents |
 
 ### Document Structure Rules
 
