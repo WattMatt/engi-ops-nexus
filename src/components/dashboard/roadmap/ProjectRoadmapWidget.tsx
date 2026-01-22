@@ -174,33 +174,34 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
 
   const toggleComplete = useMutation({
     mutationFn: async ({ id, isCompleted, item }: { id: string; isCompleted: boolean; item?: RoadmapItemData }) => {
+      // Get current user for attribution
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
         .from("project_roadmap_items")
         .update({
           is_completed: isCompleted,
           completed_at: isCompleted ? new Date().toISOString() : null,
+          completed_by: isCompleted && user ? user.id : null,
         })
         .eq("id", id);
       if (error) throw error;
 
       // If marking as complete, send notification email
-      if (isCompleted && item) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          try {
-            await supabase.functions.invoke("send-roadmap-completion-notification", {
-              body: {
-                itemId: id,
-                itemTitle: item.title,
-                itemDescription: item.description,
-                projectId: projectId,
-                completedByUserId: user.id,
-              },
-            });
-          } catch (emailError) {
-            console.error("Failed to send completion notification:", emailError);
-            // Don't throw - email failure shouldn't block the completion
-          }
+      if (isCompleted && item && user) {
+        try {
+          await supabase.functions.invoke("send-roadmap-completion-notification", {
+            body: {
+              itemId: id,
+              itemTitle: item.title,
+              itemDescription: item.description,
+              projectId: projectId,
+              completedByUserId: user.id,
+            },
+          });
+        } catch (emailError) {
+          console.error("Failed to send completion notification:", emailError);
+          // Don't throw - email failure shouldn't block the completion
         }
       }
 
