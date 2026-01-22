@@ -68,6 +68,7 @@ import { EmailTemplatesAdmin } from "./components/admin/email-templates/EmailTem
 import { EmailTemplateEditor } from "./components/admin/email-templates/EmailTemplateEditor";
 import { HelpButton } from "./components/feedback/HelpButton";
 import GamificationAdmin from "./pages/GamificationAdmin";
+import DashboardContactLibrary from "./pages/DashboardContactLibrary";
 
 // Initialize React Query client
 const queryClient = new QueryClient();
@@ -143,8 +144,9 @@ const App = () => (
                 <Route path="projects-report/handover" element={<HandoverDocuments />} />
                 <Route path="bulk-services" element={<BulkServices />} />
                 <Route path="master-library" element={<MasterLibrary />} />
-                <Route path="contact-library" element={<ContactLibrary />} />
+                <Route path="contact-library" element={<DashboardContactLibrary />} />
                 <Route path="roadmap" element={<ProjectRoadmap />} />
+                <Route path="roadmap-review" element={<RoadmapReviewMode />} />
                 <Route path="roadmap-review" element={<RoadmapReviewMode />} />
               </Route>
               <Route path="/roadmap-review/:token" element={<ExternalRoadmapReview />} />
