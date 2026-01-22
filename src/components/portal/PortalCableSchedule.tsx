@@ -11,38 +11,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Cable, Zap, MapPin, CheckCircle2 } from "lucide-react";
+import { Cable, Zap, MapPin, CheckCircle2, FileText } from "lucide-react";
 
 interface PortalCableScheduleProps {
   projectId: string;
 }
 
 export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => {
-  const { data: cables, isLoading } = useQuery({
-    queryKey: ["portal-cable-schedule", projectId],
+  // First fetch all cable schedules for this project
+  const { data: schedules, isLoading: schedulesLoading } = useQuery({
+    queryKey: ["portal-cable-schedules-list", projectId],
     queryFn: async () => {
-      // Get all floor plan IDs for this project
-      const { data: floorPlans } = await supabase
-        .from("floor_plan_projects")
-        .select("id")
-        .eq("project_id", projectId);
-
-      const floorPlanIds = floorPlans?.map(fp => fp.id) || [];
-
-      // Get cable schedules for this project
-      const { data: schedules } = await supabase
+      const { data, error } = await supabase
         .from("cable_schedules")
-        .select("id")
-        .eq("project_id", projectId);
+        .select("id, schedule_name, schedule_number, revision, schedule_date")
+        .eq("project_id", projectId)
+        .order("schedule_date", { ascending: false });
 
-      const scheduleIds = schedules?.map(s => s.id) || [];
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
 
-      if (floorPlanIds.length === 0 && scheduleIds.length === 0) {
-        return [];
-      }
+  // Then fetch all cable entries for these schedules
+  const { data: cables, isLoading: cablesLoading } = useQuery({
+    queryKey: ["portal-cable-schedule-entries", projectId, schedules?.map(s => s.id)],
+    queryFn: async () => {
+      if (!schedules || schedules.length === 0) return [];
 
-      // Get cable entries with all necessary fields
-      let query = supabase
+      const scheduleIds = schedules.map(s => s.id);
+
+      const { data, error } = await supabase
         .from("cable_entries")
         .select(`
           id, 
@@ -62,42 +62,39 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
           load_amps,
           quantity,
           insulation_type,
-          core_configuration
-        `);
-
-      const conditions: string[] = [];
-      if (scheduleIds.length > 0) {
-        conditions.push(`schedule_id.in.(${scheduleIds.join(",")})`);
-      }
-      if (floorPlanIds.length > 0) {
-        conditions.push(`floor_plan_id.in.(${floorPlanIds.join(",")})`);
-      }
-
-      if (conditions.length > 0) {
-        query = query.or(conditions.join(","));
-      }
-
-      const { data, error } = await query;
+          core_configuration,
+          schedule_id,
+          display_order
+        `)
+        .in("schedule_id", scheduleIds)
+        .order("display_order", { ascending: true });
 
       if (error) throw error;
 
-      // Sort by base tag first, then by cable number for parallel cables
+      // Sort by schedule, then by display_order, then by cable_tag
       return (data || []).sort((a, b) => {
-        const baseTagA = a.base_cable_tag || a.cable_tag;
-        const baseTagB = b.base_cable_tag || b.cable_tag;
-
-        const tagCompare = baseTagA.localeCompare(baseTagB, undefined, {
-          numeric: true,
-          sensitivity: "base",
-        });
-        if (tagCompare !== 0) return tagCompare;
-
-        // For same base tag (parallel cables), sort by cable number
-        return (a.cable_number || 0) - (b.cable_number || 0);
+        // First by schedule_id
+        if (a.schedule_id !== b.schedule_id) {
+          const scheduleIndexA = scheduleIds.indexOf(a.schedule_id || '');
+          const scheduleIndexB = scheduleIds.indexOf(b.schedule_id || '');
+          return scheduleIndexA - scheduleIndexB;
+        }
+        
+        // Then by display_order
+        if ((a.display_order || 0) !== (b.display_order || 0)) {
+          return (a.display_order || 0) - (b.display_order || 0);
+        }
+        
+        // Then by cable_tag
+        const tagA = a.cable_tag || '';
+        const tagB = b.cable_tag || '';
+        return tagA.localeCompare(tagB, undefined, { numeric: true, sensitivity: "base" });
       });
     },
-    enabled: !!projectId,
+    enabled: !!projectId && !!schedules && schedules.length > 0,
   });
+
+  const isLoading = schedulesLoading || cablesLoading;
 
   if (isLoading) {
     return (
@@ -159,6 +156,9 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
   const totalLength = cables?.reduce((sum, c) => sum + (c.total_length || 0), 0) || 0;
   const totalLoad = cables?.reduce((sum, c) => sum + (c.load_amps || 0), 0) || 0;
 
+  const hasNoSchedules = !schedules || schedules.length === 0;
+  const hasNoCables = !cables || cables.length === 0;
+
   return (
     <Card>
       <CardHeader>
@@ -171,17 +171,38 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!cables || cables.length === 0 ? (
+        {hasNoSchedules ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
+            <p>No cable schedules found for this project.</p>
+            <p className="text-sm mt-2">Cable schedules are created in the Cable Schedules module.</p>
+          </div>
+        ) : hasNoCables ? (
           <div className="text-center py-12 text-muted-foreground">
             <Cable className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p>No cable entries found for this project.</p>
+            <p>No cable entries found in the schedules.</p>
+            <p className="text-sm mt-2">Add cables to your cable schedules to see them here.</p>
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Schedule Info */}
+            {schedules && schedules.length > 0 && (
+              <div className="flex flex-wrap gap-2 text-sm">
+                {schedules.map(schedule => (
+                  <Badge key={schedule.id} variant="outline" className="gap-1">
+                    <FileText className="h-3 w-3" />
+                    {schedule.schedule_name} 
+                    {schedule.schedule_number && ` (#${schedule.schedule_number})`}
+                    {schedule.revision && ` Rev ${schedule.revision}`}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-muted/50 rounded-lg p-3">
-                <div className="text-2xl font-bold text-primary">{cables.length}</div>
+                <div className="text-2xl font-bold text-primary">{cables?.length || 0}</div>
                 <div className="text-xs text-muted-foreground">Total Cables</div>
               </div>
               <div className="bg-muted/50 rounded-lg p-3">
@@ -193,9 +214,9 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                 <div className="text-xs text-muted-foreground">Total Load</div>
               </div>
               <div className="bg-muted/50 rounded-lg p-3">
-                <div className="text-2xl font-bold text-green-600 flex items-center gap-1">
+                <div className="text-2xl font-bold flex items-center gap-1 text-green-600">
                   <CheckCircle2 className="h-5 w-5" />
-                  {cables.filter(c => c.cable_size).length}
+                  {cables?.filter(c => c.cable_size).length || 0}
                 </div>
                 <div className="text-xs text-muted-foreground">Sized</div>
               </div>
@@ -208,7 +229,7 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="w-12 text-center">#</TableHead>
-                      <TableHead className="min-w-[180px]">Cable Tag</TableHead>
+                      <TableHead className="min-w-[200px]">Cable Tag</TableHead>
                       <TableHead className="min-w-[150px]">From</TableHead>
                       <TableHead className="min-w-[150px]">To</TableHead>
                       <TableHead className="text-center w-16">Qty</TableHead>
@@ -217,13 +238,11 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                       <TableHead className="text-center w-24">Cable Type</TableHead>
                       <TableHead className="text-center w-20">Install</TableHead>
                       <TableHead className="text-center w-24">Size</TableHead>
-                      <TableHead className="text-center w-20">Circuit</TableHead>
                       <TableHead className="text-right w-24">Length (m)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {cables.map((cable, index) => {
-                      const baseTag = cable.base_cable_tag || cable.cable_tag;
+                    {cables?.map((cable, index) => {
                       const cableNumber = cable.cable_number || 1;
                       const isParallel =
                         cable.parallel_group_id &&
@@ -231,7 +250,7 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                         cable.parallel_total_count > 1;
 
                       // Build display tag
-                      let displayTag = baseTag;
+                      let displayTag = cable.cable_tag || '';
                       if (isParallel) {
                         displayTag += ` (${cableNumber}/${cable.parallel_total_count})`;
                       }
@@ -244,8 +263,8 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                             </span>
                           </TableCell>
                           <TableCell>
-                            <div className="font-mono font-medium text-sm">
-                              {displayTag}
+                            <div className="font-medium text-sm">
+                              {displayTag || "-"}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">
@@ -283,9 +302,6 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {getCircuitTypeBadge(cable.circuit_type)}
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">
                             {cable.total_length?.toFixed(2) || "-"}
