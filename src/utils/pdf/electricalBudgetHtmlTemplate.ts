@@ -725,14 +725,14 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
   </style>
 </head>
 <body>
-<!-- Running footer element - will appear at bottom of every page except cover -->
+${sections.join('\n')}
+
+<!-- Running footer element - placed after content, CSS running() extracts it -->
 <div class="running-footer">
   <span>${data.companySettings?.company_name || 'Electrical Budget Report'}</span>
   <span>${data.project?.name || ''}</span>
   <span>${formatDate(new Date().toISOString())}</span>
 </div>
-
-${sections.join('\n')}
 </body>
 </html>`;
 }
