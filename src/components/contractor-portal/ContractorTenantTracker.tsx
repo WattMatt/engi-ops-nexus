@@ -35,6 +35,7 @@ interface Tenant {
   shop_name: string | null;
   shop_category: string | null;
   area: number | null;
+  db_size_allowance: string | null;
   sow_received: boolean | null;
   layout_received: boolean | null;
   db_ordered: boolean | null;
@@ -50,7 +51,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, shop_number, shop_name, shop_category, area, sow_received, layout_received, db_ordered, lighting_ordered')
+        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, lighting_ordered')
         .eq('project_id', projectId);
       
       if (error) throw error;
@@ -205,6 +206,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                     <TableHead>Shop</TableHead>
                     <TableHead>Tenant Name</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Connection</TableHead>
                     <TableHead className="text-center">SOW</TableHead>
                     <TableHead className="text-center">Layout</TableHead>
                     <TableHead className="text-center">DB</TableHead>
@@ -220,6 +222,13 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                         {tenant.shop_category ? (
                           <Badge variant="outline" className="text-xs">
                             {tenant.shop_category}
+                          </Badge>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {tenant.db_size_allowance ? (
+                          <Badge variant="secondary" className="text-xs font-mono">
+                            {tenant.db_size_allowance}
                           </Badge>
                         ) : '—'}
                       </TableCell>
