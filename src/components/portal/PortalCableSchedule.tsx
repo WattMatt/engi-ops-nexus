@@ -272,8 +272,18 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                         cable.parallel_total_count &&
                         cable.parallel_total_count > 1;
 
-                      // Build display tag
-                      let displayTag = cable.cable_tag || '';
+                      // Use base_cable_tag for display, build descriptive format like dashboard
+                      // e.g., "Main Board 1.2-Shop 1-Alu-185mm"
+                      const baseTag = cable.base_cable_tag || cable.cable_tag || '';
+                      const materialShort = cable.cable_type === 'Aluminium' ? 'Alu' : 
+                                            cable.cable_type === 'Copper' ? 'Cu' : 
+                                            cable.cable_type || '';
+                      const sizeShort = cable.cable_size?.replace('mm²', 'mm') || '';
+                      
+                      let displayTag = baseTag;
+                      if (materialShort) displayTag += `-${materialShort}`;
+                      if (sizeShort) displayTag += `-${sizeShort}`;
+                      
                       if (isParallel) {
                         displayTag += ` (${cableNumber}/${cable.parallel_total_count})`;
                       }
