@@ -272,9 +272,19 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                         cable.parallel_total_count &&
                         cable.parallel_total_count > 1;
 
-                      // Use base_cable_tag for display, build descriptive format like dashboard
-                      // e.g., "Main Board 1.2-Shop 1-Alu-185mm"
-                      const baseTag = cable.base_cable_tag || cable.cable_tag || '';
+                      // Build proper base tag - if malformed (has : or →), construct from from/to locations
+                      // Target format: "Main Board 1.2-Shop 1-Alu-185mm"
+                      let baseTag = cable.base_cable_tag || '';
+                      
+                      // Check if base_cable_tag is malformed (contains : or → symbols)
+                      const isMalformed = !baseTag || baseTag.includes(':') || baseTag.includes('→');
+                      if (isMalformed && cable.from_location && cable.to_location) {
+                        baseTag = `${cable.from_location}-${cable.to_location}`;
+                      } else if (isMalformed && cable.cable_tag) {
+                        // Try to clean up the cable_tag if base is bad
+                        baseTag = cable.cable_tag.replace(/[:\s]*→\s*/g, '-').replace(/^[:\s]+/, '');
+                      }
+                      
                       const materialShort = cable.cable_type === 'Aluminium' ? 'Alu' : 
                                             cable.cable_type === 'Copper' ? 'Cu' : 
                                             cable.cable_type || '';
