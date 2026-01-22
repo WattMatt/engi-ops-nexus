@@ -63,19 +63,33 @@ export const ElectricalBudgetReportPreview = ({
 
     setLoading(true);
     try {
+      console.log('[Preview] Loading PDF from:', report.file_path);
+      
       const { data, error } = await supabase.storage
         .from(storageBucket)
         .download(report.file_path);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Preview] Storage error:', error);
+        throw error;
+      }
 
-      const url = URL.createObjectURL(data);
+      if (!data) {
+        throw new Error('No data received from storage');
+      }
+
+      console.log('[Preview] Downloaded blob:', data.size, 'bytes, type:', data.type);
+      
+      // Create blob URL with explicit PDF type
+      const pdfBlob = new Blob([data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(pdfBlob);
+      console.log('[Preview] Created blob URL:', url);
       setPreviewUrl(url);
     } catch (error) {
       console.error("Failed to load preview:", error);
       toast({
         title: "Preview Failed",
-        description: "Could not load the PDF preview",
+        description: error instanceof Error ? error.message : "Could not load the PDF preview",
         variant: "destructive",
       });
     } finally {
@@ -164,11 +178,23 @@ export const ElectricalBudgetReportPreview = ({
               <p className="text-sm text-muted-foreground">Loading preview...</p>
             </div>
           ) : previewUrl ? (
-            <iframe
-              src={previewUrl}
+            <object
+              data={`${previewUrl}#toolbar=1&navpanes=0`}
+              type="application/pdf"
               className="w-full h-full"
               title="Budget Report Preview"
-            />
+            >
+              <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
+                <FileText className="h-16 w-16 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground text-center">
+                  PDF preview not supported in your browser.
+                </p>
+                <Button onClick={handleDownload} variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download to View
+                </Button>
+              </div>
+            </object>
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <FileText className="h-12 w-12 text-muted-foreground/50" />
