@@ -141,10 +141,7 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       box-sizing: border-box;
     }
     
-    @page {
-      size: A4 portrait;
-      margin: 15mm 15mm 25mm 15mm;
-    }
+    /* @page rules are consolidated in the footer section */
     
     body {
       font-family: 'Roboto', Arial, sans-serif;
@@ -659,17 +656,37 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
        PAGE FOOTER - Fixed at Bottom
        ============================================================ */
     .page-footer {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding-top: 10px;
+      display: none; /* Hide inline footers - use running footer instead */
+    }
+    
+    /* Running footer for all pages */
+    .running-footer {
+      position: running(footer);
+      font-size: 7pt;
+      color: #94a3b8;
+      padding-top: 8px;
       border-top: 1px solid #e5e7eb;
       display: flex;
       justify-content: space-between;
-      font-size: 7pt;
-      color: #94a3b8;
-      background: white;
+      width: 100%;
+    }
+    
+    @page {
+      size: A4;
+      margin: 20mm 15mm 25mm 15mm;
+      
+      @bottom-center {
+        content: element(footer);
+      }
+    }
+    
+    /* First page (cover) has no footer */
+    @page :first {
+      margin-bottom: 15mm;
+      
+      @bottom-center {
+        content: none;
+      }
     }
     
     /* ============================================================
@@ -685,10 +702,12 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
         page-break-after: always;
         margin: 0;
         padding: 0;
+        min-height: auto;
       }
       
       .cover-page {
         height: 100vh;
+        padding-bottom: 0;
       }
       
       table {
@@ -706,6 +725,13 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
   </style>
 </head>
 <body>
+<!-- Running footer element - will appear at bottom of every page except cover -->
+<div class="running-footer">
+  <span>${data.companySettings?.company_name || 'Electrical Budget Report'}</span>
+  <span>${data.project?.name || ''}</span>
+  <span>${formatDate(new Date().toISOString())}</span>
+</div>
+
 ${sections.join('\n')}
 </body>
 </html>`;
