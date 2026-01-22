@@ -163,18 +163,10 @@ export function ContractorProcurementStatus({ projectId }: ContractorProcurement
             {procurementItems?.map((item) => {
               const status = item.procurement_status || 'not_started';
               const config = statusConfig[status] || statusConfig.not_started;
-              const formatCurrency = (val: number) => 
-                new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(val);
               return (
                 <div key={item.id} className="py-4 flex items-center justify-between gap-4">
                   <div className="space-y-1 flex-1 min-w-0">
-                    <p className="font-medium truncate">{item.description}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      <span>PC Allowance: <span className="font-medium text-foreground">{formatCurrency(item.pc_allowance)}</span></span>
-                      {item.pc_actual_cost > 0 && (
-                        <span>Actual: <span className="font-medium text-foreground">{formatCurrency(item.pc_actual_cost)}</span></span>
-                      )}
-                    </div>
+                    <p className="font-medium">{item.description}</p>
                     {item.supplier_name && (
                       <p className="text-sm text-muted-foreground">Supplier: {item.supplier_name}</p>
                     )}
