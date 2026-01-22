@@ -242,12 +242,12 @@ export const CreateBudgetDialog = ({
               </div>
               <div className="space-y-3">
                 <ContactCombobox
-                  projectId={projectId}
                   value={selectedContactId}
                   onValueChange={setSelectedContactId}
                   onContactSelect={handleContactSelect}
                   label="Client Contact"
                   includeCustomOption={true}
+                  useGlobalContacts={true}
                 />
                 {selectedContactId === "custom" ? (
                   <LogoUpload

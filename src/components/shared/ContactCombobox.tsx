@@ -20,16 +20,20 @@ interface Contact {
   contact_person_name: string | null;
   phone: string | null;
   logo_url: string | null;
-  is_primary: boolean | null;
+  is_primary?: boolean | null;
 }
 
 interface ContactComboboxProps {
-  projectId: string;
+  projectId?: string;
   value: string;
   onValueChange: (value: string) => void;
   onContactSelect?: (contact: Contact | null) => void;
   label?: string;
   includeCustomOption?: boolean;
+  /** Use global_contacts instead of project_contacts */
+  useGlobalContacts?: boolean;
+  /** Filter by contact type */
+  filterByType?: string;
 }
 
 const getContactTypeLabel = (type: string) => {
@@ -40,6 +44,7 @@ const getContactTypeLabel = (type: string) => {
     contractor: "Contractor",
     engineer: "Engineer",
     consultant: "Consultant",
+    civil: "Civil",
     other: "Other",
   };
   return labels[type] || type;
@@ -52,11 +57,34 @@ export function ContactCombobox({
   onContactSelect,
   label = "Select Contact",
   includeCustomOption = true,
+  useGlobalContacts = false,
+  filterByType,
 }: ContactComboboxProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: contacts = [], isLoading } = useQuery({
+  // Fetch from global_contacts
+  const { data: globalContacts = [], isLoading: isLoadingGlobal } = useQuery({
+    queryKey: ["global-contacts-combobox", filterByType],
+    queryFn: async () => {
+      let query = supabase
+        .from("global_contacts")
+        .select("*")
+        .order("organization_name");
+
+      if (filterByType) {
+        query = query.eq("contact_type", filterByType);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as Contact[];
+    },
+    enabled: useGlobalContacts,
+  });
+
+  // Fetch from project_contacts
+  const { data: projectContacts = [], isLoading: isLoadingProject } = useQuery({
     queryKey: ["project-contacts", projectId],
     queryFn: async () => {
       if (!projectId) return [];
@@ -70,8 +98,11 @@ export function ContactCombobox({
       if (error) throw error;
       return (data || []) as Contact[];
     },
-    enabled: !!projectId,
+    enabled: !useGlobalContacts && !!projectId,
   });
+
+  const contacts = useGlobalContacts ? globalContacts : projectContacts;
+  const isLoading = useGlobalContacts ? isLoadingGlobal : isLoadingProject;
 
   // Filter contacts based on search query
   const filteredContacts = useMemo(() => {
