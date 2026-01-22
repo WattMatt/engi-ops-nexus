@@ -151,7 +151,7 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     
     @page {
       size: A4 portrait;
-      margin: 15mm 15mm 20mm 15mm;
+      margin: 15mm 15mm 25mm 15mm;
     }
     
     body {
@@ -171,8 +171,9 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
       page-break-after: always;
       page-break-inside: avoid;
       position: relative;
-      padding: 0;
-      min-height: auto;
+      padding: 0 0 50px 0;
+      min-height: 100vh;
+      box-sizing: border-box;
     }
     
     .page:last-child {
@@ -183,6 +184,8 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     .content-flow-page {
       page-break-after: always;
       page-break-inside: auto;
+      min-height: 100vh;
+      padding: 0 0 50px 0;
     }
     
     /* Prevent orphans/widows in text content */
@@ -621,16 +624,20 @@ function buildFullDocument(sections: string[], data: ElectricalBudgetPdfData): s
     }
     
     /* ============================================================
-       PAGE FOOTER - Running Footer
+       PAGE FOOTER - Fixed at Bottom
        ============================================================ */
     .page-footer {
-      margin-top: 20px;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
       padding-top: 10px;
       border-top: 1px solid #e5e7eb;
       display: flex;
       justify-content: space-between;
       font-size: 7pt;
       color: #94a3b8;
+      background: white;
     }
     
     /* ============================================================
