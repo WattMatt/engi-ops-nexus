@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Cable, Zap, MapPin } from "lucide-react";
+import { Cable, Zap, MapPin, CheckCircle2 } from "lucide-react";
 
 interface PortalCableScheduleProps {
   projectId: string;
@@ -41,7 +41,7 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
         return [];
       }
 
-      // Get cable entries from floor plans or schedules
+      // Get cable entries with all necessary fields
       let query = supabase
         .from("cable_entries")
         .select(`
@@ -57,7 +57,12 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
           to_location,
           total_length,
           installation_method,
-          circuit_type
+          circuit_type,
+          voltage,
+          load_amps,
+          quantity,
+          insulation_type,
+          core_configuration
         `);
 
       const conditions: string[] = [];
@@ -108,39 +113,61 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
   }
 
   const getMaterialBadge = (type: string | null) => {
-    if (!type) return null;
+    if (!type) return <span className="text-muted-foreground">-</span>;
     const isAluminium = type.toLowerCase().includes("alu");
     return (
       <Badge variant={isAluminium ? "secondary" : "outline"} className="text-xs">
-        {isAluminium ? "Alu" : "Cu"}
+        {isAluminium ? "Aluminium" : "Copper"}
       </Badge>
     );
   };
 
   const getCircuitTypeBadge = (type: string | null) => {
-    if (!type) return null;
+    if (!type) return <span className="text-muted-foreground">-</span>;
     const colors: Record<string, string> = {
       power: "bg-blue-500/10 text-blue-700 border-blue-200",
       lighting: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
       hvac: "bg-cyan-500/10 text-cyan-700 border-cyan-200",
       motor: "bg-purple-500/10 text-purple-700 border-purple-200",
+      data: "bg-green-500/10 text-green-700 border-green-200",
     };
     return (
-      <Badge variant="outline" className={`text-xs ${colors[type.toLowerCase()] || ""}`}>
+      <Badge variant="outline" className={`text-xs capitalize ${colors[type.toLowerCase()] || ""}`}>
         {type}
       </Badge>
     );
   };
+
+  const getInstallMethodBadge = (method: string | null) => {
+    if (!method) return <span className="text-muted-foreground">-</span>;
+    const methodMap: Record<string, string> = {
+      'air': 'Air',
+      'tray': 'Tray',
+      'conduit': 'Conduit',
+      'buried': 'Buried',
+      'duct': 'Duct',
+      'ladder': 'Ladder',
+    };
+    return (
+      <Badge variant="outline" className="text-xs">
+        {methodMap[method.toLowerCase()] || method}
+      </Badge>
+    );
+  };
+
+  // Calculate summary stats
+  const totalLength = cables?.reduce((sum, c) => sum + (c.total_length || 0), 0) || 0;
+  const totalLoad = cables?.reduce((sum, c) => sum + (c.load_amps || 0), 0) || 0;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Cable className="h-5 w-5" />
-          Cable Tag Schedule
+          Cable Schedule
         </CardTitle>
         <CardDescription>
-          Complete list of cable tags and specifications
+          Complete cable schedule with specifications
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -151,34 +178,47 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Summary */}
-            <div className="flex gap-4 flex-wrap">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Zap className="h-4 w-4" />
-                <span className="font-medium">{cables.length}</span> cables
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-2xl font-bold text-primary">{cables.length}</div>
+                <div className="text-xs text-muted-foreground">Total Cables</div>
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-medium">
-                  {cables.reduce((sum, c) => sum + (c.total_length || 0), 0).toLocaleString()}m
-                </span>{" "}
-                total length
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-2xl font-bold text-primary">{totalLength.toLocaleString()}m</div>
+                <div className="text-xs text-muted-foreground">Total Length</div>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-2xl font-bold text-primary">{totalLoad.toLocaleString()}A</div>
+                <div className="text-xs text-muted-foreground">Total Load</div>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-2xl font-bold text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-5 w-5" />
+                  {cables.filter(c => c.cable_size).length}
+                </div>
+                <div className="text-xs text-muted-foreground">Sized</div>
               </div>
             </div>
 
             {/* Table */}
             <ScrollArea className="w-full">
-              <div className="rounded-md border min-w-[800px]">
+              <div className="rounded-md border min-w-[1200px]">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
-                      <TableHead className="w-16 text-center">#</TableHead>
-                      <TableHead>Cable Tag</TableHead>
-                      <TableHead>From</TableHead>
-                      <TableHead>To</TableHead>
-                      <TableHead className="text-center">Size</TableHead>
-                      <TableHead className="text-center">Type</TableHead>
-                      <TableHead className="text-center">Circuit</TableHead>
-                      <TableHead className="text-right">Length (m)</TableHead>
+                      <TableHead className="w-12 text-center">#</TableHead>
+                      <TableHead className="min-w-[180px]">Cable Tag</TableHead>
+                      <TableHead className="min-w-[150px]">From</TableHead>
+                      <TableHead className="min-w-[150px]">To</TableHead>
+                      <TableHead className="text-center w-16">Qty</TableHead>
+                      <TableHead className="text-center w-20">Voltage</TableHead>
+                      <TableHead className="text-center w-20">Load (A)</TableHead>
+                      <TableHead className="text-center w-24">Cable Type</TableHead>
+                      <TableHead className="text-center w-20">Install</TableHead>
+                      <TableHead className="text-center w-24">Size</TableHead>
+                      <TableHead className="text-center w-20">Circuit</TableHead>
+                      <TableHead className="text-right w-24">Length (m)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -199,38 +239,56 @@ export const PortalCableSchedule = ({ projectId }: PortalCableScheduleProps) => 
                       return (
                         <TableRow key={cable.id}>
                           <TableCell className="text-center">
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary font-medium text-xs">
                               {index + 1}
                             </span>
                           </TableCell>
-                          <TableCell className="font-mono font-medium">
-                            {displayTag}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
-                              {cable.from_location || "-"}
+                          <TableCell>
+                            <div className="font-mono font-medium text-sm">
+                              {displayTag}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">
                             <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
-                              {cable.to_location || "-"}
+                              <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="truncate">{cable.from_location || "-"}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="outline" className="font-mono">
-                              {cable.cable_size || "-"}
-                            </Badge>
+                          <TableCell className="text-sm">
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="truncate">{cable.to_location || "-"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center font-medium">
+                            {cable.quantity || 1}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-sm">
+                            {cable.voltage ? `${cable.voltage}V` : "-"}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-sm">
+                            {cable.load_amps ? cable.load_amps.toFixed(0) : "-"}
                           </TableCell>
                           <TableCell className="text-center">
                             {getMaterialBadge(cable.cable_type)}
                           </TableCell>
                           <TableCell className="text-center">
+                            {getInstallMethodBadge(cable.installation_method)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {cable.cable_size ? (
+                              <Badge variant="secondary" className="font-mono text-xs">
+                                {cable.cable_size}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
                             {getCircuitTypeBadge(cable.circuit_type)}
                           </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {cable.total_length?.toLocaleString() || "-"}
+                          <TableCell className="text-right font-mono text-sm">
+                            {cable.total_length?.toFixed(2) || "-"}
                           </TableCell>
                         </TableRow>
                       );
