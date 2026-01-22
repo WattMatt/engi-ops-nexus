@@ -3499,6 +3499,7 @@ export type Database = {
           consultant_logo_url: string | null
           created_at: string
           created_by: string
+          exclusions: string | null
           extraction_status: string | null
           id: string
           notes: string | null
@@ -3519,6 +3520,7 @@ export type Database = {
           consultant_logo_url?: string | null
           created_at?: string
           created_by: string
+          exclusions?: string | null
           extraction_status?: string | null
           id?: string
           notes?: string | null
@@ -3539,6 +3541,7 @@ export type Database = {
           consultant_logo_url?: string | null
           created_at?: string
           created_by?: string
+          exclusions?: string | null
           extraction_status?: string | null
           id?: string
           notes?: string | null
