@@ -194,12 +194,14 @@ export function RoadmapReviewContent() {
             dueDate: item.due_date,
             priority: item.priority,
             isCompleted: item.is_completed,
+            assignedTo: item.assigned_to,
           }));
 
         const projectMembers = allMembers
           .filter((m) => m.project_id === project.id)
           .map((m) => ({
             id: m.user_id,
+            memberId: m.id, // Add project_member id for assignment matching
             name: (m.profiles as any)?.full_name || "Unknown",
             email: (m.profiles as any)?.email || "",
             role: m.position || "member",
