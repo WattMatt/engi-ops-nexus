@@ -3,11 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Download, Users, RefreshCw } from "lucide-react";
+import { Plus, Download, Users, RefreshCw, FileSpreadsheet } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
 import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
 import { ImportTenantsDialog } from "./ImportTenantsDialog";
+import { ImportExcelCableDialog } from "./ImportExcelCableDialog";
 import { SplitParallelCablesDialog } from "./SplitParallelCablesDialog";
 import { VirtualizedCableTable } from "./VirtualizedCableTable";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +37,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showImportTenantsDialog, setShowImportTenantsDialog] = useState(false);
+  const [showImportExcelDialog, setShowImportExcelDialog] = useState(false);
   const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -312,6 +314,10 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
               )}
               {projectId && (
                 <>
+                  <Button variant="outline" size="sm" onClick={() => setShowImportExcelDialog(true)}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Import Excel
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
                     <Download className="mr-2 h-4 w-4" />
                     Import from Floor Plans
@@ -375,6 +381,15 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
             onSuccess={() => {
               refetch();
               setShowImportTenantsDialog(false);
+            }}
+          />
+          <ImportExcelCableDialog
+            open={showImportExcelDialog}
+            onOpenChange={setShowImportExcelDialog}
+            scheduleId={scheduleId}
+            onSuccess={() => {
+              refetch();
+              setShowImportExcelDialog(false);
             }}
           />
         </>
