@@ -9,13 +9,14 @@ export interface ProjectRoadmapSummary {
   totalItems: number;
   completedItems: number;
   progress: number;
-  teamMembers: { id: string; name: string; email: string; role: string }[];
+  teamMembers: { id: string; memberId?: string; name: string; email: string; role: string }[];
   upcomingItems: {
     id: string;
     title: string;
     dueDate: string | null;
     priority: string | null;
     isCompleted: boolean;
+    assignedTo?: string | null;
   }[];
 }
 

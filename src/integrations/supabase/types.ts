@@ -10502,6 +10502,7 @@ export type Database = {
       }
       project_roadmap_items: {
         Row: {
+          assigned_to: string | null
           comments: string | null
           completed_at: string | null
           completed_by: string | null
@@ -10522,6 +10523,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
           comments?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -10542,6 +10544,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
           comments?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -10562,6 +10565,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "project_roadmap_items_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "project_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_roadmap_items_parent_id_fkey"
             columns: ["parent_id"]

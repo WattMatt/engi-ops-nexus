@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -21,8 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { User } from "lucide-react";
 
-interface RoadmapItemData {
+export interface RoadmapItemData {
   id: string;
   project_id: string;
   title: string;
@@ -38,6 +39,7 @@ interface RoadmapItemData {
   comments: string | null;
   due_date: string | null;
   priority: string | null;
+  assigned_to?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -84,6 +86,36 @@ export const AddRoadmapItemDialog = ({
   const [comments, setComments] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<string>("");
+  const [assignedTo, setAssignedTo] = useState<string>("");
+
+  // Fetch project team members
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["project-members", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_members")
+        .select(`
+          id,
+          position,
+          user_id,
+          profiles:user_id (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq("project_id", projectId);
+      
+      if (error) throw error;
+      return data.map((m) => ({
+        id: m.id,
+        userId: m.user_id,
+        name: (m.profiles as any)?.full_name || (m.profiles as any)?.email || "Unknown",
+        role: m.position || "Team Member",
+      }));
+    },
+    enabled: open,
+  });
 
   useEffect(() => {
     if (editingItem) {
@@ -95,6 +127,7 @@ export const AddRoadmapItemDialog = ({
       setComments(editingItem.comments || "");
       setDueDate(editingItem.due_date || "");
       setPriority(editingItem.priority || "");
+      setAssignedTo(editingItem.assigned_to || "");
     } else {
       setTitle("");
       setDescription("");
@@ -104,6 +137,7 @@ export const AddRoadmapItemDialog = ({
       setComments("");
       setDueDate("");
       setPriority("");
+      setAssignedTo("");
     }
   }, [editingItem, open]);
 
@@ -117,6 +151,7 @@ export const AddRoadmapItemDialog = ({
       comments: string;
       due_date: string;
       priority: string;
+      assigned_to: string;
     }) => {
       const { error } = await supabase.from("project_roadmap_items").insert({
         project_id: projectId,
@@ -129,11 +164,13 @@ export const AddRoadmapItemDialog = ({
         comments: data.comments || null,
         due_date: data.due_date || null,
         priority: data.priority || null,
+        assigned_to: data.assigned_to || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap-review-content"] });
       toast.success("Roadmap item added");
       onOpenChange(false);
     },
@@ -153,6 +190,7 @@ export const AddRoadmapItemDialog = ({
       comments: string;
       due_date: string;
       priority: string;
+      assigned_to: string;
     }) => {
       const { error } = await supabase
         .from("project_roadmap_items")
@@ -165,12 +203,14 @@ export const AddRoadmapItemDialog = ({
           comments: data.comments || null,
           due_date: data.due_date || null,
           priority: data.priority || null,
+          assigned_to: data.assigned_to || null,
         })
         .eq("id", data.id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap-review-content"] });
       toast.success("Roadmap item updated");
       onOpenChange(false);
     },
@@ -197,6 +237,7 @@ export const AddRoadmapItemDialog = ({
         comments,
         due_date: dueDate,
         priority,
+        assigned_to: assignedTo,
       });
     } else {
       createMutation.mutate({
@@ -208,6 +249,7 @@ export const AddRoadmapItemDialog = ({
         comments,
         due_date: dueDate,
         priority,
+        assigned_to: assignedTo,
       });
     }
   };
@@ -268,6 +310,40 @@ export const AddRoadmapItemDialog = ({
               </Select>
             </div>
           )}
+
+          {/* Assigned To */}
+          <div className="space-y-2">
+            <Label htmlFor="assignedTo" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Assign To
+            </Label>
+            <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select team member" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">
+                  <span className="text-muted-foreground">Unassigned</span>
+                </SelectItem>
+                {teamMembers.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span>{member.name}</span>
+                      <span className="text-muted-foreground text-xs">({member.role})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {teamMembers.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No team members found. Add team members in Project Settings.
+              </p>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
