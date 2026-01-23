@@ -9,7 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DollarSign, TrendingUp, Calculator } from "lucide-react";
+import { DollarSign, TrendingUp, Calculator, AlertCircle } from "lucide-react";
+import { multiply, add, round } from "@/utils/decimalPrecision";
 
 interface CableCostsSummaryProps {
   projectId: string;
@@ -27,11 +28,105 @@ interface CableSummary {
   install_cost: number;
   termination_cost: number;
   total_cost: number;
+  rate_source?: "final_account" | "manual" | "none";
 }
 
+interface FinalAccountRate {
+  description: string;
+  supply_rate: number;
+  install_rate: number;
+  unit: string;
+}
+
+// Parse cable size from Final Account description
+// Examples: "4 Core x 70mm", "70mm x 4 core", "70 x 4 C", "4 C x 70", "70mm²"
+const parseCableSizeFromDescription = (description: string): string | null => {
+  const patterns = [
+    /(\d+)\s*mm²?\s*x\s*4\s*core/i,     // "70mm x 4 core"
+    /4\s*core\s*x\s*(\d+)\s*mm/i,        // "4 core x 70mm"  
+    /(\d+)\s*x\s*4\s*c/i,                // "70 x 4 C" 
+    /4\s*c\s*x\s*(\d+)/i,                // "4 C x 70"
+    /^(\d+)\s*mm²?\s*$/i,                // Just "70mm" or "70mm²"
+    /^(\d+)\s*$/,                         // Just "70"
+    /^(\d+)\s*x\s*4$/i,                  // "70 x 4"
+  ];
+
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  return null;
+};
+
+// Check if description mentions aluminium or copper
+const parseCableTypeFromDescription = (description: string): string | null => {
+  const lowerDesc = description.toLowerCase();
+  if (lowerDesc.includes("aluminium") || lowerDesc.includes("aluminum")) return "Aluminium";
+  if (lowerDesc.includes("copper")) return "Copper";
+  return null;
+};
+
+// Normalize cable size for comparison (remove mm², mm, etc.)
+const normalizeCableSize = (size: string): string => {
+  return size.replace(/mm²?/gi, "").trim();
+};
+
 export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
+  // Fetch Final Account rates for this project
+  const { data: finalAccountRates = [] } = useQuery({
+    queryKey: ["final-account-cable-rates", projectId],
+    queryFn: async (): Promise<FinalAccountRate[]> => {
+      // Get the final account for this project
+      const { data: account, error: accountError } = await supabase
+        .from("final_accounts")
+        .select("id")
+        .eq("project_id", projectId)
+        .single();
+
+      if (accountError || !account) return [];
+
+      // Get all bills for this account
+      const { data: bills, error: billsError } = await supabase
+        .from("final_account_bills")
+        .select("id")
+        .eq("final_account_id", account.id);
+
+      if (billsError || !bills?.length) return [];
+
+      // Get all sections for these bills
+      const billIds = bills.map((b) => b.id);
+      const { data: sections, error: sectionsError } = await supabase
+        .from("final_account_sections")
+        .select("id, section_code")
+        .in("bill_id", billIds);
+
+      if (sectionsError || !sections?.length) return [];
+
+      // Get items from cable-related sections (A2, C, etc.) with rates
+      const sectionIds = sections.map((s) => s.id);
+      const { data: items, error: itemsError } = await supabase
+        .from("final_account_items")
+        .select("description, supply_rate, install_rate, unit")
+        .in("section_id", sectionIds)
+        .eq("unit", "m")
+        .or("supply_rate.gt.0,install_rate.gt.0");
+
+      if (itemsError) return [];
+
+      return (items || []).map((item) => ({
+        description: item.description,
+        supply_rate: Number(item.supply_rate) || 0,
+        install_rate: Number(item.install_rate) || 0,
+        unit: item.unit || "m",
+      }));
+    },
+    enabled: !!projectId,
+  });
+
   const { data: summary, isLoading } = useQuery({
-    queryKey: ["cable-costs-summary", projectId],
+    queryKey: ["cable-costs-summary", projectId, finalAccountRates],
     queryFn: async () => {
       // Get all cable schedules for this project
       const { data: schedules, error: schedulesError } = await supabase
@@ -73,8 +168,8 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
       const allEntries = [...(scheduleEntries || []), ...(floorPlanEntries || [])];
       const entries = allEntries.filter(e => e.cable_type && e.cable_size);
 
-      // Get all rates for this project
-      const { data: rates, error: ratesError } = await supabase
+      // Get manual rates for fallback
+      const { data: manualRates, error: ratesError } = await supabase
         .from("cable_rates")
         .select("*")
         .eq("project_id", projectId);
@@ -90,7 +185,7 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
         const cableCount = entry.cable_number || 1;
 
         if (existing) {
-          existing.total_length += entry.total_length || 0;
+          existing.total_length = add(existing.total_length, entry.total_length || 0);
           existing.cable_count += cableCount;
         } else {
           grouped.set(key, {
@@ -105,28 +200,45 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
             install_cost: 0,
             termination_cost: 0,
             total_cost: 0,
+            rate_source: "none",
           });
         }
       });
 
-      // Apply rates and calculate costs
+      // Apply rates: First try Final Account, then fall back to manual rates
       grouped.forEach((summary) => {
-        const rate = rates?.find(
-          (r) => r.cable_type === summary.cable_type && r.cable_size === summary.cable_size
-        );
+        const normalizedSize = normalizeCableSize(summary.cable_size);
+        
+        // Try to find matching Final Account rate
+        const faRate = finalAccountRates.find((r) => {
+          const parsedSize = parseCableSizeFromDescription(r.description);
+          return parsedSize === normalizedSize;
+        });
 
-        if (rate) {
-          summary.supply_rate = rate.supply_rate_per_meter;
-          summary.install_rate = rate.install_rate_per_meter;
-          summary.termination_rate = rate.termination_cost_per_end;
-          
-          summary.supply_cost = summary.total_length * rate.supply_rate_per_meter;
-          summary.install_cost = summary.total_length * rate.install_rate_per_meter;
-          // Each cable has 2 terminations (one at each end)
-          // If multiple cables in parallel, multiply by cable count
-          summary.termination_cost = summary.cable_count * 2 * rate.termination_cost_per_end;
-          summary.total_cost = summary.supply_cost + summary.install_cost + summary.termination_cost;
+        if (faRate && (faRate.supply_rate > 0 || faRate.install_rate > 0)) {
+          summary.supply_rate = faRate.supply_rate;
+          summary.install_rate = faRate.install_rate;
+          summary.rate_source = "final_account";
+        } else {
+          // Fall back to manual rates
+          const manualRate = manualRates?.find(
+            (r) => r.cable_type === summary.cable_type && r.cable_size === summary.cable_size
+          );
+
+          if (manualRate) {
+            summary.supply_rate = manualRate.supply_rate_per_meter;
+            summary.install_rate = manualRate.install_rate_per_meter;
+            summary.termination_rate = manualRate.termination_cost_per_end;
+            summary.rate_source = "manual";
+          }
         }
+
+        // Calculate costs using precision arithmetic
+        summary.supply_cost = round(multiply(summary.total_length, summary.supply_rate), 2);
+        summary.install_cost = round(multiply(summary.total_length, summary.install_rate), 2);
+        // Each cable has 2 terminations (one at each end)
+        summary.termination_cost = round(multiply(summary.cable_count, 2, summary.termination_rate), 2);
+        summary.total_cost = round(add(summary.supply_cost, summary.install_cost, summary.termination_cost), 2);
       });
 
       return Array.from(grouped.values());
@@ -158,6 +270,8 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
   // Calculate additional metrics
   const totalLength = summary?.reduce((sum, item) => sum + item.total_length, 0) || 0;
   const totalCables = summary?.reduce((sum, item) => sum + item.cable_count, 0) || 0;
+  const hasNoRates = summary?.some((item) => item.rate_source === "none");
+  const hasFinalAccountRates = summary?.some((item) => item.rate_source === "final_account");
 
   return (
     <div className="space-y-4">
@@ -207,6 +321,21 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
         </Card>
       </div>
 
+      {/* Rate Source Indicator */}
+      {hasFinalAccountRates && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-green-50 dark:bg-green-950/30 p-3 rounded-md border border-green-200 dark:border-green-900">
+          <DollarSign className="h-4 w-4 text-green-600" />
+          <span>Rates are being sourced from the <strong>Final Account</strong> for this project.</span>
+        </div>
+      )}
+
+      {hasNoRates && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-amber-50 dark:bg-amber-950/30 p-3 rounded-md border border-amber-200 dark:border-amber-900">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <span>Some cables have no matching rates. Configure rates in the <strong>Final Account</strong> or the <strong>Rates tab</strong>.</span>
+        </div>
+      )}
+
       {/* Detailed Breakdown Table */}
       <Card>
         <CardHeader>
@@ -219,7 +348,7 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
               <br />
               1. Ensure cable entries have both Cable Type and Cable Size selected
               <br />
-              2. Configure matching rates in the Rates tab
+              2. Configure matching rates in the Final Account or Rates tab
             </p>
           ) : (
             <div className="space-y-4">
@@ -235,6 +364,7 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
                       <TableHead className="text-right">Install Cost</TableHead>
                       <TableHead className="text-right">Termination Cost</TableHead>
                       <TableHead className="text-right">Total Cost</TableHead>
+                      <TableHead className="text-center">Source</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -256,6 +386,23 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
                         <TableCell className="text-right font-semibold">
                           {formatCurrency(item.total_cost)}
                         </TableCell>
+                        <TableCell className="text-center">
+                          {item.rate_source === "final_account" && (
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                              Final Account
+                            </span>
+                          )}
+                          {item.rate_source === "manual" && (
+                            <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                              Manual
+                            </span>
+                          )}
+                          {item.rate_source === "none" && (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                              No Rate
+                            </span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-bold">
@@ -264,6 +411,7 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
                       <TableCell className="text-right">{formatCurrency(totals?.install || 0)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(totals?.termination || 0)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(totals?.total || 0)}</TableCell>
+                      <TableCell></TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
