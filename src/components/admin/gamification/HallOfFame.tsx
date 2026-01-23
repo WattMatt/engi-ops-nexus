@@ -62,6 +62,9 @@ export function HallOfFame() {
     mutationFn: async (periodType: "weekly" | "monthly") => {
       setCalculating(true);
       
+      // Business owner email - excluded from winning
+      const EXCLUDED_OWNER_EMAIL = "arno@wmeng.co.za";
+      
       // Get streak data
       const { data: streaks, error: streakError } = await supabase
         .from("roadmap_completion_streaks")
@@ -69,17 +72,26 @@ export function HallOfFame() {
 
       if (streakError) throw streakError;
 
+      // Get all profiles to filter by email
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email");
+      
+      const profileMap = new Map(profiles?.map((p) => [p.id, p.email]) || []);
+
       // Aggregate by user
-      const userStats = new Map<string, { completions: number; streak: number }>();
+      const userStats = new Map<string, { completions: number; streak: number; email: string }>();
       streaks?.forEach((s) => {
-        const existing = userStats.get(s.user_id) || { completions: 0, streak: 0 };
+        const email = profileMap.get(s.user_id) || "";
+        const existing = userStats.get(s.user_id) || { completions: 0, streak: 0, email };
         existing.completions += s.total_completions || 0;
         existing.streak = Math.max(existing.streak, s.current_streak || 0);
         userStats.set(s.user_id, existing);
       });
 
-      // Sort and get top 3
+      // Sort, exclude business owner, and get top 3 eligible winners
       const sorted = Array.from(userStats.entries())
+        .filter(([_, stats]) => stats.email.toLowerCase() !== EXCLUDED_OWNER_EMAIL.toLowerCase())
         .sort((a, b) => b[1].completions - a[1].completions)
         .slice(0, 3);
 

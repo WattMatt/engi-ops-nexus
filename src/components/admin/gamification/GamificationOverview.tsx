@@ -77,12 +77,22 @@ export function GamificationOverview() {
       });
 
       // Sort by total completions and mark leaders
+      // Business owner email - excluded from winning but still tracked
+      const EXCLUDED_OWNER_EMAIL = "arno@wmeng.co.za";
+      
       const sortedUsers = Array.from(userStatsMap.values()).sort(
         (a, b) => b.total_completions - a.total_completions
       );
 
-      if (sortedUsers[0]) sortedUsers[0].is_weekly_leader = true;
-      if (sortedUsers[0]) sortedUsers[0].is_monthly_leader = true;
+      // Find the first eligible winner (not the business owner)
+      const eligibleWinner = sortedUsers.find(
+        (u) => u.email.toLowerCase() !== EXCLUDED_OWNER_EMAIL.toLowerCase()
+      );
+      
+      if (eligibleWinner) {
+        eligibleWinner.is_weekly_leader = true;
+        eligibleWinner.is_monthly_leader = true;
+      }
 
       // Calculate summary stats
       const totalCompletions = sortedUsers.reduce((sum, u) => sum + u.total_completions, 0);
@@ -222,15 +232,20 @@ export function GamificationOverview() {
             <TableBody>
               {stats?.users.map((user, index) => {
                 const badge = getStreakBadge(user.current_streak);
-                const rankEmoji = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : null;
+                const isExcludedOwner = user.email.toLowerCase() === "arno@wmeng.co.za";
+                const eligibleRank = isExcludedOwner ? null : 
+                  stats.users.filter((u, i) => i < index && u.email.toLowerCase() !== "arno@wmeng.co.za").length + 1;
+                const rankEmoji = eligibleRank === 1 ? "🥇" : eligibleRank === 2 ? "🥈" : eligibleRank === 3 ? "🥉" : null;
 
                 return (
-                  <TableRow key={user.user_id}>
+                  <TableRow key={user.user_id} className={isExcludedOwner ? "opacity-60" : ""}>
                     <TableCell className="font-medium">
-                      {rankEmoji ? (
+                      {isExcludedOwner ? (
+                        <span className="text-muted-foreground text-xs">Owner</span>
+                      ) : rankEmoji ? (
                         <span className="text-xl">{rankEmoji}</span>
                       ) : (
-                        <span className="text-muted-foreground">#{index + 1}</span>
+                        <span className="text-muted-foreground">#{eligibleRank}</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -239,7 +254,12 @@ export function GamificationOverview() {
                           <Crown className="h-4 w-4 text-amber-500" />
                         )}
                         <div>
-                          <p className="font-medium">{user.full_name}</p>
+                          <p className="font-medium">
+                            {user.full_name}
+                            {isExcludedOwner && (
+                              <Badge variant="outline" className="ml-2 text-xs">Not Eligible</Badge>
+                            )}
+                          </p>
                           <p className="text-xs text-muted-foreground">{user.email}</p>
                         </div>
                       </div>
