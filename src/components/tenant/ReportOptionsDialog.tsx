@@ -17,8 +17,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FileText, Loader2, LayoutDashboard, Users, Square, DollarSign, Lightbulb, Save, FolderOpen, Trash2 } from "lucide-react";
+import { FileText, Loader2, LayoutDashboard, Users, Square, DollarSign, Lightbulb, Save, FolderOpen, Trash2, ChevronDown, ChevronRight, UserMinus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Select,
   SelectContent,
@@ -44,6 +47,7 @@ export interface ReportOptions {
   includeTenantSchedule: boolean;
   includeFloorPlan: boolean;
   contactId: string;
+  excludedTenantIds: string[];
   kpiLayout: 'compact' | 'detailed';
   kpiAppearance: {
     colorTheme: 'professional' | 'vibrant' | 'minimal';
@@ -73,12 +77,19 @@ export interface ReportOptions {
   };
 }
 
+interface Tenant {
+  id: string;
+  shop_name: string;
+  shop_number: string;
+}
+
 interface ReportOptionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onGenerate: (options: ReportOptions) => void;
   isGenerating: boolean;
   projectId: string;
+  tenants: Tenant[];
 }
 
 export const ReportOptionsDialog = ({
@@ -87,12 +98,14 @@ export const ReportOptionsDialog = ({
   onGenerate,
   isGenerating,
   projectId,
+  tenants,
 }: ReportOptionsDialogProps) => {
   const queryClient = useQueryClient();
   const [templateName, setTemplateName] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
+  const [showTenantSelection, setShowTenantSelection] = useState(false);
   const [options, setOptions] = useState<ReportOptions>({
     includeCoverPage: true,
     includeTableOfContents: true,
@@ -100,6 +113,7 @@ export const ReportOptionsDialog = ({
     includeTenantSchedule: true,
     includeFloorPlan: true,
     contactId: "",
+    excludedTenantIds: [],
     kpiLayout: 'compact',
     kpiAppearance: {
       colorTheme: 'professional',
@@ -129,6 +143,17 @@ export const ReportOptionsDialog = ({
     },
   });
 
+  const toggleTenantExclusion = (tenantId: string) => {
+    setOptions(prev => ({
+      ...prev,
+      excludedTenantIds: prev.excludedTenantIds.includes(tenantId)
+        ? prev.excludedTenantIds.filter(id => id !== tenantId)
+        : [...prev.excludedTenantIds, tenantId]
+    }));
+  };
+
+  const includedTenantsCount = tenants.length - options.excludedTenantIds.length;
+
   const handleSelectAll = () => {
     setOptions({
       includeCoverPage: true,
@@ -137,6 +162,7 @@ export const ReportOptionsDialog = ({
       includeTenantSchedule: true,
       includeFloorPlan: true,
       contactId: options.contactId,
+      excludedTenantIds: [],
       kpiLayout: 'compact',
       kpiAppearance: {
         colorTheme: 'professional',
@@ -276,6 +302,7 @@ export const ReportOptionsDialog = ({
       includeTenantSchedule: false,
       includeFloorPlan: false,
       contactId: options.contactId,
+      excludedTenantIds: tenants.map(t => t.id),
       kpiLayout: 'compact',
       kpiAppearance: {
         colorTheme: 'professional',
@@ -695,6 +722,91 @@ export const ReportOptionsDialog = ({
                 </Label>
               </div>
             </div>
+          </div>
+
+          <Separator />
+
+          {/* Tenant Selection */}
+          <div className="space-y-3">
+            <Collapsible open={showTenantSelection} onOpenChange={setShowTenantSelection}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between p-2 h-auto">
+                  <div className="flex items-center gap-2">
+                    <UserMinus className="h-4 w-4" />
+                    <span className="font-semibold text-sm">Tenant Selection</span>
+                    {options.excludedTenantIds.length > 0 && (
+                      <Badge variant="secondary" className="ml-2">
+                        {options.excludedTenantIds.length} excluded
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {includedTenantsCount} of {tenants.length} included
+                    </span>
+                    {showTenantSelection ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </div>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <div className="border rounded-lg p-3 space-y-3">
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setOptions(prev => ({ ...prev, excludedTenantIds: [] }))}
+                    >
+                      Include All
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setOptions(prev => ({ ...prev, excludedTenantIds: tenants.map(t => t.id) }))}
+                    >
+                      Exclude All
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-1">
+                      {tenants.map((tenant) => {
+                        const isExcluded = options.excludedTenantIds.includes(tenant.id);
+                        return (
+                          <div
+                            key={tenant.id}
+                            className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
+                              isExcluded ? 'bg-muted/50 opacity-60' : 'hover:bg-muted/30'
+                            }`}
+                          >
+                            <Checkbox
+                              id={`tenant-${tenant.id}`}
+                              checked={!isExcluded}
+                              onCheckedChange={() => toggleTenantExclusion(tenant.id)}
+                            />
+                            <Label
+                              htmlFor={`tenant-${tenant.id}`}
+                              className={`cursor-pointer flex-1 text-sm ${isExcluded ? 'line-through' : ''}`}
+                            >
+                              <span className="font-medium">{tenant.shop_number}</span>
+                              <span className="text-muted-foreground ml-2">- {tenant.shop_name}</span>
+                            </Label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                  {options.excludedTenantIds.length > 0 && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <UserMinus className="h-3 w-3" />
+                      {options.excludedTenantIds.length} tenant(s) will be excluded from the report
+                    </p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
 
           <Separator />
