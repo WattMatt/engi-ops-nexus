@@ -66,7 +66,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
   };
 
 
-  const generateKPIPage = (doc: jsPDF, options: ReportOptions) => {
+  const generateKPIPage = (doc: jsPDF, options: ReportOptions, filteredTenants: Tenant[] = tenants) => {
     doc.addPage();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -134,22 +134,22 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.setTextColor(100, 116, 139);
     doc.text("Key Performance Indicators & Progress Metrics", 20, 27);
 
-    // Calculate metrics
-    const totalTenants = tenants.length;
-    const totalArea = tenants.reduce((sum, t) => sum + (t.area || 0), 0);
-    const totalDbCost = tenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
-    const totalLightingCost = tenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
+    // Calculate metrics using filtered tenants
+    const totalTenants = filteredTenants.length;
+    const totalArea = filteredTenants.reduce((sum, t) => sum + (t.area || 0), 0);
+    const totalDbCost = filteredTenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
+    const totalLightingCost = filteredTenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
     const totalCost = totalDbCost + totalLightingCost;
 
-    const categoryCounts = tenants.reduce((acc, t) => {
+    const categoryCounts = filteredTenants.reduce((acc, t) => {
       acc[t.shop_category] = (acc[t.shop_category] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    const dbOrdered = tenants.filter(t => t.db_ordered).length;
-    const lightingOrdered = tenants.filter(t => t.lighting_ordered).length;
-    const sowReceived = tenants.filter(t => t.sow_received).length;
-    const layoutReceived = tenants.filter(t => t.layout_received).length;
+    const dbOrdered = filteredTenants.filter(t => t.db_ordered).length;
+    const lightingOrdered = filteredTenants.filter(t => t.lighting_ordered).length;
+    const sowReceived = filteredTenants.filter(t => t.sow_received).length;
+    const layoutReceived = filteredTenants.filter(t => t.layout_received).length;
 
     let yPos = 36;
 
@@ -410,7 +410,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
   };
 
 
-  const generateTenantSchedule = (doc: jsPDF, options: ReportOptions) => {
+  const generateTenantSchedule = (doc: jsPDF, options: ReportOptions, filteredTenants: Tenant[] = tenants) => {
     doc.addPage();
     const pageWidth = doc.internal.pageSize.getWidth();
     
@@ -461,12 +461,12 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.text("= Pending/Not Received", pendingX + 10, legendY);
 
     // Calculate completion statistics
-    const totalTenants = tenants.length;
-    const sowReceived = tenants.filter(t => t.sow_received).length;
-    const layoutReceived = tenants.filter(t => t.layout_received).length;
-    const dbOrdered = tenants.filter(t => t.db_ordered).length;
-    const lightingOrdered = tenants.filter(t => t.lighting_ordered).length;
-    const costReported = tenants.filter(t => t.cost_reported).length;
+    const totalTenants = filteredTenants.length;
+    const sowReceived = filteredTenants.filter(t => t.sow_received).length;
+    const layoutReceived = filteredTenants.filter(t => t.layout_received).length;
+    const dbOrdered = filteredTenants.filter(t => t.db_ordered).length;
+    const lightingOrdered = filteredTenants.filter(t => t.lighting_ordered).length;
+    const costReported = filteredTenants.filter(t => t.cost_reported).length;
 
     // Calculate overall completion percentage
     let totalCompleted = 0;
@@ -603,7 +603,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     if (options.tenantFields.lightingCost) { headers.push('Light Cost'); fieldKeys.push('lightingCost'); }
     if (options.tenantFields.costReported) { headers.push('Cost Rpt'); fieldKeys.push('costReported'); }
 
-    const tableData = tenants.map(tenant => {
+    const tableData = filteredTenants.map(tenant => {
       const row: string[] = [];
       fieldKeys.forEach(key => {
         switch(key) {
@@ -899,8 +899,11 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
   };
 
   const handleGenerateReport = async (options: ReportOptions) => {
-    if (tenants.length === 0) {
-      toast.error("No tenants to generate report");
+    // Filter out excluded tenants
+    const includedTenants = tenants.filter(t => !options.excludedTenantIds.includes(t.id));
+    
+    if (includedTenants.length === 0) {
+      toast.error("No tenants selected for report. Please include at least one tenant.");
       return;
     }
 
@@ -923,6 +926,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       const doc = new jsPDF('p', 'mm', 'a4');
 
       console.log('[TENANT REPORT] Starting report generation with standardized cover page');
+      console.log('[TENANT REPORT] Included tenants:', includedTenants.length, 'of', tenants.length);
 
       // Generate pages based on options
       if (options.includeCoverPage) {
@@ -942,26 +946,26 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       
       // Add table of contents after cover page if enabled
       if (options.includeTableOfContents) {
-        generateTableOfContents(doc, tenants, options);
+        generateTableOfContents(doc, includedTenants, options);
       }
       
       if (options.includeKPIPage) {
-        generateKPIPage(doc, options);
+        generateKPIPage(doc, options, includedTenants);
       }
       if (options.includeFloorPlan) {
         await generateLayoutPages(doc);
       }
       if (options.includeTenantSchedule) {
-        generateTenantSchedule(doc, options);
+        generateTenantSchedule(doc, options, includedTenants);
       }
 
       // Convert PDF to blob
       const pdfBlob = doc.output('blob');
       
       // Calculate metrics for database
-      const totalArea = tenants.reduce((sum, t) => sum + (t.area || 0), 0);
-      const totalDbCost = tenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
-      const totalLightingCost = tenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
+      const totalArea = includedTenants.reduce((sum, t) => sum + (t.area || 0), 0);
+      const totalDbCost = includedTenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
+      const totalLightingCost = includedTenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
 
       // Generate filename
       const timestamp = new Date().toISOString().split('T')[0];
@@ -991,7 +995,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
           file_path: filePath,
           file_size: pdfBlob.size,
           generated_by: user?.id,
-          tenant_count: tenants.length,
+          tenant_count: includedTenants.length,
           total_area: totalArea,
           total_db_cost: totalDbCost,
           total_lighting_cost: totalLightingCost
@@ -1038,6 +1042,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         onGenerate={handleGenerateReport}
         isGenerating={isGenerating}
         projectId={projectId}
+        tenants={tenants.map(t => ({ id: t.id, shop_name: t.shop_name, shop_number: t.shop_number }))}
       />
     </>
   );
