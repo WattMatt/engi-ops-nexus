@@ -263,27 +263,43 @@ function findColumnsInRow(values: string[], patterns: Record<string, RegExp>): R
 function parseSectionFromSheetName(sheetName: string): { sectionCode: string; sectionName: string; billNumber: number } {
   const trimmed = sheetName.trim();
   
-  // Pattern: "1.2 Medium Voltage" -> code: "1.2", name: "Medium Voltage"
+  // Pattern: "1.2 Medium Voltage" -> code: "1.2", name: "Medium Voltage", bill: 1
   const numericDotPattern = trimmed.match(/^(\d+(?:\.\d+)?)\s+(.+)$/);
   if (numericDotPattern) {
-    return {
-      sectionCode: numericDotPattern[1],
-      sectionName: numericDotPattern[2].trim(),
-      billNumber: parseInt(numericDotPattern[1].split('.')[0]) || 1,
-    };
+    const sectionCode = numericDotPattern[1];
+    const sectionName = numericDotPattern[2].trim();
+    // Bill number is the integer part (e.g., "1.2" -> bill 1, "2.3" -> bill 2)
+    const billNumber = parseInt(sectionCode.split('.')[0]) || 1;
+    return { sectionCode, sectionName, billNumber };
   }
   
-  // Pattern: "4 Boxer" -> code: "4", name: "Boxer"
+  // Pattern: "4 Boxer" or "9 Clicks" -> code: "4", name: "Boxer"
+  // These are shop sheets - use sheet number as bill number for separate shops
   const numericSpacePattern = trimmed.match(/^(\d+)\s+(.+)$/);
   if (numericSpacePattern) {
+    const sheetNum = parseInt(numericSpacePattern[1]);
+    const shopName = numericSpacePattern[2].trim();
+    
+    // Each numbered shop sheet becomes its own bill
+    // But the bill NUMBER should be based on the shop order (2=Superspar, 3=Tops, 4=Clicks)
+    // Map common shop names to proper bill numbers
+    const shopBillMap: Record<string, number> = {
+      'superspar': 2,
+      'tops': 3,
+      'clicks': 4,
+    };
+    
+    const normalizedName = shopName.toLowerCase();
+    const billNumber = shopBillMap[normalizedName] || sheetNum;
+    
     return {
-      sectionCode: numericSpacePattern[1],
-      sectionName: numericSpacePattern[2].trim(),
-      billNumber: parseInt(numericSpacePattern[1]) >= 3 ? 2 : 1, // Shops (3+) go to Bill 2
+      sectionCode: String(billNumber),
+      sectionName: shopName,
+      billNumber,
     };
   }
   
-  // Pattern: "P&G" or just a name -> code is the name
+  // Pattern: "P&G" or just a name -> code is the name, bill 1
   return {
     sectionCode: trimmed,
     sectionName: trimmed,
@@ -300,8 +316,8 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
 } {
   const items: ParsedBOQItem[] = [];
   
-  // Derive section info from sheet name
-  const { sectionCode, sectionName, billNumber } = parseSectionFromSheetName(sheetName);
+  // Derive section info from sheet name first
+  let { sectionCode, sectionName, billNumber } = parseSectionFromSheetName(sheetName);
   
   // Get all data from the sheet
   const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
@@ -317,6 +333,37 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
   }
   
   if (allRows.length === 0) return { items, sectionCode, sectionName, billNumber };
+  
+  // Try to detect bill number from sheet content (e.g., "CENTRAL BLUE - (BILL NO. 1)")
+  // Scan first 10 rows for bill number pattern
+  for (let i = 0; i < Math.min(10, allRows.length); i++) {
+    const rowText = allRows[i].join(' ');
+    const billMatch = rowText.match(/BILL\s*(?:NO\.?|NUMBER)?\s*(\d+)/i);
+    if (billMatch) {
+      const detectedBillNum = parseInt(billMatch[1]);
+      if (detectedBillNum > 0 && detectedBillNum <= 10) {
+        billNumber = detectedBillNum;
+        console.log(`[BOQ Parse] Detected Bill No. ${billNumber} from sheet content in "${sheetName}"`);
+        break;
+      }
+    }
+  }
+  
+  // Also try to detect section name from content (e.g., "SECTION A - PRELIMINARY & GENERAL")
+  for (let i = 0; i < Math.min(15, allRows.length); i++) {
+    const rowText = allRows[i].join(' ');
+    const sectionMatch = rowText.match(/SECTION\s+([A-Z])\s*[-:–]?\s*(.+?)(?:\s*$|\|)/i);
+    if (sectionMatch) {
+      const detectedSectionCode = `${billNumber}.${sectionMatch[1].charCodeAt(0) - 64}`;
+      const detectedSectionName = sectionMatch[2].trim().replace(/\s+/g, ' ');
+      if (detectedSectionName && detectedSectionName.length > 2) {
+        sectionCode = detectedSectionCode;
+        sectionName = detectedSectionName;
+        console.log(`[BOQ Parse] Detected Section ${sectionCode}: "${sectionName}" from content`);
+        break;
+      }
+    }
+  }
   
   // Patterns for finding column headers (order matters - more specific first)
   const patterns = {
