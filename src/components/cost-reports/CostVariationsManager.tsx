@@ -44,7 +44,15 @@ export const CostVariationsManager = ({
         .eq("id", variationId)
         .single();
 
-      // Delete line items first
+      // Delete history records first (due to FK constraint)
+      const { error: historyError } = await supabase
+        .from("cost_variation_history")
+        .delete()
+        .eq("variation_id", variationId);
+
+      if (historyError) throw historyError;
+
+      // Delete line items
       const { error: itemsError } = await supabase
         .from("variation_line_items")
         .delete()
