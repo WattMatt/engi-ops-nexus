@@ -37,6 +37,8 @@ import { TeamWorkloadChart } from "@/components/admin/roadmap-review/TeamWorkloa
 import { PDFExportDialog } from "@/components/admin/roadmap-review/PDFExportDialog";
 import { PrintableChartContainer } from "@/components/admin/roadmap-review/PrintableChartContainer";
 import { ExportProgressOverlay, ExportStep } from "@/components/admin/roadmap-review/ExportProgressOverlay";
+import { UserFocusedProjectCard } from "@/components/admin/roadmap-review/UserFocusedProjectCard";
+import { UserFocusedSummary } from "@/components/admin/roadmap-review/UserFocusedSummary";
 
 // Import calculation utilities
 import { 
@@ -533,6 +535,19 @@ export function RoadmapReviewContent() {
             </div>
           )}
           
+          {/* User-focused summary when filtering by user */}
+          {groupBy === "user" && selectedUser !== "all" && filteredSummaries.length > 0 && (
+            <UserFocusedSummary
+              projects={filteredSummaries}
+              userId={selectedUser}
+              userName={
+                enhancedSummaries
+                  .flatMap((p) => p.teamMembers)
+                  .find((m) => m.id === selectedUser)?.name || "User"
+              }
+            />
+          )}
+          
           {/* Executive Summary Section */}
           <div key={`dashboard-${filterKey}`} className="grid gap-6 lg:grid-cols-4 animate-fade-in">
             <div className="animate-scale-in" style={{ animationDelay: '0ms' }}>
@@ -561,12 +576,31 @@ export function RoadmapReviewContent() {
 
         {/* Projects Tab */}
         <TabsContent value="projects" className="space-y-4">
+          {/* User-focused summary when filtering by user */}
+          {groupBy === "user" && selectedUser !== "all" && filteredSummaries.length > 0 && (
+            <UserFocusedSummary
+              projects={filteredSummaries}
+              userId={selectedUser}
+              userName={
+                enhancedSummaries
+                  .flatMap((p) => p.teamMembers)
+                  .find((m) => m.id === selectedUser)?.name || "User"
+              }
+            />
+          )}
+          
           <Card>
             <CardHeader>
               <CardTitle>
-                {getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries)
-                  ? `Projects: ${getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries)}`
-                  : "All Project Roadmaps"
+                {groupBy === "user" && selectedUser !== "all"
+                  ? `Projects Assigned to ${
+                      enhancedSummaries
+                        .flatMap((p) => p.teamMembers)
+                        .find((m) => m.id === selectedUser)?.name || "User"
+                    }`
+                  : getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries)
+                    ? `Projects: ${getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries)}`
+                    : "All Project Roadmaps"
                 }
               </CardTitle>
             </CardHeader>
@@ -578,6 +612,15 @@ export function RoadmapReviewContent() {
                     : "No projects match the current filter"
                   }
                 </p>
+              ) : groupBy === "user" && selectedUser !== "all" ? (
+                /* User-focused project cards when filtering by user */
+                filteredSummaries.map((project) => (
+                  <UserFocusedProjectCard 
+                    key={project.projectId} 
+                    project={project} 
+                    userId={selectedUser}
+                  />
+                ))
               ) : (
                 filteredSummaries.map((project) => (
                   <EnhancedProjectCard key={project.projectId} project={project} />
