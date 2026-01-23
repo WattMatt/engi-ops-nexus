@@ -66,7 +66,7 @@ export function BOQExcelImportDialog({
 
   /**
    * Parse section code and name from sheet name
-   * EXACT COPY from FinalAccountExcelImport.tsx
+   * Enhanced to handle more patterns including shop-specific sheets
    */
   const parseSectionFromSheetName = (sheetName: string): { 
     billNumber: number;
@@ -105,16 +105,50 @@ export function BOQExcelImportDialog({
       };
     }
     
-    // Pattern: "3 ASJ", "4 Boxer" -> SEPARATE BILL with ONE section
+    // Pattern: "2 Superspar", "3 Tops", "4 Clicks", etc. -> Standalone shops become their own bills
+    // Map common shop names to their bill numbers
+    const shopBillMap: Record<string, { billNum: number; billName: string }> = {
+      'superspar': { billNum: 2, billName: 'Superspar' },
+      'tops': { billNum: 3, billName: 'Tops' },
+      'clicks': { billNum: 4, billName: 'Clicks' },
+      'boxer': { billNum: 5, billName: 'Boxer' },
+      'pep': { billNum: 6, billName: 'PEP' },
+      'ackermans': { billNum: 7, billName: 'Ackermans' },
+      'shoprite': { billNum: 8, billName: 'Shoprite' },
+      'checkers': { billNum: 9, billName: 'Checkers' },
+    };
+    
+    // Pattern: "3 ASJ", "4 Boxer", "9 Clicks" -> SEPARATE BILL with ONE section
     const standalonePattern = trimmed.match(/^(\d+)\s+(.+)$/);
     if (standalonePattern) {
-      const billNum = parseInt(standalonePattern[1]);
+      const sheetNum = parseInt(standalonePattern[1]);
       const name = standalonePattern[2].trim();
+      const normalizedName = name.toLowerCase().replace(/[^a-z]/g, '');
+      
+      // Check if it's a known shop
+      const shopMatch = shopBillMap[normalizedName];
+      const billNum = shopMatch?.billNum || sheetNum;
+      const billName = shopMatch?.billName || name;
+      
       return {
         billNumber: billNum,
-        billName: name,
+        billName: billName,
         sectionCode: String(billNum),
         sectionName: name,
+        sectionNumber: 1,
+        isBillHeader: false,
+      };
+    }
+    
+    // Pattern: "Superspar", "Tops", "Clicks" (no number prefix)
+    const normalizedTrimmed = trimmed.toLowerCase().replace(/[^a-z]/g, '');
+    const shopMatchDirect = shopBillMap[normalizedTrimmed];
+    if (shopMatchDirect) {
+      return {
+        billNumber: shopMatchDirect.billNum,
+        billName: shopMatchDirect.billName,
+        sectionCode: String(shopMatchDirect.billNum),
+        sectionName: shopMatchDirect.billName,
         sectionNumber: 1,
         isBillHeader: false,
       };
@@ -132,14 +166,15 @@ export function BOQExcelImportDialog({
       };
     }
     
-    // Unrecognized pattern - skip
+    // Fallback: Unrecognized pattern - DON'T skip, try to extract something useful
+    // Return with billNumber 0 to signal it needs content-based detection
     return {
       billNumber: 0,
       billName: "",
       sectionCode: trimmed,
       sectionName: trimmed,
       sectionNumber: 0,
-      isBillHeader: true,
+      isBillHeader: false, // Changed: Don't skip by default, let content detection try
     };
   };
 
@@ -151,14 +186,17 @@ export function BOQExcelImportDialog({
   };
 
   /**
-   * EXACT COPY of parseSheet from FinalAccountExcelImport.tsx
-   * Only item_type mapping differs (uses BOQ enum)
+   * Enhanced parseSheet with content-based bill number detection
+   * Detects bill numbers from sheet content like "CENTRAL BLUE - (BILL NO. 3)"
    */
   const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string): { section: ParsedSection; billNumber: number; billName: string } | null => {
-    const parsed = parseSectionFromSheetName(sheetName);
+    let parsed = parseSectionFromSheetName(sheetName);
     
     // Skip bill headers that don't have their own items
-    if (parsed.isBillHeader) return null;
+    if (parsed.isBillHeader) {
+      console.log(`[BOQ Import] Skipping bill header sheet: "${sheetName}"`);
+      return null;
+    }
     
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
     const allRows: any[][] = []; // Use any to preserve original cell values
@@ -175,6 +213,56 @@ export function BOQExcelImportDialog({
     
     if (allRows.length === 0) return null;
     
+    // CRITICAL: Detect bill number from sheet content (e.g., "CENTRAL BLUE - (BILL NO. 3)")
+    // This overrides the sheet name detection when found
+    let detectedBillNumber = parsed.billNumber;
+    let detectedBillName = parsed.billName;
+    let detectedSectionCode = parsed.sectionCode;
+    let detectedSectionName = parsed.sectionName;
+    let detectedSectionNumber = parsed.sectionNumber;
+    
+    for (let i = 0; i < Math.min(15, allRows.length); i++) {
+      const rowText = allRows[i].filter(c => c != null).map(c => String(c)).join(' ');
+      
+      // Pattern: "CENTRAL BLUE - (BILL NO. 3)" or "BILL NO. 1"
+      const billMatch = rowText.match(/BILL\s*(?:NO\.?|NUMBER)?\s*(\d+)/i);
+      if (billMatch) {
+        const billNum = parseInt(billMatch[1]);
+        if (billNum > 0 && billNum <= 20) {
+          detectedBillNumber = billNum;
+          // Try to extract a better bill name from context
+          if (billNum === 1) {
+            detectedBillName = 'Mall';
+          } else if (!detectedBillName || detectedBillName === `Bill ${billNum}`) {
+            // Check for shop name in same row or nearby
+            const shopMatch = rowText.match(/(?:Shop\s*\d+[-\s]*)?([A-Za-z]+(?:\s+[A-Za-z]+)?)\s*[-–]/i);
+            if (shopMatch && shopMatch[1].toLowerCase() !== 'central' && shopMatch[1].toLowerCase() !== 'blue') {
+              detectedBillName = shopMatch[1].trim();
+            }
+          }
+          console.log(`[BOQ Import] Detected Bill No. ${detectedBillNumber} from content in sheet "${sheetName}"`);
+        }
+      }
+      
+      // Pattern: "SECTION A - PRELIMINARY & GENERAL" or "SECTION G - POWER FOR TOPS"
+      const sectionMatch = rowText.match(/SECTION\s+([A-Z])\s*[-–:]\s*(.+?)(?:\s*$|\|)/i);
+      if (sectionMatch) {
+        const sectionLetter = sectionMatch[1].toUpperCase();
+        const sectionNum = sectionLetter.charCodeAt(0) - 64; // A=1, B=2, etc.
+        detectedSectionNumber = sectionNum;
+        detectedSectionCode = `${detectedBillNumber}.${sectionNum}`;
+        detectedSectionName = sectionMatch[2].trim().replace(/\s+/g, ' ');
+        console.log(`[BOQ Import] Detected Section ${detectedSectionCode}: "${detectedSectionName}" from content in sheet "${sheetName}"`);
+      }
+    }
+    
+    // If bill number is still 0, use sheet position or default to 1
+    if (detectedBillNumber === 0) {
+      detectedBillNumber = 1;
+      detectedBillName = detectedBillName || "Mall";
+      console.log(`[BOQ Import] No bill number detected for "${sheetName}", defaulting to Bill ${detectedBillNumber}`);
+    }
+    
     const patterns: Record<string, RegExp> = {
       description: /desc|particular|item\s*description|work\s*description/i,
       quantity: /qty|quantity|qnty/i,
@@ -183,7 +271,7 @@ export function BOQExcelImportDialog({
       installRate: /^install$/i,
       rate: /^rate$|unit\s*rate|total\s*rate/i,
       amount: /^amount$|tender\s*price|^total$/i,
-      itemCode: /^no$|^item$|^code$|^ref$|item\s*no|item\s*code/i,
+      itemCode: /^no$|^item$|^code$|^ref$|item\s*no|item\s*code|^itea$/i, // Added "itea" for typos
     };
 
     const findColumnsInRow = (row: any[]): Record<string, number> => {
@@ -213,13 +301,13 @@ export function BOQExcelImportDialog({
       }
     }
     
-    if (headerRowIdx === -1) return null;
-    
-    // Debug: Log column mapping for P&G sheets
-    if (/p.*g|prelim/i.test(sheetName)) {
-      console.log(`[BOQ Import] Sheet "${sheetName}" header row ${headerRowIdx}:`, allRows[headerRowIdx]);
-      console.log(`[BOQ Import] Sheet "${sheetName}" colMap:`, colMap);
+    if (headerRowIdx === -1) {
+      console.log(`[BOQ Import] No header row found in sheet "${sheetName}"`);
+      return null;
     }
+    
+    // Debug: Log column mapping for all sheets
+    console.log(`[BOQ Import] Sheet "${sheetName}" -> Bill ${detectedBillNumber} (${detectedBillName}), header row ${headerRowIdx}`);
     
     const items: ParsedItem[] = [];
     let boqStatedTotal = 0;
@@ -244,17 +332,6 @@ export function BOQExcelImportDialog({
       // CRITICAL: Get amount directly from cell value
       const amountRaw = colMap.amount !== undefined ? row[colMap.amount] : null;
       const amount = parseNumber(amountRaw);
-      
-      // Debug: Log A1, A3, B1 rows
-      if (/p.*g|prelim/i.test(sheetName) && /^[AB][1-3]?$/i.test(itemCode)) {
-        console.log(`[BOQ Import] Sheet "${sheetName}" item ${itemCode}:`, {
-          rawAmount: amountRaw,
-          parsedAmount: amount,
-          colMapAmount: colMap.amount,
-          rowLength: row.length,
-          row: row.slice(0, 7),
-        });
-      }
       
       if (!itemCode && !description) continue;
       
@@ -307,24 +384,23 @@ export function BOQExcelImportDialog({
       });
     }
     
-    if (items.length === 0) return null;
-    
-    // Debug: Log parsed items for P&G
-    if (/p.*g|prelim/i.test(sheetName)) {
-      console.log(`[BOQ Import] Sheet "${sheetName}" parsed ${items.length} items:`, 
-        items.map(i => ({ code: i.item_code, amount: i.amount })));
+    if (items.length === 0) {
+      console.log(`[BOQ Import] No items found in sheet "${sheetName}"`);
+      return null;
     }
+    
+    console.log(`[BOQ Import] Sheet "${sheetName}" parsed ${items.length} items for Bill ${detectedBillNumber}, Section ${detectedSectionCode}`);
     
     return { 
       section: {
-        sectionCode: parsed.sectionCode, 
-        sectionName: parsed.sectionName, 
+        sectionCode: detectedSectionCode, 
+        sectionName: detectedSectionName, 
         items,
         boqStatedTotal,
-        _sectionNumber: parsed.sectionNumber,
+        _sectionNumber: detectedSectionNumber,
       },
-      billNumber: parsed.billNumber,
-      billName: parsed.billName,
+      billNumber: detectedBillNumber,
+      billName: detectedBillName,
     };
   };
 
@@ -348,20 +424,27 @@ export function BOQExcelImportDialog({
       // Group sections by bill (same approach as Final Account import)
       const billsMap = new Map<number, ParsedBill>();
       
+      // More specific skip patterns - only skip clear summary/notes sheets
       const skipPatterns = [
         /^main\s*summary$/i,
-        /^summary$/i,
-        /mall\s*summary$/i,
-        /bill\s*summary$/i,
-        /notes/i,
-        /qualifications/i,
-        /cover/i,
+        /^summary$/i,           // Exact match only
+        /^mall\s*summary$/i,
+        /^bill\s*summary$/i,
+        /^notes\s*to\s*tenderer?$/i,
+        /^qualifications\s*to\s*tender$/i,
+        /^cover$/i,
         /^index$/i,
+        /^front\s*page$/i,
       ];
+
+      console.log(`[BOQ Import] Processing ${workbook.SheetNames.length} sheets:`, workbook.SheetNames);
 
       for (const sheetName of workbook.SheetNames) {
         const shouldSkip = skipPatterns.some(pattern => pattern.test(sheetName.trim()));
-        if (shouldSkip) continue;
+        if (shouldSkip) {
+          console.log(`[BOQ Import] Skipping sheet "${sheetName}" (matches skip pattern)`);
+          continue;
+        }
         
         const worksheet = workbook.Sheets[sheetName];
         const result = parseSheet(worksheet, sheetName);
@@ -374,10 +457,13 @@ export function BOQExcelImportDialog({
               billName,
               sections: [],
             });
+            console.log(`[BOQ Import] Created new Bill ${billNumber}: "${billName}"`);
           }
           billsMap.get(billNumber)!.sections.push(section);
         }
       }
+      
+      console.log(`[BOQ Import] Bills map:`, Array.from(billsMap.keys()));
 
       // Convert to array and sort by bill number
       const parsedBills = Array.from(billsMap.values()).sort((a, b) => a.billNumber - b.billNumber);
