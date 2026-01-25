@@ -26,7 +26,6 @@ interface PhaseStepTabsProps {
   document: any;
   activeStep: string;
   onStepChange: (stepId: string) => void;
-  renderStepContent?: (task: any) => React.ReactNode;
 }
 
 export function PhaseStepTabs({ 
@@ -36,8 +35,7 @@ export function PhaseStepTabs({
   documentId, 
   document,
   activeStep,
-  onStepChange,
-  renderStepContent
+  onStepChange
 }: PhaseStepTabsProps) {
   // Fetch tasks for this phase
   const { data: tasks, isLoading } = useQuery({
