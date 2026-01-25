@@ -29,32 +29,45 @@ interface SANS204LoadCalculatorProps {
   climaticZone?: number;
 }
 
-// SANS 204 Table 1 - Notional energy consumption limits (VA/m²)
+// SANS 10142-1 Table 10.1 - Load Demand per Floor Area (VA/m²)
+// These are actual electrical demand estimation values from the Wiring Code
+// Values are fixed (not climate-dependent) - climate affects HVAC sizing separately
 const BUILDING_CLASSES = [
-  { code: 'A1', name: 'Entertainment & Public Assembly', vaPerSqm: { 1: 120, 2: 130, 3: 140, 4: 150, 5: 160, 6: 170 } },
-  { code: 'A2', name: 'Theatrical Performance', vaPerSqm: { 1: 100, 2: 110, 3: 120, 4: 130, 5: 140, 6: 150 } },
-  { code: 'A3', name: 'Places of Instruction', vaPerSqm: { 1: 80, 2: 85, 3: 90, 4: 95, 5: 100, 6: 110 } },
-  { code: 'A4', name: 'Worship', vaPerSqm: { 1: 60, 2: 65, 3: 70, 4: 75, 5: 80, 6: 85 } },
-  { code: 'B1', name: 'High Risk Commercial', vaPerSqm: { 1: 150, 2: 160, 3: 170, 4: 180, 5: 190, 6: 200 } },
-  { code: 'B2', name: 'Moderate Risk Commercial', vaPerSqm: { 1: 120, 2: 130, 3: 140, 4: 150, 5: 160, 6: 170 } },
-  { code: 'B3', name: 'Low Risk Commercial', vaPerSqm: { 1: 100, 2: 110, 3: 120, 4: 130, 5: 140, 6: 150 } },
-  { code: 'C1', name: 'Exhibition Hall', vaPerSqm: { 1: 90, 2: 95, 3: 100, 4: 105, 5: 110, 6: 120 } },
-  { code: 'C2', name: 'Museum', vaPerSqm: { 1: 80, 2: 85, 3: 90, 4: 95, 5: 100, 6: 110 } },
-  { code: 'D1', name: 'High Risk Industrial', vaPerSqm: { 1: 180, 2: 190, 3: 200, 4: 210, 5: 220, 6: 230 } },
-  { code: 'D2', name: 'Moderate Risk Industrial', vaPerSqm: { 1: 140, 2: 150, 3: 160, 4: 170, 5: 180, 6: 190 } },
-  { code: 'D3', name: 'Low Risk Industrial', vaPerSqm: { 1: 100, 2: 110, 3: 120, 4: 130, 5: 140, 6: 150 } },
-  { code: 'E1', name: 'Place of Detention', vaPerSqm: { 1: 90, 2: 95, 3: 100, 4: 105, 5: 110, 6: 120 } },
-  { code: 'E2', name: 'Hospital', vaPerSqm: { 1: 200, 2: 210, 3: 220, 4: 230, 5: 240, 6: 250 } },
-  { code: 'E3', name: 'Other Institutional', vaPerSqm: { 1: 120, 2: 130, 3: 140, 4: 150, 5: 160, 6: 170 } },
-  { code: 'F1', name: 'Large Shop (>250m²)', vaPerSqm: { 1: 130, 2: 140, 3: 150, 4: 160, 5: 170, 6: 180 } },
-  { code: 'F2', name: 'Small Shop (<250m²)', vaPerSqm: { 1: 100, 2: 110, 3: 120, 4: 130, 5: 140, 6: 150 } },
-  { code: 'F3', name: 'Wholesaler', vaPerSqm: { 1: 80, 2: 85, 3: 90, 4: 95, 5: 100, 6: 110 } },
-  { code: 'G1', name: 'Offices', vaPerSqm: { 1: 90, 2: 100, 3: 110, 4: 120, 5: 130, 6: 140 } },
-  { code: 'H1', name: 'Hotel', vaPerSqm: { 1: 110, 2: 120, 3: 130, 4: 140, 5: 150, 6: 160 } },
-  { code: 'H2', name: 'Dormitory', vaPerSqm: { 1: 70, 2: 75, 3: 80, 4: 85, 5: 90, 6: 100 } },
-  { code: 'H3', name: 'Domestic Residence', vaPerSqm: { 1: 50, 2: 55, 3: 60, 4: 65, 5: 70, 6: 80 } },
-  { code: 'H4', name: 'Dwelling House', vaPerSqm: { 1: 45, 2: 50, 3: 55, 4: 60, 5: 65, 6: 75 } },
-  { code: 'H5', name: 'Hospitality', vaPerSqm: { 1: 140, 2: 150, 3: 160, 4: 170, 5: 180, 6: 190 } },
+  // Assembly Buildings (A)
+  { code: 'A1', name: 'Entertainment & Public Assembly', vaPerSqm: { 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 50 } },
+  { code: 'A2', name: 'Theatrical Performance', vaPerSqm: { 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100 } },
+  { code: 'A3', name: 'Places of Instruction (Schools)', vaPerSqm: { 1: 25, 2: 25, 3: 25, 4: 25, 5: 25, 6: 25 } },
+  { code: 'A4', name: 'Worship', vaPerSqm: { 1: 30, 2: 30, 3: 30, 4: 30, 5: 30, 6: 30 } },
+  // Commercial/Mercantile Buildings (B/F)
+  { code: 'B1', name: 'High Risk Commercial (Labs)', vaPerSqm: { 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100 } },
+  { code: 'B2', name: 'Moderate Risk Commercial', vaPerSqm: { 1: 75, 2: 75, 3: 75, 4: 75, 5: 75, 6: 75 } },
+  { code: 'B3', name: 'Low Risk Commercial', vaPerSqm: { 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 50 } },
+  { code: 'C1', name: 'Exhibition Hall', vaPerSqm: { 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 50 } },
+  { code: 'C2', name: 'Museum', vaPerSqm: { 1: 40, 2: 40, 3: 40, 4: 40, 5: 40, 6: 40 } },
+  // Industrial Buildings (D)
+  { code: 'D1', name: 'High Risk Industrial', vaPerSqm: { 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100 } },
+  { code: 'D2', name: 'Moderate Risk Industrial', vaPerSqm: { 1: 75, 2: 75, 3: 75, 4: 75, 5: 75, 6: 75 } },
+  { code: 'D3', name: 'Low Risk Industrial/Warehouse', vaPerSqm: { 1: 25, 2: 25, 3: 25, 4: 25, 5: 25, 6: 25 } },
+  // Institutional Buildings (E)
+  { code: 'E1', name: 'Place of Detention', vaPerSqm: { 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 50 } },
+  { code: 'E2', name: 'Hospital', vaPerSqm: { 1: 150, 2: 150, 3: 150, 4: 150, 5: 150, 6: 150 } },
+  { code: 'E3', name: 'Other Institutional (Clinics)', vaPerSqm: { 1: 75, 2: 75, 3: 75, 4: 75, 5: 75, 6: 75 } },
+  // Mercantile Buildings (F)
+  { code: 'F1', name: 'Large Shop/Mall (>250m²)', vaPerSqm: { 1: 75, 2: 75, 3: 75, 4: 75, 5: 75, 6: 75 } },
+  { code: 'F2', name: 'Small Shop (<250m²)', vaPerSqm: { 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 50 } },
+  { code: 'F3', name: 'Wholesaler/Storage', vaPerSqm: { 1: 25, 2: 25, 3: 25, 4: 25, 5: 25, 6: 25 } },
+  // Office Buildings (G)
+  { code: 'G1', name: 'Offices (General)', vaPerSqm: { 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 50 } },
+  { code: 'G1-IT', name: 'Offices (High IT Density)', vaPerSqm: { 1: 80, 2: 80, 3: 80, 4: 80, 5: 80, 6: 80 } },
+  // Residential/Hospitality (H)
+  { code: 'H1', name: 'Hotel', vaPerSqm: { 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 50 } },
+  { code: 'H2', name: 'Dormitory/Hostel', vaPerSqm: { 1: 30, 2: 30, 3: 30, 4: 30, 5: 30, 6: 30 } },
+  { code: 'H3', name: 'Domestic Residence (Flats)', vaPerSqm: { 1: 30, 2: 30, 3: 30, 4: 30, 5: 30, 6: 30 } },
+  { code: 'H4', name: 'Dwelling House', vaPerSqm: { 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 50 } },
+  { code: 'H5', name: 'Restaurant/Kitchen', vaPerSqm: { 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100 } },
+  // Parking & Ancillary
+  { code: 'J1', name: 'Parking Garage (Covered)', vaPerSqm: { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10 } },
+  { code: 'J2', name: 'Plant Room/Service Areas', vaPerSqm: { 1: 25, 2: 25, 3: 25, 4: 25, 5: 25, 6: 25 } },
 ];
 
 export function SANS204LoadCalculator({ 
