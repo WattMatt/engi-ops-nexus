@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PhaseStepContainer } from './PhaseStepContainer';
+import { renderStepContent } from './steps/StepContentRegistry';
 
 interface PhaseStepTabsProps {
   phaseId: string;
@@ -159,7 +160,7 @@ export function PhaseStepTabs({
               documentId={documentId}
               document={document}
             >
-              {renderStepContent?.(task)}
+              {renderStepContent(task.task_title, { document, documentId })}
             </PhaseStepContainer>
           </TabsContent>
         ))}
