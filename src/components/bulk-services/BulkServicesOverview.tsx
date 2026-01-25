@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Calculator, Building2, FileText, Wrench, Hammer, Activity, PlayCircle, Loader2 } from "lucide-react";
+import { ClimaticZoneStrip } from "./ClimaticZoneStrip";
 import { BulkServicesExportPDFButton } from "./BulkServicesExportPDFButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect } from "react";
@@ -167,6 +168,9 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
 
       {/* Header Cards - Summary Metrics */}
       <PhaseSummaryHeader documentId={documentId} document={document} />
+
+      {/* Climatic Zone Map Strip */}
+      <ClimaticZoneStrip documentId={documentId} document={document} />
 
       {/* Initialization Card (if needed) */}
       {needsInitialization ? (
