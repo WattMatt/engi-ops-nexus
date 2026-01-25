@@ -1247,9 +1247,13 @@ export type Database = {
       }
       bulk_services_documents: {
         Row: {
+          admd_entries: Json | null
           ai_guidance_parameters: Json | null
           architect: string | null
           building_calculation_type: string | null
+          calculated_connected_load: number | null
+          calculated_max_demand: number | null
+          category_totals: Json | null
           client_name: string | null
           client_representative: string | null
           climatic_zone: string | null
@@ -1265,10 +1269,14 @@ export type Database = {
           drawing_file_path: string | null
           drawing_markup_data: Json | null
           electrical_standard: string | null
+          external_meter_links: Json | null
           future_expansion_factor: number | null
           id: string
+          load_calculation_breakdown: Json | null
           load_category: string | null
+          load_entry_method: string | null
           load_profile_completed: boolean | null
+          load_schedule_items: Json | null
           maximum_demand: number | null
           notes: string | null
           prepared_by: string | null
@@ -1278,6 +1286,8 @@ export type Database = {
           project_description: string | null
           project_id: string
           revision: string
+          sans10142_entries: Json | null
+          sans204_entries: Json | null
           supply_authority: string | null
           tariff_structure: string | null
           total_connected_load: number | null
@@ -1286,9 +1296,13 @@ export type Database = {
           va_per_sqm: number | null
         }
         Insert: {
+          admd_entries?: Json | null
           ai_guidance_parameters?: Json | null
           architect?: string | null
           building_calculation_type?: string | null
+          calculated_connected_load?: number | null
+          calculated_max_demand?: number | null
+          category_totals?: Json | null
           client_name?: string | null
           client_representative?: string | null
           climatic_zone?: string | null
@@ -1304,10 +1318,14 @@ export type Database = {
           drawing_file_path?: string | null
           drawing_markup_data?: Json | null
           electrical_standard?: string | null
+          external_meter_links?: Json | null
           future_expansion_factor?: number | null
           id?: string
+          load_calculation_breakdown?: Json | null
           load_category?: string | null
+          load_entry_method?: string | null
           load_profile_completed?: boolean | null
+          load_schedule_items?: Json | null
           maximum_demand?: number | null
           notes?: string | null
           prepared_by?: string | null
@@ -1317,6 +1335,8 @@ export type Database = {
           project_description?: string | null
           project_id: string
           revision?: string
+          sans10142_entries?: Json | null
+          sans204_entries?: Json | null
           supply_authority?: string | null
           tariff_structure?: string | null
           total_connected_load?: number | null
@@ -1325,9 +1345,13 @@ export type Database = {
           va_per_sqm?: number | null
         }
         Update: {
+          admd_entries?: Json | null
           ai_guidance_parameters?: Json | null
           architect?: string | null
           building_calculation_type?: string | null
+          calculated_connected_load?: number | null
+          calculated_max_demand?: number | null
+          category_totals?: Json | null
           client_name?: string | null
           client_representative?: string | null
           climatic_zone?: string | null
@@ -1343,10 +1367,14 @@ export type Database = {
           drawing_file_path?: string | null
           drawing_markup_data?: Json | null
           electrical_standard?: string | null
+          external_meter_links?: Json | null
           future_expansion_factor?: number | null
           id?: string
+          load_calculation_breakdown?: Json | null
           load_category?: string | null
+          load_entry_method?: string | null
           load_profile_completed?: boolean | null
+          load_schedule_items?: Json | null
           maximum_demand?: number | null
           notes?: string | null
           prepared_by?: string | null
@@ -1356,6 +1384,8 @@ export type Database = {
           project_description?: string | null
           project_id?: string
           revision?: string
+          sans10142_entries?: Json | null
+          sans204_entries?: Json | null
           supply_authority?: string | null
           tariff_structure?: string | null
           total_connected_load?: number | null
