@@ -3,14 +3,16 @@
  * Supports 7 methods for identifying and calculating connected loads
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Save, Info } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Save, Info, MapPin, Ruler, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadMethodSelector, type LoadMethod } from '../../phase1/LoadMethodSelector';
@@ -25,6 +27,11 @@ import type { StepContentProps } from '../StepContentRegistry';
 export function ConnectedLoadsStep({ document, documentId, onUpdate }: StepContentProps) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
+  
+  // Site context state
+  const [projectArea, setProjectArea] = useState<number>(document?.project_area || 0);
+  const climaticZone = document?.climatic_zone ? parseInt(document.climatic_zone) : null;
+  const climaticZoneCity = document?.climatic_zone_city || null;
   
   // Load method state
   const [method, setMethod] = useState<LoadMethod>(
@@ -61,6 +68,19 @@ export function ConnectedLoadsStep({ document, documentId, onUpdate }: StepConte
   const [admdEntries, setAdmdEntries] = useState<ADMDEntry[]>(
     document?.admd_entries || []
   );
+
+  // Sync project area from document
+  useEffect(() => {
+    if (document?.project_area) {
+      setProjectArea(document.project_area);
+    }
+  }, [document?.project_area]);
+
+  // Check if area-based methods are available
+  const areaBasedMethods: LoadMethod[] = ['sans204', 'sans10142'];
+  const needsArea = areaBasedMethods.includes(method);
+  const needsZone = method === 'sans204';
+  const hasRequiredContext = (!needsArea || projectArea > 0) && (!needsZone || climaticZone);
 
   // Callbacks for child components
   const handleItemizedTotalChange = useCallback((totalKva: number, maxDemandKva: number) => {
@@ -149,6 +169,7 @@ export function ConnectedLoadsStep({ document, documentId, onUpdate }: StepConte
         total_connected_load: connectedLoad,
         calculated_connected_load: connectedLoad,
         calculated_max_demand: maxDemand,
+        project_area: projectArea || null,
       };
 
       // Save method-specific data
@@ -283,6 +304,93 @@ export function ConnectedLoadsStep({ document, documentId, onUpdate }: StepConte
 
   return (
     <div className="space-y-6">
+      {/* Site Context Card */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Ruler className="h-4 w-4" />
+            Site Context
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Project Area */}
+            <div className="space-y-2">
+              <Label htmlFor="project-area" className="text-sm flex items-center gap-2">
+                <Ruler className="h-3.5 w-3.5" />
+                Site Area
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="project-area"
+                  type="number"
+                  min={0}
+                  value={projectArea || ''}
+                  onChange={(e) => setProjectArea(parseFloat(e.target.value) || 0)}
+                  placeholder="Enter site area"
+                  className="flex-1"
+                />
+                <span className="text-sm text-muted-foreground">m²</span>
+              </div>
+              {needsArea && !projectArea && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Required for {method === 'sans204' ? 'SANS 204' : 'SANS 10142-1'} calculations
+                </p>
+              )}
+            </div>
+
+            {/* Climatic Zone */}
+            <div className="space-y-2">
+              <Label className="text-sm flex items-center gap-2">
+                <MapPin className="h-3.5 w-3.5" />
+                Location & Climatic Zone
+              </Label>
+              {climaticZone && climaticZoneCity ? (
+                <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-background">
+                  <Badge variant="secondary">Zone {climaticZone}</Badge>
+                  <span className="text-sm">{climaticZoneCity}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted/50 text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span className="text-sm">Set location in Overview tab</span>
+                </div>
+              )}
+              {needsZone && !climaticZone && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Required for SANS 204 VA/m² lookup
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          {projectArea > 0 && (
+            <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Site Area</p>
+                <p className="font-bold">{projectArea.toLocaleString()} m²</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Climatic Zone</p>
+                <p className="font-bold">{climaticZone ? `Zone ${climaticZone}` : '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Est. Load Density</p>
+                <p className="font-bold">
+                  {connectedLoad > 0 && projectArea > 0 
+                    ? `${((connectedLoad * 1000) / projectArea).toFixed(1)} VA/m²`
+                    : '—'
+                  }
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Method Selector */}
       <div className="space-y-3">
         <Label className="text-base font-semibold">Select Calculation Method</Label>
@@ -294,6 +402,17 @@ export function ConnectedLoadsStep({ document, documentId, onUpdate }: StepConte
       </div>
 
       <Separator />
+
+      {/* Missing Context Warning */}
+      {!hasRequiredContext && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {!projectArea && needsArea && 'Enter the site area above to use this calculation method. '}
+            {!climaticZone && needsZone && 'Set the climatic zone in the Overview tab to get accurate VA/m² values.'}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Method-Specific Content */}
       <div className="space-y-4">
@@ -310,7 +429,7 @@ export function ConnectedLoadsStep({ document, documentId, onUpdate }: StepConte
             maxDemand={maxDemand}
             diversityFactor={document?.diversity_factor || 0.8}
             breakdown={getBreakdown()}
-            projectArea={document?.project_area}
+            projectArea={projectArea}
             typicalRange={{ min: 50, max: 200 }}
           />
         </>
@@ -318,9 +437,9 @@ export function ConnectedLoadsStep({ document, documentId, onUpdate }: StepConte
 
       {/* Current Saved Value */}
       {document?.total_connected_load && document.total_connected_load !== connectedLoad && (
-        <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-200">
-          <span className="text-sm text-amber-800">Previous saved value:</span>
-          <span className="text-lg font-bold text-amber-900">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted border border-border">
+          <span className="text-sm text-muted-foreground">Previous saved value:</span>
+          <span className="text-lg font-bold">
             {document.total_connected_load.toLocaleString()} kVA
           </span>
         </div>
