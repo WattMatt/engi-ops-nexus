@@ -33,6 +33,7 @@ export function LoadCalculationSummary({
   typicalRange,
 }: LoadCalculationSummaryProps) {
   const calculatedMaxDemand = maxDemand || connectedLoad * diversityFactor;
+  // connectedLoad is in kVA, convert to VA for VA/m² calculation
   const vaPerSqm = projectArea && projectArea > 0 ? (connectedLoad * 1000) / projectArea : 0;
   
   // Validation
