@@ -1,22 +1,26 @@
+/**
+ * Bulk Services Overview - Two-Row Tab Layout
+ * 
+ * Row 1: Phase tabs (1-6)
+ * Row 2: Step tabs within selected phase
+ * Header: Summary metric cards
+ */
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, LayoutDashboard, Calculator, Building2, FileText, Wrench, Hammer, Activity } from "lucide-react";
+import { ArrowLeft, Calculator, Building2, FileText, Wrench, Hammer, Activity, PlayCircle, Loader2 } from "lucide-react";
 import { BulkServicesExportPDFButton } from "./BulkServicesExportPDFButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect } from "react";
-import { SANS204Calculator } from "./SANS204Calculator";
 import { useTaskAutoSync } from "./workflow/useTaskAutoSync";
-import { 
-  WorkflowSummary,
-  Phase1LoadEstimation,
-  Phase2BulkRequirements,
-  Phase3UtilityApplication,
-  Phase4DesignApproval,
-  Phase5Construction,
-  Phase6Operation
-} from "./phases";
+import { useWorkflowInitializer } from "./workflow/useWorkflowInitializer";
+import { PhaseSummaryHeader } from "./phases/PhaseSummaryHeader";
+import { PhaseStepTabs } from "./phases/PhaseStepTabs";
+import { BULK_SERVICES_WORKFLOW_TEMPLATE } from "./workflow/workflowTemplate";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface BulkServicesOverviewProps {
   documentId: string;
@@ -24,10 +28,14 @@ interface BulkServicesOverviewProps {
 }
 
 export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOverviewProps) => {
-  const [activeTab, setActiveTab] = useState("summary");
+  const [activePhase, setActivePhase] = useState("phase-1");
+  const [activeSteps, setActiveSteps] = useState<Record<string, string>>({});
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
   const [mapSelectedZone, setMapSelectedZone] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
   
+  const { initializeWorkflow } = useWorkflowInitializer(documentId);
+
   const { data: document, isLoading } = useQuery({
     queryKey: ["bulk-services-document", documentId],
     queryFn: async () => {
@@ -57,7 +65,7 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
   });
 
   // Fetch workflow phases to get phase IDs
-  const { data: phases } = useQuery({
+  const { data: phases, isLoading: phasesLoading, refetch: refetchPhases } = useQuery({
     queryKey: ["bulk-services-workflow-phases", documentId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -85,23 +93,29 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
     if (document?.climatic_zone && !mapSelectedZone) {
       setMapSelectedZone(document.climatic_zone);
     }
-  }, [document?.climatic_zone]);
+  }, [document?.climatic_zone, mapSelectedZone]);
 
   // Auto-sync workflow tasks with document data
   useTaskAutoSync(documentId, document);
 
-  const handleNavigateToPhase = (phaseNumber: number) => {
-    setActiveTab(`phase-${phaseNumber}`);
+  const handleStepChange = (phaseId: string, stepId: string) => {
+    setActiveSteps(prev => ({ ...prev, [phaseId]: stepId }));
   };
 
-  const handleZoneSelect = (zone: string) => {
-    setMapSelectedZone(zone);
+  const handleInitialize = async () => {
+    setIsInitializing(true);
+    await initializeWorkflow(document);
+    await refetchPhases();
+    setIsInitializing(false);
   };
 
   if (isLoading) {
     return (
       <div className="container mx-auto py-6">
-        <p className="text-center text-muted-foreground">Loading...</p>
+        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Loading...</span>
+        </div>
       </div>
     );
   }
@@ -114,8 +128,32 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
     );
   }
 
+  // Phase icons
+  const phaseIcons = {
+    1: Calculator,
+    2: Building2,
+    3: FileText,
+    4: Wrench,
+    5: Hammer,
+    6: Activity,
+  };
+
+  // Short phase names for tabs
+  const phaseShortNames = {
+    1: "Load",
+    2: "Bulk",
+    3: "Utility",
+    4: "Design",
+    5: "Build",
+    6: "Ops",
+  };
+
+  // Show initialization UI if no phases exist
+  const needsInitialization = !phasesLoading && (!phases || phases.length === 0);
+
   return (
     <div className="container mx-auto py-6 space-y-6">
+      {/* Top Bar */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -127,165 +165,109 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         />
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
-          <TabsTrigger value="summary" className="flex items-center gap-1.5">
-            <LayoutDashboard className="h-4 w-4" />
-            <span className="hidden sm:inline">Summary</span>
-          </TabsTrigger>
-          <TabsTrigger value="phase-1" className="flex items-center gap-1.5">
-            <Calculator className="h-4 w-4" />
-            <span className="hidden lg:inline">1. Load</span>
-          </TabsTrigger>
-          <TabsTrigger value="phase-2" className="flex items-center gap-1.5">
-            <Building2 className="h-4 w-4" />
-            <span className="hidden lg:inline">2. Bulk</span>
-          </TabsTrigger>
-          <TabsTrigger value="phase-3" className="flex items-center gap-1.5">
-            <FileText className="h-4 w-4" />
-            <span className="hidden lg:inline">3. Utility</span>
-          </TabsTrigger>
-          <TabsTrigger value="phase-4" className="flex items-center gap-1.5">
-            <Wrench className="h-4 w-4" />
-            <span className="hidden lg:inline">4. Design</span>
-          </TabsTrigger>
-          <TabsTrigger value="phase-5" className="flex items-center gap-1.5">
-            <Hammer className="h-4 w-4" />
-            <span className="hidden lg:inline">5. Build</span>
-          </TabsTrigger>
-          <TabsTrigger value="phase-6" className="flex items-center gap-1.5">
-            <Activity className="h-4 w-4" />
-            <span className="hidden lg:inline">6. Ops</span>
-          </TabsTrigger>
-          <TabsTrigger value="zone-map" className="flex items-center gap-1.5">
-            <span className="hidden lg:inline">Zone Map</span>
-          </TabsTrigger>
-        </TabsList>
+      {/* Header Cards - Summary Metrics */}
+      <PhaseSummaryHeader documentId={documentId} document={document} />
 
-        {/* Summary Dashboard */}
-        <TabsContent value="summary" className="space-y-4">
-          <WorkflowSummary 
-            documentId={documentId} 
-            document={document}
-            onNavigateToPhase={handleNavigateToPhase}
-          />
-        </TabsContent>
+      {/* Initialization Card (if needed) */}
+      {needsInitialization ? (
+        <Card className="border-dashed">
+          <CardContent className="py-12">
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <PlayCircle className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Initialize Utility Application Workflow</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                  Set up the 6-phase process for obtaining electrical power from a utility. 
+                  This will create a comprehensive checklist based on industry best practices.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
+                {BULK_SERVICES_WORKFLOW_TEMPLATE.map((phase) => (
+                  <Badge key={phase.phaseNumber} variant="outline">
+                    {phase.phaseNumber}. {phase.phaseName}
+                  </Badge>
+                ))}
+              </div>
+              <Button 
+                onClick={handleInitialize} 
+                disabled={isInitializing}
+                className="mt-4"
+              >
+                {isInitializing ? 'Initializing...' : 'Start Workflow'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Two-Row Tab Structure */
+        <Tabs value={activePhase} onValueChange={setActivePhase} className="w-full">
+          {/* Row 1: Phase Tabs */}
+          <TabsList className="w-full h-auto grid grid-cols-6 p-1">
+            {[1, 2, 3, 4, 5, 6].map((phaseNum) => {
+              const phase = phases?.find(p => p.phase_number === phaseNum);
+              const Icon = phaseIcons[phaseNum as keyof typeof phaseIcons];
+              const isComplete = phase?.status === 'completed';
+              const isActive = phase?.status === 'in_progress';
+              
+              return (
+                <TabsTrigger
+                  key={phaseNum}
+                  value={`phase-${phaseNum}`}
+                  disabled={!phase}
+                  className={cn(
+                    "flex items-center gap-2 py-3 relative",
+                    isComplete && "text-chart-2",
+                    isActive && "text-chart-1"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {phaseNum}. {phaseShortNames[phaseNum as keyof typeof phaseShortNames]}
+                  </span>
+                  <span className="sm:hidden">{phaseNum}</span>
+                  
+                  {/* Status indicator */}
+                  {isComplete && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-chart-2" />
+                  )}
+                  {isActive && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-chart-1" />
+                  )}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
-        {/* Phase 1: Load Estimation */}
-        <TabsContent value="phase-1" className="space-y-4">
-          {phaseMap[1] ? (
-            <Phase1LoadEstimation 
-              documentId={documentId}
-              phaseId={phaseMap[1]}
-              document={document}
-              mapSelectedZone={mapSelectedZone}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Please initialize the workflow from the Summary tab first.
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Phase 2: Bulk Requirements */}
-        <TabsContent value="phase-2" className="space-y-4">
-          {phaseMap[2] ? (
-            <Phase2BulkRequirements 
-              documentId={documentId}
-              phaseId={phaseMap[2]}
-              document={document}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Please initialize the workflow from the Summary tab first.
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Phase 3: Utility Application */}
-        <TabsContent value="phase-3" className="space-y-4">
-          {phaseMap[3] ? (
-            <Phase3UtilityApplication 
-              documentId={documentId}
-              phaseId={phaseMap[3]}
-              document={document}
-              sections={sections || []}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Please initialize the workflow from the Summary tab first.
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Phase 4: Design & Approval */}
-        <TabsContent value="phase-4" className="space-y-4">
-          {phaseMap[4] ? (
-            <Phase4DesignApproval 
-              documentId={documentId}
-              phaseId={phaseMap[4]}
-              document={document}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Please initialize the workflow from the Summary tab first.
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Phase 5: Construction */}
-        <TabsContent value="phase-5" className="space-y-4">
-          {phaseMap[5] ? (
-            <Phase5Construction 
-              documentId={documentId}
-              phaseId={phaseMap[5]}
-              document={document}
-              sections={sections || []}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Please initialize the workflow from the Summary tab first.
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Phase 6: Operation */}
-        <TabsContent value="phase-6" className="space-y-4">
-          {phaseMap[6] ? (
-            <Phase6Operation 
-              documentId={documentId}
-              phaseId={phaseMap[6]}
-              document={document}
-              reportsRefreshTrigger={reportsRefreshTrigger}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Please initialize the workflow from the Summary tab first.
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Zone Map */}
-        <TabsContent value="zone-map" className="space-y-4">
-          <SANS204Calculator 
-            documentId={documentId} 
-            onZoneSelect={handleZoneSelect}
-            onMunicipalityDetected={() => {}}
-          />
-        </TabsContent>
-      </Tabs>
+          {/* Row 2: Step Tabs Content for Each Phase */}
+          {[1, 2, 3, 4, 5, 6].map((phaseNum) => {
+            const phase = phases?.find(p => p.phase_number === phaseNum);
+            
+            return (
+              <TabsContent key={phaseNum} value={`phase-${phaseNum}`} className="mt-6">
+                {phase ? (
+                  <PhaseStepTabs
+                    phaseId={phase.id}
+                    phaseName={phase.phase_name}
+                    phaseNumber={phase.phase_number}
+                    documentId={documentId}
+                    document={document}
+                    activeStep={activeSteps[phase.id] || ''}
+                    onStepChange={(stepId) => handleStepChange(phase.id, stepId)}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      Phase not initialized
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      )}
     </div>
   );
 };
