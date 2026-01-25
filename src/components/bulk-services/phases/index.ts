@@ -1,5 +1,8 @@
 export { PhaseTaskList } from './PhaseTaskList';
 export { PhaseContentWrapper } from './PhaseContentWrapper';
+export { PhaseStepContainer } from './PhaseStepContainer';
+export { PhaseStepTabs } from './PhaseStepTabs';
+export { PhaseSummaryHeader } from './PhaseSummaryHeader';
 export { Phase1LoadEstimation } from './Phase1LoadEstimation';
 export { Phase2BulkRequirements } from './Phase2BulkRequirements';
 export { Phase3UtilityApplication } from './Phase3UtilityApplication';
