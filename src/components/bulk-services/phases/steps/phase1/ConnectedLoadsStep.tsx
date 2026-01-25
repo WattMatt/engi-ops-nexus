@@ -378,10 +378,10 @@ export function ConnectedLoadsStep({ document, documentId, onUpdate }: StepConte
                 <p className="font-bold">{climaticZone ? `Zone ${climaticZone}` : '—'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Est. Load Density</p>
+                <p className="text-xs text-muted-foreground">Load Density</p>
                 <p className="font-bold">
                   {connectedLoad > 0 && projectArea > 0 
-                    ? `${((connectedLoad * 1000) / projectArea).toFixed(1)} VA/m²`
+                    ? `${(connectedLoad / projectArea * 1000).toFixed(1)} VA/m²`
                     : '—'
                   }
                 </p>
