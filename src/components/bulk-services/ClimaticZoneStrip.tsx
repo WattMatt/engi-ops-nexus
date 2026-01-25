@@ -440,32 +440,79 @@ export function ClimaticZoneStrip({ documentId, document }: ClimaticZoneStripPro
               )}
             </div>
             
-            {/* Zone Legend */}
-            <div className="p-4 bg-card">
-              <p className="text-xs font-medium text-muted-foreground mb-3">SANS 204 Climatic Zones</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            {/* Zone Legend - Matching StaticZoneDisplay pattern */}
+            <div className="p-4 bg-card space-y-4">
+              {/* Selected Zone Card */}
+              {zone && ZONE_INFO[zone] && (
+                <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="relative">
+                      <div
+                        className="w-10 h-10 rounded shadow-sm border-2 border-primary"
+                        style={{ backgroundColor: ZONE_COLORS[zone] }}
+                      />
+                      <div className="absolute -top-2 -right-2 bg-background rounded-full p-1 shadow-lg border-2 border-primary">
+                        <MapPin className="h-5 w-5 text-primary fill-primary" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="text-sm font-semibold">
+                        Zone {zone}
+                      </Badge>
+                      <h3 className="text-lg font-bold">{ZONE_INFO[zone].name}</h3>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 ml-11">
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-medium text-muted-foreground min-w-[140px]">Temperature:</span>
+                      <span className="text-sm font-semibold text-primary">{ZONE_INFO[zone].temp}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-medium text-muted-foreground min-w-[140px]">Characteristics:</span>
+                      <span className="text-sm">{ZONE_INFO[zone].characteristics}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-medium text-muted-foreground min-w-[140px]">Load Density:</span>
+                      <span className="text-sm font-bold text-primary">{ZONE_INFO[zone].vaPerSqm} VA/m²</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-medium text-muted-foreground min-w-[140px]">Example Cities:</span>
+                      <span className="text-sm italic">{ZONE_INFO[zone].cities}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* All Zones Reference Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-muted/30 rounded-lg border">
+                <div className="col-span-2 md:col-span-3 mb-1">
+                  <p className="text-xs font-semibold text-muted-foreground">SANS 10400-XA Climatic Zones Reference</p>
+                </div>
                 {Object.entries(ZONE_INFO).map(([zoneId, info]) => (
-                  <div 
+                  <div
                     key={zoneId}
                     className={cn(
-                      "p-2 rounded-lg border transition-all",
-                      zone === zoneId 
-                        ? "border-primary ring-2 ring-primary/20 bg-primary/5" 
-                        : "border-border hover:border-muted-foreground/30"
+                      "p-2 rounded border text-left transition-all",
+                      zone === zoneId
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-card"
                     )}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <div 
-                        className="w-4 h-4 rounded-sm flex-shrink-0"
+                      <div
+                        className="w-3 h-3 rounded border border-border/50"
                         style={{ backgroundColor: ZONE_COLORS[zoneId] }}
                       />
-                      <span className="font-bold text-sm">Zone {zoneId}</span>
+                      <Badge variant={zone === zoneId ? "default" : "outline"} className="text-xs h-5">
+                        {zoneId}
+                      </Badge>
                     </div>
-                    <p className="text-xs font-medium">{info.name}</p>
-                    <p className="text-xs text-muted-foreground">{info.temp}</p>
-                    <div className="flex items-center gap-1 mt-1 text-xs">
+                    <p className="text-xs font-semibold leading-tight">{info.name}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{info.temp}</p>
+                    <div className="flex items-center gap-1 mt-1">
                       <Zap className="h-3 w-3 text-primary" />
-                      <span className="font-medium text-primary">{info.vaPerSqm} VA/m²</span>
+                      <span className="text-[10px] font-bold">{info.vaPerSqm} VA/m²</span>
                     </div>
                   </div>
                 ))}
