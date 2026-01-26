@@ -73,6 +73,7 @@ import { HelpButton } from "./components/feedback/HelpButton";
 import GamificationAdmin from "./pages/GamificationAdmin";
 import DashboardContactLibrary from "./pages/DashboardContactLibrary";
 import AISkills from "./pages/AISkills";
+import DrawingRegister from "./pages/DrawingRegister";
 
 // Initialize React Query client
 const queryClient = new QueryClient();
@@ -157,7 +158,7 @@ const App = () => (
                 <Route path="contact-library" element={<DashboardContactLibrary />} />
                 <Route path="roadmap" element={<ProjectRoadmap />} />
                 <Route path="roadmap-review" element={<RoadmapReviewMode />} />
-                <Route path="roadmap-review" element={<RoadmapReviewMode />} />
+                <Route path="drawings" element={<DrawingRegister />} />
               </Route>
               <Route path="/roadmap-review/:token" element={<ExternalRoadmapReview />} />
               <Route path="*" element={<NotFound />} />

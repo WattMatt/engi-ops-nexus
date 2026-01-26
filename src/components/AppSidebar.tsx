@@ -25,6 +25,7 @@ import {
   Layers,
   FileSpreadsheet,
   Users,
+  PenTool,
 } from "lucide-react";
 import {
   Sidebar,
@@ -51,6 +52,11 @@ const mainModules = [
     title: "Project Roadmap",
     url: "/dashboard/roadmap",
     icon: CheckSquare,
+  },
+  {
+    title: "Drawing Register",
+    url: "/dashboard/drawings",
+    icon: PenTool,
   },
   {
     title: "Cost Reports",
