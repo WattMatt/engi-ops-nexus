@@ -64,7 +64,10 @@ export const useTypingIndicator = (conversationId: string) => {
     setChannel(roomChannel);
 
     return () => {
+      roomChannel.untrack();
       supabase.removeChannel(roomChannel);
+      setChannel(null);
+      setTypingUsers([]);
     };
   }, [conversationId, currentUser]);
 

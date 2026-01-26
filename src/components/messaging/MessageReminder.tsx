@@ -127,19 +127,17 @@ export function MessageReminder({ messageId, messagePreview }: MessageReminderPr
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 24 }, (_, i) => {
-                    const hour = i.toString().padStart(2, "0");
-                    return (
-                      <>
-                        <SelectItem key={`${hour}:00`} value={`${hour}:00`}>
-                          {hour}:00
-                        </SelectItem>
-                        <SelectItem key={`${hour}:30`} value={`${hour}:30`}>
-                          {hour}:30
-                        </SelectItem>
-                      </>
-                    );
-                  })}
+                {Array.from({ length: 24 }, (_, i) => {
+                  const hour = i.toString().padStart(2, "0");
+                  return [
+                    <SelectItem key={`${hour}:00`} value={`${hour}:00`}>
+                      {hour}:00
+                    </SelectItem>,
+                    <SelectItem key={`${hour}:30`} value={`${hour}:30`}>
+                      {hour}:30
+                    </SelectItem>,
+                  ];
+                }).flat()}
                 </SelectContent>
               </Select>
 
