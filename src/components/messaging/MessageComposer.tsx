@@ -1,22 +1,24 @@
 import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Paperclip, Mic, Clock } from "lucide-react";
+import { Send, Paperclip, Mic, Clock, Type } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useDraftMessage } from "@/hooks/useDraftMessage";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { ScheduleMessageDialog } from "./ScheduleMessageDialog";
+import { RichTextEditor, RichTextEditorRef } from "./RichTextEditor";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Toggle } from "@/components/ui/toggle";
 
 interface MessageComposerProps {
   conversationId: string;
-  onSend: (content: string, mentions?: string[], attachments?: any[], voiceUrl?: string, voiceDuration?: number) => void;
+  onSend: (content: string, mentions?: string[], attachments?: any[], voiceUrl?: string, voiceDuration?: number, contentType?: string) => void;
 }
 
 export function MessageComposer({ conversationId, onSend }: MessageComposerProps) {
@@ -25,8 +27,11 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
   const [attachments, setAttachments] = useState<any[]>([]);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [useRichText, setUseRichText] = useState(false);
+  const [htmlContent, setHtmlContent] = useState("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const richTextRef = useRef<RichTextEditorRef>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { setTyping } = useTypingIndicator(conversationId);
 
@@ -75,9 +80,33 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
       mentions.push(match[1]);
     }
 
-    onSend(content, mentions, attachments);
+    // Send with rich text content if enabled
+    const messageContent = useRichText ? htmlContent : content;
+    const contentType = useRichText ? "rich" : "plain";
+
+    onSend(messageContent, mentions, attachments, undefined, undefined, contentType);
     clearDraft();
     setAttachments([]);
+    setHtmlContent("");
+    richTextRef.current?.clear();
+  };
+
+  const handleRichTextChange = (text: string, html: string) => {
+    setContent(text);
+    setHtmlContent(html);
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set typing to true
+    setTyping(true);
+
+    // Set timeout to clear typing status
+    typingTimeoutRef.current = setTimeout(() => {
+      setTyping(false);
+    }, 3000);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -208,13 +237,39 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
           <TooltipContent>Voice message</TooltipContent>
         </Tooltip>
 
-        <Textarea
-          value={content}
-          onChange={(e) => handleTypingChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message... (use @username to mention)"
-          className="flex-1 min-h-[60px] max-h-[200px]"
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Toggle
+              pressed={useRichText}
+              onPressedChange={setUseRichText}
+              size="sm"
+              className="px-2"
+              aria-label="Rich text formatting"
+            >
+              <Type className="h-4 w-4" />
+            </Toggle>
+          </TooltipTrigger>
+          <TooltipContent>Rich text formatting</TooltipContent>
+        </Tooltip>
+
+        {useRichText ? (
+          <RichTextEditor
+            ref={richTextRef}
+            value={content}
+            onChange={handleRichTextChange}
+            onSubmit={handleSend}
+            placeholder="Type a message... (use @username to mention)"
+            className="flex-1"
+          />
+        ) : (
+          <Textarea
+            value={content}
+            onChange={(e) => handleTypingChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message... (use @username to mention)"
+            className="flex-1 min-h-[60px] max-h-[200px]"
+          />
+        )}
 
         <Tooltip>
           <TooltipTrigger asChild>

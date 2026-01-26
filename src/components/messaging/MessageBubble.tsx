@@ -5,13 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Paperclip, MessageSquare, Pin, Forward } from "lucide-react";
+import { MessageSquare, Pin, Forward } from "lucide-react";
 import { MessageReactions } from "./MessageReactions";
 import { MessageActions } from "./MessageActions";
 import { ReadReceipts } from "./ReadReceipts";
 import { EditMessageDialog } from "./EditMessageDialog";
 import { ForwardMessageDialog } from "./ForwardMessageDialog";
 import { VoiceMessagePlayer } from "./VoiceRecorder";
+import { LinkPreviews } from "./LinkPreview";
+import { FilePreviewList } from "./FilePreview";
 import { toast } from "sonner";
 
 interface MessageBubbleProps {
@@ -189,21 +191,34 @@ export function MessageBubble({
                   duration={extendedMessage.voice_duration_seconds || 0}
                 />
               ) : (
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <>
+                  {/* Rich text or plain text content */}
+                  {extendedMessage.content_type === "rich" ? (
+                    <div 
+                      className="text-sm prose prose-sm max-w-none dark:prose-invert"
+                      dangerouslySetInnerHTML={{ __html: message.content }}
+                    />
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  )}
+                  
+                  {/* Link previews */}
+                  {extendedMessage.content_type !== "rich" && (
+                    <LinkPreviews text={message.content} />
+                  )}
+                </>
               )}
 
+              {/* File/image previews */}
               {message.attachments && message.attachments.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {message.attachments.map((attachment: any, i: number) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 text-xs opacity-80"
-                    >
-                      <Paperclip className="h-3 w-3" />
-                      <span>{attachment.name}</span>
-                    </div>
-                  ))}
-                </div>
+                <FilePreviewList 
+                  attachments={message.attachments.map((att: any) => ({
+                    name: att.name,
+                    type: att.type || "application/octet-stream",
+                    size: att.size || 0,
+                    url: att.url || `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/message-attachments/${att.path}`,
+                  }))}
+                />
               )}
             </div>
 

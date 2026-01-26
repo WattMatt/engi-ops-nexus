@@ -101,6 +101,7 @@ export const useMessages = (conversationId?: string) => {
       attachments?: any[];
       voice_message_url?: string;
       voice_duration_seconds?: number;
+      content_type?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -115,6 +116,7 @@ export const useMessages = (conversationId?: string) => {
           attachments: data.attachments || [],
           voice_message_url: data.voice_message_url,
           voice_duration_seconds: data.voice_duration_seconds,
+          content_type: data.content_type || "plain",
         })
         .select()
         .single();
