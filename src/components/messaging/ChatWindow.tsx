@@ -12,6 +12,10 @@ import { ScheduledMessagesList } from "./ScheduledMessagesList";
 import { ThreadView } from "./ThreadView";
 import { TypingIndicator } from "./TypingIndicator";
 import { ConversationArchive } from "./ConversationArchive";
+import { ConversationLabels } from "./ConversationLabels";
+import { ReactionsAnalytics } from "./ReactionsAnalytics";
+import { ExportConversation } from "./ExportConversation";
+import { MessageRemindersList } from "./MessageRemindersList";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -186,17 +190,23 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     <div className="flex h-full">
       <div className="flex flex-col flex-1">
         {/* Header with search, mute, and archive buttons */}
-        <div className="flex items-center justify-end gap-2 p-2 border-b">
-          <ConversationArchive conversationId={conversationId} />
-          <MuteConversation conversationId={conversationId} />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowSearch(!showSearch)}
-          >
-            <Search className="h-4 w-4 mr-2" />
-            Search
-          </Button>
+        <div className="flex items-center justify-between gap-2 p-2 border-b">
+          <ConversationLabels conversationId={conversationId} />
+          <div className="flex items-center gap-1">
+            <ReactionsAnalytics conversationId={conversationId} />
+            <ExportConversation conversationId={conversationId} conversationTitle="Conversation" />
+            <MessageRemindersList />
+            <ConversationArchive conversationId={conversationId} />
+            <MuteConversation conversationId={conversationId} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSearch(!showSearch)}
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Search
+            </Button>
+          </div>
         </div>
 
         {/* Search bar */}

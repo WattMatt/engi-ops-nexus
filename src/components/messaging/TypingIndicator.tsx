@@ -16,13 +16,13 @@ export function TypingIndicator({ typingUsers }: TypingIndicatorProps) {
   };
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-      <span>{getTypingText()}</span>
+    <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground bg-muted/50">
       <div className="flex gap-1">
-        <span className="animate-bounce delay-0">.</span>
-        <span className="animate-bounce delay-100">.</span>
-        <span className="animate-bounce delay-200">.</span>
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
       </div>
+      <span>{getTypingText()}</span>
     </div>
   );
 }
