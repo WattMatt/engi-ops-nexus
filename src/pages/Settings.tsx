@@ -4,6 +4,7 @@ import { InvoiceSettings } from "@/components/settings/InvoiceSettings";
 import { TemplateManager } from "@/components/settings/TemplateManager";
 import { PDFExportSettings } from "@/components/settings/PDFExportSettings";
 import { NotificationPreferencesSettings } from "@/components/settings/NotificationPreferencesSettings";
+import { PWASettings } from "@/components/settings/PWASettings";
 import { ComponentGenerator } from "@/components/ComponentGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
@@ -51,6 +52,7 @@ const Settings = () => {
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="app">App Settings</TabsTrigger>
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
           <TabsTrigger value="templates">PDF Templates</TabsTrigger>
@@ -82,6 +84,10 @@ const Settings = () => {
 
         <TabsContent value="notifications">
           <NotificationPreferencesSettings />
+        </TabsContent>
+
+        <TabsContent value="app">
+          <PWASettings />
         </TabsContent>
 
         <TabsContent value="company">
