@@ -7,6 +7,7 @@ import { MessageSquarePlus, FolderKanban, AlertCircle } from "lucide-react";
 import { ConversationsList } from "@/components/messaging/ConversationsList";
 import { ChatWindow } from "@/components/messaging/ChatWindow";
 import { NewConversationDialog } from "@/components/messaging/NewConversationDialog";
+import { PushNotificationToggle } from "@/components/messaging/PushNotificationToggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,13 +73,16 @@ export default function Messages() {
             }
           </p>
         </div>
-        <Button 
-          onClick={() => setIsNewConversationOpen(true)}
-          disabled={!projectId}
-        >
-          <MessageSquarePlus className="mr-2 h-4 w-4" />
-          New Conversation
-        </Button>
+        <div className="flex items-center gap-4">
+          <PushNotificationToggle />
+          <Button 
+            onClick={() => setIsNewConversationOpen(true)}
+            disabled={!projectId}
+          >
+            <MessageSquarePlus className="mr-2 h-4 w-4" />
+            New Conversation
+          </Button>
+        </div>
       </div>
 
       {!projectId ? (
