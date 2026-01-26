@@ -524,16 +524,11 @@ export const deleteDesign = async (designId: string): Promise<void> => {
     // Get the project to find the PDF URL
     const { data: project, error: projectError } = await supabase
         .from('floor_plan_projects')
-        .select('pdf_url, user_id')
+        .select('pdf_url')
         .eq('id', designId)
         .single();
         
     if (projectError) throw projectError;
-    
-    // Verify the user owns this design
-    if (project.user_id !== user.id) {
-        throw new Error("Unauthorized: You can only delete your own designs");
-    }
 
     // Delete the PDF file from storage
     if (project.pdf_url) {
@@ -541,6 +536,7 @@ export const deleteDesign = async (designId: string): Promise<void> => {
     }
 
     // Delete the project (cascading deletes will handle related tables)
+    // RLS policy handles access control - all authenticated users have full access
     const { error: deleteError } = await supabase
         .from('floor_plan_projects')
         .delete()
