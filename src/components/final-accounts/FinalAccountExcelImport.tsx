@@ -273,29 +273,39 @@ export function FinalAccountExcelImport({
       
       let itemCode = colMap.itemCode !== undefined ? String(row[colMap.itemCode] || "").trim() : "";
       const unitRaw = colMap.unit !== undefined ? String(row[colMap.unit] || "").trim() : "";
-      const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
+      let quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
-      const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+      let amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+      
+      // Fix: If amount is 0 but quantity is a large value (likely misplaced amount), swap them
+      // This handles cases like "O9.1" where the amount was placed in the quantity column
+      if (amount === 0 && quantity > 1000 && !unitRaw) {
+        amount = quantity;
+        quantity = 0;
+        console.log(`[Excel Import] Corrected misplaced amount for ${itemCode}: ${amount}`);
+      }
       
       if (!itemCode && !description) continue;
       
       const textToCheck = `${itemCode} ${description}`.toLowerCase();
       
       // Check if this is a summary/total row - extract the stated total
-      if (/total|carried|brought|summary|sub-total|subtotal/i.test(textToCheck)) {
+      // Be more specific to avoid skipping legitimate items
+      if (/^total|^carried|^brought|^summary|^sub-total|^subtotal|section\s*total|bill\s*total/i.test(textToCheck)) {
         // This row contains the BOQ stated total for this section
         if (amount > 0 && amount > boqStatedTotal) {
           boqStatedTotal = amount;
         }
+        console.log(`[Excel Import] Skipped total row: ${itemCode} - ${description}`);
         continue; // Don't add as item
       }
       
-      // Detect section header rows - these have a single letter code (A, B, C, etc.),
-      // a descriptive header, an amount (section total), but no unit, quantity, or rates
-      // These should NOT be imported as items - they're section summaries
-      const isSectionHeader = (
-        /^[A-Z]$/i.test(itemCode) && // Single letter item code
+      // Detect TRUE section header rows - these have ONLY a single letter code (A, B, C, etc.),
+      // NOT alphanumeric codes like O1, O2, O6 which are sub-section headers we WANT to keep
+      // Section headers have an amount (section total), but no unit, quantity, or rates
+      const isBillSectionHeader = (
+        /^[A-Z]$/i.test(itemCode) && // ONLY single letter item code (not O1, O2, etc.)
         amount > 0 && // Has an amount (section total)
         !unitRaw && // No unit specified
         quantity === 0 && // No quantity
@@ -303,13 +313,17 @@ export function FinalAccountExcelImport({
         installRate === 0 // No install rate
       );
       
-      if (isSectionHeader) {
-        // This is a section header row with its subtotal - skip it
+      if (isBillSectionHeader) {
+        // This is a bill section header row with its subtotal - skip it
         if (amount > boqStatedTotal) {
           boqStatedTotal = amount;
         }
+        console.log(`[Excel Import] Skipped bill section header: ${itemCode} - ${description} (Amount: ${amount})`);
         continue;
       }
+      
+      // Sub-section headers (O1, O2, A1, B2, etc.) should be INCLUDED as items
+      // They act as category headers within the section and should be displayed
       
       // Detect P&G (Preliminaries & General) items first - these are NOT Prime Cost
       const isPandG = /preliminar|p\s*&\s*g|p\.?&\.?g|firm\s*and\s*fixed|attendance|general\s*requirement|setting\s*out|site\s*establishment|water\s*for\s*works|temporary|removal\s*of\s*rubbish|protection|cleaning/i.test(description);
