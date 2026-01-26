@@ -4,6 +4,7 @@ import { DocumentGenerator } from "@/components/ai-tools/DocumentGenerator";
 import { DataAnalyzer } from "@/components/ai-tools/DataAnalyzer";
 import { CostPredictor } from "@/components/ai-tools/CostPredictor";
 import { KnowledgeBaseManager } from "@/components/ai-tools/KnowledgeBaseManager";
+import { KnowledgeSearchTester } from "@/components/ai-tools/KnowledgeSearchTester";
 import { Bot, FileText, BarChart3, Sparkles, TrendingUp, Database } from "lucide-react";
 
 const AITools = () => {
@@ -52,7 +53,10 @@ const AITools = () => {
         </TabsContent>
 
         <TabsContent value="knowledge" className="space-y-4">
-          <KnowledgeBaseManager />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <KnowledgeBaseManager />
+            <KnowledgeSearchTester />
+          </div>
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4">

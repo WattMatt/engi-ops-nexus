@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Database,
   Upload,
   FileText,
@@ -31,9 +38,13 @@ import {
   CheckCircle,
   Loader2,
   Search,
+  FileSpreadsheet,
+  FileType,
+  File,
 } from "lucide-react";
 import { useKnowledgeBase, KnowledgeDocument } from "@/hooks/useKnowledgeBase";
 import { formatDistanceToNow } from "date-fns";
+import { DocumentChunkPreview } from "./DocumentChunkPreview";
 
 const categories = [
   { value: "general", label: "General" },
@@ -46,11 +57,20 @@ const categories = [
 ];
 
 const statusConfig = {
-  pending: { icon: Loader2, color: "text-yellow-500", label: "Pending", animate: true },
-  processing: { icon: Loader2, color: "text-blue-500", label: "Processing", animate: true },
-  ready: { icon: CheckCircle, color: "text-green-500", label: "Ready", animate: false },
-  error: { icon: AlertCircle, color: "text-red-500", label: "Error", animate: false },
+  pending: { icon: Loader2, color: "text-yellow-600", label: "Pending", animate: true },
+  processing: { icon: Loader2, color: "text-blue-600", label: "Processing", animate: true },
+  ready: { icon: CheckCircle, color: "text-green-600", label: "Ready", animate: false },
+  error: { icon: AlertCircle, color: "text-destructive", label: "Error", animate: false },
 };
+
+const supportedFormats = [
+  { ext: ".txt", label: "Text", icon: FileText },
+  { ext: ".md", label: "Markdown", icon: FileText },
+  { ext: ".pdf", label: "PDF", icon: FileType },
+  { ext: ".docx", label: "Word", icon: File },
+  { ext: ".xlsx", label: "Excel", icon: FileSpreadsheet },
+  { ext: ".csv", label: "CSV", icon: FileSpreadsheet },
+];
 
 export function KnowledgeBaseManager() {
   const { documents, isLoading, stats, uploadDocument, deleteDocument, reprocessDocument } = useKnowledgeBase();
@@ -133,9 +153,29 @@ export function KnowledgeBaseManager() {
               <DialogHeader>
                 <DialogTitle>Upload Document</DialogTitle>
                 <DialogDescription>
-                  Upload a document to add to the knowledge base. Supported formats: TXT, MD, PDF
+                  Upload documents to enhance AI responses. Supported formats:
                 </DialogDescription>
               </DialogHeader>
+              
+              {/* Supported Formats */}
+              <div className="flex flex-wrap gap-2 pb-2">
+                <TooltipProvider>
+                  {supportedFormats.map((format) => (
+                    <Tooltip key={format.ext}>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="gap-1">
+                          <format.icon className="h-3 w-3" />
+                          {format.ext}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{format.label} files</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </TooltipProvider>
+              </div>
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="file">File</Label>
@@ -143,7 +183,7 @@ export function KnowledgeBaseManager() {
                     id="file"
                     type="file"
                     ref={fileInputRef}
-                    accept=".txt,.md,.pdf,.doc,.docx"
+                    accept=".txt,.md,.pdf,.doc,.docx,.xlsx,.xls,.csv,.json,.xml"
                     onChange={handleFileSelect}
                   />
                   {uploadForm.file && (
@@ -214,23 +254,35 @@ export function KnowledgeBaseManager() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="p-3 rounded-lg bg-muted/50">
             <p className="text-2xl font-bold">{stats.total}</p>
             <p className="text-xs text-muted-foreground">Documents</p>
           </div>
-          <div className="p-3 rounded-lg bg-green-500/10">
+          <div className="p-3 rounded-lg bg-muted/50">
             <p className="text-2xl font-bold text-green-600">{stats.ready}</p>
             <p className="text-xs text-muted-foreground">Ready</p>
+            {stats.total > 0 && (
+              <Progress
+                value={(stats.ready / stats.total) * 100}
+                className="h-1 mt-2"
+              />
+            )}
           </div>
-          <div className="p-3 rounded-lg bg-blue-500/10">
+          <div className="p-3 rounded-lg bg-muted/50">
             <p className="text-2xl font-bold text-blue-600">{stats.processing}</p>
             <p className="text-xs text-muted-foreground">Processing</p>
           </div>
           <div className="p-3 rounded-lg bg-muted/50">
             <p className="text-2xl font-bold">{stats.totalChunks}</p>
-            <p className="text-xs text-muted-foreground">Chunks</p>
+            <p className="text-xs text-muted-foreground">Total Chunks</p>
           </div>
+          {stats.error > 0 && (
+            <div className="p-3 rounded-lg bg-destructive/10">
+              <p className="text-2xl font-bold text-destructive">{stats.error}</p>
+              <p className="text-xs text-muted-foreground">Errors</p>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -304,10 +356,19 @@ function DocumentItem({
   const status = statusConfig[document.status];
   const StatusIcon = status.icon;
 
+  const getFileIcon = (fileName: string) => {
+    if (fileName.endsWith(".pdf")) return FileType;
+    if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls") || fileName.endsWith(".csv")) return FileSpreadsheet;
+    if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) return File;
+    return FileText;
+  };
+
+  const FileIcon = getFileIcon(document.file_name);
+
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
       <div className="p-2 rounded-lg bg-muted">
-        <FileText className="h-4 w-4" />
+        <FileIcon className="h-4 w-4" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -322,15 +383,21 @@ function DocumentItem({
             <StatusIcon className={`h-3 w-3 ${status.animate ? "animate-spin" : ""}`} />
             {status.label}
           </span>
-          {document.status === "ready" && <span>{document.chunk_count} chunks</span>}
+          {document.status === "ready" && document.chunk_count > 0 && (
+            <DocumentChunkPreview
+              documentId={document.id}
+              documentTitle={document.title}
+              chunkCount={document.chunk_count}
+            />
+          )}
           <span>{formatDistanceToNow(new Date(document.created_at), { addSuffix: true })}</span>
         </div>
         {document.status === "error" && document.error_message && (
-          <p className="text-xs text-red-500 mt-1">{document.error_message}</p>
+          <p className="text-xs text-destructive mt-1">{document.error_message}</p>
         )}
       </div>
       <div className="flex gap-1">
-        {document.status === "error" && (
+        {(document.status === "error" || document.status === "pending") && (
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onReprocess}>
             <RefreshCw className="h-4 w-4" />
           </Button>
