@@ -147,6 +147,35 @@ export type Database = {
           },
         ]
       }
+      archived_conversations: {
+        Row: {
+          archived_at: string | null
+          conversation_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          conversation_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          conversation_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "archived_conversations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           break_end: string | null
@@ -8670,6 +8699,42 @@ export type Database = {
           },
         ]
       }
+      message_templates: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          id: string
+          name: string
+          shortcut: string | null
+          updated_at: string | null
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          name: string
+          shortcut?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          shortcut?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           attachments: Json | null
@@ -8678,6 +8743,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           deleted_at: string | null
+          delivery_status: string | null
           edited_at: string | null
           forwarded_from_conversation_id: string | null
           forwarded_from_message_id: string | null
@@ -8702,6 +8768,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           deleted_at?: string | null
+          delivery_status?: string | null
           edited_at?: string | null
           forwarded_from_conversation_id?: string | null
           forwarded_from_message_id?: string | null
@@ -8726,6 +8793,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           deleted_at?: string | null
+          delivery_status?: string | null
           edited_at?: string | null
           forwarded_from_conversation_id?: string | null
           forwarded_from_message_id?: string | null

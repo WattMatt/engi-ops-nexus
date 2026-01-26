@@ -11,6 +11,7 @@ import { MuteConversation } from "./MuteConversation";
 import { ScheduledMessagesList } from "./ScheduledMessagesList";
 import { ThreadView } from "./ThreadView";
 import { TypingIndicator } from "./TypingIndicator";
+import { ConversationArchive } from "./ConversationArchive";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { cn } from "@/lib/utils";
 
 interface ChatWindowProps {
   conversationId: string;
@@ -183,8 +185,9 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   return (
     <div className="flex h-full">
       <div className="flex flex-col flex-1">
-        {/* Header with search and mute buttons */}
+        {/* Header with search, mute, and archive buttons */}
         <div className="flex items-center justify-end gap-2 p-2 border-b">
+          <ConversationArchive conversationId={conversationId} />
           <MuteConversation conversationId={conversationId} />
           <Button
             variant="ghost"
@@ -275,6 +278,3 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   );
 }
 
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}

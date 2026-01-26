@@ -9,6 +9,8 @@ import { useDraftMessage } from "@/hooks/useDraftMessage";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { ScheduleMessageDialog } from "./ScheduleMessageDialog";
 import { RichTextEditor, RichTextEditorRef } from "./RichTextEditor";
+import { MessageTemplates } from "./MessageTemplates";
+import { MentionsAutocomplete, MentionsAutocompleteRef } from "./MentionsAutocomplete";
 import {
   Tooltip,
   TooltipContent,
@@ -29,9 +31,12 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [useRichText, setUseRichText] = useState(false);
   const [htmlContent, setHtmlContent] = useState("");
+  const [cursorPosition, setCursorPosition] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextEditorRef>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mentionsRef = useRef<MentionsAutocompleteRef>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { setTyping } = useTypingIndicator(conversationId);
 
@@ -110,10 +115,37 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Check if mentions autocomplete wants to handle this
+    if (mentionsRef.current?.handleKeyDown(e)) {
+      return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleMentionSelect = (user: { id: string; full_name: string | null; email: string }, startIndex: number, endIndex: number) => {
+    const displayName = user.full_name || user.email.split("@")[0];
+    const newContent = content.substring(0, startIndex) + `@${displayName} ` + content.substring(endIndex);
+    setContent(newContent);
+    
+    // Update cursor position
+    const newCursorPos = startIndex + displayName.length + 2;
+    setCursorPosition(newCursorPos);
+    
+    // Focus back on textarea
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
+
+  const handleTemplateSelect = (templateContent: string) => {
+    setContent(templateContent);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,6 +239,8 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
           multiple
           className="hidden"
         />
+
+        <MessageTemplates onSelectTemplate={handleTemplateSelect} />
         
         <Tooltip>
           <TooltipTrigger asChild>
@@ -262,13 +296,29 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
             className="flex-1"
           />
         ) : (
-          <Textarea
-            value={content}
-            onChange={(e) => handleTypingChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message... (use @username to mention)"
-            className="flex-1 min-h-[60px] max-h-[200px]"
-          />
+          <div className="flex-1 relative">
+            <MentionsAutocomplete
+              ref={mentionsRef}
+              conversationId={conversationId}
+              inputValue={content}
+              cursorPosition={cursorPosition}
+              onSelect={handleMentionSelect}
+              onClose={() => {}}
+            />
+            <Textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => {
+                handleTypingChange(e.target.value);
+                setCursorPosition(e.target.selectionStart);
+              }}
+              onKeyDown={handleKeyDown}
+              onClick={(e) => setCursorPosition(e.currentTarget.selectionStart)}
+              onKeyUp={(e) => setCursorPosition(e.currentTarget.selectionStart)}
+              placeholder="Type a message... (use @username to mention)"
+              className="min-h-[60px] max-h-[200px]"
+            />
+          </div>
         )}
 
         <Tooltip>
