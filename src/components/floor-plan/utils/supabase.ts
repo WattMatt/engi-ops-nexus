@@ -416,13 +416,14 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
 
     const transformedLines = (cables || []).map((c: any) => ({
         id: c.original_canvas_id || c.id, // Preserve original canvas ID for db_circuit_materials linking
-        type: c.cable_type,
+        type: 'lv' as const, // All floor_plan_cables are LV/AC cables by default
         cableType: c.cable_type,
         points: c.points,
         length: c.length_meters,
         from: c.from_label,
         to: c.to_label,
         label: c.label,
+        name: c.label || `${c.from_label || ''} → ${c.to_label || ''}`,
         terminationCount: c.termination_count,
         startHeight: c.start_height,
         endHeight: c.end_height,
