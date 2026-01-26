@@ -17,9 +17,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Edit, Trash2, Pin, MessageSquare, Reply, Forward } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Pin, MessageSquare, Reply, Forward, Star } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
 import { useAddReaction } from "./MessageReactions";
+import { useStarMessage, useIsMessageStarred } from "./StarredMessages";
 
 interface MessageActionsProps {
   messageId: string;
@@ -44,9 +45,15 @@ export function MessageActions({
 }: MessageActionsProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const addReaction = useAddReaction();
+  const starMessage = useStarMessage();
+  const { data: isStarred = false } = useIsMessageStarred(messageId);
 
   const handleReaction = (emoji: string) => {
     addReaction.mutate({ messageId, emoji });
+  };
+
+  const handleStar = () => {
+    starMessage.mutate({ messageId, isStarred });
   };
 
   return (
@@ -83,6 +90,10 @@ export function MessageActions({
             <DropdownMenuItem onClick={onPin}>
               <Pin className="mr-2 h-4 w-4" />
               {isPinned ? "Unpin message" : "Pin message"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleStar}>
+              <Star className={`mr-2 h-4 w-4 ${isStarred ? "fill-primary text-primary" : ""}`} />
+              {isStarred ? "Unstar message" : "Star message"}
             </DropdownMenuItem>
             {isOwn && (
               <>

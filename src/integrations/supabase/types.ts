@@ -8674,6 +8674,7 @@ export type Database = {
         Row: {
           attachments: Json | null
           content: string
+          content_type: string | null
           conversation_id: string
           created_at: string
           deleted_at: string | null
@@ -8684,6 +8685,7 @@ export type Database = {
           is_deleted: boolean | null
           is_edited: boolean | null
           is_read: boolean | null
+          link_preview: Json | null
           mentions: Json | null
           parent_message_id: string | null
           read_by: Json | null
@@ -8696,6 +8698,7 @@ export type Database = {
         Insert: {
           attachments?: Json | null
           content: string
+          content_type?: string | null
           conversation_id: string
           created_at?: string
           deleted_at?: string | null
@@ -8706,6 +8709,7 @@ export type Database = {
           is_deleted?: boolean | null
           is_edited?: boolean | null
           is_read?: boolean | null
+          link_preview?: Json | null
           mentions?: Json | null
           parent_message_id?: string | null
           read_by?: Json | null
@@ -8718,6 +8722,7 @@ export type Database = {
         Update: {
           attachments?: Json | null
           content?: string
+          content_type?: string | null
           conversation_id?: string
           created_at?: string
           deleted_at?: string | null
@@ -8728,6 +8733,7 @@ export type Database = {
           is_deleted?: boolean | null
           is_edited?: boolean | null
           is_read?: boolean | null
+          link_preview?: Json | null
           mentions?: Json | null
           parent_message_id?: string | null
           read_by?: Json | null
@@ -8934,6 +8940,38 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "invoice_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      muted_conversations: {
+        Row: {
+          conversation_id: string
+          id: string
+          mute_until: string | null
+          muted_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          mute_until?: string | null
+          muted_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          mute_until?: string | null
+          muted_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muted_conversations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -12299,6 +12337,35 @@ export type Database = {
           va_per_sqm?: number | null
         }
         Relationships: []
+      }
+      starred_messages: {
+        Row: {
+          id: string
+          message_id: string
+          starred_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          starred_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          starred_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "starred_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       status_notifications: {
         Row: {

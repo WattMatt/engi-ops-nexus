@@ -6,6 +6,8 @@ import { MessageComposer } from "./MessageComposer";
 import { MessageBubble } from "./MessageBubble";
 import { MessageSearch } from "./MessageSearch";
 import { PinnedMessages, usePinMessage } from "./PinnedMessages";
+import { StarredMessages } from "./StarredMessages";
+import { MuteConversation } from "./MuteConversation";
 import { ScheduledMessagesList } from "./ScheduledMessagesList";
 import { ThreadView } from "./ThreadView";
 import { TypingIndicator } from "./TypingIndicator";
@@ -181,8 +183,9 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   return (
     <div className="flex h-full">
       <div className="flex flex-col flex-1">
-        {/* Header with search button */}
-        <div className="flex items-center justify-end p-2 border-b">
+        {/* Header with search and mute buttons */}
+        <div className="flex items-center justify-end gap-2 p-2 border-b">
+          <MuteConversation conversationId={conversationId} />
           <Button
             variant="ghost"
             size="sm"
@@ -211,6 +214,14 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           onMessageSelect={handleMessageSelect}
         />
 
+        {/* Starred messages */}
+        <div className="px-2">
+          <StarredMessages
+            conversationId={conversationId}
+            onNavigateToMessage={handleMessageSelect}
+          />
+        </div>
+
         {/* Messages */}
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
           <div className="space-y-4">
@@ -234,7 +245,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         <div className="border-t p-4">
           <MessageComposer
             conversationId={conversationId}
-            onSend={(content, mentions, attachments, voiceUrl, voiceDuration) => {
+            onSend={(content, mentions, attachments, voiceUrl, voiceDuration, contentType) => {
               sendMessage({
                 conversation_id: conversationId,
                 content,
@@ -242,6 +253,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
                 attachments,
                 voice_message_url: voiceUrl,
                 voice_duration_seconds: voiceDuration,
+                content_type: contentType,
               });
             }}
           />
