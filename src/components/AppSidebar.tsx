@@ -88,6 +88,11 @@ const singleModules = [
     url: "/dashboard/ai-tools",
     icon: Zap,
   },
+  {
+    title: "AI Skills",
+    url: "/dashboard/ai-skills",
+    icon: Zap,
+  },
 ];
 
 const reportModules = [
