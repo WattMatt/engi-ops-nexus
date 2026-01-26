@@ -502,62 +502,112 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     if (!projectName) return toast.error("Project name is required.");
     if (!scaleInfo.ratio) return toast.error("Cannot export without a valid scale.");
     
-    toast.info("Generating PDF... This may take a moment.");
+    if (!user) {
+      toast.error("Please log in to export PDFs.");
+      return;
+    }
+    
+    toast.info("Generating PDF via server... This may take a moment.");
     setIsExportModalOpen(false);
+    
     try {
-        const blob = await generatePdf({
-            canvases, projectName, equipment, lines, zones, containment, walkways, comments, 
-            pvPanelConfig, pvArrays, scaleInfo, roofMasks, tasks
-        }, true);
+      // Get next revision number
+      const { data: existingReports } = await supabase
+        .from('floor_plan_reports')
+        .select('report_revision')
+        .eq('project_name', projectName)
+        .order('report_revision', { ascending: false })
+        .limit(1);
 
-        // Save to cloud if user is logged in
-        if (user && blob) {
-            try {
-                // Get next revision number
-                const { data: existingReports } = await supabase
-                    .from('floor_plan_reports')
-                    .select('report_revision')
-                    .eq('project_name', projectName)
-                    .order('report_revision', { ascending: false })
-                    .limit(1);
+      const nextRevision = existingReports && existingReports.length > 0 
+        ? existingReports[0].report_revision + 1 
+        : 1;
 
-                const nextRevision = existingReports && existingReports.length > 0 
-                    ? existingReports[0].report_revision + 1 
-                    : 1;
+      const filename = `${projectName}_Rev${nextRevision}_${Date.now()}.pdf`;
 
-                // Upload to storage
-                const filePath = `${user.id}/${projectName}_Rev${nextRevision}_${Date.now()}.pdf`;
-                const { error: uploadError } = await supabase.storage
-                    .from('floor-plan-reports')
-                    .upload(filePath, blob);
+      // Prepare data for edge function - serialize the data
+      const requestBody = {
+        projectName,
+        comments: comments || '',
+        equipment: equipment.map(e => ({
+          id: e.id,
+          type: e.type,
+          position: e.position,
+          rotation: e.rotation,
+          name: e.name,
+        })),
+        lines: lines.map(l => ({
+          id: l.id,
+          name: l.name,
+          label: l.label,
+          type: l.type,
+          length: l.length,
+          pathLength: l.pathLength,
+          from: l.from,
+          to: l.to,
+          cableType: l.cableType,
+          terminationCount: l.terminationCount,
+          startHeight: l.startHeight,
+          endHeight: l.endHeight,
+        })),
+        zones: zones.map(z => ({
+          id: z.id,
+          name: z.name,
+          area: z.area,
+        })),
+        containment: containment.map(c => ({
+          id: c.id,
+          type: c.type,
+          size: c.size,
+          length: c.length,
+        })),
+        pvPanelConfig: pvPanelConfig ? {
+          width: pvPanelConfig.width,
+          length: pvPanelConfig.length,
+          wattage: pvPanelConfig.wattage,
+        } : null,
+        pvArrays: pvArrays?.map(a => ({
+          id: a.id,
+          rows: a.rows,
+          columns: a.columns,
+          orientation: a.orientation,
+        })),
+        userId: user.id,
+        projectId: currentProjectId,
+        filename,
+        storageBucket: 'floor-plan-reports',
+      };
 
-                if (uploadError) throw uploadError;
+      // Call the edge function
+      console.log('[FloorPlanExport] Calling edge function...');
+      const { data: result, error: fnError } = await supabase.functions.invoke(
+        'generate-floor-plan-pdf',
+        { body: requestBody }
+      );
 
-                // Save metadata to database
-                const { error: dbError } = await supabase
-                    .from('floor_plan_reports')
-                    .insert({
-                        user_id: user.id,
-                        project_id: currentProjectId,
-                        project_name: projectName,
-                        file_path: filePath,
-                        report_revision: nextRevision,
-                        comments: comments || null,
-                    });
+      if (fnError) throw fnError;
+      if (!result?.success) throw new Error(result?.error || 'PDF generation failed');
 
-                if (dbError) throw dbError;
+      console.log('[FloorPlanExport] PDF generated:', result.filePath);
 
-                toast.success(`PDF saved to cloud (Rev ${nextRevision}). Access via "View Saved Reports" in File Actions.`);
-            } catch (error) {
-                console.error('Error saving to cloud:', error);
-                toast.error('PDF downloaded but failed to save to cloud');
-            }
-        } else {
-            toast.success('PDF exported successfully');
-        }
+      // Save metadata to database
+      const { error: dbError } = await supabase
+        .from('floor_plan_reports')
+        .insert({
+          user_id: user.id,
+          project_id: currentProjectId,
+          project_name: projectName,
+          file_path: result.filePath,
+          report_revision: nextRevision,
+          comments: comments || null,
+        });
+
+      if (dbError) throw dbError;
+
+      toast.success(`PDF saved to cloud (Rev ${nextRevision}). Access via "View Saved Reports" in File Actions.`);
     } catch (error) {
-        console.error("Failed to generate PDF:", error);
-        toast.error(`PDF Generation Error: ${error instanceof Error ? error.message : String(error)}`);
+      console.error("Failed to generate PDF:", error);
+      toast.error(`PDF Generation Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
