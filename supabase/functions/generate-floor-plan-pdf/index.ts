@@ -106,11 +106,15 @@ function generateHTML(data: FloorPlanPdfRequest): string {
     equipmentCounts.set(e.type, count + 1);
   });
   
-  // Containment summary
-  const containmentCounts = new Map<string, { count: number; totalLength: number }>();
+  // Containment summary - group by type AND size
+  const containmentKey = (c: Containment) => `${c.type}|||${c.size || 'N/A'}`;
+  const containmentCounts = new Map<string, { type: string; size: string; count: number; totalLength: number }>();
   containment.forEach(c => {
-    const existing = containmentCounts.get(c.type) || { count: 0, totalLength: 0 };
-    containmentCounts.set(c.type, {
+    const key = containmentKey(c);
+    const existing = containmentCounts.get(key) || { type: c.type, size: c.size || 'N/A', count: 0, totalLength: 0 };
+    containmentCounts.set(key, {
+      type: c.type,
+      size: c.size || 'N/A',
       count: existing.count + 1,
       totalLength: existing.totalLength + c.length,
     });
@@ -515,18 +519,26 @@ ${containmentCounts.size > 0 ? `
     <thead>
       <tr>
         <th>Containment Type</th>
+        <th>Size</th>
         <th class="text-center">Count</th>
         <th class="text-right">Total Length</th>
       </tr>
     </thead>
     <tbody>
-      ${Array.from(containmentCounts.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([type, data]) => 
-          `<tr><td>${type}</td><td class="text-center">${data.count}</td><td class="text-right">${data.totalLength.toFixed(2)}m</td></tr>`
+      ${Array.from(containmentCounts.values())
+        .sort((a, b) => {
+          const typeCompare = a.type.localeCompare(b.type);
+          if (typeCompare !== 0) return typeCompare;
+          // Natural numeric sort for sizes
+          const numA = parseFloat(a.size.match(/[\d.]+/)?.[0] || '0');
+          const numB = parseFloat(b.size.match(/[\d.]+/)?.[0] || '0');
+          return numA - numB;
+        })
+        .map(data => 
+          `<tr><td>${data.type}</td><td>${data.size}</td><td class="text-center">${data.count}</td><td class="text-right">${data.totalLength.toFixed(2)}m</td></tr>`
         ).join('')}
       <tr class="total-row">
-        <td>Total</td>
+        <td colspan="2">Total</td>
         <td class="text-center">${containment.length}</td>
         <td class="text-right">${containment.reduce((s, c) => s + c.length, 0).toFixed(2)}m</td>
       </tr>
