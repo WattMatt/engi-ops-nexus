@@ -125,28 +125,31 @@ export function ExportConversation({ conversationId, conversationTitle }: Export
     setIsExporting(true);
 
     try {
-      const messageContent = messages.map((msg) => [
-        {
+      const messageContent: Content[] = [];
+      
+      messages.forEach((msg) => {
+        messageContent.push({
           columns: [
             {
               text: getSenderName(msg),
               bold: true,
-              width: "auto" as const,
+              width: "auto",
             },
             {
               text: format(new Date(msg.created_at), "PPpp"),
               color: "#666",
-              alignment: "right" as const,
+              alignment: "right",
               fontSize: 9,
             },
           ],
           margin: [0, 10, 0, 5] as [number, number, number, number],
-        },
-        {
+        } as Content);
+        
+        messageContent.push({
           text: msg.content,
           margin: [0, 0, 0, 10] as [number, number, number, number],
-        },
-      ]).flat();
+        } as Content);
+      });
 
       const docDefinition: TDocumentDefinitions = {
         content: [
