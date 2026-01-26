@@ -503,13 +503,26 @@ export function FinalAccountExcelImport({
         existingSectionsData = data || [];
       }
 
-      // Build lookup map: bill_id -> section_code -> section record
+      // Build lookup maps for sections:
+      // 1. bill_id -> section_code -> section record
+      // 2. bill_id -> normalized section_name -> section record (fallback matching)
       const existingSectionMap = new Map<string, Map<string, { id: string; section_code: string; section_name: string }>>();
+      const existingSectionByNameMap = new Map<string, Map<string, { id: string; section_code: string; section_name: string }>>();
+      
+      const normalizeName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
       existingSectionsData.forEach(s => {
+        // By section_code
         if (!existingSectionMap.has(s.bill_id)) {
           existingSectionMap.set(s.bill_id, new Map());
         }
         existingSectionMap.get(s.bill_id)!.set(s.section_code, s);
+        
+        // By normalized section_name (for fallback matching)
+        if (!existingSectionByNameMap.has(s.bill_id)) {
+          existingSectionByNameMap.set(s.bill_id, new Map());
+        }
+        existingSectionByNameMap.get(s.bill_id)!.set(normalizeName(s.section_name), s);
       });
 
       // Fetch all existing items (for sections in this account)
@@ -584,12 +597,38 @@ export function FinalAccountExcelImport({
           let isNewSection = false;
           
           // Check if section already exists in this bill
+          // Try matching by section_code first, then fallback to normalized section_name
           const billSections = existingSectionMap.get(billId);
-          const existingSection = billSections?.get(section.sectionCode);
+          const billSectionsByName = existingSectionByNameMap.get(billId);
+          
+          let existingSection = billSections?.get(section.sectionCode);
+          
+          // Fallback: match by normalized section name (handles P&G vs Preliminaries & General, etc.)
+          if (!existingSection && billSectionsByName) {
+            const normalizedParsedName = normalizeName(section.sectionName);
+            existingSection = billSectionsByName.get(normalizedParsedName);
+            
+            // Also try matching common aliases
+            const aliases: Record<string, string[]> = {
+              'preliminariesgeneral': ['pg', 'pandg', 'preliminaries'],
+              'pg': ['preliminariesgeneral', 'pandg', 'preliminaries'],
+              'pandg': ['preliminariesgeneral', 'pg', 'preliminaries'],
+            };
+            
+            if (!existingSection && aliases[normalizedParsedName]) {
+              for (const alias of aliases[normalizedParsedName]) {
+                existingSection = billSectionsByName.get(alias);
+                if (existingSection) {
+                  console.log(`[Merge Import] Matched section "${section.sectionName}" to existing "${existingSection.section_name}" via alias`);
+                  break;
+                }
+              }
+            }
+          }
           
           if (existingSection) {
             sectionId = existingSection.id;
-            console.log(`[Merge Import] Section ${section.sectionCode} exists in Bill ${bill.billNumber}`);
+            console.log(`[Merge Import] Section ${section.sectionCode} ("${section.sectionName}") matched existing section ${existingSection.section_code}`);
           } else {
             // Create new section
             const { data: newSection, error: sectionError } = await supabase
