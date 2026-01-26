@@ -837,7 +837,18 @@ const addSchedulesPage = (doc: jsPDF, params: GeneratePdfParams) => {
   }
 
   if (lvLines.length > 0) {
-    const lvLinesBody = lvLines.map(l => {
+    // Sort lines by label numerically before generating table rows
+    const sortedLvLines = [...lvLines].sort((a, b) => {
+      const labelA = a.label || '';
+      const labelB = b.label || '';
+      // Extract numeric parts for natural sorting
+      const numA = parseFloat(labelA.match(/[\d.]+/)?.[0] || '0');
+      const numB = parseFloat(labelB.match(/[\d.]+/)?.[0] || '0');
+      if (numA !== numB) return numA - numB;
+      return labelA.localeCompare(labelB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    
+    const lvLinesBody = sortedLvLines.map(l => {
       const isGpWire = l.cableType?.includes('GP');
       const pathLen = l.pathLength ?? l.length;
       const startH = l.startHeight ?? 0;
