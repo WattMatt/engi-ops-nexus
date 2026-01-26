@@ -624,11 +624,16 @@ export function FinalAccountExcelImport({
           }
 
           // Filter items - only insert items that don't exist
+          // Match by item_code within this section. Empty item_codes are always treated as new
+          // to avoid false-positive matches on blank codes.
           const existingItemCodes = existingItemMap.get(sectionId) || new Set();
           const newItems: ParsedItem[] = [];
           
           for (const item of section.items) {
-            if (existingItemCodes.has(item.item_code)) {
+            // Empty item_code = always add (can't reliably match)
+            // Existing item_code = skip to preserve manual edits
+            const hasItemCode = item.item_code && item.item_code.trim() !== '';
+            if (hasItemCode && existingItemCodes.has(item.item_code)) {
               totalItemsSkipped++;
               // console.log(`[Merge Import] Skipped existing item: ${item.item_code}`);
             } else {
