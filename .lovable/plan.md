@@ -1,190 +1,145 @@
 
 
-# Fix: Cable Summary in Floor Plan Overview
+# Fix: PDF Preview Failing for Floor Plan Reports
 
-## Problem Summary
-The **Cables tab** in the Overview panel shows "0 cables" despite having visual cables drawn on the canvas. This is because:
+## Problem Identified
 
-1. **Canvas lines** (drawn cables like "4Core x 4mm² AC") are stored in the `lines` array as `SupplyLine` objects
-2. **The Cables tab** queries the `cable_entries` database table, which is separate from canvas lines
-3. The Summary tab correctly shows cables using `<LvCableSummary lines={lines} />` which reads the canvas data
+The PDF preview is failing with a **400 error** because the `floor-plan-reports` storage bucket is **private**, but the `StandardReportPreview` component attempts to load PDFs using `getPublicUrl()`.
 
-## Current Data Flow
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                     FLOOR PLAN MARKUP                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────────┐     ┌──────────────────────┐          │
-│  │   Canvas Lines       │     │   Database Entries    │          │
-│  │   (SupplyLine[])     │     │   (cable_entries)     │          │
-│  ├──────────────────────┤     ├──────────────────────┤          │
-│  │ • Drawn visually     │     │ • Manual entries      │          │
-│  │ • Stored in markup   │     │ • Cable schedule data │          │
-│  │ • type: 'lv'         │     │ • Has costs/rates     │          │
-│  │ • cableType set      │     │ • Linked to schedules │          │
-│  └──────────┬───────────┘     └──────────┬───────────┘          │
-│             │                            │                       │
-│             ▼                            ▼                       │
-│  ┌────────────────────┐      ┌─────────────────────┐            │
-│  │   Summary Tab      │      │   Cables Tab        │            │
-│  │   (LvCableSummary) │      │   (shows cableEntries)           │
-│  │   ✓ WORKS          │      │   ✗ SHOWS 0         │            │
-│  └────────────────────┘      └─────────────────────┘            │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```
+Error: ResponseException: Unexpected server response (400) while retrieving PDF
+URL: https://...supabase.co/storage/v1/object/public/floor-plan-reports/...pdf
 ```
 
-## Solution
-Update the **Cables tab** to display **both** data sources:
-1. **Visual Canvas Cables** - From the `lines` array (what user draws)
-2. **Database Cable Entries** - From `cable_entries` table (formal schedule)
+**Key Finding**: The bucket configuration shows `public: false`, which means public URLs will always fail.
 
-This provides a complete picture of all cables for the current layout.
+## Solution
+
+Update `StandardReportPreview` to handle both public and private buckets by using `createSignedUrl()` for authenticated access. This creates a temporary secure URL that works with private buckets.
 
 ---
 
 ## Technical Implementation
 
-### File: `src/components/floor-plan/components/EquipmentPanel.tsx`
+### File: `src/components/shared/StandardReportPreview.tsx`
 
-#### Change 1: Add Canvas Cable Summary to Cables Tab
-Update the Cables tab rendering (lines 1601-1686) to include visual canvas cables:
+Replace the `loadPdfUrl` function to use signed URLs:
 
-**Before:**
+**Current Code (lines 46-70):**
 ```tsx
-<div style={{ display: activeTab === 'cables' ? 'block' : 'none' }}>
-  <div className="flex items-center justify-between mb-3">
-    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cable Schedule</h3>
-    ...
-  </div>
-  {loadingCables ? (...) : cableEntries.length > 0 ? (
-    // Only shows database entries
-  ) : (
-    <p>No cables in schedule for this project.</p>
-  )}
-</div>
+const loadPdfUrl = async () => {
+  setLoading(true);
+  setNumPages(0);
+  
+  try {
+    // Get public URL for the PDF
+    const { data } = supabase.storage
+      .from(storageBucket)
+      .getPublicUrl(report.file_path);
+
+    if (!data.publicUrl) {
+      throw new Error("Failed to get PDF URL");
+    }
+
+    const cacheBustedUrl = `${data.publicUrl}?t=${Date.now()}`;
+    setPdfUrl(cacheBustedUrl);
+    setLoading(false);
+  } catch (error) {
+    console.error('Preview error:', error);
+    toast.error('Failed to load PDF preview');
+    setLoading(false);
+  }
+};
 ```
 
-**After:**
+**New Code:**
 ```tsx
-<div style={{ display: activeTab === 'cables' ? 'block' : 'none' }}>
-  <div className="flex items-center justify-between mb-3">
-    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cable Schedule</h3>
-    ...
-  </div>
+const loadPdfUrl = async () => {
+  setLoading(true);
+  setNumPages(0);
   
-  {/* Section 1: Visual Canvas Cables (from lines array) */}
-  <LvCableSummary lines={lines} />
-  
-  {/* Section 2: Database Cable Entries (formal schedule) */}
-  <div className="mt-4">
-    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-      Database Cable Entries
-    </h4>
-    {loadingCables ? (...) : cableEntries.length > 0 ? (
-      // Existing database entries display
-    ) : (
-      <p className="text-gray-500 text-xs text-center p-2">
-        No formal cable entries linked to this layout.
-      </p>
-    )}
-  </div>
-</div>
+  try {
+    // Create a signed URL that works for both public and private buckets
+    // Expires in 1 hour (3600 seconds)
+    const { data, error } = await supabase.storage
+      .from(storageBucket)
+      .createSignedUrl(report.file_path, 3600);
+
+    if (error) {
+      console.error('[PDF PREVIEW] Signed URL error:', error);
+      throw error;
+    }
+
+    if (!data?.signedUrl) {
+      throw new Error("Failed to get PDF URL");
+    }
+
+    console.log('[PDF PREVIEW] Loading PDF with signed URL');
+    setPdfUrl(data.signedUrl);
+    setLoading(false);
+  } catch (error) {
+    console.error('Preview error:', error);
+    toast.error('Failed to load PDF preview');
+    setLoading(false);
+  }
+};
 ```
 
-#### Change 2: Compute Canvas Cable Metrics
-Add a `useMemo` to calculate canvas cable totals for display:
+---
+
+## Why This Works
+
+| Approach | Public Bucket | Private Bucket |
+|----------|---------------|----------------|
+| `getPublicUrl()` | Works | Fails (400 error) |
+| `createSignedUrl()` | Works | Works |
+| `download()` + Blob | Works | Works |
+
+Using `createSignedUrl()` is the cleanest solution because:
+1. Works for **both** public and private buckets
+2. Generates a temporary authenticated URL (1 hour expiry)
+3. No need to download the entire file into memory first
+4. Maintains the same user experience
+
+---
+
+## Alternative Approach (if signed URLs don't work)
+
+If signed URLs have issues, we can fall back to downloading the blob and creating an object URL:
 
 ```tsx
-const canvasCableSummary = useMemo(() => {
-  const lvLines = lines.filter(l => l.type === 'lv' && l.cableType);
-  const { summary, totalLength } = calculateLvCableSummary(lvLines);
-  return {
-    count: lvLines.length,
-    totalLength,
-    byType: Array.from(summary.entries())
+const loadPdfUrl = async () => {
+  setLoading(true);
+  setNumPages(0);
+  
+  try {
+    // Download the PDF as a blob
+    const { data, error } = await supabase.storage
+      .from(storageBucket)
+      .download(report.file_path);
+
+    if (error) throw error;
+    if (!data) throw new Error("No data received");
+
+    // Create a local object URL from the blob
+    const objectUrl = URL.createObjectURL(data);
+    setPdfUrl(objectUrl);
+    setLoading(false);
+  } catch (error) {
+    console.error('Preview error:', error);
+    toast.error('Failed to load PDF preview');
+    setLoading(false);
+  }
+};
+
+// Don't forget to revoke the object URL when dialog closes
+useEffect(() => {
+  return () => {
+    if (pdfUrl && pdfUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(pdfUrl);
+    }
   };
-}, [lines]);
-```
-
-#### Change 3: Update Empty State Message
-When no cables exist from either source, show appropriate guidance:
-
-```tsx
-{canvasCableSummary.count === 0 && cableEntries.length === 0 && (
-  <div className="text-center py-6">
-    <Cable className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-    <p className="text-gray-500 text-xs">
-      No cables on this layout.
-    </p>
-    <p className="text-gray-500 text-[10px] mt-1">
-      Use the Conductor tool to draw LV cables, or link cables from the Cable Schedule module.
-    </p>
-  </div>
-)}
-```
-
----
-
-## UI Structure After Fix
-
-```text
-┌─────────────────────────────────────────────────────┐
-│                 CABLES TAB                          │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  ┌───────────────────────────────────────────────┐  │
-│  │ CANVAS CABLES (from this layout)              │  │
-│  ├───────────────────────────────────────────────┤  │
-│  │ ● 4Core x 4mm² AC          105.63m           │  │
-│  │ ● 32mm∅ Conduit            48.20m            │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                     │
-│  ┌───────────────────────────────────────────────┐  │
-│  │ DATABASE CABLE ENTRIES                        │  │
-│  ├───────────────────────────────────────────────┤  │
-│  │ Total: 5 cables | 342.50m | R 12,450.00      │  │
-│  │ ─────────────────────────────────────────────│  │
-│  │ [Cable entry cards from cable_entries table] │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                     │
-│           [3D Analysis Button]                     │
-└─────────────────────────────────────────────────────┘
-```
-
----
-
-## Additional Improvements
-
-### 1. Unified Cable Count Badge
-Update the Cables tab button to show combined count:
-
-```tsx
-<TabButton 
-  tabId="cables" 
-  label="Cables" 
-  count={canvasCableSummary.count + cableEntries.length}
-  disabled={!hasCables} 
-/>
-```
-
-### 2. Section Headers with Counts
-Add clear section headers to distinguish data sources:
-
-- **"Traced Cables (3)"** - Visual lines on canvas
-- **"Formal Schedule (5)"** - Database `cable_entries`
-
-### 3. Link Canvas to Database Option
-Add a "Save to Schedule" button that creates `cable_entries` from drawn lines:
-
-```tsx
-{canvasCableSummary.count > 0 && (
-  <Button size="sm" variant="outline" onClick={handleSaveLinesToSchedule}>
-    <FileText className="h-3 w-3 mr-1" />
-    Add to Cable Schedule
-  </Button>
-)}
+}, [pdfUrl]);
 ```
 
 ---
@@ -193,10 +148,7 @@ Add a "Save to Schedule" button that creates `cable_entries` from drawn lines:
 
 | File | Change |
 |------|--------|
-| `EquipmentPanel.tsx` | Add `LvCableSummary` to Cables tab to show canvas cables |
-| `EquipmentPanel.tsx` | Add `canvasCableSummary` useMemo for cable metrics |
-| `EquipmentPanel.tsx` | Update tab count badge to include both sources |
-| `EquipmentPanel.tsx` | Improve empty state with helpful guidance |
+| `src/components/shared/StandardReportPreview.tsx` | Replace `getPublicUrl()` with `createSignedUrl()` in `loadPdfUrl` function |
 
-This ensures all materials specific to the current layout markup are visible in the Overview panel, matching user expectations from the Summary tab.
+This single change will fix PDF preview for all report types that use private storage buckets, including floor plan reports.
 
