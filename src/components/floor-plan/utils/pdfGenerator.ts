@@ -661,6 +661,26 @@ const addEnhancedSchedulesPage = (doc: jsPDF, params: GeneratePdfParams) => {
 };
 
 const addSchedulesPage = (doc: jsPDF, params: GeneratePdfParams) => {
+  // Pre-check if there's any content to render on this page
+  const hasComments = params.comments && params.comments.trim() !== '';
+  const hasPv = params.pvPanelConfig && params.pvArrays && params.pvArrays.length > 0;
+  const hasEquipment = params.equipment.length > 0;
+  const hasContainment = params.containment.length > 0;
+  const hasZones = params.zones.length > 0;
+  const hasTasks = params.tasks && params.tasks.length > 0;
+  
+  // Check for line summaries
+  const checkMvTotal = params.lines.filter(l => l.type === 'mv').reduce((s, l) => s + l.length, 0);
+  const checkDcTotal = params.lines.filter(l => l.type === 'dc').reduce((s, l) => s + l.length, 0);
+  const checkLvLines = params.lines.filter(l => l.type === 'lv' && l.cableType);
+  const hasLineSummary = checkMvTotal > 0 || checkDcTotal > 0 || checkLvLines.length > 0;
+  
+  // If no content, don't add an empty page
+  if (!hasComments && !hasPv && !hasEquipment && !hasContainment && !hasZones && !hasTasks && !hasLineSummary) {
+    console.log('[PDF] Skipping empty schedules page - no content to render');
+    return;
+  }
+  
   doc.addPage();
   addPageHeader(doc, 'Schedules & Summaries', params.projectName);
   let lastY = MARGIN + 20;
