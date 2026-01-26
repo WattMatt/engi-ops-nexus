@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "next-themes";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WalkthroughProvider } from "@/components/walkthrough/WalkthroughContext";
@@ -77,11 +78,12 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WalkthroughProvider>
-          <Toaster />
-          <Sonner />
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WalkthroughProvider>
+            <Toaster />
+            <Sonner />
           <OfflineIndicator />
           <PWAUpdatePrompt />
           <PWAInstallPrompt />
@@ -159,9 +161,10 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
-        </WalkthroughProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+          </WalkthroughProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   </ErrorBoundary>
 );
 
