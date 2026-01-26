@@ -1,6 +1,7 @@
+import React, { useState } from "react";
+import { createRoot } from "react-dom/client";
 import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
-import { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -1139,9 +1140,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         loadChartDiv.style.backgroundColor = "#ffffff";
         chartContainer.appendChild(loadChartDiv);
         
-        // We need to use React.createElement to render the component
-        const React = await import("react");
-        const { createRoot } = await import("react-dom/client");
+        // Render the component using static imports
         const root1 = createRoot(loadChartDiv);
         root1.render(
           React.createElement(LoadDistributionChart, { zones: zoneLoadingData })
