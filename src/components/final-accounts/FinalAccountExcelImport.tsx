@@ -477,130 +477,243 @@ export function FinalAccountExcelImport({
       });
 
       setProgress(20);
-      setProgressText(`Found ${parsedBills.length} bills, clearing existing data...`);
+      setProgressText(`Found ${parsedBills.length} bills, loading existing data...`);
 
-      // Delete existing bills/sections/items for this Final Account
+      // ========== INCREMENTAL MERGE IMPORT ==========
+      // Instead of deleting everything, we compare and only insert what's missing
+      
+      // Step 1: Fetch all existing data for this Final Account
       const { data: existingBills } = await supabase
         .from("final_account_bills")
-        .select("id")
+        .select("id, bill_number, bill_name")
         .eq("final_account_id", accountId);
 
-      if (existingBills && existingBills.length > 0) {
-        const billIds = existingBills.map(b => b.id);
-        
-        const { data: existingSections } = await supabase
-          .from("final_account_sections")
-          .select("id")
-          .in("bill_id", billIds);
+      // Build lookup map: bill_number -> bill record
+      const existingBillMap = new Map<number, { id: string; bill_number: number; bill_name: string }>();
+      (existingBills || []).forEach(b => existingBillMap.set(b.bill_number, b));
 
-        if (existingSections && existingSections.length > 0) {
-          const sectionIds = existingSections.map(s => s.id);
-          await supabase.from("final_account_items").delete().in("section_id", sectionIds);
-          await supabase.from("final_account_sections").delete().in("id", sectionIds);
-        }
-        
-        await supabase.from("final_account_bills").delete().in("id", billIds);
+      // Fetch all existing sections (for bills in this account)
+      const billIds = (existingBills || []).map(b => b.id);
+      let existingSectionsData: { id: string; bill_id: string; section_code: string; section_name: string }[] = [];
+      if (billIds.length > 0) {
+        const { data } = await supabase
+          .from("final_account_sections")
+          .select("id, bill_id, section_code, section_name")
+          .in("bill_id", billIds);
+        existingSectionsData = data || [];
       }
 
-      setProgress(30);
-      setProgressText("Creating bills and sections...");
+      // Build lookup map: bill_id -> section_code -> section record
+      const existingSectionMap = new Map<string, Map<string, { id: string; section_code: string; section_name: string }>>();
+      existingSectionsData.forEach(s => {
+        if (!existingSectionMap.has(s.bill_id)) {
+          existingSectionMap.set(s.bill_id, new Map());
+        }
+        existingSectionMap.get(s.bill_id)!.set(s.section_code, s);
+      });
 
-      let totalItems = 0;
-      let totalSections = 0;
+      // Fetch all existing items (for sections in this account)
+      const sectionIds = existingSectionsData.map(s => s.id);
+      let existingItemsData: { id: string; section_id: string; item_code: string }[] = [];
+      if (sectionIds.length > 0) {
+        const { data } = await supabase
+          .from("final_account_items")
+          .select("id, section_id, item_code")
+          .in("section_id", sectionIds);
+        existingItemsData = data || [];
+      }
+
+      // Build lookup map: section_id -> item_code -> item record
+      const existingItemMap = new Map<string, Set<string>>();
+      existingItemsData.forEach(item => {
+        if (!existingItemMap.has(item.section_id)) {
+          existingItemMap.set(item.section_id, new Set());
+        }
+        existingItemMap.get(item.section_id)!.add(item.item_code);
+      });
+
+      setProgress(30);
+      setProgressText("Comparing and merging data...");
+
+      let totalItemsAdded = 0;
+      let totalItemsSkipped = 0;
+      let totalSectionsAdded = 0;
+      let totalBillsAdded = 0;
       const progressPerBill = 60 / parsedBills.length;
 
       for (let bi = 0; bi < parsedBills.length; bi++) {
         const bill = parsedBills[bi];
-        setProgressText(`Importing Bill ${bill.billNumber}: ${bill.billName}...`);
+        setProgressText(`Processing Bill ${bill.billNumber}: ${bill.billName}...`);
 
-        // Create bill
-        const { data: newBill, error: billError } = await supabase
-          .from("final_account_bills")
-          .insert({
-            final_account_id: accountId,
-            bill_number: bill.billNumber,
-            bill_name: bill.billName,
-          })
-          .select()
-          .single();
+        let billId: string;
+        let isNewBill = false;
 
-        if (billError) throw billError;
-
-        let billContractTotal = 0;
-
-        for (let si = 0; si < bill.sections.length; si++) {
-          const section = bill.sections[si];
-          
-          // Create section
-          const { data: newSection, error: sectionError } = await supabase
-            .from("final_account_sections")
+        // Check if bill already exists
+        const existingBill = existingBillMap.get(bill.billNumber);
+        if (existingBill) {
+          billId = existingBill.id;
+          console.log(`[Merge Import] Bill ${bill.billNumber} exists, using ID: ${billId}`);
+        } else {
+          // Create new bill
+          const { data: newBill, error: billError } = await supabase
+            .from("final_account_bills")
             .insert({
-              bill_id: newBill.id,
-              section_code: section.sectionCode,
-              section_name: section.sectionName,
-              display_order: si,
+              final_account_id: accountId,
+              bill_number: bill.billNumber,
+              bill_name: bill.billName,
             })
             .select()
             .single();
 
-          if (sectionError) throw sectionError;
-
-          // Insert items
-          let sectionTotal = 0;
-          const itemsToInsert = section.items.map((item, idx) => {
-            const contractAmount = item.amount;
-            sectionTotal += contractAmount;
-            
-            return {
-              section_id: newSection.id,
-              item_code: item.item_code,
-              description: item.description,
-              unit: item.unit,
-              contract_quantity: item.quantity,
-              final_quantity: 0,
-              supply_rate: item.supply_rate,
-              install_rate: item.install_rate,
-              contract_amount: contractAmount,
-              final_amount: 0,
-              display_order: idx + 1,
-              // Prime Cost fields
-              is_prime_cost: item.is_prime_cost,
-              item_type: item.item_type,
-              pc_allowance: item.is_prime_cost ? contractAmount : null,
-            };
-          });
-
-          const chunkSize = 100;
-          for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
-            const chunk = itemsToInsert.slice(i, i + chunkSize);
-            const { error: itemsError } = await supabase.from("final_account_items").insert(chunk);
-            if (itemsError) throw itemsError;
-          }
-
-          // Update section totals - include boq_stated_total for discrepancy detection
-          await supabase
-            .from("final_account_sections")
-            .update({ 
-              contract_total: sectionTotal, 
-              final_total: 0,
-              boq_stated_total: section.boqStatedTotal > 0 ? section.boqStatedTotal : sectionTotal, // Use stated if found, otherwise calculated
-            })
-            .eq("id", newSection.id);
-
-          billContractTotal += sectionTotal;
-          totalItems += itemsToInsert.length;
-          totalSections++;
+          if (billError) throw billError;
+          billId = newBill.id;
+          isNewBill = true;
+          totalBillsAdded++;
+          console.log(`[Merge Import] Created new Bill ${bill.billNumber}: ${bill.billName}`);
+          
+          // Initialize section map for new bill
+          existingSectionMap.set(billId, new Map());
         }
 
-        // Update bill totals
+        let billContractTotalDelta = 0;
+
+        for (let si = 0; si < bill.sections.length; si++) {
+          const section = bill.sections[si];
+          
+          let sectionId: string;
+          let isNewSection = false;
+          
+          // Check if section already exists in this bill
+          const billSections = existingSectionMap.get(billId);
+          const existingSection = billSections?.get(section.sectionCode);
+          
+          if (existingSection) {
+            sectionId = existingSection.id;
+            console.log(`[Merge Import] Section ${section.sectionCode} exists in Bill ${bill.billNumber}`);
+          } else {
+            // Create new section
+            const { data: newSection, error: sectionError } = await supabase
+              .from("final_account_sections")
+              .insert({
+                bill_id: billId,
+                section_code: section.sectionCode,
+                section_name: section.sectionName,
+                display_order: si,
+              })
+              .select()
+              .single();
+
+            if (sectionError) throw sectionError;
+            sectionId = newSection.id;
+            isNewSection = true;
+            totalSectionsAdded++;
+            console.log(`[Merge Import] Created new Section ${section.sectionCode}: ${section.sectionName}`);
+            
+            // Initialize item set for new section
+            existingItemMap.set(sectionId, new Set());
+            
+            // Add to section map
+            if (!billSections) {
+              existingSectionMap.set(billId, new Map());
+            }
+            existingSectionMap.get(billId)!.set(section.sectionCode, { 
+              id: sectionId, 
+              section_code: section.sectionCode, 
+              section_name: section.sectionName 
+            });
+          }
+
+          // Filter items - only insert items that don't exist
+          const existingItemCodes = existingItemMap.get(sectionId) || new Set();
+          const newItems: ParsedItem[] = [];
+          
+          for (const item of section.items) {
+            if (existingItemCodes.has(item.item_code)) {
+              totalItemsSkipped++;
+              // console.log(`[Merge Import] Skipped existing item: ${item.item_code}`);
+            } else {
+              newItems.push(item);
+            }
+          }
+
+          if (newItems.length > 0) {
+            // Get current max display_order for this section
+            let maxDisplayOrder = 0;
+            if (!isNewSection) {
+              const { data: maxOrderData } = await supabase
+                .from("final_account_items")
+                .select("display_order")
+                .eq("section_id", sectionId)
+                .order("display_order", { ascending: false })
+                .limit(1);
+              maxDisplayOrder = maxOrderData?.[0]?.display_order || 0;
+            }
+
+            const itemsToInsert = newItems.map((item, idx) => {
+              const contractAmount = item.amount;
+              billContractTotalDelta += contractAmount;
+              
+              return {
+                section_id: sectionId,
+                item_code: item.item_code,
+                description: item.description,
+                unit: item.unit,
+                contract_quantity: item.quantity,
+                final_quantity: 0,
+                supply_rate: item.supply_rate,
+                install_rate: item.install_rate,
+                contract_amount: contractAmount,
+                final_amount: 0,
+                display_order: maxDisplayOrder + idx + 1,
+                is_prime_cost: item.is_prime_cost,
+                item_type: item.item_type,
+                pc_allowance: item.is_prime_cost ? contractAmount : null,
+              };
+            });
+
+            const chunkSize = 100;
+            for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
+              const chunk = itemsToInsert.slice(i, i + chunkSize);
+              const { error: itemsError } = await supabase.from("final_account_items").insert(chunk);
+              if (itemsError) throw itemsError;
+            }
+
+            totalItemsAdded += newItems.length;
+            console.log(`[Merge Import] Added ${newItems.length} new items to Section ${section.sectionCode}`);
+
+            // Update section totals (recalculate from all items)
+            const { data: allSectionItems } = await supabase
+              .from("final_account_items")
+              .select("contract_amount")
+              .eq("section_id", sectionId);
+            
+            const sectionTotal = (allSectionItems || []).reduce((sum, item) => sum + (item.contract_amount || 0), 0);
+            
+            await supabase
+              .from("final_account_sections")
+              .update({ 
+                contract_total: sectionTotal, 
+                boq_stated_total: section.boqStatedTotal > 0 ? section.boqStatedTotal : sectionTotal,
+              })
+              .eq("id", sectionId);
+          }
+        }
+
+        // Update bill totals (recalculate from all sections)
+        const { data: allBillSections } = await supabase
+          .from("final_account_sections")
+          .select("contract_total")
+          .eq("bill_id", billId);
+        
+        const billTotal = (allBillSections || []).reduce((sum, s) => sum + (s.contract_total || 0), 0);
+        
         await supabase
           .from("final_account_bills")
           .update({ 
-            contract_total: billContractTotal, 
-            final_total: 0,
-            variation_total: -billContractTotal 
+            contract_total: billTotal, 
+            variation_total: -billTotal 
           })
-          .eq("id", newBill.id);
+          .eq("id", billId);
 
         setProgress(30 + (bi + 1) * progressPerBill);
       }
@@ -614,7 +727,17 @@ export function FinalAccountExcelImport({
 
       setProgress(100);
       
-      toast.success(`Imported ${totalItems} items across ${totalSections} sections in ${parsedBills.length} bills`);
+      const summaryParts = [];
+      if (totalItemsAdded > 0) summaryParts.push(`${totalItemsAdded} new items`);
+      if (totalSectionsAdded > 0) summaryParts.push(`${totalSectionsAdded} new sections`);
+      if (totalBillsAdded > 0) summaryParts.push(`${totalBillsAdded} new bills`);
+      if (totalItemsSkipped > 0) summaryParts.push(`${totalItemsSkipped} existing items unchanged`);
+      
+      const message = summaryParts.length > 0 
+        ? `Merge complete: ${summaryParts.join(", ")}`
+        : "No new data to import - all items already exist";
+      
+      toast.success(message);
 
       onOpenChange(false);
       setFile(null);
