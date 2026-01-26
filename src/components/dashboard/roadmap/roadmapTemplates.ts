@@ -52,11 +52,25 @@ export const defaultRoadmapTemplate: RoadmapTemplateItem[] = [
     sort_order: 6,
   },
   
-  // Phase 4: Documentation
+  // Phase 4: Drawings
+  {
+    title: "Drawings",
+    phase: "Drawings",
+    sort_order: 7,
+    children: [
+      { title: "Electrical Layouts", sort_order: 1 },
+      { title: "Single Line Diagrams", sort_order: 2 },
+      { title: "DB Schedules", sort_order: 3 },
+      { title: "Lighting Layouts", sort_order: 4 },
+      { title: "Cable Routing Plans", sort_order: 5 },
+    ],
+  },
+  
+  // Phase 5: Documentation
   {
     title: "Documentation",
     phase: "Documentation",
-    sort_order: 7,
+    sort_order: 8,
     children: [
       { title: "Generator Reports", sort_order: 1 },
       { title: "Metering Schedules", sort_order: 2 },
@@ -67,32 +81,32 @@ export const defaultRoadmapTemplate: RoadmapTemplateItem[] = [
     ],
   },
   
-  // Phase 5: Construction & Tracking
+  // Phase 6: Construction & Tracking
   {
     title: "Equipment Ordering & Tracking",
-    phase: "Construction",
-    sort_order: 8,
-  },
-  {
-    title: "Monthly Cost Reports",
     phase: "Construction",
     sort_order: 9,
   },
   {
-    title: "Final Account",
+    title: "Monthly Cost Reports",
     phase: "Construction",
     sort_order: 10,
   },
+  {
+    title: "Final Account",
+    phase: "Construction",
+    sort_order: 11,
+  },
   
-  // Phase 6: Handover
+  // Phase 7: Handover
   {
     title: "Inspections",
     phase: "Handover",
-    sort_order: 11,
+    sort_order: 12,
   },
   {
     title: "Handover & Document Gathering",
     phase: "Handover",
-    sort_order: 12,
+    sort_order: 13,
   },
 ];
