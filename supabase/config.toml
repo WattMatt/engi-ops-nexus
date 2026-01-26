@@ -158,3 +158,12 @@ verify_jwt = false
 
 [functions.send-rfi-notification]
 verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.embed-document]
+verify_jwt = false
+
+[functions.search-knowledge]
+verify_jwt = false

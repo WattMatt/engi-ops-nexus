@@ -3,7 +3,8 @@ import { EngineeringChatbot } from "@/components/ai-tools/EngineeringChatbot";
 import { DocumentGenerator } from "@/components/ai-tools/DocumentGenerator";
 import { DataAnalyzer } from "@/components/ai-tools/DataAnalyzer";
 import { CostPredictor } from "@/components/ai-tools/CostPredictor";
-import { Bot, FileText, BarChart3, Sparkles, TrendingUp } from "lucide-react";
+import { KnowledgeBaseManager } from "@/components/ai-tools/KnowledgeBaseManager";
+import { Bot, FileText, BarChart3, Sparkles, TrendingUp, Database } from "lucide-react";
 
 const AITools = () => {
   return (
@@ -23,10 +24,14 @@ const AITools = () => {
       </div>
 
       <Tabs defaultValue="chatbot" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="chatbot" className="flex items-center gap-2">
             <Bot className="h-4 w-4" />
             <span className="hidden sm:inline">Assistant</span>
+          </TabsTrigger>
+          <TabsTrigger value="knowledge" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            <span className="hidden sm:inline">Knowledge</span>
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -44,6 +49,10 @@ const AITools = () => {
 
         <TabsContent value="chatbot" className="space-y-4">
           <EngineeringChatbot />
+        </TabsContent>
+
+        <TabsContent value="knowledge" className="space-y-4">
+          <KnowledgeBaseManager />
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4">
