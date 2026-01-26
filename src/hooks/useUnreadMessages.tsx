@@ -25,7 +25,7 @@ export const useUnreadMessages = () => {
         .select("conversation_id, id")
         .in("conversation_id", conversationIds)
         .neq("sender_id", user.id)
-        .eq("is_read", false);
+        .or("is_read.is.null,is_read.eq.false");
 
       const byConversation: Record<string, number> = {};
       messages?.forEach((msg) => {

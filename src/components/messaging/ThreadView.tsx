@@ -30,7 +30,7 @@ export function ThreadView({
         .from("messages")
         .select("*")
         .eq("parent_message_id", parentMessage.id)
-        .eq("is_deleted", false)
+        .or("is_deleted.is.null,is_deleted.eq.false")
         .order("created_at", { ascending: true });
 
       if (error) throw error;

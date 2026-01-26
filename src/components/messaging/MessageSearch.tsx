@@ -26,7 +26,7 @@ export function MessageSearch({ conversationId, onMessageSelect, onClose }: Mess
         .from("messages")
         .select("id, content, created_at, sender_id, profiles:sender_id(full_name)")
         .eq("conversation_id", conversationId)
-        .eq("is_deleted", false)
+        .or("is_deleted.is.null,is_deleted.eq.false")
         .ilike("content", `%${query}%`)
         .order("created_at", { ascending: false })
         .limit(20);
