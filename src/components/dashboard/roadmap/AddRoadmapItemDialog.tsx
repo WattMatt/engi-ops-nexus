@@ -317,12 +317,12 @@ export const AddRoadmapItemDialog = ({
               <User className="h-4 w-4" />
               Assign To
             </Label>
-            <Select value={assignedTo} onValueChange={setAssignedTo}>
+            <Select value={assignedTo || "unassigned"} onValueChange={(value) => setAssignedTo(value === "unassigned" ? "" : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">
+                <SelectItem value="unassigned">
                   <span className="text-muted-foreground">Unassigned</span>
                 </SelectItem>
                 {teamMembers.map((member) => (
