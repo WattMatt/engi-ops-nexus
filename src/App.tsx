@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WalkthroughProvider } from "@/components/walkthrough/WalkthroughContext";
 import { WalkthroughController } from "@/components/walkthrough/WalkthroughController";
 import { allPageTours } from "@/components/walkthrough/tours";
+import { PWAInstallPrompt, PWAUpdatePrompt, OfflineIndicator } from "@/components/pwa";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
@@ -81,6 +82,9 @@ const App = () => (
         <WalkthroughProvider>
           <Toaster />
           <Sonner />
+          <OfflineIndicator />
+          <PWAUpdatePrompt />
+          <PWAInstallPrompt />
           <HelpButton />
           <BrowserRouter>
             <WalkthroughController tours={allPageTours} />
