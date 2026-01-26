@@ -48,20 +48,24 @@ export const StandardReportPreview = ({
     setNumPages(0);
     
     try {
-      // Get public URL for the PDF
-      const { data } = supabase.storage
+      // Create a signed URL that works for both public and private buckets
+      // Expires in 1 hour (3600 seconds)
+      const { data, error } = await supabase.storage
         .from(storageBucket)
-        .getPublicUrl(report.file_path);
+        .createSignedUrl(report.file_path, 3600);
 
-      if (!data.publicUrl) {
+      if (error) {
+        console.error('[PDF PREVIEW] Signed URL error:', error);
+        throw error;
+      }
+
+      if (!data?.signedUrl) {
         throw new Error("Failed to get PDF URL");
       }
 
-      // Add cache-busting timestamp to force fresh PDF load
-      const cacheBustedUrl = `${data.publicUrl}?t=${Date.now()}`;
-      console.log('[PDF PREVIEW] Loading PDF with cache-busting:', cacheBustedUrl);
-      setPdfUrl(cacheBustedUrl);
-      setLoading(false); // URL is ready, let Document component handle its own loading
+      console.log('[PDF PREVIEW] Loading PDF with signed URL');
+      setPdfUrl(data.signedUrl);
+      setLoading(false);
     } catch (error) {
       console.error('Preview error:', error);
       toast.error('Failed to load PDF preview');
