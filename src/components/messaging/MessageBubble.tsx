@@ -14,6 +14,7 @@ import { ForwardMessageDialog } from "./ForwardMessageDialog";
 import { VoiceMessagePlayer } from "./VoiceRecorder";
 import { LinkPreviews } from "./LinkPreview";
 import { FilePreviewList } from "./FilePreview";
+import { DeliveryStatus, useDeliveryStatus } from "./DeliveryStatus";
 import { toast } from "sonner";
 
 interface MessageBubbleProps {
@@ -114,6 +115,7 @@ export function MessageBubble({
   const extendedMessage = message as any;
   const isForwarded = !!extendedMessage.forwarded_from_message_id;
   const hasVoice = !!extendedMessage.voice_message_url;
+  const deliveryStatus = useDeliveryStatus(extendedMessage);
 
   // Handle deleted messages
   if (extendedMessage.is_deleted) {
@@ -165,6 +167,7 @@ export function MessageBubble({
             {isPinned && (
               <Pin className="h-3 w-3 text-primary" />
             )}
+            {isOwn && <DeliveryStatus status={deliveryStatus} />}
           </div>
 
           {/* Forwarded indicator */}
