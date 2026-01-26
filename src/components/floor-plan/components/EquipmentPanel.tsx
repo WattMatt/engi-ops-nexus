@@ -1047,7 +1047,18 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     return roofMasks.find(rm => rm.id === selectedItemId) || null;
   }, [selectedItemId, roofMasks]);
   
-  const hasCables = useMemo(() => cableEntries.length > 0 || lines.some(l => l.type === 'lv' && l.cableType), [cableEntries, lines]);
+  // Canvas cable summary (from drawn lines on this layout)
+  const canvasCableSummary = useMemo(() => {
+    const lvLines = lines.filter(l => l.type === 'lv' && l.cableType);
+    const { summary, totalLength } = calculateLvCableSummary(lvLines);
+    return {
+      count: lvLines.length,
+      totalLength,
+      byType: Array.from(summary.entries())
+    };
+  }, [lines]);
+
+  const hasCables = useMemo(() => cableEntries.length > 0 || canvasCableSummary.count > 0, [cableEntries, canvasCableSummary.count]);
 
   const renderSummaryTab = () => {
     switch (designPurpose) {
@@ -1551,7 +1562,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
               <TabButton tabId="summary" label="Summary" />
               <TabButton tabId="equipment" label="Equipment" />
               <TabButton tabId="assemblies" label="Assemblies" />
-              <TabButton tabId="cables" label="Cables" disabled={!hasCables} />
+              <TabButton tabId="cables" label="Cables" count={canvasCableSummary.count + cableEntries.length} disabled={!hasCables} />
               <TabButton tabId="containment" label="Containment" />
               <TabButton tabId="roofMasks" label="Roof Masks" count={roofMasks.length} />
               <TabButton tabId="zones" label="Exclusion Zones" />
@@ -1611,23 +1622,66 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                   </button>
                 )}
               </div>
+
+              {/* Empty State */}
+              {canvasCableSummary.count === 0 && cableEntries.length === 0 && !loadingCables && (
+                <div className="text-center py-6">
+                  <Zap className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+                  <p className="text-muted-foreground text-xs">
+                    No cables on this layout.
+                  </p>
+                  <p className="text-muted-foreground/70 text-[10px] mt-1">
+                    Use the Conductor tool to draw LV cables, or link cables from the Cable Schedule module.
+                  </p>
+                </div>
+              )}
+
+              {/* Canvas Cables Section (Traced on this layout) */}
+              {canvasCableSummary.count > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Traced Cables ({canvasCableSummary.count})
+                    </h4>
+                  </div>
+                  <div className="space-y-1.5 text-sm">
+                    {canvasCableSummary.byType.map(([type, { totalLength, color }]) => (
+                      <div key={type} className="flex justify-between items-center bg-muted/50 p-2 rounded-md">
+                        <div className="flex items-center gap-3">
+                          <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: color }}></div>
+                          <span className="text-foreground/80 text-xs">{type}</span>
+                        </div>
+                        <span className="font-mono font-bold text-primary">{totalLength.toFixed(2)}m</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Database Cable Entries Section */}
               {loadingCables ? (
-                <p className="text-gray-500 text-xs text-center p-4">Loading cables...</p>
-              ) : cableEntries.length > 0 ? (
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                <p className="text-muted-foreground text-xs text-center p-4">Loading cables...</p>
+              ) : cableEntries.length > 0 && (
+                <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Formal Schedule ({cableEntries.length})
+                    </h4>
+                  </div>
+
                   {/* Summary Totals Card */}
                   <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 space-y-2">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-300 font-medium">Total Cables:</span>
+                      <span className="text-foreground/70 font-medium">Total Cables:</span>
                       <span className="font-bold text-primary">{cableEntries.length}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-300 font-medium">Total Length:</span>
+                      <span className="text-foreground/70 font-medium">Total Length:</span>
                       <span className="font-bold text-amber-400">{totalCableLength.toFixed(2)}m</span>
                     </div>
                     {totalCableCost > 0 && (
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-gray-300 font-medium">Total Cost:</span>
+                        <span className="text-foreground/70 font-medium">Total Cost:</span>
                         <span className="font-bold text-green-400">R {totalCableCost.toFixed(2)}</span>
                       </div>
                     )}
@@ -1635,20 +1689,20 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
                   {/* Cable Type Breakdown */}
                   <div className="space-y-2">
-                    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Breakdown by Type & Size</h4>
+                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Breakdown by Type & Size</h4>
                     {cableSummary.map((summary) => (
-                      <div key={`${summary.type}_${summary.size}`} className="bg-gray-700/50 p-2.5 rounded-md">
+                      <div key={`${summary.type}_${summary.size}`} className="bg-muted/50 p-2.5 rounded-md">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
-                            <div className="font-semibold text-sm text-gray-200">{summary.type}</div>
-                            <div className="text-[10px] text-gray-400">Size: {summary.size}</div>
+                            <div className="font-semibold text-sm text-foreground">{summary.type}</div>
+                            <div className="text-[10px] text-muted-foreground">Size: {summary.size}</div>
                           </div>
                           <div className="text-right">
                             <div className="text-xs font-bold text-amber-400">{summary.count} cables</div>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center text-[10px] text-gray-400">
-                          <span>Total Length: <span className="text-gray-300 font-mono">{summary.totalLength.toFixed(2)}m</span></span>
+                        <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                          <span>Total Length: <span className="text-foreground font-mono">{summary.totalLength.toFixed(2)}m</span></span>
                           {summary.totalCost > 0 && (
                             <span>Cost: <span className="text-green-400 font-mono">R {summary.totalCost.toFixed(2)}</span></span>
                           )}
@@ -1659,18 +1713,18 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
                   {/* Individual Entries */}
                   <div className="space-y-2">
-                    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Individual Cables ({cableEntries.length})</h4>
+                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Individual Cables ({cableEntries.length})</h4>
                     {cableEntries.map(entry => (
-                      <div key={entry.id} className="bg-gray-700/30 p-2 rounded-md space-y-1 border border-gray-600/30">
+                      <div key={entry.id} className="bg-muted/30 p-2 rounded-md space-y-1 border border-border/30">
                         <div className="flex justify-between items-center">
                           <span className="font-semibold text-amber-400 text-xs">{entry.cable_tag}</span>
-                          <span className="text-gray-400 font-mono text-[10px]">{entry.cable_type} {entry.cable_size || 'N/A'}</span>
+                          <span className="text-muted-foreground font-mono text-[10px]">{entry.cable_type} {entry.cable_size || 'N/A'}</span>
                         </div>
-                        <div className="text-gray-400 text-[10px] space-y-0.5">
-                          <div>From: <span className="text-gray-300">{entry.from_location}</span></div>
-                          <div>To: <span className="text-gray-300">{entry.to_location}</span></div>
-                          <div className="flex justify-between items-center pt-1 border-t border-gray-600/30">
-                            <span>Length: <span className="text-gray-300 font-mono">{entry.total_length?.toFixed(2) || 0}m</span></span>
+                        <div className="text-muted-foreground text-[10px] space-y-0.5">
+                          <div>From: <span className="text-foreground/80">{entry.from_location}</span></div>
+                          <div>To: <span className="text-foreground/80">{entry.to_location}</span></div>
+                          <div className="flex justify-between items-center pt-1 border-t border-border/30">
+                            <span>Length: <span className="text-foreground font-mono">{entry.total_length?.toFixed(2) || 0}m</span></span>
                             {entry.total_cost && entry.total_cost > 0 && (
                               <span>Cost: <span className="text-green-400 font-mono">R {entry.total_cost.toFixed(2)}</span></span>
                             )}
@@ -1680,8 +1734,6 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                     ))}
                   </div>
                 </div>
-              ) : (
-                <p className="text-gray-500 text-xs text-center p-4">No cables in schedule for this project.</p>
               )}
             </div>
 
