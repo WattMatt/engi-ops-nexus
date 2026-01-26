@@ -3,8 +3,8 @@
  * Main page for managing project drawings
  */
 
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   FileText, 
   Plus, 
@@ -33,12 +33,25 @@ import { DrawingStatsCards } from './DrawingStatsCards';
 import { DrawingFilters } from '@/types/drawings';
 
 export function DrawingRegisterPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+  const [projectId, setProjectId] = useState<string | null>(
+    localStorage.getItem("selectedProjectId")
+  );
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+
+  // Listen for project changes
+  useEffect(() => {
+    const handleProjectChange = () => {
+      setProjectId(localStorage.getItem("selectedProjectId"));
+    };
+    
+    window.addEventListener('projectChanged', handleProjectChange);
+    return () => window.removeEventListener('projectChanged', handleProjectChange);
+  }, []);
   
   // Build filters
   const filters: DrawingFilters = {
@@ -53,7 +66,10 @@ export function DrawingRegisterPage() {
   if (!projectId) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">No project selected</p>
+        <p className="text-muted-foreground">Please select a project first</p>
+        <Button variant="link" onClick={() => navigate('/projects')}>
+          Go to Projects
+        </Button>
       </div>
     );
   }
