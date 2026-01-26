@@ -8572,6 +8572,8 @@ export type Database = {
           id: string
           is_read: boolean | null
           message_id: string
+          reaction_emoji: string | null
+          reactor_id: string | null
           type: string
           user_id: string
         }
@@ -8581,6 +8583,8 @@ export type Database = {
           id?: string
           is_read?: boolean | null
           message_id: string
+          reaction_emoji?: string | null
+          reactor_id?: string | null
           type: string
           user_id: string
         }
@@ -8590,6 +8594,8 @@ export type Database = {
           id?: string
           is_read?: boolean | null
           message_id?: string
+          reaction_emoji?: string | null
+          reactor_id?: string | null
           type?: string
           user_id?: string
         }
@@ -8672,6 +8678,8 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           edited_at: string | null
+          forwarded_from_conversation_id: string | null
+          forwarded_from_message_id: string | null
           id: string
           is_deleted: boolean | null
           is_edited: boolean | null
@@ -8682,6 +8690,8 @@ export type Database = {
           reply_count: number | null
           sender_id: string
           updated_at: string
+          voice_duration_seconds: number | null
+          voice_message_url: string | null
         }
         Insert: {
           attachments?: Json | null
@@ -8690,6 +8700,8 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           edited_at?: string | null
+          forwarded_from_conversation_id?: string | null
+          forwarded_from_message_id?: string | null
           id?: string
           is_deleted?: boolean | null
           is_edited?: boolean | null
@@ -8700,6 +8712,8 @@ export type Database = {
           reply_count?: number | null
           sender_id: string
           updated_at?: string
+          voice_duration_seconds?: number | null
+          voice_message_url?: string | null
         }
         Update: {
           attachments?: Json | null
@@ -8708,6 +8722,8 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           edited_at?: string | null
+          forwarded_from_conversation_id?: string | null
+          forwarded_from_message_id?: string | null
           id?: string
           is_deleted?: boolean | null
           is_edited?: boolean | null
@@ -8718,6 +8734,8 @@ export type Database = {
           reply_count?: number | null
           sender_id?: string
           updated_at?: string
+          voice_duration_seconds?: number | null
+          voice_message_url?: string | null
         }
         Relationships: [
           {
@@ -8725,6 +8743,20 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_forwarded_from_conversation_id_fkey"
+            columns: ["forwarded_from_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_forwarded_from_message_id_fkey"
+            columns: ["forwarded_from_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
@@ -11821,6 +11853,56 @@ export type Database = {
             columns: ["generator_zone_id"]
             isOneToOne: false
             referencedRelation: "generator_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_messages: {
+        Row: {
+          attachments: Json | null
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          mentions: string[] | null
+          scheduled_for: string
+          sender_id: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json | null
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          mentions?: string[] | null
+          scheduled_for: string
+          sender_id: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          mentions?: string[] | null
+          scheduled_for?: string
+          sender_id?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]

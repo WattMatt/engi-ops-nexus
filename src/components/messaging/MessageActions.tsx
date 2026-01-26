@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Edit, Trash2, Pin, MessageSquare, Reply } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Pin, MessageSquare, Reply, Forward } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
 import { useAddReaction } from "./MessageReactions";
 
@@ -29,6 +29,7 @@ interface MessageActionsProps {
   onDelete: () => void;
   onPin: () => void;
   onReply: () => void;
+  onForward?: () => void;
 }
 
 export function MessageActions({
@@ -39,6 +40,7 @@ export function MessageActions({
   onDelete,
   onPin,
   onReply,
+  onForward,
 }: MessageActionsProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const addReaction = useAddReaction();
@@ -72,6 +74,12 @@ export function MessageActions({
               <MessageSquare className="mr-2 h-4 w-4" />
               Reply in thread
             </DropdownMenuItem>
+            {onForward && (
+              <DropdownMenuItem onClick={onForward}>
+                <Forward className="mr-2 h-4 w-4" />
+                Forward message
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={onPin}>
               <Pin className="mr-2 h-4 w-4" />
               {isPinned ? "Unpin message" : "Pin message"}
