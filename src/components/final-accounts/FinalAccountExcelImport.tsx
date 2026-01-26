@@ -278,12 +278,46 @@ export function FinalAccountExcelImport({
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
       let amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
       
-      // Fix: If amount is 0 but quantity is a large value (likely misplaced amount), swap them
+      // Smart amount detection: If the mapped amount column returned 0, scan right-most columns
+      // for a currency value. This handles Excel files where amounts may be in unexpected columns.
+      if (amount === 0 && (itemCode || description)) {
+        // Scan from right to left for the first significant currency value
+        for (let c = row.length - 1; c >= 0; c--) {
+          const cellValue = row[c];
+          // Look for currency patterns like "R 350 000,00" or "24 500,00"
+          if (cellValue && /[\d\s,]+[,.]?\d{2}$/.test(cellValue)) {
+            const parsed = parseNumber(cellValue);
+            if (parsed > 0) {
+              amount = parsed;
+              console.log(`[Excel Import] Found amount in column ${c} for ${itemCode}: R${amount}`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // Fix: If amount is still 0 but quantity is a large value (likely misplaced amount), swap them
       // This handles cases like "O9.1" where the amount was placed in the quantity column
       if (amount === 0 && quantity > 1000 && !unitRaw) {
         amount = quantity;
         quantity = 0;
-        console.log(`[Excel Import] Corrected misplaced amount for ${itemCode}: ${amount}`);
+        console.log(`[Excel Import] Corrected misplaced quantity->amount for ${itemCode}: R${amount}`);
+      }
+      
+      // Handle percentage items (like O4.2, O8.2, O9.2) - they have a % unit and the amount
+      // might be in a different column. Also extract the percentage from quantity if needed
+      const isPercentageItem = unitRaw === '%' || /^%$/.test(unitRaw) || /add\s*profit|markup|percentage/i.test(description);
+      if (isPercentageItem && amount === 0) {
+        // For percentage items, the calculated amount should still be captured
+        // Scan again specifically for this case
+        for (let c = row.length - 1; c >= 0; c--) {
+          const parsed = parseNumber(row[c]);
+          if (parsed > 100 && parsed < 1000000) { // Reasonable range for an amount, not a percentage
+            amount = parsed;
+            console.log(`[Excel Import] Found percentage item amount for ${itemCode}: R${amount}`);
+            break;
+          }
+        }
       }
       
       if (!itemCode && !description) continue;
