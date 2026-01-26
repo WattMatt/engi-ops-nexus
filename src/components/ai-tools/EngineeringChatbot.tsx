@@ -1,11 +1,17 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bot, User } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Send, Bot, User, Database } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { SkillSelector } from "@/components/ai-skills/SkillSelector";
+import { ActiveSkillBadge } from "@/components/ai-skills/ActiveSkillBadge";
+import { useAISkills } from "@/hooks/useAISkills";
 
 interface Message {
   role: "user" | "assistant";
@@ -13,6 +19,9 @@ interface Message {
 }
 
 export function EngineeringChatbot() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSkillId = searchParams.get("skill");
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -21,13 +30,32 @@ export function EngineeringChatbot() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(initialSkillId);
+  const [useRag, setUseRag] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { trackUsage } = useAISkills();
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Update URL when skill changes
+  useEffect(() => {
+    if (selectedSkillId) {
+      setSearchParams({ skill: selectedSkillId });
+    } else {
+      setSearchParams({});
+    }
+  }, [selectedSkillId, setSearchParams]);
+
+  const handleSkillSelect = (skillId: string | null) => {
+    setSelectedSkillId(skillId);
+    if (skillId) {
+      trackUsage.mutate(skillId);
+    }
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -47,6 +75,8 @@ export function EngineeringChatbot() {
         },
         body: JSON.stringify({
           messages: [...messages, userMessage],
+          skillId: selectedSkillId,
+          useRag,
         }),
       });
 
@@ -120,13 +150,46 @@ export function EngineeringChatbot() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Bot className="h-5 w-5" />
-          Engineering Assistant
-        </CardTitle>
-        <CardDescription>
-          Ask questions about electrical codes, calculations, equipment, and best practices
-        </CardDescription>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              Engineering Assistant
+            </CardTitle>
+            <CardDescription>
+              Ask questions about electrical codes, calculations, equipment, and best practices
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="use-rag"
+                checked={useRag}
+                onCheckedChange={setUseRag}
+              />
+              <Label htmlFor="use-rag" className="text-xs flex items-center gap-1">
+                <Database className="h-3 w-3" />
+                Knowledge Base
+              </Label>
+            </div>
+          </div>
+        </div>
+        
+        {/* Skill Selector */}
+        <div className="flex items-center gap-2 pt-2">
+          <span className="text-sm text-muted-foreground">Skill:</span>
+          <SkillSelector
+            selectedSkillId={selectedSkillId}
+            onSelectSkill={handleSkillSelect}
+            compact
+          />
+          {selectedSkillId && (
+            <ActiveSkillBadge
+              skillId={selectedSkillId}
+              onClear={() => handleSkillSelect(null)}
+            />
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

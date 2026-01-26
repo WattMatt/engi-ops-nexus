@@ -1,9 +1,64 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Generate embedding for RAG search
+async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "text-embedding-004",
+      input: text,
+    }),
+  });
+
+  if (!response.ok) {
+    console.error("Embedding API error:", response.status);
+    return [];
+  }
+
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+
+// Search knowledge base for relevant context
+async function searchKnowledgeBase(
+  query: string,
+  apiKey: string,
+  supabase: any,
+  matchCount = 3
+): Promise<string> {
+  try {
+    const queryEmbedding = await generateEmbedding(query, apiKey);
+    if (queryEmbedding.length === 0) return "";
+
+    const { data: matches, error } = await supabase.rpc("match_knowledge_chunks", {
+      query_embedding: JSON.stringify(queryEmbedding),
+      match_threshold: 0.65,
+      match_count: matchCount,
+    });
+
+    if (error || !matches?.length) return "";
+
+    // Format context from matches
+    const contextParts = matches.map((m: any, i: number) => 
+      `[Source ${i + 1}: ${m.document_title}]\n${m.content}`
+    );
+
+    return contextParts.join("\n\n---\n\n");
+  } catch (e) {
+    console.error("Knowledge search error:", e);
+    return "";
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,14 +66,18 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, context } = await req.json();
+    const { messages, context, skillId, useRag = true } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build system prompt based on context
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Build system prompt
     let systemPrompt = `You are an expert electrical engineering and construction assistant. You help with:
 - Electrical code compliance and regulations
 - Cable sizing and circuit calculations
@@ -29,8 +88,45 @@ serve(async (req) => {
 
 Provide clear, practical advice with references to relevant standards when applicable.`;
 
+    // Load skill instructions if provided
+    if (skillId) {
+      const { data: skill } = await supabase
+        .from("ai_skills")
+        .select("name, instructions")
+        .eq("id", skillId)
+        .single();
+
+      if (skill) {
+        systemPrompt += `\n\n## Active Skill: ${skill.name}\n${skill.instructions}`;
+        console.log(`Using skill: ${skill.name}`);
+      }
+    }
+
+    // Add project context if provided
     if (context?.projectData) {
       systemPrompt += `\n\nCurrent project context:\n${JSON.stringify(context.projectData, null, 2)}`;
+    }
+
+    // RAG: Search knowledge base for relevant context
+    let ragContext = "";
+    if (useRag && messages?.length > 0) {
+      const lastUserMessage = messages.filter((m: any) => m.role === "user").pop();
+      if (lastUserMessage?.content) {
+        console.log("Searching knowledge base for context...");
+        ragContext = await searchKnowledgeBase(
+          lastUserMessage.content,
+          LOVABLE_API_KEY,
+          supabase
+        );
+        
+        if (ragContext) {
+          systemPrompt += `\n\n## Reference Documents
+The following information from the knowledge base may be relevant to the user's question. Use it to provide accurate, grounded responses. Cite sources when using this information.
+
+${ragContext}`;
+          console.log("Added RAG context from knowledge base");
+        }
+      }
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
