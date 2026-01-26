@@ -14,6 +14,8 @@ import {
   ClipboardList,
   PieChart,
   FileStack,
+  Lightbulb,
+  FolderOpen,
   UsersRound,
   Wallet,
   Map,
@@ -88,15 +90,23 @@ const singleModules = [
   },
 ];
 
-const projectsReportModule = {
-  title: "Projects Report",
-  icon: BarChart3,
-  items: [
-    { title: "Generator Report", url: "/dashboard/projects-report/generator" },
-    { title: "Lighting", url: "/dashboard/projects-report/lighting" },
-    { title: "Handover Documents", url: "/dashboard/projects-report/handover" },
-  ],
-};
+const reportModules = [
+  {
+    title: "Generator Report",
+    url: "/dashboard/projects-report/generator",
+    icon: Zap,
+  },
+  {
+    title: "Lighting Report",
+    url: "/dashboard/projects-report/lighting",
+    icon: Lightbulb,
+  },
+  {
+    title: "Handover Documents",
+    url: "/dashboard/projects-report/handover",
+    icon: FolderOpen,
+  },
+];
 
 const budgetsModule = {
   title: "Budgets",
@@ -223,31 +233,17 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Projects Report - Collapsible */}
-              <Collapsible defaultOpen={isGroupActive(projectsReportModule.items)}>
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton className="hover:bg-muted/50">
-                      <projectsReportModule.icon className="h-4 w-4" />
-                      {!collapsed && <span>{projectsReportModule.title}</span>}
-                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {projectsReportModule.items.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton asChild>
-                            <NavLink to={item.url} className={getNavCls(item.url)}>
-                              <span>{item.title}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
+              {/* Report Modules */}
+              {reportModules.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink to={item.url} className={getNavCls(item.url)}>
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
-              </Collapsible>
+              ))}
 
               {/* Budgets - Collapsible */}
               <Collapsible defaultOpen={isGroupActive(budgetsModule.items)}>
