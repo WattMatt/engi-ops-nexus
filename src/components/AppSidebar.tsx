@@ -113,7 +113,6 @@ const budgetsModule = {
   icon: Wallet,
   items: [
     { title: "Electrical", url: "/dashboard/budgets/electrical" },
-    { title: "Solar Proposals", url: "/dashboard/budgets/solar" },
   ],
 };
 
