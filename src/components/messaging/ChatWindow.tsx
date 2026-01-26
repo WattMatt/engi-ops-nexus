@@ -6,6 +6,7 @@ import { MessageComposer } from "./MessageComposer";
 import { MessageBubble } from "./MessageBubble";
 import { MessageSearch } from "./MessageSearch";
 import { PinnedMessages, usePinMessage } from "./PinnedMessages";
+import { ScheduledMessagesList } from "./ScheduledMessagesList";
 import { ThreadView } from "./ThreadView";
 import { TypingIndicator } from "./TypingIndicator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -201,6 +202,9 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           />
         )}
 
+        {/* Scheduled messages */}
+        <ScheduledMessagesList conversationId={conversationId} />
+
         {/* Pinned messages */}
         <PinnedMessages
           conversationId={conversationId}
@@ -230,12 +234,14 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         <div className="border-t p-4">
           <MessageComposer
             conversationId={conversationId}
-            onSend={(content, mentions, attachments) => {
+            onSend={(content, mentions, attachments, voiceUrl, voiceDuration) => {
               sendMessage({
                 conversation_id: conversationId,
                 content,
                 mentions,
                 attachments,
+                voice_message_url: voiceUrl,
+                voice_duration_seconds: voiceDuration,
               });
             }}
           />

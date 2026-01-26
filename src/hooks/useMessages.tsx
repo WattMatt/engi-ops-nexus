@@ -14,6 +14,17 @@ export interface Message {
   read_by: string[];
   created_at: string;
   updated_at: string;
+  // Extended fields
+  voice_message_url?: string;
+  voice_duration_seconds?: number;
+  parent_message_id?: string;
+  reply_count?: number;
+  is_edited?: boolean;
+  edited_at?: string;
+  is_deleted?: boolean;
+  deleted_at?: string;
+  forwarded_from_message_id?: string;
+  forwarded_from_conversation_id?: string;
 }
 
 export const useMessages = (conversationId?: string) => {
@@ -57,6 +68,24 @@ export const useMessages = (conversationId?: string) => {
           );
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          queryClient.setQueryData(
+            ["messages", conversationId],
+            (old: Message[] = []) =>
+              old.map((msg) =>
+                msg.id === payload.new.id ? (payload.new as Message) : msg
+              )
+          );
+        }
+      )
       .subscribe();
 
     return () => {
@@ -70,6 +99,8 @@ export const useMessages = (conversationId?: string) => {
       content: string;
       mentions?: string[];
       attachments?: any[];
+      voice_message_url?: string;
+      voice_duration_seconds?: number;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -82,6 +113,8 @@ export const useMessages = (conversationId?: string) => {
           content: data.content,
           mentions: data.mentions || [],
           attachments: data.attachments || [],
+          voice_message_url: data.voice_message_url,
+          voice_duration_seconds: data.voice_duration_seconds,
         })
         .select()
         .single();

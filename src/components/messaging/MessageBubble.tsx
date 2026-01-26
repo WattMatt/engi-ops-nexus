@@ -5,11 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Paperclip, MessageSquare, Pin } from "lucide-react";
+import { Paperclip, MessageSquare, Pin, Forward } from "lucide-react";
 import { MessageReactions } from "./MessageReactions";
 import { MessageActions } from "./MessageActions";
 import { ReadReceipts } from "./ReadReceipts";
 import { EditMessageDialog } from "./EditMessageDialog";
+import { ForwardMessageDialog } from "./ForwardMessageDialog";
+import { VoiceMessagePlayer } from "./VoiceRecorder";
 import { toast } from "sonner";
 
 interface MessageBubbleProps {
@@ -32,6 +34,7 @@ export function MessageBubble({
   highlightId,
 }: MessageBubbleProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isForwarding, setIsForwarding] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: sender } = useQuery({
@@ -105,8 +108,13 @@ export function MessageBubble({
     .toUpperCase()
     .slice(0, 2);
 
+  // Type assertions for extended message properties
+  const extendedMessage = message as any;
+  const isForwarded = !!extendedMessage.forwarded_from_message_id;
+  const hasVoice = !!extendedMessage.voice_message_url;
+
   // Handle deleted messages
-  if ((message as any).is_deleted) {
+  if (extendedMessage.is_deleted) {
     return (
       <div className={cn("flex gap-3", isOwn && "flex-row-reverse")}>
         <Avatar className="h-8 w-8">
@@ -149,13 +157,21 @@ export function MessageBubble({
             <span className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
             </span>
-            {(message as any).is_edited && (
+            {extendedMessage.is_edited && (
               <span className="text-xs text-muted-foreground">(edited)</span>
             )}
             {isPinned && (
               <Pin className="h-3 w-3 text-primary" />
             )}
           </div>
+
+          {/* Forwarded indicator */}
+          {isForwarded && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Forward className="h-3 w-3" />
+              <span>Forwarded message</span>
+            </div>
+          )}
 
           <div className="flex items-start gap-2">
             <div
@@ -166,7 +182,15 @@ export function MessageBubble({
                   : "bg-muted"
               )}
             >
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              {/* Voice message */}
+              {hasVoice ? (
+                <VoiceMessagePlayer
+                  url={extendedMessage.voice_message_url}
+                  duration={extendedMessage.voice_duration_seconds || 0}
+                />
+              ) : (
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              )}
 
               {message.attachments && message.attachments.length > 0 && (
                 <div className="mt-2 space-y-1">
@@ -192,6 +216,7 @@ export function MessageBubble({
                 onDelete={() => deleteMessage.mutate()}
                 onPin={onPin}
                 onReply={onReply}
+                onForward={() => setIsForwarding(true)}
               />
             )}
           </div>
@@ -200,13 +225,13 @@ export function MessageBubble({
           <MessageReactions messageId={message.id} currentUserId={currentUser?.id} />
 
           {/* Reply count */}
-          {(message as any).reply_count > 0 && onReply && (
+          {extendedMessage.reply_count > 0 && onReply && (
             <button
               onClick={onReply}
               className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
             >
               <MessageSquare className="h-3 w-3" />
-              {(message as any).reply_count} {(message as any).reply_count === 1 ? "reply" : "replies"}
+              {extendedMessage.reply_count} {extendedMessage.reply_count === 1 ? "reply" : "replies"}
             </button>
           )}
 
@@ -226,6 +251,14 @@ export function MessageBubble({
         onOpenChange={setIsEditing}
         initialContent={message.content}
         onSave={(content) => editMessage.mutate(content)}
+      />
+
+      <ForwardMessageDialog
+        open={isForwarding}
+        onOpenChange={setIsForwarding}
+        messageId={message.id}
+        messageContent={message.content}
+        originalConversationId={message.conversation_id}
       />
     </>
   );

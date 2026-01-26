@@ -1,20 +1,31 @@
 import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Paperclip } from "lucide-react";
+import { Send, Paperclip, Mic, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useDraftMessage } from "@/hooks/useDraftMessage";
+import { VoiceRecorder } from "./VoiceRecorder";
+import { ScheduleMessageDialog } from "./ScheduleMessageDialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface MessageComposerProps {
   conversationId: string;
-  onSend: (content: string, mentions?: string[], attachments?: any[]) => void;
+  onSend: (content: string, mentions?: string[], attachments?: any[], voiceUrl?: string, voiceDuration?: number) => void;
 }
 
 export function MessageComposer({ conversationId, onSend }: MessageComposerProps) {
-  const [content, setContent] = useState("");
+  const { content, setContent, clearDraft, hasDraft } = useDraftMessage(conversationId);
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { setTyping } = useTypingIndicator(conversationId);
@@ -65,7 +76,7 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
     }
 
     onSend(content, mentions, attachments);
-    setContent("");
+    clearDraft();
     setAttachments([]);
   };
 
@@ -114,8 +125,31 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
     }
   };
 
+  const handleVoiceSend = (voiceUrl: string, duration: number) => {
+    onSend("🎤 Voice message", [], [], voiceUrl, duration);
+    setShowVoiceRecorder(false);
+  };
+
+  if (showVoiceRecorder) {
+    return (
+      <VoiceRecorder
+        conversationId={conversationId}
+        onSend={handleVoiceSend}
+        onCancel={() => setShowVoiceRecorder(false)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-2">
+      {/* Draft indicator */}
+      {hasDraft && (
+        <div className="text-xs text-muted-foreground flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          Draft saved
+        </div>
+      )}
+
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {attachments.map((file, i) => (
@@ -145,15 +179,34 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
           className="hidden"
         />
         
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-        >
-          <Paperclip className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Attach files</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => setShowVoiceRecorder(true)}
+            >
+              <Mic className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Voice message</TooltipContent>
+        </Tooltip>
 
         <Textarea
           value={content}
@@ -163,6 +216,21 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
           className="flex-1 min-h-[60px] max-h-[200px]"
         />
 
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => setShowScheduleDialog(true)}
+              disabled={!content.trim()}
+            >
+              <Clock className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Schedule message</TooltipContent>
+        </Tooltip>
+
         <Button
           type="button"
           onClick={handleSend}
@@ -171,6 +239,13 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
           <Send className="h-4 w-4" />
         </Button>
       </div>
+
+      <ScheduleMessageDialog
+        open={showScheduleDialog}
+        onOpenChange={setShowScheduleDialog}
+        conversationId={conversationId}
+        initialContent={content}
+      />
     </div>
   );
 }
