@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
+import { useOfflineMessageQueue } from "./useOfflineMessageQueue";
 
 export interface Message {
   id: string;
@@ -25,10 +26,30 @@ export interface Message {
   deleted_at?: string;
   forwarded_from_message_id?: string;
   forwarded_from_conversation_id?: string;
+  // Offline queue status (for pending messages)
+  _isQueued?: boolean;
+  _queueId?: string;
 }
 
 export const useMessages = (conversationId?: string) => {
   const queryClient = useQueryClient();
+  
+  // Offline queue integration
+  const {
+    pendingMessages,
+    queueCount,
+    isSyncing,
+    isOnline,
+    queueMessage,
+    retryMessage,
+    cancelMessage,
+  } = useOfflineMessageQueue({
+    conversationId,
+    onMessageSent: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
 
   const { data: messages, isLoading } = useQuery({
     queryKey: ["messages", conversationId],
@@ -46,6 +67,28 @@ export const useMessages = (conversationId?: string) => {
     },
     enabled: !!conversationId,
   });
+
+  // Merge server messages with pending offline messages
+  const allMessages: Message[] = [
+    ...(messages || []),
+    // Add pending messages as pseudo-messages for display
+    ...pendingMessages.map((qm) => ({
+      id: qm.id,
+      conversation_id: qm.conversation_id,
+      sender_id: '', // Will be filled by current user display logic
+      content: qm.content,
+      mentions: qm.mentions || [],
+      attachments: qm.attachments || [],
+      is_read: false,
+      read_by: [],
+      created_at: qm.created_at,
+      updated_at: qm.created_at,
+      voice_message_url: qm.voice_message_url,
+      voice_duration_seconds: qm.voice_duration_seconds,
+      _isQueued: true,
+      _queueId: qm.id,
+    } as Message)),
+  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   // Subscribe to real-time messages
   useEffect(() => {
@@ -103,6 +146,16 @@ export const useMessages = (conversationId?: string) => {
       voice_duration_seconds?: number;
       content_type?: string;
     }) => {
+      // If offline, queue the message
+      if (!isOnline) {
+        const queued = await queueMessage(data);
+        if (queued) {
+          return { ...queued, _isQueued: true };
+        }
+        throw new Error("Failed to queue message");
+      }
+
+      // Online - send directly
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
@@ -184,7 +237,12 @@ export const useMessages = (conversationId?: string) => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
     onError: (error: Error) => {
-      toast.error(`Failed to send message: ${error.message}`);
+      // If the error is network-related, try to queue
+      if (!isOnline || error.message.includes('network') || error.message.includes('fetch')) {
+        toast.info("Message will be sent when you're back online");
+      } else {
+        toast.error(`Failed to send message: ${error.message}`);
+      }
     },
   });
 
@@ -203,9 +261,15 @@ export const useMessages = (conversationId?: string) => {
   });
 
   return {
-    messages,
+    messages: allMessages,
     isLoading,
     sendMessage: sendMessage.mutate,
     markAsRead: markAsRead.mutate,
+    // Offline queue info
+    pendingCount: queueCount,
+    isSyncing,
+    isOnline,
+    retryMessage,
+    cancelMessage,
   };
 };

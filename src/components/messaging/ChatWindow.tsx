@@ -16,6 +16,7 @@ import { ConversationLabels } from "./ConversationLabels";
 import { ReactionsAnalytics } from "./ReactionsAnalytics";
 import { ExportConversation } from "./ExportConversation";
 import { MessageRemindersList } from "./MessageRemindersList";
+import { OfflineQueueStatus } from "./OfflineQueueStatus";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ conversationId }: ChatWindowProps) {
-  const { messages, isLoading, sendMessage, markAsRead } = useMessages(conversationId);
+  const { messages, isLoading, sendMessage, markAsRead, pendingCount, isSyncing, isOnline, retryMessage, cancelMessage } = useMessages(conversationId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { refetch: refetchUnread } = useUnreadMessages();
   const previousMessageCountRef = useRef<number>(0);
@@ -217,6 +218,9 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
             onClose={() => setShowSearch(false)}
           />
         )}
+
+        {/* Offline queue status */}
+        <OfflineQueueStatus className="mx-2 mt-2" />
 
         {/* Scheduled messages */}
         <ScheduledMessagesList conversationId={conversationId} />
