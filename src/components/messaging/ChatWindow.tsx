@@ -1,15 +1,20 @@
-import { useMessages } from "@/hooks/useMessages";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
+import { useMessages, Message } from "@/hooks/useMessages";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MessageComposer } from "./MessageComposer";
 import { MessageBubble } from "./MessageBubble";
+import { MessageSearch } from "./MessageSearch";
+import { PinnedMessages, usePinMessage } from "./PinnedMessages";
+import { ThreadView } from "./ThreadView";
+import { TypingIndicator } from "./TypingIndicator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { TypingIndicator } from "./TypingIndicator";
 
 interface ChatWindowProps {
   conversationId: string;
@@ -21,6 +26,13 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   const { refetch: refetchUnread } = useUnreadMessages();
   const previousMessageCountRef = useRef<number>(0);
   const { typingUsers } = useTypingIndicator(conversationId);
+  const queryClient = useQueryClient();
+
+  const [showSearch, setShowSearch] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [threadMessage, setThreadMessage] = useState<Message | null>(null);
+
+  const pinMessage = usePinMessage();
 
   const { data: currentUser } = useQuery({
     queryKey: ["currentUser"],
@@ -30,14 +42,56 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     },
   });
 
+  const { data: conversation } = useQuery({
+    queryKey: ["conversation", conversationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("participants")
+        .eq("id", conversationId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: pinnedMessageIds = [] } = useQuery({
+    queryKey: ["pinned-message-ids", conversationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pinned_messages")
+        .select("message_id")
+        .eq("conversation_id", conversationId);
+
+      if (error) throw error;
+      return data.map((p) => p.message_id);
+    },
+  });
+
+  // Create read receipt when viewing messages
+  const createReadReceipt = useMutation({
+    mutationFn: async (messageId: string) => {
+      if (!currentUser) return;
+
+      await supabase.from("message_read_receipts").upsert(
+        {
+          message_id: messageId,
+          user_id: currentUser.id,
+        },
+        { onConflict: "message_id,user_id" }
+      );
+    },
+  });
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && !highlightedMessageId) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, highlightedMessageId]);
 
-  // Mark messages as read and show toast for new messages
+  // Mark messages as read and create read receipts
   useEffect(() => {
     if (!messages || !currentUser) return;
 
@@ -59,15 +113,55 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
 
     previousMessageCountRef.current = messages.length;
 
-    // Mark unread messages as read
+    // Mark unread messages as read and create read receipts
     unreadMessages.forEach((msg) => {
       markAsRead(msg.id);
+      createReadReceipt.mutate(msg.id);
     });
+
+    // Also create read receipts for already-read messages we haven't recorded
+    messages
+      .filter((msg) => msg.sender_id !== currentUser.id)
+      .forEach((msg) => {
+        createReadReceipt.mutate(msg.id);
+      });
 
     if (unreadMessages.length > 0) {
       setTimeout(() => refetchUnread(), 500);
     }
   }, [messages, currentUser, markAsRead, refetchUnread]);
+
+  const handleMessageSelect = (messageId: string) => {
+    setHighlightedMessageId(messageId);
+    setShowSearch(false);
+
+    // Scroll to message
+    setTimeout(() => {
+      const element = document.getElementById(`message-${messageId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      // Clear highlight after 2 seconds
+      setTimeout(() => setHighlightedMessageId(null), 2000);
+    }, 100);
+  };
+
+  const handlePinMessage = (messageId: string) => {
+    pinMessage.mutate(
+      { messageId, conversationId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["pinned-message-ids", conversationId] });
+        },
+      }
+    );
+  };
+
+  // Filter out deleted messages and thread replies for main view
+  const mainMessages = messages?.filter(
+    (msg) => !(msg as any).is_deleted && !(msg as any).parent_message_id
+  );
 
   if (isLoading) {
     return (
@@ -84,34 +178,81 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-4">
-          {messages?.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              isOwn={message.sender_id === currentUser?.id}
-            />
-          ))}
+    <div className="flex h-full">
+      <div className="flex flex-col flex-1">
+        {/* Header with search button */}
+        <div className="flex items-center justify-end p-2 border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowSearch(!showSearch)}
+          >
+            <Search className="h-4 w-4 mr-2" />
+            Search
+          </Button>
         </div>
-      </ScrollArea>
 
-      <TypingIndicator typingUsers={typingUsers} />
+        {/* Search bar */}
+        {showSearch && (
+          <MessageSearch
+            conversationId={conversationId}
+            onMessageSelect={handleMessageSelect}
+            onClose={() => setShowSearch(false)}
+          />
+        )}
 
-      <div className="border-t p-4">
-        <MessageComposer
+        {/* Pinned messages */}
+        <PinnedMessages
           conversationId={conversationId}
-          onSend={(content, mentions, attachments) => {
-            sendMessage({
-              conversation_id: conversationId,
-              content,
-              mentions,
-              attachments,
-            });
-          }}
+          onMessageSelect={handleMessageSelect}
         />
+
+        {/* Messages */}
+        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+          <div className="space-y-4">
+            {mainMessages?.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                isOwn={message.sender_id === currentUser?.id}
+                conversationParticipants={Array.isArray(conversation?.participants) ? conversation.participants as string[] : []}
+                isPinned={pinnedMessageIds.includes(message.id)}
+                highlightId={highlightedMessageId || undefined}
+                onReply={() => setThreadMessage(message)}
+                onPin={() => handlePinMessage(message.id)}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+
+        <TypingIndicator typingUsers={typingUsers} />
+
+        <div className="border-t p-4">
+          <MessageComposer
+            conversationId={conversationId}
+            onSend={(content, mentions, attachments) => {
+              sendMessage({
+                conversation_id: conversationId,
+                content,
+                mentions,
+                attachments,
+              });
+            }}
+          />
+        </div>
       </div>
+
+      {/* Thread panel */}
+      {threadMessage && (
+        <div className="w-96">
+          <ThreadView
+            parentMessage={threadMessage}
+            conversationId={conversationId}
+            currentUserId={currentUser?.id}
+            onClose={() => setThreadMessage(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }
