@@ -75,17 +75,21 @@ const handler = async (req: Request): Promise<Response> => {
     const notificationEmail = project?.completion_notification_email || DEFAULT_NOTIFICATION_EMAIL;
 
     // Get user details
-    const { data: userProfile } = await supabase
+    const { data: userProfile, error: profileError } = await supabase
       .from("profiles")
-      .select("full_name, email, position")
+      .select("full_name, email")
       .eq("id", completedByUserId)
       .single();
+
+    if (profileError) {
+      console.error("Error fetching user profile:", profileError);
+    }
 
     const projectName = project?.name || 'Unknown Project';
     const projectNumber = project?.project_number || '';
     const userName = userProfile?.full_name || 'Unknown User';
     const userEmail = userProfile?.email || 'N/A';
-    const userPosition = userProfile?.position || 'Team Member';
+    const userPosition = 'Team Member'; // Position column not available in profiles table
     
     const completedAt = new Date().toLocaleString('en-ZA', { 
       weekday: 'long', 
