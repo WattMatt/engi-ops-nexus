@@ -900,49 +900,23 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     });
   };
 
-  // Fetch all cable entries for this project from the database
+  // Fetch cable entries for this specific floor plan layout only
   const { data: cableEntries = [], isLoading: loadingCables } = useQuery({
-    queryKey: ['cable-entries-floor-plan', projectId],
+    queryKey: ['cable-entries-floor-plan', floorPlanId],
     queryFn: async () => {
-      if (!projectId) return [];
+      if (!floorPlanId) return [];
 
-      // Get all floor plan IDs for this project
-      const { data: floorPlans } = await supabase
-        .from('floor_plan_projects')
-        .select('id')
-        .eq('project_id', projectId);
-
-      const floorPlanIds = floorPlans?.map(fp => fp.id) || [];
-
-      // Get all cable schedule IDs for this project
-      const { data: schedules } = await supabase
-        .from('cable_schedules')
-        .select('id')
-        .eq('project_id', projectId);
-
-      const scheduleIds = schedules?.map(s => s.id) || [];
-
-      if (floorPlanIds.length === 0 && scheduleIds.length === 0) return [];
-
-      // Fetch cable entries linked to either floor plans or schedules
-      const orConditions = [];
-      if (floorPlanIds.length > 0) {
-        orConditions.push(`floor_plan_id.in.(${floorPlanIds.join(',')})`);
-      }
-      if (scheduleIds.length > 0) {
-        orConditions.push(`schedule_id.in.(${scheduleIds.join(',')})`);
-      }
-
+      // Only fetch cable entries linked to this specific floor plan
       const { data, error } = await supabase
         .from('cable_entries')
         .select('*')
-        .or(orConditions.join(','))
+        .eq('floor_plan_id', floorPlanId)
         .order('cable_number', { ascending: true });
 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!projectId,
+    enabled: !!floorPlanId,
   });
 
   const toggleAssigneeExpansion = (assigneeName: string) => {
