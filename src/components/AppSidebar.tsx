@@ -244,31 +244,18 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Budgets - Collapsible */}
-              <Collapsible defaultOpen={isGroupActive(budgetsModule.items)}>
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton className="hover:bg-muted/50">
-                      <budgetsModule.icon className="h-4 w-4" />
-                      {!collapsed && <span>{budgetsModule.title}</span>}
-                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {budgetsModule.items.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton asChild>
-                            <NavLink to={item.url} className={getNavCls(item.url)}>
-                              <span>{item.title}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+              {/* Electrical Budget - Direct Link */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink 
+                    to="/dashboard/budgets/electrical" 
+                    className={getNavCls("/dashboard/budgets/electrical")}
+                  >
+                    <Wallet className="h-4 w-4" />
+                    {!collapsed && <span>Electrical Budget</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* Specifications - Collapsible */}
               <Collapsible defaultOpen={isGroupActive(specificationsModule.items)}>
