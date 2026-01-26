@@ -129,20 +129,48 @@ export const useMessages = (conversationId?: string) => {
         .update({ last_message_at: new Date().toISOString() })
         .eq("id", data.conversation_id);
 
-      // Send notifications for mentions
-      if (data.mentions && data.mentions.length > 0) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", user.id)
-          .single();
+      // Get conversation participants to notify
+      const { data: conversation } = await supabase
+        .from("conversations")
+        .select("participants")
+        .eq("id", data.conversation_id)
+        .single();
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      const senderName = profile?.full_name || "Someone";
+
+      // Get participants to notify (everyone except sender)
+      const participants = conversation?.participants;
+      const participantsArray = Array.isArray(participants) ? participants : [];
+      const participantsToNotify = participantsArray.filter(
+        (p: string) => p !== user.id
+      );
+
+      // Send push notifications to all other participants
+      if (participantsToNotify.length > 0) {
+        await supabase.functions.invoke("send-push-notification", {
+          body: {
+            userIds: participantsToNotify,
+            title: `New message from ${senderName}`,
+            body: data.content.substring(0, 100) + (data.content.length > 100 ? "..." : ""),
+            conversationId: data.conversation_id,
+          },
+        });
+      }
+
+      // Send email notifications for mentions
+      if (data.mentions && data.mentions.length > 0) {
         for (const mentionedUserId of data.mentions) {
           await supabase.functions.invoke("send-message-notification", {
             body: {
               userId: mentionedUserId,
               messageId: message.id,
-              senderName: profile?.full_name || "Someone",
+              senderName,
               messagePreview: data.content.substring(0, 100),
               conversationId: data.conversation_id,
             },
