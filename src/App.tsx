@@ -72,6 +72,7 @@ import { EmailTemplateEditor } from "./components/admin/email-templates/EmailTem
 import { HelpButton } from "./components/feedback/HelpButton";
 import GamificationAdmin from "./pages/GamificationAdmin";
 import DashboardContactLibrary from "./pages/DashboardContactLibrary";
+import AISkills from "./pages/AISkills";
 
 // Initialize React Query client
 const queryClient = new QueryClient();
@@ -131,6 +132,7 @@ const App = () => (
                 <Route path="project-settings" element={<ProjectSettings />} />
                 <Route path="site-diary" element={<SiteDiary />} />
                 <Route path="ai-tools" element={<AITools />} />
+                <Route path="ai-skills" element={<AISkills />} />
                 <Route path="cost-reports" element={<CostReports />} />
                 <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
                 <Route path="budgets/electrical" element={<ElectricalBudgets />} />

@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_skills: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string | null
+          description: string
+          icon: string | null
+          id: string
+          instructions: string
+          is_active: boolean | null
+          is_system: boolean | null
+          name: string
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          icon?: string | null
+          id?: string
+          instructions: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name: string
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          icon?: string | null
+          id?: string
+          instructions?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name?: string
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
       application_documentation: {
         Row: {
           component_path: string | null
@@ -14411,6 +14456,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_skill_preferences: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_favorite: boolean | null
+          last_used_at: string | null
+          skill_id: string
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          last_used_at?: string | null
+          skill_id: string
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          last_used_at?: string | null
+          skill_id?: string
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_skill_preferences_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "ai_skills"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       variation_line_items: {
         Row: {
