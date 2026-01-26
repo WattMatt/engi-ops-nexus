@@ -6,54 +6,90 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Generate embedding for RAG search
-async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "text-embedding-004",
-      input: text,
-    }),
-  });
-
-  if (!response.ok) {
-    console.error("Embedding API error:", response.status);
-    return [];
-  }
-
-  const data = await response.json();
-  return data.data[0].embedding;
-}
-
-// Search knowledge base for relevant context
+// Search knowledge base using full-text search
 async function searchKnowledgeBase(
   query: string,
-  apiKey: string,
   supabase: any,
   matchCount = 3
 ): Promise<string> {
   try {
-    const queryEmbedding = await generateEmbedding(query, apiKey);
-    if (queryEmbedding.length === 0) return "";
+    // Extract search terms
+    const searchTerms = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((term: string) => term.length > 2)
+      .map((term: string) => term.replace(/[^\w]/g, ""))
+      .filter((term: string) => term.length > 0)
+      .slice(0, 8);
 
-    const { data: matches, error } = await supabase.rpc("match_knowledge_chunks", {
-      query_embedding: JSON.stringify(queryEmbedding),
-      match_threshold: 0.65,
-      match_count: matchCount,
+    if (searchTerms.length === 0) return "";
+
+    const tsQuery = searchTerms.join(" | ");
+
+    // Search chunks with full-text search
+    const { data: chunks, error } = await supabase
+      .from("knowledge_chunks")
+      .select(`
+        id,
+        content,
+        chunk_index,
+        document_id,
+        knowledge_documents!inner (
+          id,
+          title,
+          status
+        )
+      `)
+      .textSearch("content", tsQuery, {
+        type: "websearch",
+        config: "english",
+      })
+      .eq("knowledge_documents.status", "ready")
+      .limit(matchCount * 2);
+
+    if (error) {
+      console.error("Knowledge search error:", error);
+      
+      // Fallback to ILIKE
+      const { data: fallbackChunks } = await supabase
+        .from("knowledge_chunks")
+        .select(`
+          id,
+          content,
+          knowledge_documents!inner (title, status)
+        `)
+        .ilike("content", `%${searchTerms[0]}%`)
+        .eq("knowledge_documents.status", "ready")
+        .limit(matchCount);
+
+      if (!fallbackChunks?.length) return "";
+
+      return fallbackChunks
+        .map((c: any, i: number) => `[Source ${i + 1}: ${c.knowledge_documents?.title}]\n${c.content}`)
+        .join("\n\n---\n\n");
+    }
+
+    if (!chunks?.length) return "";
+
+    // Score and sort results
+    const scored = chunks.map((chunk: any) => {
+      const contentLower = chunk.content.toLowerCase();
+      let score = 0;
+      for (const term of searchTerms) {
+        const regex = new RegExp(term, "gi");
+        const matches = contentLower.match(regex);
+        if (matches) score += matches.length;
+      }
+      return { ...chunk, score };
     });
 
-    if (error || !matches?.length) return "";
+    const sorted = scored
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, matchCount);
 
-    // Format context from matches
-    const contextParts = matches.map((m: any, i: number) => 
-      `[Source ${i + 1}: ${m.document_title}]\n${m.content}`
-    );
-
-    return contextParts.join("\n\n---\n\n");
+    return sorted
+      .map((c: any, i: number) => `[Source ${i + 1}: ${c.knowledge_documents?.title}]\n${c.content}`)
+      .join("\n\n---\n\n");
   } catch (e) {
     console.error("Knowledge search error:", e);
     return "";
@@ -115,7 +151,6 @@ Provide clear, practical advice with references to relevant standards when appli
         console.log("Searching knowledge base for context...");
         ragContext = await searchKnowledgeBase(
           lastUserMessage.content,
-          LOVABLE_API_KEY,
           supabase
         );
         
