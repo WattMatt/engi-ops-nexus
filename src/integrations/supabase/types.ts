@@ -3761,6 +3761,86 @@ export type Database = {
         }
         Relationships: []
       }
+      drawing_categories: {
+        Row: {
+          code: string
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_tenant_specific: boolean | null
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_tenant_specific?: boolean | null
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_tenant_specific?: boolean | null
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      drawing_revisions: {
+        Row: {
+          created_at: string | null
+          drawing_id: string
+          file_path: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          revised_by: string | null
+          revision: string
+          revision_date: string
+          revision_notes: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          drawing_id: string
+          file_path?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          revised_by?: string | null
+          revision: string
+          revision_date: string
+          revision_notes?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          drawing_id?: string
+          file_path?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          revised_by?: string | null
+          revision?: string
+          revision_date?: string
+          revision_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_revisions_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: false
+            referencedRelation: "project_drawings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_budget_reports: {
         Row: {
           budget_id: string
@@ -10490,6 +10570,118 @@ export type Database = {
           },
         ]
       }
+      project_drawings: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string | null
+          current_revision: string | null
+          drawing_number: string
+          drawing_title: string
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          included_in_handover: boolean | null
+          issue_date: string | null
+          notes: string | null
+          project_id: string
+          revision_date: string | null
+          revision_notes: string | null
+          roadmap_item_id: string | null
+          shop_number: string | null
+          sort_order: number | null
+          status: string | null
+          subcategory: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          visible_to_client: boolean | null
+          visible_to_contractor: boolean | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          current_revision?: string | null
+          drawing_number: string
+          drawing_title: string
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          included_in_handover?: boolean | null
+          issue_date?: string | null
+          notes?: string | null
+          project_id: string
+          revision_date?: string | null
+          revision_notes?: string | null
+          roadmap_item_id?: string | null
+          shop_number?: string | null
+          sort_order?: number | null
+          status?: string | null
+          subcategory?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          visible_to_client?: boolean | null
+          visible_to_contractor?: boolean | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          current_revision?: string | null
+          drawing_number?: string
+          drawing_title?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          included_in_handover?: boolean | null
+          issue_date?: string | null
+          notes?: string | null
+          project_id?: string
+          revision_date?: string | null
+          revision_notes?: string | null
+          roadmap_item_id?: string | null
+          shop_number?: string | null
+          sort_order?: number | null
+          status?: string | null
+          subcategory?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          visible_to_client?: boolean | null
+          visible_to_contractor?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_drawings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_drawings_roadmap_item_id_fkey"
+            columns: ["roadmap_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_roadmap_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_drawings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_floor_plans: {
         Row: {
           base_pdf_url: string | null
@@ -14819,6 +15011,10 @@ export type Database = {
       client_has_project_access: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
+      }
+      detect_drawing_category: {
+        Args: { drawing_number: string }
+        Returns: string
       }
       generate_client_portal_token: {
         Args: { p_email: string; p_expiry_hours?: number; p_project_id: string }
