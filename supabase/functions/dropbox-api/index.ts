@@ -17,6 +17,60 @@ interface DropboxCredentials {
   expires_at: string | null;
 }
 
+interface ActivityLogEntry {
+  user_id: string;
+  action: string;
+  file_path: string;
+  file_name?: string;
+  file_size?: number;
+  file_type?: string | null;
+  status: 'success' | 'failed';
+  error_message?: string;
+  metadata?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+}
+
+// Log activity to the database
+async function logActivity(supabase: any, entry: ActivityLogEntry): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('dropbox_activity_logs')
+      .insert({
+        user_id: entry.user_id,
+        action: entry.action,
+        file_path: entry.file_path,
+        file_name: entry.file_name,
+        file_size: entry.file_size,
+        file_type: entry.file_type,
+        status: entry.status,
+        error_message: entry.error_message,
+        metadata: entry.metadata || {},
+        ip_address: entry.ip_address,
+        user_agent: entry.user_agent
+      });
+
+    if (error) {
+      console.error('Failed to log activity:', error);
+    } else {
+      console.log(`Activity logged: ${entry.action} on ${entry.file_path} by user ${entry.user_id}`);
+    }
+  } catch (e) {
+    console.error('Error logging activity:', e);
+  }
+}
+
+// Extract file info from path
+function extractFileInfo(path: string): { name: string; extension: string | null } {
+  const parts = path.split('/');
+  const name = parts[parts.length - 1] || path;
+  const extMatch = name.match(/\.([^.]+)$/);
+  return {
+    name,
+    extension: extMatch ? extMatch[1].toLowerCase() : null
+  };
+}
+
 async function getValidAccessToken(supabase: any, userId: string): Promise<{ token: string | null; connectionId: string | null }> {
   // Get user's specific connection
   const { data: connection, error } = await supabase
@@ -145,6 +199,10 @@ serve(async (req) => {
       );
     }
 
+    // Get request metadata for logging
+    const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
+    const userAgent = req.headers.get('user-agent') || 'unknown';
+
     // List folder contents
     if (action === 'list-folder') {
       const { path = '' } = await req.json();
@@ -166,6 +224,18 @@ serve(async (req) => {
       if (!response.ok) {
         const error = await response.text();
         console.error('List folder failed:', error);
+        
+        // Log failed activity
+        await logActivity(supabase, {
+          user_id: userId,
+          action: 'list_folder',
+          file_path: dropboxPath || '/',
+          status: 'failed',
+          error_message: 'Failed to list folder',
+          ip_address: ipAddress,
+          user_agent: userAgent
+        });
+        
         return new Response(
           JSON.stringify({ error: 'Failed to list folder' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -184,6 +254,18 @@ serve(async (req) => {
         isDownloadable: entry.is_downloadable !== false
       }));
 
+      // Log successful activity (optional for list - can be noisy)
+      // Uncomment if you want to track folder browsing
+      // await logActivity(supabase, {
+      //   user_id: userId,
+      //   action: 'list_folder',
+      //   file_path: dropboxPath || '/',
+      //   status: 'success',
+      //   metadata: { entries_count: entries.length },
+      //   ip_address: ipAddress,
+      //   user_agent: userAgent
+      // });
+
       return new Response(
         JSON.stringify({ entries, hasMore: data.has_more, cursor: data.cursor }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -193,6 +275,7 @@ serve(async (req) => {
     // Create folder
     if (action === 'create-folder') {
       const { path } = await req.json();
+      const fileInfo = extractFileInfo(path);
 
       const response = await fetch('https://api.dropboxapi.com/2/files/create_folder_v2', {
         method: 'POST',
@@ -206,6 +289,18 @@ serve(async (req) => {
       if (!response.ok) {
         const error = await response.text();
         console.error('Create folder failed:', error);
+        
+        await logActivity(supabase, {
+          user_id: userId,
+          action: 'create_folder',
+          file_path: path,
+          file_name: fileInfo.name,
+          status: 'failed',
+          error_message: 'Failed to create folder',
+          ip_address: ipAddress,
+          user_agent: userAgent
+        });
+        
         return new Response(
           JSON.stringify({ error: 'Failed to create folder' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -213,6 +308,18 @@ serve(async (req) => {
       }
 
       const data = await response.json();
+      
+      await logActivity(supabase, {
+        user_id: userId,
+        action: 'create_folder',
+        file_path: path,
+        file_name: fileInfo.name,
+        status: 'success',
+        metadata: { folder_id: data.metadata?.id },
+        ip_address: ipAddress,
+        user_agent: userAgent
+      });
+      
       return new Response(
         JSON.stringify({ success: true, metadata: data.metadata }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -222,9 +329,11 @@ serve(async (req) => {
     // Upload file
     if (action === 'upload') {
       const { path, content, contentType } = await req.json();
+      const fileInfo = extractFileInfo(path);
 
       // Decode base64 content if needed
       let fileData: Blob;
+      let fileSize = 0;
       if (content.startsWith('data:')) {
         const base64 = content.split(',')[1];
         const binaryString = atob(base64);
@@ -233,8 +342,10 @@ serve(async (req) => {
           bytes[i] = binaryString.charCodeAt(i);
         }
         fileData = new Blob([bytes]);
+        fileSize = bytes.length;
       } else {
         fileData = new Blob([content]);
+        fileSize = content.length;
       }
 
       const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
@@ -255,6 +366,20 @@ serve(async (req) => {
       if (!response.ok) {
         const error = await response.text();
         console.error('Upload failed:', error);
+        
+        await logActivity(supabase, {
+          user_id: userId,
+          action: 'upload',
+          file_path: path,
+          file_name: fileInfo.name,
+          file_size: fileSize,
+          file_type: fileInfo.extension || contentType,
+          status: 'failed',
+          error_message: 'Failed to upload file',
+          ip_address: ipAddress,
+          user_agent: userAgent
+        });
+        
         return new Response(
           JSON.stringify({ error: 'Failed to upload file' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -263,6 +388,23 @@ serve(async (req) => {
 
       const data = await response.json();
       console.log('File uploaded for user:', userId, 'path:', data.path_display);
+
+      await logActivity(supabase, {
+        user_id: userId,
+        action: 'upload',
+        file_path: data.path_display || path,
+        file_name: fileInfo.name,
+        file_size: data.size || fileSize,
+        file_type: fileInfo.extension || contentType,
+        status: 'success',
+        metadata: { 
+          file_id: data.id,
+          rev: data.rev,
+          content_hash: data.content_hash
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent
+      });
 
       return new Response(
         JSON.stringify({ success: true, metadata: data }),
@@ -273,6 +415,7 @@ serve(async (req) => {
     // Download file (get temporary link)
     if (action === 'download') {
       const { path } = await req.json();
+      const fileInfo = extractFileInfo(path);
 
       const response = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
         method: 'POST',
@@ -286,6 +429,19 @@ serve(async (req) => {
       if (!response.ok) {
         const error = await response.text();
         console.error('Get download link failed:', error);
+        
+        await logActivity(supabase, {
+          user_id: userId,
+          action: 'download',
+          file_path: path,
+          file_name: fileInfo.name,
+          file_type: fileInfo.extension,
+          status: 'failed',
+          error_message: 'Failed to get download link',
+          ip_address: ipAddress,
+          user_agent: userAgent
+        });
+        
         return new Response(
           JSON.stringify({ error: 'Failed to get download link' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -293,6 +449,23 @@ serve(async (req) => {
       }
 
       const data = await response.json();
+      
+      await logActivity(supabase, {
+        user_id: userId,
+        action: 'download',
+        file_path: path,
+        file_name: fileInfo.name,
+        file_size: data.metadata?.size,
+        file_type: fileInfo.extension,
+        status: 'success',
+        metadata: { 
+          file_id: data.metadata?.id,
+          link_expires: 'temporary'
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent
+      });
+      
       return new Response(
         JSON.stringify({ link: data.link, metadata: data.metadata }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -302,6 +475,7 @@ serve(async (req) => {
     // Delete file or folder
     if (action === 'delete') {
       const { path } = await req.json();
+      const fileInfo = extractFileInfo(path);
 
       const response = await fetch('https://api.dropboxapi.com/2/files/delete_v2', {
         method: 'POST',
@@ -315,6 +489,19 @@ serve(async (req) => {
       if (!response.ok) {
         const error = await response.text();
         console.error('Delete failed:', error);
+        
+        await logActivity(supabase, {
+          user_id: userId,
+          action: 'delete',
+          file_path: path,
+          file_name: fileInfo.name,
+          file_type: fileInfo.extension,
+          status: 'failed',
+          error_message: 'Failed to delete',
+          ip_address: ipAddress,
+          user_agent: userAgent
+        });
+        
         return new Response(
           JSON.stringify({ error: 'Failed to delete' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -322,6 +509,17 @@ serve(async (req) => {
       }
 
       console.log('Item deleted for user:', userId, 'path:', path);
+
+      await logActivity(supabase, {
+        user_id: userId,
+        action: 'delete',
+        file_path: path,
+        file_name: fileInfo.name,
+        file_type: fileInfo.extension,
+        status: 'success',
+        ip_address: ipAddress,
+        user_agent: userAgent
+      });
 
       return new Response(
         JSON.stringify({ success: true }),
