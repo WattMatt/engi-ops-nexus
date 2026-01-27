@@ -1,199 +1,237 @@
 
-# Per-User Dropbox Authentication Implementation Plan
+# Dropbox Integration User Journey Plan
 
-## Current Situation
+## Understanding the Current Situation
 
-The current Dropbox integration uses a **shared/global connection model**:
-- A single row in the `storage_providers` table stores one set of Dropbox credentials
-- All users share the same Dropbox account and see identical files
-- This bypasses your Dropbox folder permission structure where certain users shouldn't have access to specific folders
+Based on my exploration, here's what exists:
 
-## Goal
+### Current Dropbox Access Points
+1. **Backup & Recovery Page (`/admin/backup`)** - Admin-only, contains:
+   - DropboxConnector (connect/disconnect account)
+   - DropboxBrowser (file management)
+   - DropboxBackupSync (backup syncing)
+   
+2. **Project Settings (`/dashboard/project-settings`)** - Contains:
+   - DropboxFolderPicker (link a folder to a project)
+   
+3. **Report Previews & Lists** - Contains:
+   - SaveToDropboxButton (save generated PDFs/reports)
 
-Implement **per-user Dropbox authentication** where:
-- Each user connects their own Dropbox account
-- Users only see files and folders their Dropbox account has access to
-- Native Dropbox sharing/permission settings are fully respected
-- Credentials are securely isolated per user with proper Row Level Security
+### The Problem
+The main connection UI is admin-only at `/admin/backup`, but since we've implemented **per-user authentication**, every user needs their own connection. Regular users currently have no way to connect their Dropbox account.
 
 ---
 
-## Architecture Overview
+## Proposed User Journey
+
+### Phase 1: User Connects Their Dropbox Account
+
+**New Location: User Settings Page (`/settings`)**
+
+Add a new "Cloud Storage" tab to the existing Settings page where any authenticated user can:
+- Connect/disconnect their personal Dropbox account
+- View their connection status and account info
+- Browse their files (limited view)
+- See their activity logs
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                         Current Flow                            │
-│  ┌──────────┐    ┌───────────────────┐    ┌────────────────┐   │
-│  │ Any User │───▶│ storage_providers │───▶│ Shared Dropbox │   │
-│  └──────────┘    │   (single row)    │    │    Account     │   │
-│                  └───────────────────┘    └────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                        New Flow                                 │
-│  ┌──────────┐    ┌─────────────────────────┐                   │
-│  │  User A  │───▶│ user_storage_connections│───▶ User A's      │
-│  └──────────┘    │     (user_id = A)       │    Dropbox        │
-│                  └─────────────────────────┘                   │
-│  ┌──────────┐    ┌─────────────────────────┐                   │
-│  │  User B  │───▶│ user_storage_connections│───▶ User B's      │
-│  └──────────┘    │     (user_id = B)       │    Dropbox        │
-│                  └─────────────────────────┘                   │
-└─────────────────────────────────────────────────────────────────┘
+Settings
+├── Profile
+├── Notifications  
+├── App Settings
+├── Company
+├── PDF Quality
+├── PDF Templates
+├── Invoice Settings
+├── Guides & Tours
+├── Cloud Storage    ← NEW TAB
+│   ├── Connection status
+│   ├── Connect/Disconnect button
+│   ├── Account info (name, email, storage quota)
+│   ├── Quick file browser preview
+│   └── Recent activity summary
+└── Developer Tools
 ```
+
+### Phase 2: User Works with Dropbox in Projects
+
+**Enhanced Project Settings - Dropbox Section**
+
+When a user views project settings, they can link a Dropbox folder:
+- If not connected: Show prompt to connect first (link to Settings > Cloud Storage)
+- If connected: Show DropboxFolderPicker to select project folder
+
+**Document/Report Pages - Load from Dropbox**
+
+Add "Import from Dropbox" buttons to key upload dialogs:
+- Drawing upload dialogs
+- Document upload dialogs  
+- BOQ import wizards
+- Budget upload components
+
+**Report Generation - Save to Dropbox**
+
+The existing SaveToDropboxButton already works well for saving reports.
+- Defaults to project's linked folder if set
+- Allows custom folder selection
+
+### Phase 3: Standalone Dropbox File Manager (Optional)
+
+Add a dedicated file management page accessible from the sidebar for power users who need full file browsing capabilities.
 
 ---
 
 ## Implementation Steps
 
-### 1. Database: Create Per-User Storage Connections Table
+### Step 1: Create Cloud Storage Settings Component
 
-Create a new `user_storage_connections` table to store individual user credentials:
+Create a new `CloudStorageSettings.tsx` component that includes:
+- DropboxConnector (reused)
+- Connection health indicator
+- Compact file browser preview
+- Recent activity summary
+- Link to full file manager (if admin)
 
-**Fields:**
-- `id` (UUID, primary key)
-- `user_id` (UUID, references auth.users, NOT NULL)
-- `provider` (TEXT, e.g., 'dropbox')
-- `credentials` (JSONB, encrypted tokens)
-- `account_info` (JSONB, display name, email, storage quota)
-- `connected_at` (TIMESTAMPTZ)
-- `last_used_at` (TIMESTAMPTZ)
-- `status` (TEXT, e.g., 'connected', 'expired', 'revoked')
+### Step 2: Add Cloud Storage Tab to Settings Page
 
-**Row Level Security:**
-- Users can only SELECT/UPDATE/DELETE their own connections
-- INSERT requires authenticated user with user_id matching auth.uid()
+Update `src/pages/Settings.tsx` to include the new Cloud Storage tab available to all authenticated users.
 
-### 2. Backend: Update OAuth Callback Function
+### Step 3: Create "Import from Dropbox" Dialog Component
 
-Modify `dropbox-oauth-callback` to:
-- Accept the user's session/JWT in the OAuth state parameter
-- Store tokens in `user_storage_connections` linked to the specific user_id
-- Handle the case where a user reconnects (update existing row vs. insert)
+Create a reusable `ImportFromDropboxDialog.tsx` component that:
+- Opens a modal with DropboxBrowser in selection mode
+- Allows single or multiple file selection
+- Downloads selected files and returns them to the parent component
+- Can be integrated into any upload workflow
 
-### 3. Backend: Update Dropbox Auth Function
+### Step 4: Enhance DropboxFolderPicker with Connection Check
 
-Modify `dropbox-auth` to:
-- **Initiate**: Encode the user's ID in the OAuth state for callback identification
-- **Status**: Check the current user's connection in `user_storage_connections`
-- **Disconnect**: Revoke tokens and remove only the current user's connection
-- **Refresh**: Refresh tokens for the current user's session only
+Update the folder picker to:
+- Show a clear message if user isn't connected
+- Provide a quick-connect button or link to Settings
 
-### 4. Backend: Update Dropbox API Proxy
+### Step 5: Add Connection Status to Navigation Header
 
-Modify `dropbox-api` to:
-- Extract the user's session from the Authorization header
-- Fetch credentials from `user_storage_connections` for that specific user
-- All file operations (list, upload, download, delete) use that user's tokens
-- Token refresh logic updates only the current user's stored credentials
+Add a small Dropbox connection indicator in the dashboard header:
+- Shows connected/disconnected status
+- Quick link to connect or manage
 
-### 5. Frontend: Update useDropbox Hook
+### Step 6: Update Backup Page Context (Admin)
 
-Modify `src/hooks/useDropbox.ts` to:
-- Pass the user's JWT in all API calls for authentication
-- Show connection status specific to the logged-in user
-- Handle cases where the user hasn't connected yet
-
-### 6. Frontend: Update UI Components
-
-Update components to reflect per-user status:
-- `DropboxConnector.tsx`: Shows the current user's connection status
-- `DropboxBrowser.tsx`: Displays only files the user's Dropbox account can access
-- `SaveToDropboxButton.tsx`: Uploads to the user's own Dropbox
-- `DropboxFolderPicker.tsx`: Navigates the user's accessible folders
-
-### 7. Migration: Handle Existing Global Connection
-
-- The existing `storage_providers` table remains for admin/system-level configuration
-- Optionally migrate the current global connection to a specific admin user
-- Clear guidance to users that they need to connect their individual accounts
+Rename/reframe the admin backup page:
+- Focus on system-wide backup management
+- Admin visibility of user connection statuses
+- Remove user-specific connection UI (now in Settings)
 
 ---
 
-## Technical Details
+## New Components to Create
 
-### New Database Migration
-
-```sql
--- Per-user storage connections
-CREATE TABLE user_storage_connections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  provider TEXT NOT NULL,
-  credentials JSONB,
-  account_info JSONB,
-  connected_at TIMESTAMPTZ DEFAULT NOW(),
-  last_used_at TIMESTAMPTZ,
-  status TEXT DEFAULT 'connected',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  UNIQUE(user_id, provider)
-);
-
--- Enable RLS
-ALTER TABLE user_storage_connections ENABLE ROW LEVEL SECURITY;
-
--- Users can only access their own connections
-CREATE POLICY "Users can manage own connections"
-  ON user_storage_connections FOR ALL
-  TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-```
-
-### OAuth State Parameter Enhancement
-
-The OAuth state will encode user identification:
-```javascript
-const state = JSON.stringify({
-  nonce: crypto.randomUUID(),
-  userId: user.id,
-  returnUrl: '/backup'
-});
-// Base64 encode for URL safety
-const encodedState = btoa(state);
-```
-
-### Edge Function Authentication Pattern
-
-All Dropbox edge functions will:
-1. Extract JWT from Authorization header
-2. Verify the session with Supabase
-3. Query `user_storage_connections` filtered by the authenticated user_id
-4. Return 401 if no connection exists for that user
-
----
-
-## Security Considerations
-
-1. **Token Isolation**: Each user's refresh/access tokens are stored separately
-2. **RLS Protection**: Users cannot query or modify other users' tokens
-3. **Session Verification**: Edge functions validate JWT before accessing tokens
-4. **Dropbox Permissions**: Native folder sharing settings in Dropbox are fully respected
-
----
+| Component | Purpose |
+|-----------|---------|
+| `CloudStorageSettings.tsx` | Settings tab content for Dropbox connection |
+| `ImportFromDropboxDialog.tsx` | Reusable file picker dialog for imports |
+| `DropboxConnectionBanner.tsx` | Prompt shown when Dropbox is needed but not connected |
+| `DropboxStatusIndicator.tsx` | Small status badge for headers/menus |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| New migration | Create `user_storage_connections` table with RLS |
-| `supabase/functions/dropbox-auth/index.ts` | User-specific OAuth initiation, status, disconnect |
-| `supabase/functions/dropbox-oauth-callback/index.ts` | Store tokens per user_id from state |
-| `supabase/functions/dropbox-api/index.ts` | Fetch user-specific tokens, authenticate requests |
-| `src/hooks/useDropbox.ts` | Pass JWT, user-specific connection state |
-| `src/components/storage/DropboxConnector.tsx` | Show user's own connection status |
-| `src/components/storage/DropboxBrowser.tsx` | No structural changes (uses hook) |
-| `src/components/storage/SaveToDropboxButton.tsx` | No structural changes (uses hook) |
-| `src/components/storage/DropboxFolderPicker.tsx` | No structural changes (uses hook) |
+| `src/pages/Settings.tsx` | Add "Cloud Storage" tab |
+| `src/components/storage/DropboxFolderPicker.tsx` | Add connection check with link to settings |
+| `src/components/storage/DropboxConnector.tsx` | Ensure it works standalone (not admin-dependent) |
+| `src/pages/BackupManagement.tsx` | Refocus on admin backup tasks, remove user connection UI |
+| Various upload dialogs | Integrate ImportFromDropboxDialog where appropriate |
+
+---
+
+## User Journey Walkthrough
+
+### Scenario 1: New User Connects Dropbox
+
+1. User logs into the application
+2. User navigates to **Settings > Cloud Storage**
+3. User clicks "Connect to Dropbox"
+4. User is redirected to Dropbox OAuth (signs in with their office credentials)
+5. After authorization, redirected back with success message
+6. Settings page shows their connected account info
+
+### Scenario 2: User Saves Report to Dropbox
+
+1. User generates a Cost Report
+2. User clicks "Save to Dropbox" button
+3. Dialog opens showing their accessible folders
+4. User selects destination folder (or uses project default)
+5. Report is saved to their Dropbox account
+
+### Scenario 3: User Imports File from Dropbox
+
+1. User is uploading a drawing revision
+2. User clicks "Import from Dropbox" (instead of local file picker)
+3. Modal opens with their Dropbox file browser
+4. User navigates to and selects the PDF file
+5. File is downloaded and attached to the drawing
+
+### Scenario 4: User Links Project to Dropbox Folder
+
+1. User goes to Project Settings
+2. In "Dropbox Folder" section:
+   - If not connected: sees prompt with link to Settings > Cloud Storage
+   - If connected: sees folder browser, selects `/Projects/ProjectName`
+3. Future exports default to this project folder
+
+---
+
+## Technical Details
+
+### CloudStorageSettings Component Structure
+
+```text
+CloudStorageSettings
+├── DropboxConnector (connection UI)
+├── QuickBrowserPreview (if connected)
+│   └── Shows 5 most recent files
+├── ActivitySummary (if connected)
+│   └── Shows last 5 actions
+└── HelpText (connection benefits)
+```
+
+### ImportFromDropboxDialog Props
+
+```typescript
+interface ImportFromDropboxDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onFileSelect: (file: DropboxFile, content: ArrayBuffer) => void;
+  allowedExtensions?: string[];  // e.g., ['.pdf', '.xlsx']
+  title?: string;
+  description?: string;
+}
+```
+
+### Connection Banner Behavior
+
+The `DropboxConnectionBanner` appears:
+- In DropboxFolderPicker when not connected
+- In SaveToDropboxButton dialog when not connected  
+- At top of upload dialogs when Dropbox import is available but not connected
+
+---
+
+## Security Considerations
+
+- All Dropbox operations use the user's own OAuth tokens
+- RLS ensures users can only access their own connection records
+- Activity logging tracks all file operations per user
+- No cross-user data access is possible
 
 ---
 
 ## Additional Improvement Prompts
 
 After this implementation, consider these enhancements:
-- **Add connection expiry notifications**: Alert users when their Dropbox token is about to expire
-- **Implement admin visibility**: Allow admins to see which users have connected Dropbox (without seeing their tokens)
-- **Add Dropbox activity logging**: Track file operations per user for audit purposes
-- **Enable team folder support**: Special handling for Dropbox Business team folders
+- **Add bulk import from Dropbox**: Allow selecting multiple files at once for batch document imports
+- **Add Dropbox sync status indicators**: Show when project files are synced to Dropbox with last sync timestamps
+- **Add offline file caching**: Cache frequently accessed Dropbox files for offline viewing
+- **Add Dropbox search integration**: Search files across Dropbox directly from the app without browsing folders
