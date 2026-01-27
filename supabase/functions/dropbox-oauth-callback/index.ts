@@ -29,6 +29,27 @@ serve(async (req) => {
       return Response.redirect(`${APP_URL}/backup?error=no_code`);
     }
 
+    // Decode state to get user ID
+    let userId: string | null = null;
+    let returnUrl = '/backup';
+    
+    if (state) {
+      try {
+        const stateData = JSON.parse(atob(state));
+        userId = stateData.userId;
+        returnUrl = stateData.returnUrl || '/backup';
+        console.log('Decoded state - userId:', userId);
+      } catch (e) {
+        console.error('Failed to decode state:', e);
+        return Response.redirect(`${APP_URL}/backup?error=invalid_state`);
+      }
+    }
+
+    if (!userId) {
+      console.error('No user ID in state');
+      return Response.redirect(`${APP_URL}/backup?error=no_user_id`);
+    }
+
     // Exchange code for tokens
     const redirectUri = `${SUPABASE_URL}/functions/v1/dropbox-oauth-callback`;
     
@@ -48,7 +69,7 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('Token exchange failed:', errorText);
-      return Response.redirect(`${APP_URL}/backup?error=token_exchange_failed`);
+      return Response.redirect(`${APP_URL}${returnUrl}?error=token_exchange_failed`);
     }
 
     const tokens = await tokenResponse.json();
@@ -86,7 +107,7 @@ serve(async (req) => {
       console.warn('Failed to get space usage:', e);
     }
 
-    // Store in database
+    // Store in database - per-user storage
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const credentials = {
@@ -98,55 +119,59 @@ serve(async (req) => {
       uid: tokens.uid
     };
 
-    const config = {
+    const accountInfoData = {
       account_email: accountInfo?.email,
       account_name: accountInfo?.name?.display_name,
-      root_folder: '/EngiOps',
       space_used: spaceUsage?.used,
       space_allocated: spaceUsage?.allocation?.allocated
     };
 
-    // Check if provider exists
+    // Check if user already has a connection
     const { data: existing } = await supabase
-      .from('storage_providers')
+      .from('user_storage_connections')
       .select('id')
-      .eq('provider_name', 'dropbox')
+      .eq('user_id', userId)
+      .eq('provider', 'dropbox')
       .single();
 
     if (existing) {
-      // Update existing
+      // Update existing connection
       const { error: updateError } = await supabase
-        .from('storage_providers')
+        .from('user_storage_connections')
         .update({
-          enabled: true,
           credentials: credentials,
-          config: config,
-          test_status: 'connected',
-          last_tested: new Date().toISOString()
+          account_info: accountInfoData,
+          status: 'connected',
+          connected_at: new Date().toISOString(),
+          last_used_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', existing.id);
 
       if (updateError) {
-        console.error('Failed to update storage provider:', updateError);
-        return Response.redirect(`${APP_URL}/backup?error=database_error`);
+        console.error('Failed to update storage connection:', updateError);
+        return Response.redirect(`${APP_URL}${returnUrl}?error=database_error`);
       }
+      console.log('Updated existing Dropbox connection for user:', userId);
     } else {
-      // Insert new
+      // Insert new connection
       const { error: insertError } = await supabase
-        .from('storage_providers')
+        .from('user_storage_connections')
         .insert({
-          provider_name: 'dropbox',
-          enabled: true,
+          user_id: userId,
+          provider: 'dropbox',
           credentials: credentials,
-          config: config,
-          test_status: 'connected',
-          last_tested: new Date().toISOString()
+          account_info: accountInfoData,
+          status: 'connected',
+          connected_at: new Date().toISOString(),
+          last_used_at: new Date().toISOString()
         });
 
       if (insertError) {
-        console.error('Failed to insert storage provider:', insertError);
-        return Response.redirect(`${APP_URL}/backup?error=database_error`);
+        console.error('Failed to insert storage connection:', insertError);
+        return Response.redirect(`${APP_URL}${returnUrl}?error=database_error`);
       }
+      console.log('Created new Dropbox connection for user:', userId);
     }
 
     // Create root folder in Dropbox if it doesn't exist
@@ -165,8 +190,8 @@ serve(async (req) => {
       console.log('EngiOps folder may already exist');
     }
 
-    console.log('Dropbox connection established successfully');
-    return Response.redirect(`${APP_URL}/backup?success=dropbox_connected`);
+    console.log('Dropbox connection established successfully for user:', userId);
+    return Response.redirect(`${APP_URL}${returnUrl}?success=dropbox_connected`);
 
   } catch (error: unknown) {
     console.error('OAuth callback error:', error);

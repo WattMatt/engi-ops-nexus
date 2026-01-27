@@ -17,24 +17,26 @@ interface DropboxCredentials {
   expires_at: string | null;
 }
 
-async function getValidAccessToken(supabase: any): Promise<string | null> {
-  const { data: provider, error } = await supabase
-    .from('storage_providers')
+async function getValidAccessToken(supabase: any, userId: string): Promise<{ token: string | null; connectionId: string | null }> {
+  // Get user's specific connection
+  const { data: connection, error } = await supabase
+    .from('user_storage_connections')
     .select('id, credentials')
-    .eq('provider_name', 'dropbox')
-    .eq('enabled', true)
+    .eq('user_id', userId)
+    .eq('provider', 'dropbox')
+    .eq('status', 'connected')
     .single();
 
-  if (error || !provider) {
-    console.error('No active Dropbox connection found');
-    return null;
+  if (error || !connection) {
+    console.error('No active Dropbox connection found for user:', userId);
+    return { token: null, connectionId: null };
   }
 
-  const credentials = provider.credentials as DropboxCredentials;
+  const credentials = connection.credentials as DropboxCredentials;
   
   if (!credentials?.access_token) {
-    console.error('No access token in credentials');
-    return null;
+    console.error('No access token in credentials for user:', userId);
+    return { token: null, connectionId: null };
   }
 
   // Check if token is expired or about to expire (within 5 minutes)
@@ -44,7 +46,7 @@ async function getValidAccessToken(supabase: any): Promise<string | null> {
     const fiveMinutes = 5 * 60 * 1000;
 
     if (expiresAt.getTime() - now.getTime() < fiveMinutes) {
-      console.log('Token expired or expiring soon, refreshing...');
+      console.log('Token expired or expiring soon for user:', userId, '- refreshing...');
       
       // Refresh the token
       const tokenResponse = await fetch('https://api.dropboxapi.com/oauth2/token', {
@@ -60,8 +62,15 @@ async function getValidAccessToken(supabase: any): Promise<string | null> {
       });
 
       if (!tokenResponse.ok) {
-        console.error('Failed to refresh token');
-        return null;
+        console.error('Failed to refresh token for user:', userId);
+        
+        // Mark connection as expired
+        await supabase
+          .from('user_storage_connections')
+          .update({ status: 'expired', updated_at: new Date().toISOString() })
+          .eq('id', connection.id);
+        
+        return { token: null, connectionId: connection.id };
       }
 
       const newTokens = await tokenResponse.json();
@@ -74,15 +83,25 @@ async function getValidAccessToken(supabase: any): Promise<string | null> {
       };
 
       await supabase
-        .from('storage_providers')
-        .update({ credentials: newCredentials, last_tested: new Date().toISOString() })
-        .eq('id', provider.id);
+        .from('user_storage_connections')
+        .update({ 
+          credentials: newCredentials, 
+          last_used_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', connection.id);
 
-      return newTokens.access_token;
+      return { token: newTokens.access_token, connectionId: connection.id };
     }
   }
 
-  return credentials.access_token;
+  // Update last_used_at
+  await supabase
+    .from('user_storage_connections')
+    .update({ last_used_at: new Date().toISOString() })
+    .eq('id', connection.id);
+
+  return { token: credentials.access_token, connectionId: connection.id };
 }
 
 serve(async (req) => {
@@ -97,11 +116,31 @@ serve(async (req) => {
     console.log(`Dropbox API action: ${action}`);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const accessToken = await getValidAccessToken(supabase);
+
+    // Get user from JWT
+    const authHeader = req.headers.get('Authorization');
+    let userId: string | null = null;
+
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (!authError && user) {
+        userId = user.id;
+      }
+    }
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { token: accessToken, connectionId } = await getValidAccessToken(supabase, userId);
 
     if (!accessToken) {
       return new Response(
-        JSON.stringify({ error: 'Not connected to Dropbox' }),
+        JSON.stringify({ error: 'Not connected to Dropbox. Please connect your Dropbox account first.' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -223,7 +262,7 @@ serve(async (req) => {
       }
 
       const data = await response.json();
-      console.log('File uploaded:', data.path_display);
+      console.log('File uploaded for user:', userId, 'path:', data.path_display);
 
       return new Response(
         JSON.stringify({ success: true, metadata: data }),
@@ -281,6 +320,8 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      console.log('Item deleted for user:', userId, 'path:', path);
 
       return new Response(
         JSON.stringify({ success: true }),

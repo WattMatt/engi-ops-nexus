@@ -11,6 +11,9 @@ const DROPBOX_APP_SECRET = Deno.env.get('DROPBOX_APP_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// Get the app URL - fallback to common patterns
+const APP_URL = Deno.env.get('APP_URL') || 'https://engi-ops-nexus.lovable.app';
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -33,10 +36,37 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Get user from JWT for authenticated actions
+    const authHeader = req.headers.get('Authorization');
+    let userId: string | null = null;
+
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (!authError && user) {
+        userId = user.id;
+      }
+    }
+
     if (action === 'initiate') {
-      // Generate OAuth authorization URL
+      // Require authentication for initiating OAuth
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Generate OAuth authorization URL with user ID encoded in state
       const redirectUri = `${SUPABASE_URL}/functions/v1/dropbox-oauth-callback`;
-      const state = crypto.randomUUID();
+      
+      // Encode user ID and nonce in state for security
+      const stateData = {
+        userId: userId,
+        nonce: crypto.randomUUID(),
+        returnUrl: '/backup'
+      };
+      const state = btoa(JSON.stringify(stateData));
       
       const authUrl = new URL('https://www.dropbox.com/oauth2/authorize');
       authUrl.searchParams.set('client_id', DROPBOX_APP_KEY);
@@ -45,7 +75,7 @@ serve(async (req) => {
       authUrl.searchParams.set('state', state);
       authUrl.searchParams.set('token_access_type', 'offline'); // Get refresh token
 
-      console.log('Generated Dropbox auth URL');
+      console.log('Generated Dropbox auth URL for user:', userId);
 
       return new Response(
         JSON.stringify({ authUrl: authUrl.toString(), state }),
@@ -54,12 +84,35 @@ serve(async (req) => {
     }
 
     if (action === 'refresh') {
-      // Refresh access token using refresh token
-      const { refreshToken } = await req.json();
-      
-      if (!refreshToken) {
+      // Refresh access token using refresh token for specific user
+      if (!userId) {
         return new Response(
-          JSON.stringify({ error: 'Refresh token required' }),
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get user's stored credentials
+      const { data: connection, error: fetchError } = await supabase
+        .from('user_storage_connections')
+        .select('id, credentials')
+        .eq('user_id', userId)
+        .eq('provider', 'dropbox')
+        .eq('status', 'connected')
+        .single();
+
+      if (fetchError || !connection) {
+        return new Response(
+          JSON.stringify({ error: 'No Dropbox connection found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const credentials = connection.credentials as { refresh_token?: string };
+      
+      if (!credentials?.refresh_token) {
+        return new Response(
+          JSON.stringify({ error: 'No refresh token available' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -72,13 +125,20 @@ serve(async (req) => {
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
-          refresh_token: refreshToken
+          refresh_token: credentials.refresh_token
         })
       });
 
       if (!tokenResponse.ok) {
         const error = await tokenResponse.text();
         console.error('Token refresh failed:', error);
+        
+        // Mark connection as expired
+        await supabase
+          .from('user_storage_connections')
+          .update({ status: 'expired', updated_at: new Date().toISOString() })
+          .eq('id', connection.id);
+        
         return new Response(
           JSON.stringify({ error: 'Failed to refresh token' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -86,7 +146,23 @@ serve(async (req) => {
       }
 
       const tokens = await tokenResponse.json();
-      console.log('Token refreshed successfully');
+      console.log('Token refreshed successfully for user:', userId);
+
+      // Update stored credentials
+      const updatedCredentials = {
+        ...credentials,
+        access_token: tokens.access_token,
+        expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null
+      };
+
+      await supabase
+        .from('user_storage_connections')
+        .update({ 
+          credentials: updatedCredentials, 
+          last_used_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', connection.id);
 
       return new Response(
         JSON.stringify({
@@ -98,32 +174,31 @@ serve(async (req) => {
     }
 
     if (action === 'disconnect') {
-      // Revoke Dropbox token and clean up
-      const authHeader = req.headers.get('Authorization');
-      if (!authHeader) {
+      // Require authentication
+      if (!userId) {
         return new Response(
-          JSON.stringify({ error: 'Authorization required' }),
+          JSON.stringify({ error: 'Authentication required' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Get stored credentials
-      const { data: provider, error: fetchError } = await supabase
-        .from('storage_providers')
-        .select('credentials')
-        .eq('provider_name', 'dropbox')
-        .eq('enabled', true)
+      // Get user's stored credentials
+      const { data: connection, error: fetchError } = await supabase
+        .from('user_storage_connections')
+        .select('id, credentials')
+        .eq('user_id', userId)
+        .eq('provider', 'dropbox')
         .single();
 
-      if (fetchError || !provider) {
-        console.log('No active Dropbox connection found');
+      if (fetchError || !connection) {
+        console.log('No active Dropbox connection found for user:', userId);
         return new Response(
           JSON.stringify({ success: true, message: 'No connection to disconnect' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const credentials = provider.credentials as { access_token?: string };
+      const credentials = connection.credentials as { access_token?: string };
       
       if (credentials?.access_token) {
         // Revoke the token at Dropbox
@@ -134,25 +209,20 @@ serve(async (req) => {
               'Authorization': `Bearer ${credentials.access_token}`
             }
           });
-          console.log('Dropbox token revoked');
+          console.log('Dropbox token revoked for user:', userId);
         } catch (e) {
           console.warn('Failed to revoke Dropbox token:', e);
         }
       }
 
-      // Update database to mark as disconnected
-      const { error: updateError } = await supabase
-        .from('storage_providers')
-        .update({
-          enabled: false,
-          credentials: null,
-          test_status: 'disconnected',
-          last_tested: new Date().toISOString()
-        })
-        .eq('provider_name', 'dropbox');
+      // Delete the user's connection record
+      const { error: deleteError } = await supabase
+        .from('user_storage_connections')
+        .delete()
+        .eq('id', connection.id);
 
-      if (updateError) {
-        console.error('Failed to update storage provider:', updateError);
+      if (deleteError) {
+        console.error('Failed to delete storage connection:', deleteError);
       }
 
       return new Response(
@@ -162,18 +232,47 @@ serve(async (req) => {
     }
 
     if (action === 'status') {
-      // Check current connection status
-      const { data: provider } = await supabase
-        .from('storage_providers')
+      // Check current user's connection status
+      if (!userId) {
+        return new Response(
+          JSON.stringify({
+            connected: false,
+            status: 'not_authenticated',
+            config: null
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: connection } = await supabase
+        .from('user_storage_connections')
         .select('*')
-        .eq('provider_name', 'dropbox')
+        .eq('user_id', userId)
+        .eq('provider', 'dropbox')
         .single();
+
+      if (!connection) {
+        return new Response(
+          JSON.stringify({
+            connected: false,
+            status: 'not_connected',
+            config: null
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const accountInfo = connection.account_info as { account_email?: string; account_name?: string } | null;
 
       return new Response(
         JSON.stringify({
-          connected: provider?.enabled || false,
-          status: provider?.test_status || 'not_connected',
-          config: provider?.config || null
+          connected: connection.status === 'connected',
+          status: connection.status || 'not_connected',
+          config: {
+            account_email: accountInfo?.account_email,
+            account_name: accountInfo?.account_name,
+            root_folder: '/EngiOps'
+          }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
