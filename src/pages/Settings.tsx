@@ -50,7 +50,8 @@ const Settings = () => {
   }, []);
 
   return (
-    <div className="container max-w-4xl py-8 space-y-6">
+    <div className="min-h-screen overflow-auto pb-12">
+      <div className="container max-w-4xl py-8 space-y-6">
       <div className="flex items-center gap-4">
         <Button 
           variant="ghost" 
@@ -149,6 +150,7 @@ const Settings = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 };
