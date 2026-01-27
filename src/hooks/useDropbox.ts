@@ -281,7 +281,7 @@ export function useDropbox() {
   };
 
   // List folder contents
-  const listFolder = async (path: string = '', options?: { silent?: boolean }): Promise<DropboxFile[]> => {
+  const listFolder = useCallback(async (path: string = '', options?: { silent?: boolean }): Promise<DropboxFile[]> => {
     const correlationId = generateCorrelationId();
     const silent = options?.silent ?? false;
     
@@ -327,10 +327,10 @@ export function useDropbox() {
       }
       return [];
     }
-  };
+  }, [toast]);
 
   // Create folder
-  const createFolder = async (path: string): Promise<boolean> => {
+  const createFolder = useCallback(async (path: string): Promise<boolean> => {
     try {
       const authHeaders = await getAuthHeader();
       
@@ -363,10 +363,10 @@ export function useDropbox() {
       });
       return false;
     }
-  };
+  }, [toast]);
 
   // Upload file
-  const uploadFile = async (path: string, content: string | ArrayBuffer, contentType?: string): Promise<boolean> => {
+  const uploadFile = useCallback(async (path: string, content: string | ArrayBuffer, contentType?: string): Promise<boolean> => {
     try {
       let base64Content: string;
       
@@ -412,10 +412,10 @@ export function useDropbox() {
       });
       return false;
     }
-  };
+  }, [toast]);
 
   // Get download link
-  const getDownloadLink = async (path: string): Promise<string | null> => {
+  const getDownloadLink = useCallback(async (path: string): Promise<string | null> => {
     try {
       const authHeaders = await getAuthHeader();
       
@@ -445,10 +445,10 @@ export function useDropbox() {
       });
       return null;
     }
-  };
+  }, [toast]);
 
   // Download file content as ArrayBuffer
-  const downloadFile = async (path: string): Promise<ArrayBuffer | null> => {
+  const downloadFile = useCallback(async (path: string): Promise<ArrayBuffer | null> => {
     try {
       const link = await getDownloadLink(path);
       if (!link) return null;
@@ -467,10 +467,10 @@ export function useDropbox() {
       });
       return null;
     }
-  };
+  }, [getDownloadLink, toast]);
 
   // Delete file or folder
-  const deleteItem = async (path: string): Promise<boolean> => {
+  const deleteItem = useCallback(async (path: string): Promise<boolean> => {
     try {
       const authHeaders = await getAuthHeader();
       
@@ -503,7 +503,7 @@ export function useDropbox() {
       });
       return false;
     }
-  };
+  }, [toast]);
 
   // Clear connection error
   const clearError = useCallback(() => {
