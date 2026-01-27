@@ -19,7 +19,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Map, ChevronDown, ChevronRight, FileDown } from "lucide-react";
+import { Plus, Map, ChevronDown, ChevronRight, FileDown, Minimize2, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import { RoadmapItem } from "./RoadmapItem";
 import { AddRoadmapItemDialog } from "./AddRoadmapItemDialog";
@@ -93,6 +93,7 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
   const [editingItem, setEditingItem] = useState<RoadmapItemData | null>(null);
   const [parentId, setParentId] = useState<string | null>(null);
   const [isNewRecord, setIsNewRecord] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   
   // Streak tracking
   const { streak, updateStreak } = useCompletionStreak(projectId);
@@ -378,13 +379,28 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
             <span className="text-sm text-muted-foreground">
               {completedCount}/{items.length} completed ({progress}%)
             </span>
-            <Button size="sm" onClick={() => handleAddItem(null)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add Item
+            {!isMinimized && (
+              <Button size="sm" onClick={() => handleAddItem(null)}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Item
+              </Button>
+            )}
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => setIsMinimized(!isMinimized)}
+              className="h-8 w-8 p-0"
+            >
+              {isMinimized ? (
+                <Maximize2 className="h-4 w-4" />
+              ) : (
+                <Minimize2 className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        {!isMinimized && (
+        <CardContent className="space-y-4 animate-fade-in">
           {/* Progress bar */}
           <div className="w-full bg-muted rounded-full h-2">
             <div
@@ -482,6 +498,7 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
             </div>
           )}
         </CardContent>
+        )}
       </Card>
 
       <AddRoadmapItemDialog
