@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useDropbox, DropboxFile } from "@/hooks/useDropbox";
+import { DropboxConnectionBanner } from "@/components/storage/DropboxConnectionBanner";
 import { 
   Folder, 
   ChevronRight, 
@@ -14,7 +15,6 @@ import {
   Check,
   X,
   Cloud,
-  CloudOff,
   ArrowLeft
 } from "lucide-react";
 import {
@@ -123,13 +123,20 @@ export function DropboxFolderPicker({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <CloudOff className="h-4 w-4 text-muted-foreground" />
-            Dropbox Not Connected
+            <Cloud className="h-4 w-4 text-muted-foreground" />
+            Dropbox Folder
           </CardTitle>
           <CardDescription className="text-xs">
-            Connect Dropbox in Backup & Recovery settings to enable project file sync
+            Select a folder for project exports and files
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <DropboxConnectionBanner 
+            title="Connect Dropbox First"
+            description="Connect your Dropbox account in Settings to link a project folder."
+            compact
+          />
+        </CardContent>
       </Card>
     );
   }

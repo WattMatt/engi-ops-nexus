@@ -362,6 +362,28 @@ export function useDropbox() {
     }
   };
 
+  // Download file content as ArrayBuffer
+  const downloadFile = async (path: string): Promise<ArrayBuffer | null> => {
+    try {
+      const link = await getDownloadLink(path);
+      if (!link) return null;
+
+      const response = await fetch(link);
+      if (response.ok) {
+        return await response.arrayBuffer();
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to download file:', error);
+      toast({
+        title: 'Download Failed',
+        description: 'Could not download file from Dropbox',
+        variant: 'destructive'
+      });
+      return null;
+    }
+  };
+
   // Delete file or folder
   const deleteItem = async (path: string): Promise<boolean> => {
     try {
@@ -423,6 +445,7 @@ export function useDropbox() {
     createFolder,
     uploadFile,
     getDownloadLink,
+    downloadFile,
     deleteItem,
     refreshConnection: checkConnection
   };
