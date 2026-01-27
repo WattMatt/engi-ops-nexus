@@ -67,7 +67,8 @@ export function ImportFromDropboxDialog({
     
     setIsLoading(true);
     try {
-      const entries = await listFolder(path);
+      // Use silent mode to prevent toast errors during folder browsing
+      const entries = await listFolder(path, { silent: true });
       // Filter by allowed extensions if specified
       let filteredEntries = entries;
       if (allowedExtensions && allowedExtensions.length > 0) {

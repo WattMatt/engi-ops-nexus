@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus, ClipboardList, FileQuestion, ClipboardCheck, HardHat, Sparkles, FileInput, FilePlus2, Database, Wand2 } from "lucide-react";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus, ClipboardList, FileQuestion, ClipboardCheck, HardHat, Sparkles, FileInput, FilePlus2, Database, Wand2, Cloud } from "lucide-react";
+import { DropboxFileInput } from "@/components/storage/DropboxFileInput";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
@@ -893,13 +894,10 @@ export const BOQUploadTab = () => {
     }
   };
 
+  // Handle file selection from local or Dropbox
   const handleFileSelect = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (file) {
-        uploadMutation.mutate(file);
-      }
-      event.target.value = "";
+    (file: File) => {
+      uploadMutation.mutate(file);
     },
     [uploadMutation]
   );
@@ -1096,38 +1094,25 @@ export const BOQUploadTab = () => {
             </div>
           </div>
 
-          {/* File Upload Area */}
-          <div className="border-2 border-dashed rounded-lg p-8 text-center">
-            <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground mb-4">
-              Drag and drop your BOQ file here, or click to browse
-            </p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Supported formats: Excel (.xlsx, .xls), CSV, PDF
-            </p>
-            <Input
-              type="file"
+          {/* File Upload Area with Dropbox Integration */}
+          <div className="space-y-2">
+            <div className="text-center mb-4">
+              <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">
+                Upload your BOQ file or import from Dropbox
+              </p>
+            </div>
+            
+            <DropboxFileInput
+              onFileSelect={handleFileSelect}
+              allowedExtensions={['.xlsx', '.xls', '.csv', '.pdf']}
               accept=".xlsx,.xls,.csv,.pdf"
-              className="hidden"
-              id="boq-file-input"
-              onChange={handleFileSelect}
+              placeholder="Supported formats: Excel (.xlsx, .xls), CSV, PDF - up to 10MB"
               disabled={uploading}
+              isLoading={uploading}
+              dropboxTitle="Import BOQ Document"
+              dropboxDescription="Select a BOQ file from your Dropbox"
             />
-            <Button asChild disabled={uploading}>
-              <label htmlFor="boq-file-input" className="cursor-pointer">
-                {uploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Select File
-                  </>
-                )}
-              </label>
-            </Button>
           </div>
         </CardContent>
       </Card>

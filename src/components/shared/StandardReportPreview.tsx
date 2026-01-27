@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { SaveToDropboxButton } from "@/components/storage/SaveToDropboxButton";
+import { DropboxSaveButton } from "@/components/storage/DropboxSaveButton";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -169,11 +169,11 @@ export const StandardReportPreview = ({
               )}
             </Button>
             
-            <SaveToDropboxButton
+            <DropboxSaveButton
               fileContent={pdfBlob}
               filename={report?.report_name || 'report.pdf'}
               contentType="application/pdf"
-              defaultFolder={dropboxFolderPath || "/EngiOps/Reports"}
+              defaultFolder={dropboxFolderPath || ""}
               disabled={!pdfBlob}
             />
           </div>
