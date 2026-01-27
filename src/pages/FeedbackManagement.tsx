@@ -418,7 +418,7 @@ const FeedbackManagement = () => {
   }
 
   return (
-    <div className="space-y-6 h-full overflow-auto pb-8">
+    <div className="space-y-6 pb-8">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Feedback Management</h1>
         <p className="text-muted-foreground">

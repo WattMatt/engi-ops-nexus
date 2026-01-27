@@ -108,7 +108,7 @@ const TenantTracker = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Fixed Header */}
       <div className="border-b bg-background">
         <div className="flex justify-between items-center px-6 py-4">

@@ -11,8 +11,25 @@ interface PageLayoutProps {
 }
 
 /**
- * Standardized page layout wrapper for consistent spacing and structure
- * across all application pages.
+ * PageLayout - Standardized page content wrapper for consistent spacing and structure.
+ * 
+ * SCROLLING ARCHITECTURE:
+ * - This component is designed to work INSIDE layout components (AdminLayout, DashboardLayout)
+ * - The parent layout's <main> element handles scrolling (flex-1 overflow-auto)
+ * - Pages should NOT define their own scroll containers (no min-h-screen, overflow-y-auto)
+ * 
+ * USAGE:
+ * ```tsx
+ * // Inside a page that's rendered within AdminLayout or DashboardLayout
+ * <PageLayout title="My Page" description="Description here">
+ *   <Card>...</Card>
+ * </PageLayout>
+ * ```
+ * 
+ * DO NOT USE:
+ * - min-h-screen (conflicts with flex parent)
+ * - overflow-y-auto (creates nested scroll container)
+ * - h-screen (creates fixed height inside flex parent)
  */
 export function PageLayout({
   children,
@@ -23,7 +40,7 @@ export function PageLayout({
   containerClassName,
 }: PageLayoutProps) {
   return (
-    <div className={cn("flex-1 overflow-auto", className)}>
+    <div className={cn("flex-1", className)}>
       <div className={cn("mx-auto w-full max-w-[1600px] px-6 py-6 space-y-6", containerClassName)}>
         {(title || headerActions) && (
           <div className="flex items-start justify-between gap-4 pb-2">
@@ -69,13 +86,28 @@ interface FullPageLayoutProps {
 }
 
 /**
- * FullPageLayout - Centralized full-page layout with proper scrolling
+ * FullPageLayout - Centralized full-page layout with proper scrolling.
  * 
- * Features:
- * - Proper scrolling behavior (no overflow-hidden blocking)
- * - Optional sidebar support
- * - Optional header support
- * - Flexible content area with overflow-auto
+ * SCROLLING ARCHITECTURE:
+ * This component is the ROOT layout that owns the scroll container.
+ * - Uses h-screen to establish the viewport height
+ * - The <main> element has flex-1 overflow-auto (THE scroll container)
+ * - Child pages should NOT define their own scroll containers
+ * 
+ * SCROLL HIERARCHY:
+ * ```
+ * FullPageLayout (h-screen flex)
+ *   ├── Sidebar (fixed width)
+ *   └── Content Column (flex-1 flex-col min-w-0)
+ *       ├── Header (shrink-0)
+ *       └── main (flex-1 overflow-auto) <-- ONLY SCROLL HERE
+ *           └── Page content (no overflow classes!)
+ * ```
+ * 
+ * PAGES SHOULD NEVER USE:
+ * - min-h-screen (conflicts with flex parent)
+ * - overflow-y-auto (creates nested scroll)
+ * - h-screen (creates another viewport)
  */
 export function FullPageLayout({
   children,
