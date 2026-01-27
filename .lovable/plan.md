@@ -1,193 +1,199 @@
 
+# Per-User Dropbox Authentication Implementation Plan
 
-# Dropbox Integration Implementation Plan
+## Current Situation
 
-## Overview
-Integrate Dropbox as an external storage provider, enabling users to:
-- Connect their Dropbox account via OAuth
-- Browse files and folders from Dropbox
-- Upload project documents to Dropbox
-- Sync handover documents and backups to Dropbox
+The current Dropbox integration uses a **shared/global connection model**:
+- A single row in the `storage_providers` table stores one set of Dropbox credentials
+- All users share the same Dropbox account and see identical files
+- This bypasses your Dropbox folder permission structure where certain users shouldn't have access to specific folders
 
----
+## Goal
 
-## Phase 1: Dropbox App Setup & OAuth Configuration
-
-### 1.1 Create Dropbox App (User Action Required)
-You'll need to create a Dropbox App in the Dropbox Developer Console:
-1. Go to https://www.dropbox.com/developers/apps
-2. Create a new app with "Scoped access" and "Full Dropbox" access
-3. Note the **App Key** and **App Secret**
-4. Add redirect URI: `https://rsdisaisxdglmdmzmkyw.supabase.co/functions/v1/dropbox-oauth-callback`
-
-### 1.2 Store Secrets
-Required secrets to be added:
-- `DROPBOX_APP_KEY` - Your Dropbox app key
-- `DROPBOX_APP_SECRET` - Your Dropbox app secret
+Implement **per-user Dropbox authentication** where:
+- Each user connects their own Dropbox account
+- Users only see files and folders their Dropbox account has access to
+- Native Dropbox sharing/permission settings are fully respected
+- Credentials are securely isolated per user with proper Row Level Security
 
 ---
 
-## Phase 2: Backend Edge Functions
+## Architecture Overview
 
-### 2.1 `dropbox-auth` Edge Function
-Handles OAuth flow initiation and token management:
-- `GET /initiate` - Generates OAuth URL for user authorization
-- `POST /refresh` - Refreshes expired access tokens
-- `POST /disconnect` - Revokes tokens and cleans up
-
-### 2.2 `dropbox-oauth-callback` Edge Function  
-Handles the OAuth callback from Dropbox:
-- Exchanges authorization code for access/refresh tokens
-- Stores encrypted tokens in `storage_providers` table
-- Redirects user back to the application
-
-### 2.3 `dropbox-api` Edge Function
-Proxies Dropbox API calls with token management:
-- `POST /list-folder` - List files and folders
-- `POST /upload` - Upload files to Dropbox
-- `POST /download` - Download files from Dropbox
-- `POST /create-folder` - Create new folders
-- `GET /account-info` - Get connected account details
-
----
-
-## Phase 3: Database Updates
-
-### 3.1 Storage Provider Configuration
-Utilize existing `storage_providers` table structure:
 ```text
-+------------------+----------------------------------------+
-| Column           | Usage for Dropbox                      |
-+------------------+----------------------------------------+
-| provider_name    | 'dropbox'                              |
-| enabled          | true when connected                    |
-| credentials      | {access_token, refresh_token, expiry}  |
-| config           | {account_email, root_folder, sync_prefs}|
-| test_status      | 'connected' / 'expired' / 'error'      |
-+------------------+----------------------------------------+
+┌─────────────────────────────────────────────────────────────────┐
+│                         Current Flow                            │
+│  ┌──────────┐    ┌───────────────────┐    ┌────────────────┐   │
+│  │ Any User │───▶│ storage_providers │───▶│ Shared Dropbox │   │
+│  └──────────┘    │   (single row)    │    │    Account     │   │
+│                  └───────────────────┘    └────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        New Flow                                 │
+│  ┌──────────┐    ┌─────────────────────────┐                   │
+│  │  User A  │───▶│ user_storage_connections│───▶ User A's      │
+│  └──────────┘    │     (user_id = A)       │    Dropbox        │
+│                  └─────────────────────────┘                   │
+│  ┌──────────┐    ┌─────────────────────────┐                   │
+│  │  User B  │───▶│ user_storage_connections│───▶ User B's      │
+│  └──────────┘    │     (user_id = B)       │    Dropbox        │
+│                  └─────────────────────────┘                   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 User-Specific Connections
-Add `user_id` column to `storage_providers` to support per-user Dropbox connections (optional enhancement for multi-user scenarios).
-
 ---
 
-## Phase 4: Frontend Components
+## Implementation Steps
 
-### 4.1 Dropbox Connection UI (`src/components/storage/DropboxConnector.tsx`)
-- "Connect to Dropbox" button initiating OAuth
-- Connection status display
-- Disconnect option
-- Account info display (name, email, storage used)
+### 1. Database: Create Per-User Storage Connections Table
 
-### 4.2 Dropbox File Browser (`src/components/storage/DropboxBrowser.tsx`)
-- Folder navigation with breadcrumbs
-- File/folder listing with icons
-- Upload files to current folder
-- Download selected files
-- Create new folders
+Create a new `user_storage_connections` table to store individual user credentials:
 
-### 4.3 Storage Providers Tab Enhancement (`src/pages/BackupManagement.tsx`)
-Replace placeholder with:
-- Grid of available providers (Dropbox, Google Drive, OneDrive, S3)
-- Connection status for each
-- Configuration options
+**Fields:**
+- `id` (UUID, primary key)
+- `user_id` (UUID, references auth.users, NOT NULL)
+- `provider` (TEXT, e.g., 'dropbox')
+- `credentials` (JSONB, encrypted tokens)
+- `account_info` (JSONB, display name, email, storage quota)
+- `connected_at` (TIMESTAMPTZ)
+- `last_used_at` (TIMESTAMPTZ)
+- `status` (TEXT, e.g., 'connected', 'expired', 'revoked')
 
-### 4.4 Document Integration
-Add "Save to Dropbox" option to:
-- Handover document exports
-- PDF report generation
-- Backup file destinations
+**Row Level Security:**
+- Users can only SELECT/UPDATE/DELETE their own connections
+- INSERT requires authenticated user with user_id matching auth.uid()
 
----
+### 2. Backend: Update OAuth Callback Function
 
-## Phase 5: Sync Features (Future Enhancement)
+Modify `dropbox-oauth-callback` to:
+- Accept the user's session/JWT in the OAuth state parameter
+- Store tokens in `user_storage_connections` linked to the specific user_id
+- Handle the case where a user reconnects (update existing row vs. insert)
 
-### 5.1 Two-Way Sync Configuration
-- Select Dropbox folder for project sync
-- Configure sync direction (upload-only, download-only, bidirectional)
-- Conflict resolution preferences
+### 3. Backend: Update Dropbox Auth Function
 
-### 5.2 Automatic Backup to Dropbox
-Extend existing backup system:
-- Add Dropbox as backup destination option
-- Schedule automatic syncs
-- Retention management in Dropbox
+Modify `dropbox-auth` to:
+- **Initiate**: Encode the user's ID in the OAuth state for callback identification
+- **Status**: Check the current user's connection in `user_storage_connections`
+- **Disconnect**: Revoke tokens and remove only the current user's connection
+- **Refresh**: Refresh tokens for the current user's session only
+
+### 4. Backend: Update Dropbox API Proxy
+
+Modify `dropbox-api` to:
+- Extract the user's session from the Authorization header
+- Fetch credentials from `user_storage_connections` for that specific user
+- All file operations (list, upload, download, delete) use that user's tokens
+- Token refresh logic updates only the current user's stored credentials
+
+### 5. Frontend: Update useDropbox Hook
+
+Modify `src/hooks/useDropbox.ts` to:
+- Pass the user's JWT in all API calls for authentication
+- Show connection status specific to the logged-in user
+- Handle cases where the user hasn't connected yet
+
+### 6. Frontend: Update UI Components
+
+Update components to reflect per-user status:
+- `DropboxConnector.tsx`: Shows the current user's connection status
+- `DropboxBrowser.tsx`: Displays only files the user's Dropbox account can access
+- `SaveToDropboxButton.tsx`: Uploads to the user's own Dropbox
+- `DropboxFolderPicker.tsx`: Navigates the user's accessible folders
+
+### 7. Migration: Handle Existing Global Connection
+
+- The existing `storage_providers` table remains for admin/system-level configuration
+- Optionally migrate the current global connection to a specific admin user
+- Clear guidance to users that they need to connect their individual accounts
 
 ---
 
 ## Technical Details
 
-### OAuth 2.0 Flow
-```text
-User                    App                     Dropbox
-  |                      |                         |
-  |-- Click Connect ---->|                         |
-  |                      |-- Generate Auth URL --->|
-  |<-- Redirect to Dropbox ----------------------->|
-  |                      |                         |
-  |-- Authorize App ---->|                         |
-  |<-- Redirect with code ------------------------>|
-  |                      |-- Exchange code ------->|
-  |                      |<-- Access + Refresh ----|
-  |                      |-- Store tokens -------->|
-  |<-- Connected! -------|                         |
+### New Database Migration
+
+```sql
+-- Per-user storage connections
+CREATE TABLE user_storage_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  credentials JSONB,
+  account_info JSONB,
+  connected_at TIMESTAMPTZ DEFAULT NOW(),
+  last_used_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'connected',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  UNIQUE(user_id, provider)
+);
+
+-- Enable RLS
+ALTER TABLE user_storage_connections ENABLE ROW LEVEL SECURITY;
+
+-- Users can only access their own connections
+CREATE POLICY "Users can manage own connections"
+  ON user_storage_connections FOR ALL
+  TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 ```
 
-### Token Storage Security
-- Access tokens: Short-lived (4 hours), stored encrypted
-- Refresh tokens: Long-lived, stored encrypted in database
-- Automatic refresh before expiry
-- Tokens stored server-side only (never exposed to frontend)
+### OAuth State Parameter Enhancement
 
-### Dropbox API Endpoints Used
-- `/oauth2/token` - Token exchange and refresh
-- `/2/files/list_folder` - List directory contents
-- `/2/files/upload` - Upload files (up to 150MB)
-- `/2/files/download` - Download files
-- `/2/files/create_folder_v2` - Create folders
-- `/2/users/get_current_account` - Get account info
+The OAuth state will encode user identification:
+```javascript
+const state = JSON.stringify({
+  nonce: crypto.randomUUID(),
+  userId: user.id,
+  returnUrl: '/backup'
+});
+// Base64 encode for URL safety
+const encodedState = btoa(state);
+```
+
+### Edge Function Authentication Pattern
+
+All Dropbox edge functions will:
+1. Extract JWT from Authorization header
+2. Verify the session with Supabase
+3. Query `user_storage_connections` filtered by the authenticated user_id
+4. Return 401 if no connection exists for that user
 
 ---
 
-## Files to Create/Modify
+## Security Considerations
 
-### New Files
-| File | Purpose |
-|------|---------|
-| `supabase/functions/dropbox-auth/index.ts` | OAuth flow management |
-| `supabase/functions/dropbox-oauth-callback/index.ts` | OAuth callback handler |
-| `supabase/functions/dropbox-api/index.ts` | Dropbox API proxy |
-| `src/components/storage/DropboxConnector.tsx` | Connection UI |
-| `src/components/storage/DropboxBrowser.tsx` | File browser |
-| `src/components/storage/StorageProviderCard.tsx` | Provider card component |
-| `src/hooks/useDropbox.ts` | Dropbox operations hook |
+1. **Token Isolation**: Each user's refresh/access tokens are stored separately
+2. **RLS Protection**: Users cannot query or modify other users' tokens
+3. **Session Verification**: Edge functions validate JWT before accessing tokens
+4. **Dropbox Permissions**: Native folder sharing settings in Dropbox are fully respected
 
-### Modified Files
+---
+
+## Files to Modify
+
 | File | Changes |
 |------|---------|
-| `src/pages/BackupManagement.tsx` | Replace placeholder with provider grid |
-| `supabase/config.toml` | Add new edge function entries |
+| New migration | Create `user_storage_connections` table with RLS |
+| `supabase/functions/dropbox-auth/index.ts` | User-specific OAuth initiation, status, disconnect |
+| `supabase/functions/dropbox-oauth-callback/index.ts` | Store tokens per user_id from state |
+| `supabase/functions/dropbox-api/index.ts` | Fetch user-specific tokens, authenticate requests |
+| `src/hooks/useDropbox.ts` | Pass JWT, user-specific connection state |
+| `src/components/storage/DropboxConnector.tsx` | Show user's own connection status |
+| `src/components/storage/DropboxBrowser.tsx` | No structural changes (uses hook) |
+| `src/components/storage/SaveToDropboxButton.tsx` | No structural changes (uses hook) |
+| `src/components/storage/DropboxFolderPicker.tsx` | No structural changes (uses hook) |
 
 ---
 
-## Implementation Order
+## Additional Improvement Prompts
 
-1. **Secrets Setup** - Add DROPBOX_APP_KEY and DROPBOX_APP_SECRET
-2. **Edge Functions** - Create OAuth and API proxy functions
-3. **Database** - Any schema updates needed
-4. **Frontend Connection** - DropboxConnector component
-5. **File Browser** - DropboxBrowser component  
-6. **Integration** - Add to BackupManagement page
-7. **Document Integration** - "Save to Dropbox" options
-
----
-
-## Estimated Effort
-- Phase 1-2 (Backend): 2-3 hours
-- Phase 3 (Database): 30 minutes
-- Phase 4 (Frontend): 2-3 hours
-- Phase 5 (Sync): Future enhancement
-
-**Total for core integration: 5-7 hours**
-
+After this implementation, consider these enhancements:
+- **Add connection expiry notifications**: Alert users when their Dropbox token is about to expire
+- **Implement admin visibility**: Allow admins to see which users have connected Dropbox (without seeing their tokens)
+- **Add Dropbox activity logging**: Track file operations per user for audit purposes
+- **Enable team folder support**: Special handling for Dropbox Business team folders
