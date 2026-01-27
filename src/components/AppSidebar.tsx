@@ -26,6 +26,7 @@ import {
   FileSpreadsheet,
   Users,
   PenTool,
+  User,
 } from "lucide-react";
 import {
   Sidebar,
@@ -164,11 +165,18 @@ const operationalModules = [
   },
 ];
 
-const settingsModule = {
-  title: "Project Settings",
-  url: "/dashboard/project-settings",
-  icon: Settings,
-};
+const settingsModules = [
+  {
+    title: "My Settings",
+    url: "/settings",
+    icon: User,
+  },
+  {
+    title: "Project Settings",
+    url: "/dashboard/project-settings",
+    icon: Settings,
+  },
+];
 
 
 export function AppSidebar() {
@@ -312,14 +320,16 @@ export function AppSidebar() {
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to={settingsModule.url} className={getNavCls(settingsModule.url)}>
-                    <settingsModule.icon className="h-4 w-4" />
-                    {!collapsed && <span>{settingsModule.title}</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {settingsModules.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink to={item.url} className={getNavCls(item.url)}>
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
