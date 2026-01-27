@@ -1,6 +1,5 @@
 import { 
   LayoutDashboard, 
-  Map, 
   BarChart3,
   FileText,
   Settings,
@@ -10,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-export type OverviewSection = "overview" | "roadmap-review" | "analytics" | "documents";
+export type OverviewSection = "overview" | "analytics" | "documents";
 
 interface ProjectOverviewSidebarProps {
   activeSection: OverviewSection;
@@ -24,12 +23,6 @@ const sidebarItems = [
     title: "Project Overview",
     icon: LayoutDashboard,
     description: "Summary & quick stats",
-  },
-  {
-    id: "roadmap-review" as OverviewSection,
-    title: "Roadmap Review",
-    icon: Map,
-    description: "Progress & health metrics",
   },
   {
     id: "analytics" as OverviewSection,

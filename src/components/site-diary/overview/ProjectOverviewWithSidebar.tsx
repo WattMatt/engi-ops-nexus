@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ProjectOverview } from "./ProjectOverview";
 import { ProjectOverviewSidebar, OverviewSection } from "./ProjectOverviewSidebar";
-import { UserRoadmapReview } from "./UserRoadmapReview";
 import { ProjectAnalytics } from "./ProjectAnalytics";
 import { ProjectDocuments } from "./ProjectDocuments";
 
@@ -36,8 +35,6 @@ export function ProjectOverviewWithSidebar({
     switch (activeSection) {
       case "overview":
         return <ProjectOverview projectId={projectId} onNavigate={onNavigate} />;
-      case "roadmap-review":
-        return <UserRoadmapReview projectId={projectId} />;
       case "analytics":
         return <ProjectAnalytics projectId={projectId} />;
       case "documents":
