@@ -10,7 +10,7 @@ export default function GamificationAdmin() {
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full">
       {/* Header - fixed */}
       <div className="p-6 pb-4 shrink-0">
         <div className="flex items-center gap-3">

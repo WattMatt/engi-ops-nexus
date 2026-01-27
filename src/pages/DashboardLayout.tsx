@@ -155,7 +155,7 @@ const DashboardLayout = () => {
           )}
 
           {/* Main Content */}
-          <main className="flex-1 bg-gradient-to-b from-background to-muted/20 overflow-auto">
+          <main className="flex-1 bg-gradient-to-b from-background to-muted/20 overflow-auto pb-8">
             <Outlet />
           </main>
         </div>
