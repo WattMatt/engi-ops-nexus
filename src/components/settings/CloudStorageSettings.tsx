@@ -48,6 +48,7 @@ export function CloudStorageSettings() {
   const { isConnected, isLoading: dropboxLoading, accountInfo, refreshConnection } = useDropbox();
   const { logs, isLoading: logsLoading, fetchLogs, getActivityStats } = useDropboxActivityLogs();
   const [stats, setStats] = useState<Record<string, number> | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Handle OAuth callback success/error URL parameters
   useEffect(() => {
@@ -75,7 +76,10 @@ export function CloudStorageSettings() {
     
     if (success === 'dropbox_connected') {
       // Force refresh the connection status after OAuth redirect
-      refreshConnection();
+      setIsRefreshing(true);
+      refreshConnection().finally(() => {
+        setIsRefreshing(false);
+      });
       toast({
         title: 'Dropbox Connected!',
         description: 'Your Dropbox account has been successfully connected.',
@@ -113,6 +117,15 @@ export function CloudStorageSettings() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
+
+  // Show loading while refreshing after OAuth
+  if (isRefreshing || dropboxLoading) {
+    return (
+      <div className="space-y-6">
+        <DropboxConnector />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
