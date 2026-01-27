@@ -11392,6 +11392,7 @@ export type Database = {
           created_by: string
           description: string | null
           diversity_factor: number | null
+          dropbox_folder_path: string | null
           earthing_contractor: string | null
           electrical_contractor: string | null
           electrical_standard: string | null
@@ -11431,6 +11432,7 @@ export type Database = {
           created_by: string
           description?: string | null
           diversity_factor?: number | null
+          dropbox_folder_path?: string | null
           earthing_contractor?: string | null
           electrical_contractor?: string | null
           electrical_standard?: string | null
@@ -11470,6 +11472,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           diversity_factor?: number | null
+          dropbox_folder_path?: string | null
           earthing_contractor?: string | null
           electrical_contractor?: string | null
           electrical_standard?: string | null
