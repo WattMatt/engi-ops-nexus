@@ -7,8 +7,8 @@ export default function PRDManager() {
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container py-8 max-w-6xl">
+    <div className="p-6 space-y-6">
+      <div className="max-w-6xl mx-auto">
         {selectedPRD ? (
           <PRDDetail prdId={selectedPRD.id} onBack={() => setSelectedPRD(null)} />
         ) : (

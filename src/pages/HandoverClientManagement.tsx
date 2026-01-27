@@ -86,7 +86,7 @@ const HandoverClientManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-background p-8 pb-16">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Back Button */}
         <Button variant="outline" onClick={() => navigate('/dashboard/projects-report/handover')}>
