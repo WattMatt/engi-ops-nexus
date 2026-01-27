@@ -118,14 +118,9 @@ export function CloudStorageSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
 
-  // Show loading while refreshing after OAuth
-  if (isRefreshing || dropboxLoading) {
-    return (
-      <div className="space-y-6">
-        <DropboxConnector />
-      </div>
-    );
-  }
+  // Only show loading on initial page load, not during refresh
+  // This allows the DropboxConnector to show its own loading state
+  // while keeping the rest of the UI visible
 
   return (
     <div className="space-y-6">
