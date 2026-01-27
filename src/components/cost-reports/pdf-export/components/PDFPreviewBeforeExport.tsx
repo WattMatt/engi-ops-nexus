@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, X, ChevronLeft, ChevronRight, Check, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, X, ChevronLeft, ChevronRight, Check, Loader2, ChevronDown, ChevronUp, Cloud } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -9,6 +9,7 @@ import { ComplianceReport } from "@/utils/pdfComplianceChecker";
 import { ComplianceScoreBadge } from "@/components/pdf/ComplianceScoreBadge";
 import { ComplianceChecklist } from "@/components/pdf/ComplianceChecklist";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DropboxSaveButton } from "@/components/storage/DropboxSaveButton";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -211,6 +212,15 @@ export function PDFPreviewBeforeExport({
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
+          
+          <DropboxSaveButton
+            fileContent={pdfBlob}
+            filename={fileName}
+            contentType="application/pdf"
+            disabled={!pdfBlob}
+            buttonText="Save to Dropbox"
+          />
+          
           <Button
             onClick={handleConfirm}
             disabled={isSaving || !pdfBlob}

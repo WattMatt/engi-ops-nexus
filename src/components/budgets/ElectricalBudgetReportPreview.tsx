@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Download, X, FileText, Calendar, Hash, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Download, X, FileText, Calendar, Hash, ChevronLeft, ChevronRight, Cloud } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { DropboxSaveButton } from "@/components/storage/DropboxSaveButton";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -37,6 +38,8 @@ interface ElectricalBudgetReportPreviewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   storageBucket?: string;
+  /** Dropbox folder path for saving - typically from project settings */
+  dropboxFolderPath?: string | null;
 }
 
 export const ElectricalBudgetReportPreview = ({
@@ -44,8 +47,10 @@ export const ElectricalBudgetReportPreview = ({
   open,
   onOpenChange,
   storageBucket = "budget-reports",
+  dropboxFolderPath,
 }: ElectricalBudgetReportPreviewProps) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [numPages, setNumPages] = useState<number>(0);
@@ -105,6 +110,7 @@ export const ElectricalBudgetReportPreview = ({
       loadPdfUrl();
     } else {
       setPdfUrl(null);
+      setPdfBlob(null);
       setNumPages(0);
       setCurrentPage(1);
     }
@@ -138,8 +144,9 @@ export const ElectricalBudgetReportPreview = ({
 
       console.log('[Preview] Downloaded blob:', data.size, 'bytes');
       
-      const pdfBlob = new Blob([data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(pdfBlob);
+      const blob = new Blob([data], { type: 'application/pdf' });
+      setPdfBlob(blob);
+      const url = URL.createObjectURL(blob);
       setPdfUrl(url);
     } catch (error) {
       console.error("Failed to load preview:", error);
@@ -326,6 +333,15 @@ export const ElectricalBudgetReportPreview = ({
             <X className="h-4 w-4 mr-2" />
             Close
           </Button>
+          
+          <DropboxSaveButton
+            fileContent={pdfBlob}
+            filename={report?.file_name || 'budget-report.pdf'}
+            contentType="application/pdf"
+            defaultFolder={dropboxFolderPath || ""}
+            disabled={!pdfBlob}
+          />
+          
           <Button
             onClick={handleDownload}
             disabled={!report || downloading}

@@ -1,10 +1,10 @@
 /**
  * Bulk Import Dialog
- * Import drawings from Excel file
+ * Import drawings from Excel file (local or Dropbox)
  */
 
 import { useState, useCallback } from 'react';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Cloud } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
   Dialog,
@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/table';
 import { useBulkImportDrawings } from '@/hooks/useProjectDrawings';
 import { DrawingFormData, detectDrawingCategory } from '@/types/drawings';
+import { DropboxFileInput } from '@/components/storage/DropboxFileInput';
+import { DropboxFile } from '@/hooks/useDropbox';
 
 interface ParsedDrawing {
   drawing_number: string;
@@ -152,11 +154,26 @@ export function BulkImportDialog({
     reader.readAsArrayBuffer(file);
   }, []);
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
+  const handleFileChange = (file: File) => {
+    setFileName(file.name);
+    parseExcelFile(file);
+  };
+
+  // Handle Dropbox file import (receives ArrayBuffer)
+  const handleDropboxFileSelect = (dropboxFile: DropboxFile, content: ArrayBuffer) => {
+    setFileName(dropboxFile.name);
+    // Parse the ArrayBuffer directly
+    try {
+      const data = new Uint8Array(content);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      // Create a File-like object for parseExcelFile
+      const blob = new Blob([content]);
+      const file = new File([blob], dropboxFile.name);
       parseExcelFile(file);
+    } catch (error) {
+      console.error('Parse error from Dropbox file:', error);
+      setParseError('Failed to parse Excel file from Dropbox. Please check the format.');
     }
   };
   
@@ -203,27 +220,25 @@ export function BulkImportDialog({
         
         {parsedDrawings.length === 0 ? (
           <div className="py-8">
-            <div className="border-2 border-dashed rounded-lg p-8 text-center">
-              <label className="cursor-pointer">
-                <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-lg font-medium mb-2">
-                  Drop Excel file here or click to upload
-                </p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Supports .xlsx and .xls files
-                </p>
-                <Button type="button" variant="secondary">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Select File
-                </Button>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-              </label>
+            <div className="text-center mb-6">
+              <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-lg font-medium mb-2">
+                Import Drawing Register
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Upload an Excel file or import from Dropbox
+              </p>
             </div>
+
+            <DropboxFileInput
+              onFileSelect={handleFileChange}
+              onDropboxFileSelect={handleDropboxFileSelect}
+              allowedExtensions={['.xlsx', '.xls']}
+              accept=".xlsx,.xls"
+              placeholder="Supports .xlsx and .xls files"
+              dropboxTitle="Import Drawing Register"
+              dropboxDescription="Select an Excel file from your Dropbox"
+            />
             
             {parseError && (
               <div className="mt-4 p-4 bg-destructive/10 text-destructive rounded-lg flex items-center gap-2">
