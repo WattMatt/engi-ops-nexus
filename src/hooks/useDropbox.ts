@@ -121,7 +121,7 @@ export function useDropbox() {
   };
 
   // Initiate OAuth connection for current user
-  const connect = async (): Promise<void> => {
+  const connect = async (returnUrl?: string): Promise<void> => {
     try {
       const authHeaders = await getAuthHeader();
       
@@ -133,9 +133,12 @@ export function useDropbox() {
         });
         return;
       }
+
+      // Use current path as return URL if not specified
+      const effectiveReturnUrl = returnUrl || window.location.pathname + window.location.search;
       
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dropbox-auth?action=initiate`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dropbox-auth?action=initiate&returnUrl=${encodeURIComponent(effectiveReturnUrl)}`,
         {
           method: 'GET',
           headers: {

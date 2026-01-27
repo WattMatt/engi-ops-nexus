@@ -57,6 +57,9 @@ serve(async (req) => {
         );
       }
 
+      // Get custom return URL from query params, default to /settings?tab=storage
+      const returnUrl = url.searchParams.get('returnUrl') || '/settings?tab=storage';
+
       // Generate OAuth authorization URL with user ID encoded in state
       const redirectUri = `${SUPABASE_URL}/functions/v1/dropbox-oauth-callback`;
       
@@ -64,7 +67,7 @@ serve(async (req) => {
       const stateData = {
         userId: userId,
         nonce: crypto.randomUUID(),
-        returnUrl: '/backup'
+        returnUrl: returnUrl
       };
       const state = btoa(JSON.stringify(stateData));
       
