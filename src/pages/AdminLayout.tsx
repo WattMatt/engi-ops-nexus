@@ -81,7 +81,7 @@ const AdminLayout = () => {
               Logout
             </Button>
           </header>
-          <main className="flex-1 min-h-0 overflow-hidden">
+          <main className="flex-1 min-h-0 overflow-auto">
             <Outlet />
           </main>
         </div>
