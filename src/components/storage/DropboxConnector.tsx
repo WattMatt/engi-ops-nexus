@@ -1,18 +1,22 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useDropbox } from "@/hooks/useDropbox";
-import { Cloud, CloudOff, Loader2, User, HardDrive, RefreshCw } from "lucide-react";
+import { Cloud, CloudOff, Loader2, User, HardDrive, RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
 
 export function DropboxConnector() {
   const {
     isConnected,
     isLoading,
+    isConnecting,
+    connectionError,
     accountInfo,
     connect,
     disconnect,
-    refreshConnection
+    refreshConnection,
+    clearError
   } = useDropbox();
 
   if (isLoading) {
@@ -42,12 +46,43 @@ export function DropboxConnector() {
             </div>
           </div>
           <Badge variant={isConnected ? "default" : "secondary"}>
-            {isConnected ? "Connected" : "Not Connected"}
+            {isConnecting ? "Connecting..." : isConnected ? "Connected" : "Not Connected"}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isConnected && accountInfo ? (
+        {/* Connection Error Display */}
+        {connectionError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>{connectionError}</span>
+              <Button variant="ghost" size="sm" onClick={clearError} className="ml-2 h-auto py-1 px-2">
+                Dismiss
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Connecting State */}
+        {isConnecting && (
+          <div className="flex flex-col items-center justify-center py-6 space-y-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="text-center">
+              <p className="font-medium">Redirecting to Dropbox...</p>
+              <p className="text-sm text-muted-foreground">
+                You'll be asked to authorize access to your Dropbox account.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <ExternalLink className="h-3 w-3" />
+              <span>Opening Dropbox authorization page</span>
+            </div>
+          </div>
+        )}
+
+        {/* Connected State */}
+        {isConnected && accountInfo && !isConnecting ? (
           <>
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm">
@@ -98,17 +133,30 @@ export function DropboxConnector() {
               </Button>
             </div>
           </>
-        ) : (
+        ) : !isConnecting ? (
           <div className="text-center py-4">
             <p className="text-sm text-muted-foreground mb-4">
               Connect your Dropbox account to enable cloud backups and document storage.
             </p>
-            <Button onClick={() => connect()} className="w-full">
-              <Cloud className="h-4 w-4 mr-2" />
-              Connect to Dropbox
+            <Button 
+              onClick={() => connect()} 
+              className="w-full"
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <Cloud className="h-4 w-4 mr-2" />
+                  Connect to Dropbox
+                </>
+              )}
             </Button>
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

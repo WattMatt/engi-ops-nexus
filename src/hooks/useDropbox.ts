@@ -41,15 +41,25 @@ async function getAuthHeader(): Promise<Record<string, string>> {
   };
 }
 
+// Generate correlation ID for request tracking
+function generateCorrelationId(): string {
+  return `dbx-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 export function useDropbox() {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<DropboxConnectionStatus | null>(null);
   const [accountInfo, setAccountInfo] = useState<DropboxAccountInfo | null>(null);
   const { toast } = useToast();
 
   // Check connection status for current user
   const checkConnection = useCallback(async () => {
+    const correlationId = generateCorrelationId();
+    console.log('[Dropbox] Checking connection status', { correlationId, timestamp: new Date().toISOString() });
+    
     try {
       setIsLoading(true);
       
@@ -61,6 +71,7 @@ export function useDropbox() {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'X-Correlation-ID': correlationId,
             ...authHeaders
           }
         }
@@ -68,8 +79,10 @@ export function useDropbox() {
 
       if (response.ok) {
         const status = await response.json();
+        console.log('[Dropbox] Connection status received', { correlationId, status: status.status, connected: status.connected });
         setConnectionStatus(status);
         setIsConnected(status.connected);
+        setConnectionError(null);
         
         if (status.connected) {
           // Fetch account info
@@ -78,12 +91,13 @@ export function useDropbox() {
           setAccountInfo(null);
         }
       } else {
+        console.warn('[Dropbox] Status check failed', { correlationId, status: response.status });
         setIsConnected(false);
         setConnectionStatus(null);
         setAccountInfo(null);
       }
     } catch (error) {
-      console.error('Failed to check Dropbox connection:', error);
+      console.error('[Dropbox] Connection check error', { correlationId, error });
       setIsConnected(false);
       setConnectionStatus(null);
       setAccountInfo(null);
@@ -94,6 +108,9 @@ export function useDropbox() {
 
   // Fetch account info for current user
   const fetchAccountInfo = async () => {
+    const correlationId = generateCorrelationId();
+    console.log('[Dropbox] Fetching account info', { correlationId });
+    
     try {
       const authHeaders = await getAuthHeader();
       
@@ -103,6 +120,7 @@ export function useDropbox() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-Correlation-ID': correlationId,
             ...authHeaders
           },
           body: JSON.stringify({})
@@ -111,21 +129,36 @@ export function useDropbox() {
 
       if (response.ok) {
         const info = await response.json();
+        console.log('[Dropbox] Account info received', { correlationId, email: info.email });
         setAccountInfo(info);
       } else {
-        console.error('Failed to fetch account info:', await response.text());
+        console.error('[Dropbox] Failed to fetch account info', { correlationId, status: response.status });
       }
     } catch (error) {
-      console.error('Failed to fetch account info:', error);
+      console.error('[Dropbox] Account info error', { correlationId, error });
     }
   };
 
   // Initiate OAuth connection for current user
   const connect = async (returnUrl?: string): Promise<void> => {
+    const correlationId = generateCorrelationId();
+    console.log('[Dropbox] Connection initiated', { 
+      correlationId, 
+      timestamp: new Date().toISOString(),
+      returnUrl: returnUrl || 'auto-detect'
+    });
+    
+    setIsConnecting(true);
+    setConnectionError(null);
+    
     try {
       const authHeaders = await getAuthHeader();
       
       if (!authHeaders['Authorization']) {
+        const errorMsg = 'Authentication required. Please log in to connect your Dropbox account.';
+        console.error('[Dropbox] No auth token', { correlationId });
+        setConnectionError(errorMsg);
+        setIsConnecting(false);
         toast({
           title: 'Authentication Required',
           description: 'Please log in to connect your Dropbox account.',
@@ -136,13 +169,15 @@ export function useDropbox() {
 
       // Use current path as return URL if not specified
       const effectiveReturnUrl = returnUrl || window.location.pathname + window.location.search;
-      
+      console.log('[Dropbox] Requesting auth URL', { correlationId, effectiveReturnUrl });
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dropbox-auth?action=initiate&returnUrl=${encodeURIComponent(effectiveReturnUrl)}`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'X-Correlation-ID': correlationId,
             ...authHeaders
           }
         }
@@ -150,22 +185,35 @@ export function useDropbox() {
 
       if (response.ok) {
         const { authUrl } = await response.json();
-        // Use window.open to handle OAuth redirect - more reliable than location.href
-        // This works better with async functions and popup blockers
-        const newWindow = window.open(authUrl, '_self');
-        if (!newWindow) {
-          // Fallback if window.open fails - try direct navigation
-          window.location.assign(authUrl);
-        }
+        console.log('[Dropbox] Auth URL received, redirecting...', { 
+          correlationId, 
+          authUrlLength: authUrl?.length,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Store correlation ID for tracking the complete flow
+        sessionStorage.setItem('dropbox_oauth_correlation_id', correlationId);
+        sessionStorage.setItem('dropbox_oauth_started_at', new Date().toISOString());
+        
+        // Use window.open with _self to handle OAuth redirect
+        // This is more reliable for OAuth flows and works across browsers
+        window.open(authUrl, '_self');
       } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to initiate connection');
+        const errorData = await response.json();
+        const errorMsg = errorData.error || 'Failed to initiate connection';
+        console.error('[Dropbox] Auth initiation failed', { correlationId, error: errorMsg, status: response.status });
+        setConnectionError(errorMsg);
+        setIsConnecting(false);
+        throw new Error(errorMsg);
       }
     } catch (error) {
-      console.error('Failed to connect to Dropbox:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Could not connect to Dropbox. Please try again.';
+      console.error('[Dropbox] Connection error', { correlationId, error, errorMsg });
+      setConnectionError(errorMsg);
+      setIsConnecting(false);
       toast({
         title: 'Connection Failed',
-        description: error instanceof Error ? error.message : 'Could not connect to Dropbox. Please try again.',
+        description: errorMsg,
         variant: 'destructive'
       });
     }
@@ -173,6 +221,9 @@ export function useDropbox() {
 
   // Disconnect current user from Dropbox
   const disconnect = async (): Promise<void> => {
+    const correlationId = generateCorrelationId();
+    console.log('[Dropbox] Disconnect initiated', { correlationId });
+    
     try {
       const authHeaders = await getAuthHeader();
       
@@ -182,15 +233,18 @@ export function useDropbox() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-Correlation-ID': correlationId,
             ...authHeaders
           }
         }
       );
 
       if (response.ok) {
+        console.log('[Dropbox] Disconnected successfully', { correlationId });
         setIsConnected(false);
         setConnectionStatus(null);
         setAccountInfo(null);
+        setConnectionError(null);
         toast({
           title: 'Disconnected',
           description: 'Successfully disconnected from Dropbox'
@@ -200,7 +254,7 @@ export function useDropbox() {
         throw new Error(error.error || 'Failed to disconnect');
       }
     } catch (error) {
-      console.error('Failed to disconnect from Dropbox:', error);
+      console.error('[Dropbox] Disconnect error', { correlationId, error });
       toast({
         title: 'Disconnect Failed',
         description: 'Could not disconnect from Dropbox. Please try again.',
@@ -211,6 +265,8 @@ export function useDropbox() {
 
   // List folder contents
   const listFolder = async (path: string = ''): Promise<DropboxFile[]> => {
+    const correlationId = generateCorrelationId();
+    
     try {
       const authHeaders = await getAuthHeader();
       
@@ -220,6 +276,7 @@ export function useDropbox() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-Correlation-ID': correlationId,
             ...authHeaders
           },
           body: JSON.stringify({ path })
@@ -242,7 +299,7 @@ export function useDropbox() {
       }
       return [];
     } catch (error) {
-      console.error('Failed to list folder:', error);
+      console.error('[Dropbox] List folder error', { correlationId, error });
       toast({
         title: 'Error',
         description: 'Failed to load folder contents',
@@ -428,6 +485,11 @@ export function useDropbox() {
     }
   };
 
+  // Clear connection error
+  const clearError = useCallback(() => {
+    setConnectionError(null);
+  }, []);
+
   // Check connection on mount and when auth state changes
   useEffect(() => {
     checkConnection();
@@ -445,6 +507,8 @@ export function useDropbox() {
   return {
     isConnected,
     isLoading,
+    isConnecting,
+    connectionError,
     connectionStatus,
     accountInfo,
     connect,
@@ -455,6 +519,7 @@ export function useDropbox() {
     getDownloadLink,
     downloadFile,
     deleteItem,
-    refreshConnection: checkConnection
+    refreshConnection: checkConnection,
+    clearError
   };
 }
