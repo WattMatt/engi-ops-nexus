@@ -1,154 +1,193 @@
 
 
-# Fix: PDF Preview Failing for Floor Plan Reports
+# Dropbox Integration Implementation Plan
 
-## Problem Identified
-
-The PDF preview is failing with a **400 error** because the `floor-plan-reports` storage bucket is **private**, but the `StandardReportPreview` component attempts to load PDFs using `getPublicUrl()`.
-
-```
-Error: ResponseException: Unexpected server response (400) while retrieving PDF
-URL: https://...supabase.co/storage/v1/object/public/floor-plan-reports/...pdf
-```
-
-**Key Finding**: The bucket configuration shows `public: false`, which means public URLs will always fail.
-
-## Solution
-
-Update `StandardReportPreview` to handle both public and private buckets by using `createSignedUrl()` for authenticated access. This creates a temporary secure URL that works with private buckets.
+## Overview
+Integrate Dropbox as an external storage provider, enabling users to:
+- Connect their Dropbox account via OAuth
+- Browse files and folders from Dropbox
+- Upload project documents to Dropbox
+- Sync handover documents and backups to Dropbox
 
 ---
 
-## Technical Implementation
+## Phase 1: Dropbox App Setup & OAuth Configuration
 
-### File: `src/components/shared/StandardReportPreview.tsx`
+### 1.1 Create Dropbox App (User Action Required)
+You'll need to create a Dropbox App in the Dropbox Developer Console:
+1. Go to https://www.dropbox.com/developers/apps
+2. Create a new app with "Scoped access" and "Full Dropbox" access
+3. Note the **App Key** and **App Secret**
+4. Add redirect URI: `https://rsdisaisxdglmdmzmkyw.supabase.co/functions/v1/dropbox-oauth-callback`
 
-Replace the `loadPdfUrl` function to use signed URLs:
-
-**Current Code (lines 46-70):**
-```tsx
-const loadPdfUrl = async () => {
-  setLoading(true);
-  setNumPages(0);
-  
-  try {
-    // Get public URL for the PDF
-    const { data } = supabase.storage
-      .from(storageBucket)
-      .getPublicUrl(report.file_path);
-
-    if (!data.publicUrl) {
-      throw new Error("Failed to get PDF URL");
-    }
-
-    const cacheBustedUrl = `${data.publicUrl}?t=${Date.now()}`;
-    setPdfUrl(cacheBustedUrl);
-    setLoading(false);
-  } catch (error) {
-    console.error('Preview error:', error);
-    toast.error('Failed to load PDF preview');
-    setLoading(false);
-  }
-};
-```
-
-**New Code:**
-```tsx
-const loadPdfUrl = async () => {
-  setLoading(true);
-  setNumPages(0);
-  
-  try {
-    // Create a signed URL that works for both public and private buckets
-    // Expires in 1 hour (3600 seconds)
-    const { data, error } = await supabase.storage
-      .from(storageBucket)
-      .createSignedUrl(report.file_path, 3600);
-
-    if (error) {
-      console.error('[PDF PREVIEW] Signed URL error:', error);
-      throw error;
-    }
-
-    if (!data?.signedUrl) {
-      throw new Error("Failed to get PDF URL");
-    }
-
-    console.log('[PDF PREVIEW] Loading PDF with signed URL');
-    setPdfUrl(data.signedUrl);
-    setLoading(false);
-  } catch (error) {
-    console.error('Preview error:', error);
-    toast.error('Failed to load PDF preview');
-    setLoading(false);
-  }
-};
-```
+### 1.2 Store Secrets
+Required secrets to be added:
+- `DROPBOX_APP_KEY` - Your Dropbox app key
+- `DROPBOX_APP_SECRET` - Your Dropbox app secret
 
 ---
 
-## Why This Works
+## Phase 2: Backend Edge Functions
 
-| Approach | Public Bucket | Private Bucket |
-|----------|---------------|----------------|
-| `getPublicUrl()` | Works | Fails (400 error) |
-| `createSignedUrl()` | Works | Works |
-| `download()` + Blob | Works | Works |
+### 2.1 `dropbox-auth` Edge Function
+Handles OAuth flow initiation and token management:
+- `GET /initiate` - Generates OAuth URL for user authorization
+- `POST /refresh` - Refreshes expired access tokens
+- `POST /disconnect` - Revokes tokens and cleans up
 
-Using `createSignedUrl()` is the cleanest solution because:
-1. Works for **both** public and private buckets
-2. Generates a temporary authenticated URL (1 hour expiry)
-3. No need to download the entire file into memory first
-4. Maintains the same user experience
+### 2.2 `dropbox-oauth-callback` Edge Function  
+Handles the OAuth callback from Dropbox:
+- Exchanges authorization code for access/refresh tokens
+- Stores encrypted tokens in `storage_providers` table
+- Redirects user back to the application
+
+### 2.3 `dropbox-api` Edge Function
+Proxies Dropbox API calls with token management:
+- `POST /list-folder` - List files and folders
+- `POST /upload` - Upload files to Dropbox
+- `POST /download` - Download files from Dropbox
+- `POST /create-folder` - Create new folders
+- `GET /account-info` - Get connected account details
 
 ---
 
-## Alternative Approach (if signed URLs don't work)
+## Phase 3: Database Updates
 
-If signed URLs have issues, we can fall back to downloading the blob and creating an object URL:
-
-```tsx
-const loadPdfUrl = async () => {
-  setLoading(true);
-  setNumPages(0);
-  
-  try {
-    // Download the PDF as a blob
-    const { data, error } = await supabase.storage
-      .from(storageBucket)
-      .download(report.file_path);
-
-    if (error) throw error;
-    if (!data) throw new Error("No data received");
-
-    // Create a local object URL from the blob
-    const objectUrl = URL.createObjectURL(data);
-    setPdfUrl(objectUrl);
-    setLoading(false);
-  } catch (error) {
-    console.error('Preview error:', error);
-    toast.error('Failed to load PDF preview');
-    setLoading(false);
-  }
-};
-
-// Don't forget to revoke the object URL when dialog closes
-useEffect(() => {
-  return () => {
-    if (pdfUrl && pdfUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(pdfUrl);
-    }
-  };
-}, [pdfUrl]);
+### 3.1 Storage Provider Configuration
+Utilize existing `storage_providers` table structure:
+```text
++------------------+----------------------------------------+
+| Column           | Usage for Dropbox                      |
++------------------+----------------------------------------+
+| provider_name    | 'dropbox'                              |
+| enabled          | true when connected                    |
+| credentials      | {access_token, refresh_token, expiry}  |
+| config           | {account_email, root_folder, sync_prefs}|
+| test_status      | 'connected' / 'expired' / 'error'      |
++------------------+----------------------------------------+
 ```
 
+### 3.2 User-Specific Connections
+Add `user_id` column to `storage_providers` to support per-user Dropbox connections (optional enhancement for multi-user scenarios).
+
 ---
 
-## Summary of Changes
+## Phase 4: Frontend Components
 
-| File | Change |
-|------|--------|
-| `src/components/shared/StandardReportPreview.tsx` | Replace `getPublicUrl()` with `createSignedUrl()` in `loadPdfUrl` function |
+### 4.1 Dropbox Connection UI (`src/components/storage/DropboxConnector.tsx`)
+- "Connect to Dropbox" button initiating OAuth
+- Connection status display
+- Disconnect option
+- Account info display (name, email, storage used)
 
-This single change will fix PDF preview for all report types that use private storage buckets, including floor plan reports.
+### 4.2 Dropbox File Browser (`src/components/storage/DropboxBrowser.tsx`)
+- Folder navigation with breadcrumbs
+- File/folder listing with icons
+- Upload files to current folder
+- Download selected files
+- Create new folders
+
+### 4.3 Storage Providers Tab Enhancement (`src/pages/BackupManagement.tsx`)
+Replace placeholder with:
+- Grid of available providers (Dropbox, Google Drive, OneDrive, S3)
+- Connection status for each
+- Configuration options
+
+### 4.4 Document Integration
+Add "Save to Dropbox" option to:
+- Handover document exports
+- PDF report generation
+- Backup file destinations
+
+---
+
+## Phase 5: Sync Features (Future Enhancement)
+
+### 5.1 Two-Way Sync Configuration
+- Select Dropbox folder for project sync
+- Configure sync direction (upload-only, download-only, bidirectional)
+- Conflict resolution preferences
+
+### 5.2 Automatic Backup to Dropbox
+Extend existing backup system:
+- Add Dropbox as backup destination option
+- Schedule automatic syncs
+- Retention management in Dropbox
+
+---
+
+## Technical Details
+
+### OAuth 2.0 Flow
+```text
+User                    App                     Dropbox
+  |                      |                         |
+  |-- Click Connect ---->|                         |
+  |                      |-- Generate Auth URL --->|
+  |<-- Redirect to Dropbox ----------------------->|
+  |                      |                         |
+  |-- Authorize App ---->|                         |
+  |<-- Redirect with code ------------------------>|
+  |                      |-- Exchange code ------->|
+  |                      |<-- Access + Refresh ----|
+  |                      |-- Store tokens -------->|
+  |<-- Connected! -------|                         |
+```
+
+### Token Storage Security
+- Access tokens: Short-lived (4 hours), stored encrypted
+- Refresh tokens: Long-lived, stored encrypted in database
+- Automatic refresh before expiry
+- Tokens stored server-side only (never exposed to frontend)
+
+### Dropbox API Endpoints Used
+- `/oauth2/token` - Token exchange and refresh
+- `/2/files/list_folder` - List directory contents
+- `/2/files/upload` - Upload files (up to 150MB)
+- `/2/files/download` - Download files
+- `/2/files/create_folder_v2` - Create folders
+- `/2/users/get_current_account` - Get account info
+
+---
+
+## Files to Create/Modify
+
+### New Files
+| File | Purpose |
+|------|---------|
+| `supabase/functions/dropbox-auth/index.ts` | OAuth flow management |
+| `supabase/functions/dropbox-oauth-callback/index.ts` | OAuth callback handler |
+| `supabase/functions/dropbox-api/index.ts` | Dropbox API proxy |
+| `src/components/storage/DropboxConnector.tsx` | Connection UI |
+| `src/components/storage/DropboxBrowser.tsx` | File browser |
+| `src/components/storage/StorageProviderCard.tsx` | Provider card component |
+| `src/hooks/useDropbox.ts` | Dropbox operations hook |
+
+### Modified Files
+| File | Changes |
+|------|---------|
+| `src/pages/BackupManagement.tsx` | Replace placeholder with provider grid |
+| `supabase/config.toml` | Add new edge function entries |
+
+---
+
+## Implementation Order
+
+1. **Secrets Setup** - Add DROPBOX_APP_KEY and DROPBOX_APP_SECRET
+2. **Edge Functions** - Create OAuth and API proxy functions
+3. **Database** - Any schema updates needed
+4. **Frontend Connection** - DropboxConnector component
+5. **File Browser** - DropboxBrowser component  
+6. **Integration** - Add to BackupManagement page
+7. **Document Integration** - "Save to Dropbox" options
+
+---
+
+## Estimated Effort
+- Phase 1-2 (Backend): 2-3 hours
+- Phase 3 (Database): 30 minutes
+- Phase 4 (Frontend): 2-3 hours
+- Phase 5 (Sync): Future enhancement
+
+**Total for core integration: 5-7 hours**
 
