@@ -19,6 +19,8 @@ interface StandardReportPreviewProps {
   storageBucket?: string;
   reportType?: string;
   onRegeneratePDF?: () => void;
+  /** Dropbox folder path for saving - typically from project settings */
+  dropboxFolderPath?: string | null;
 }
 
 export const StandardReportPreview = ({ 
@@ -27,7 +29,8 @@ export const StandardReportPreview = ({
   onOpenChange,
   storageBucket = "tenant-tracker-reports",
   reportType = "cost_report",
-  onRegeneratePDF
+  onRegeneratePDF,
+  dropboxFolderPath
 }: StandardReportPreviewProps) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
@@ -170,7 +173,7 @@ export const StandardReportPreview = ({
               fileContent={pdfBlob}
               filename={report?.report_name || 'report.pdf'}
               contentType="application/pdf"
-              defaultFolder="/EngiOps/Reports"
+              defaultFolder={dropboxFolderPath || "/EngiOps/Reports"}
               disabled={!pdfBlob}
             />
           </div>

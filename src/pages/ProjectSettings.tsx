@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Save, Info, Copy, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LogoUpload } from "@/components/LogoUpload";
+import { DropboxFolderPicker } from "@/components/storage/DropboxFolderPicker";
 import { ProjectMembers } from "@/components/settings/ProjectMembers";
 import { ProjectContacts } from "@/components/settings/ProjectContacts";
 import { GlobalContactsManager } from "@/components/settings/GlobalContactsManager";
@@ -56,6 +57,7 @@ export default function ProjectSettings() {
     metering_requirements: "",
     protection_philosophy: "",
     completion_notification_email: "",
+    dropbox_folder_path: "",
   });
 
   useEffect(() => {
@@ -109,6 +111,7 @@ export default function ProjectSettings() {
         metering_requirements: data.metering_requirements || "",
         protection_philosophy: data.protection_philosophy || "",
         completion_notification_email: data.completion_notification_email || "",
+        dropbox_folder_path: data.dropbox_folder_path || "",
       });
     }
   };
@@ -147,6 +150,7 @@ export default function ProjectSettings() {
           metering_requirements: formData.metering_requirements || null,
           protection_philosophy: formData.protection_philosophy || null,
           completion_notification_email: formData.completion_notification_email || null,
+          dropbox_folder_path: formData.dropbox_folder_path || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", projectId);
@@ -688,6 +692,13 @@ export default function ProjectSettings() {
                 />
               </CardContent>
             </Card>
+
+            {/* Cloud Storage Integration */}
+            <DropboxFolderPicker
+              value={formData.dropbox_folder_path || null}
+              onChange={(path) => updateField("dropbox_folder_path", path || "")}
+              projectName={formData.name}
+            />
 
             {/* Submit Button */}
             <div className="flex justify-end gap-4">

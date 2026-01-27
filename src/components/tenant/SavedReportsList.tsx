@@ -11,6 +11,7 @@ import { EditReportDialog } from "./EditReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
+import { useProjectDropboxFolder } from "@/hooks/useProjectDropboxFolder";
 
 interface SavedReportsListProps {
   projectId: string;
@@ -24,6 +25,7 @@ export const SavedReportsList = ({ projectId, projectName }: SavedReportsListPro
   const [previewingReport, setPreviewingReport] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const queryClient = useQueryClient();
+  const { dropboxFolderPath } = useProjectDropboxFolder();
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['tenant-tracker-reports', projectId],
@@ -309,6 +311,7 @@ export const SavedReportsList = ({ projectId, projectName }: SavedReportsListPro
         open={!!previewingReport}
         onOpenChange={(open) => !open && setPreviewingReport(null)}
         storageBucket="tenant-tracker-reports"
+        dropboxFolderPath={dropboxFolderPath}
       />
     )}
     </>
