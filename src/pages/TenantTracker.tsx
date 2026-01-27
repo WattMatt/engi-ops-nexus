@@ -108,7 +108,7 @@ const TenantTracker = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col">
       {/* Fixed Header */}
       <div className="border-b bg-background">
         <div className="flex justify-between items-center px-6 py-4">
@@ -132,7 +132,7 @@ const TenantTracker = () => {
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <div className="border-b bg-background px-6 flex-shrink-0">
             <TabsList className="my-3">
@@ -169,7 +169,7 @@ const TenantTracker = () => {
           </div>
 
           {/* Tab Content - No outer scroll, each tab manages its own */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-auto">
             <TabsContent value="overview" className="h-full m-0 data-[state=active]:block">
               <div className="h-full overflow-auto px-6 py-6">
                 {isLoading ? (
