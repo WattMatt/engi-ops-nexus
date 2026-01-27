@@ -202,7 +202,7 @@ const ProjectSelect = () => {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-b from-background via-background to-muted/20 flex overflow-hidden">
+    <div className="h-screen bg-gradient-to-b from-background via-background to-muted/20 flex">
       {/* Sidebar */}
       <ProjectsSidebar 
         activeSection={activeSection} 
@@ -210,7 +210,7 @@ const ProjectSelect = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <div className="border-b bg-background/80 backdrop-blur-sm shrink-0 z-10">
           <div className="px-6 py-4">
