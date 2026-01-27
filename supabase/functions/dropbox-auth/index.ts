@@ -66,24 +66,27 @@ serve(async (req) => {
         );
       }
 
-      // Get custom return URL from query params, default to /settings?tab=storage
+      // Get custom return URL and app URL from query params
       const returnUrl = url.searchParams.get('returnUrl') || '/settings?tab=storage';
+      const appUrl = url.searchParams.get('appUrl') || APP_URL;
 
       console.log('[Dropbox Auth] Initiating OAuth flow', {
         correlationId,
         userId: userId.substring(0, 8) + '...',
         returnUrl,
+        appUrl,
         timestamp: new Date().toISOString()
       });
 
       // Generate OAuth authorization URL with user ID encoded in state
       const redirectUri = `${SUPABASE_URL}/functions/v1/dropbox-oauth-callback`;
       
-      // Encode user ID, correlation ID, and nonce in state for security and tracking
+      // Encode user ID, correlation ID, app URL, and nonce in state for security and tracking
       const stateData = {
         userId: userId,
         nonce: crypto.randomUUID(),
         returnUrl: returnUrl,
+        appUrl: appUrl, // Include the origin URL so callback knows where to redirect
         correlationId: correlationId
       };
       const state = btoa(JSON.stringify(stateData));

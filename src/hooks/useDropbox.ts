@@ -246,10 +246,12 @@ export function useDropbox() {
 
       // Use current path as return URL if not specified
       const effectiveReturnUrl = returnUrl || window.location.pathname + window.location.search;
-      console.log('[Dropbox] Requesting auth URL', { correlationId, effectiveReturnUrl });
+      // Capture current origin to ensure callback redirects to correct environment (preview vs production)
+      const appUrl = window.location.origin;
+      console.log('[Dropbox] Requesting auth URL', { correlationId, effectiveReturnUrl, appUrl });
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dropbox-auth?action=initiate&returnUrl=${encodeURIComponent(effectiveReturnUrl)}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dropbox-auth?action=initiate&returnUrl=${encodeURIComponent(effectiveReturnUrl)}&appUrl=${encodeURIComponent(appUrl)}`,
         {
           method: 'GET',
           headers: {
