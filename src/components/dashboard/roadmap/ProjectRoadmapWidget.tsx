@@ -387,9 +387,13 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
             )}
             <Button 
               size="sm" 
-              variant="ghost" 
-              onClick={() => setIsMinimized(!isMinimized)}
+              variant="outline" 
+              onClick={() => {
+                console.log('[Roadmap] Minimize clicked, current state:', isMinimized);
+                setIsMinimized(!isMinimized);
+              }}
               className="h-8 w-8 p-0"
+              title={isMinimized ? "Expand roadmap" : "Collapse roadmap"}
             >
               {isMinimized ? (
                 <Maximize2 className="h-4 w-4" />
