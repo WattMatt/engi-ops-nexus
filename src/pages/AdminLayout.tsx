@@ -69,7 +69,7 @@ const AdminLayout = () => {
 
   return (
     <SidebarProvider>
-      <div className="h-screen flex w-full overflow-hidden">
+      <div className="h-screen flex w-full">
         <AdminSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-16 border-b flex items-center justify-between px-6 shrink-0">
