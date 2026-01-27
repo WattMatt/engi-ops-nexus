@@ -48,25 +48,21 @@ interface BulkImportDialogProps {
 }
 
 /**
- * Find the last non-empty revision letter from a row of revision columns
- * Revisions are typically: 0, 1, 2, 3... or A, B, C...
+ * Find the last non-empty revision from a row of revision columns
+ * Keeps the revision value as-is (numeric 0,1,2,3... stays numeric)
+ * Only scans columns that contain revision markers
  */
 function findLatestRevision(row: unknown[], startCol: number): string {
-  let lastRevision = 'A';
+  let lastRevision = '0'; // Default to 0 for new drawings
   
   for (let i = startCol; i < row.length; i++) {
     const cell = row[i];
     if (cell !== null && cell !== undefined && cell !== '') {
       const value = String(cell).trim();
-      // Check if it's a valid revision (number or letter)
-      if (/^[0-9A-Z]$/i.test(value)) {
-        // Convert numeric revisions to letters (0=A, 1=B, etc.)
-        if (/^\d$/.test(value)) {
-          const num = parseInt(value, 10);
-          lastRevision = String.fromCharCode(65 + num); // 65 = 'A'
-        } else {
-          lastRevision = value.toUpperCase();
-        }
+      // Check if it's a valid revision (single digit number or single letter)
+      // Keep the value as-is - don't convert numbers to letters
+      if (/^[0-9]$/.test(value) || /^[A-Z]$/i.test(value)) {
+        lastRevision = value.toUpperCase();
       }
     }
   }
