@@ -103,7 +103,7 @@ export function DropboxConnector() {
             <p className="text-sm text-muted-foreground mb-4">
               Connect your Dropbox account to enable cloud backups and document storage.
             </p>
-            <Button onClick={connect} className="w-full">
+            <Button onClick={() => connect()} className="w-full">
               <Cloud className="h-4 w-4 mr-2" />
               Connect to Dropbox
             </Button>
