@@ -58,7 +58,8 @@ export function DropboxBrowser({
   initialPath = ''
 }: DropboxBrowserProps) {
   const { 
-    isConnected, 
+    isConnected,
+    isLoading: connectionLoading,
     listFolder, 
     createFolder, 
     getDownloadLink, 
@@ -136,12 +137,13 @@ export function DropboxBrowser({
     }
   }, [isConnected, listFolder]);
 
-  // Load folder when path changes or on mount - immediate since connection is from cache
+  // Load folder when path changes or when connection becomes ready
   useEffect(() => {
-    if (isConnected) {
+    console.log('[DropboxBrowser] Effect triggered', { isConnected, connectionLoading, currentPath });
+    if (isConnected && !connectionLoading) {
       loadFolder(currentPath);
     }
-  }, [currentPath, isConnected, loadFolder]);
+  }, [currentPath, isConnected, connectionLoading, loadFolder]);
 
   const navigateTo = (path: string) => {
     setCurrentPath(path);
@@ -230,6 +232,18 @@ export function DropboxBrowser({
     // Reset input
     event.target.value = '';
   };
+
+  // Show loading while connection is being checked
+  if (connectionLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+          <span className="text-muted-foreground">Checking connection...</span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!isConnected) {
     return (
