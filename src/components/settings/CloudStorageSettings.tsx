@@ -108,36 +108,44 @@ export function CloudStorageSettings() {
     }
   }, [searchParams, setSearchParams, toast]);
 
-  // Fetch recent activity and files when connected
+  // Fetch recent activity when connected - only on initial connection
   useEffect(() => {
     if (isConnected) {
       fetchLogs({}, 1, 5);
       getActivityStats(30).then(setStats);
     }
-  }, [isConnected, fetchLogs, getActivityStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected]);
 
-  // Fetch recent files from Dropbox root
+  // Fetch recent files from Dropbox root - only once when connected
   useEffect(() => {
+    let cancelled = false;
+    
     const loadRecentFiles = async () => {
-      if (!isConnected) return;
+      if (!isConnected || filesLoading) return;
       
       setFilesLoading(true);
       try {
         const files = await listFolder('');
+        if (cancelled) return;
         // Get 5 most recent files (not folders)
         const fileEntries = files
           .filter(f => f.type === 'file')
           .slice(0, 5);
         setRecentFiles(fileEntries);
       } catch (error) {
+        if (cancelled) return;
         console.error('Failed to load recent files:', error);
       } finally {
-        setFilesLoading(false);
+        if (!cancelled) setFilesLoading(false);
       }
     };
 
     loadRecentFiles();
-  }, [isConnected, listFolder]);
+    
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected]);
 
   return (
     <div className="space-y-6">
