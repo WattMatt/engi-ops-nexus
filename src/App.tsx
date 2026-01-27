@@ -109,6 +109,7 @@ const App = () => (
               <Route path="/contractor-portal" element={<ContractorPortal />} />
               <Route path="/master-library" element={<MasterLibrary />} />
               <Route path="/contact-library" element={<ContactLibrary />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="/projects/:projectId/roadmap" element={<RoadmapItemRedirect />} />
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<ProjectSelect />} />
