@@ -1,5 +1,14 @@
 project_id = "rsdisaisxdglmdmzmkyw"
 
+[functions.dropbox-auth]
+verify_jwt = false
+
+[functions.dropbox-oauth-callback]
+verify_jwt = false
+
+[functions.dropbox-api]
+verify_jwt = false
+
 [functions.match-boq-rates]
 verify_jwt = false
 
