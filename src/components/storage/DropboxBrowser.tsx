@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useDropbox, DropboxFile } from "@/hooks/useDropbox";
 import { 
   Folder, 
@@ -15,7 +16,8 @@ import {
   Trash2, 
   Loader2,
   RefreshCw,
-  ArrowLeft
+  ArrowLeft,
+  AlertCircle
 } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
 import { format } from "date-fns";
@@ -67,9 +69,9 @@ export function DropboxBrowser({
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [files, setFiles] = useState<DropboxFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<DropboxFile | null>(null);
-  const loadingRef = useRef(false);
-  const lastLoadedPath = useRef<string | null>(null);
+  const mountedRef = useRef(true);
   
   // Dialogs
   const [newFolderDialog, setNewFolderDialog] = useState(false);
@@ -77,18 +79,25 @@ export function DropboxBrowser({
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<DropboxFile | null>(null);
 
-  const loadFolder = useCallback(async (path: string, force = false) => {
-    // Prevent duplicate loads
+  // Cleanup on unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const loadFolder = useCallback(async (path: string) => {
     if (!isConnected) return;
-    if (loadingRef.current && !force) return;
-    if (lastLoadedPath.current === path && !force) return;
     
-    loadingRef.current = true;
-    lastLoadedPath.current = path;
     setIsLoading(true);
+    setLoadError(null);
     
     try {
-      const entries = await listFolder(path);
+      const entries = await listFolder(path, { silent: true });
+      
+      if (!mountedRef.current) return;
+      
       // Sort: folders first, then by name
       entries.sort((a, b) => {
         if (a.type === 'folder' && b.type !== 'folder') return -1;
@@ -96,15 +105,25 @@ export function DropboxBrowser({
         return a.name.localeCompare(b.name);
       });
       setFiles(entries);
+      setLoadError(null);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error('Failed to load folder:', error);
+      setLoadError('Failed to load folder contents');
+      setFiles([]);
     } finally {
-      setIsLoading(false);
-      loadingRef.current = false;
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [isConnected, listFolder]);
 
+  // Load folder when path changes or on mount
   useEffect(() => {
-    loadFolder(currentPath);
-  }, [currentPath, loadFolder]);
+    if (isConnected) {
+      loadFolder(currentPath);
+    }
+  }, [currentPath, isConnected]); // intentionally exclude loadFolder to prevent loops
 
   const navigateTo = (path: string) => {
     setCurrentPath(path);
@@ -157,7 +176,7 @@ export function DropboxBrowser({
     if (success) {
       setNewFolderDialog(false);
       setNewFolderName('');
-      loadFolder(currentPath, true);
+      loadFolder(currentPath);
     }
   };
 
@@ -169,7 +188,7 @@ export function DropboxBrowser({
     if (success) {
       setDeleteDialog(false);
       setItemToDelete(null);
-      loadFolder(currentPath, true);
+      loadFolder(currentPath);
     }
   };
 
@@ -184,7 +203,7 @@ export function DropboxBrowser({
         const uploadPath = currentPath ? `${currentPath}/${file.name}` : `/${file.name}`;
         const success = await uploadFile(uploadPath, content as ArrayBuffer, file.type);
         if (success) {
-          loadFolder(currentPath, true);
+          loadFolder(currentPath);
         }
       }
     };
@@ -213,7 +232,7 @@ export function DropboxBrowser({
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => loadFolder(currentPath, true)}
+              onClick={() => loadFolder(currentPath)}
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -272,6 +291,18 @@ export function DropboxBrowser({
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : loadError ? (
+            <div className="p-4">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="flex items-center justify-between">
+                  <span>{loadError}</span>
+                  <Button variant="outline" size="sm" onClick={() => loadFolder(currentPath)}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
             </div>
           ) : files.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
