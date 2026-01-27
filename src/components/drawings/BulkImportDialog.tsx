@@ -1,10 +1,11 @@
 /**
  * Bulk Import Dialog
  * Import drawings from Excel file (local or Dropbox)
+ * Supports the WM Engineering drawing register format
  */
 
 import { useState, useCallback } from 'react';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Cloud } from 'lucide-react';
+import { FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
   Dialog,
@@ -34,6 +35,7 @@ interface ParsedDrawing {
   drawing_number: string;
   drawing_title: string;
   category: string;
+  current_revision: string;
   shop_number?: string;
   isValid: boolean;
   error?: string;
@@ -43,6 +45,168 @@ interface BulkImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
+}
+
+/**
+ * Find the last non-empty revision letter from a row of revision columns
+ * Revisions are typically: 0, 1, 2, 3... or A, B, C...
+ */
+function findLatestRevision(row: unknown[], startCol: number): string {
+  let lastRevision = 'A';
+  
+  for (let i = startCol; i < row.length; i++) {
+    const cell = row[i];
+    if (cell !== null && cell !== undefined && cell !== '') {
+      const value = String(cell).trim();
+      // Check if it's a valid revision (number or letter)
+      if (/^[0-9A-Z]$/i.test(value)) {
+        // Convert numeric revisions to letters (0=A, 1=B, etc.)
+        if (/^\d$/.test(value)) {
+          const num = parseInt(value, 10);
+          lastRevision = String.fromCharCode(65 + num); // 65 = 'A'
+        } else {
+          lastRevision = value.toUpperCase();
+        }
+      }
+    }
+  }
+  
+  return lastRevision;
+}
+
+/**
+ * Parse the WM Engineering drawing register format
+ * Format has:
+ * - Header rows with project info
+ * - Row with "DRW No" and "DRAWING TITLE" headers
+ * - Drawing rows with number in col A, title in col B, revisions spread across date columns
+ */
+function parseDrawingRegister(jsonData: unknown[][]): ParsedDrawing[] {
+  const drawings: ParsedDrawing[] = [];
+  
+  // Find the header row (contains "DRW No" or "DRW" in first few columns)
+  let headerRowIndex = -1;
+  let drawingNoColIndex = 0;
+  let titleColIndex = 1;
+  let revisionStartCol = 6; // Revisions typically start around column 6
+  
+  for (let i = 0; i < Math.min(50, jsonData.length); i++) {
+    const row = jsonData[i] as unknown[];
+    if (!row || row.length < 2) continue;
+    
+    const firstCell = String(row[0] || '').toLowerCase().trim();
+    const secondCell = String(row[1] || '').toLowerCase().trim();
+    
+    // Look for "DRW No" or similar in first column
+    if (firstCell.includes('drw') || firstCell === 'no' || firstCell.includes('drawing no')) {
+      headerRowIndex = i;
+      drawingNoColIndex = 0;
+      
+      // Find title column
+      for (let j = 1; j < Math.min(6, row.length); j++) {
+        const cell = String(row[j] || '').toLowerCase().trim();
+        if (cell.includes('title') || cell.includes('description') || cell.includes('drawing title')) {
+          titleColIndex = j;
+          break;
+        }
+      }
+      
+      // Find where revisions start (look for "REVISION" keyword)
+      for (let j = 2; j < row.length; j++) {
+        const cell = String(row[j] || '').toLowerCase().trim();
+        if (cell.includes('revision') || cell.includes('rev')) {
+          revisionStartCol = j;
+          break;
+        }
+      }
+      break;
+    }
+    
+    // Alternative: look for "DRAWING TITLE" in second column
+    if (secondCell.includes('drawing title') || secondCell.includes('title')) {
+      headerRowIndex = i;
+      drawingNoColIndex = 0;
+      titleColIndex = 1;
+      break;
+    }
+  }
+  
+  console.log('[BulkImport] Found header at row:', headerRowIndex, 
+    'Drawing col:', drawingNoColIndex, 
+    'Title col:', titleColIndex,
+    'Revision start:', revisionStartCol);
+  
+  // If no header found, try to detect from first data row
+  if (headerRowIndex === -1) {
+    // Look for first row that looks like a drawing number
+    for (let i = 0; i < Math.min(50, jsonData.length); i++) {
+      const row = jsonData[i] as unknown[];
+      if (!row || row.length < 2) continue;
+      
+      const firstCell = String(row[0] || '').trim();
+      // Check if first cell looks like a drawing number (contains / and numbers)
+      if (/\d+\/[A-Z]\//.test(firstCell)) {
+        headerRowIndex = i - 1; // Set header to row before data
+        break;
+      }
+    }
+  }
+  
+  // Parse drawing rows
+  for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
+    const row = jsonData[i] as unknown[];
+    if (!row || row.length < 2) continue;
+    
+    const drawingNumber = String(row[drawingNoColIndex] || '').trim();
+    const title = String(row[titleColIndex] || '').trim();
+    
+    // Skip empty rows
+    if (!drawingNumber) continue;
+    
+    // Skip section headers (single-word rows like "TENANTS")
+    if (!title && drawingNumber.toUpperCase() === drawingNumber && !/\d/.test(drawingNumber)) {
+      console.log('[BulkImport] Skipping section header:', drawingNumber);
+      continue;
+    }
+    
+    // Skip summary/total rows
+    if (drawingNumber.toLowerCase().includes('total') || 
+        drawingNumber.toLowerCase().includes('sheet no')) {
+      continue;
+    }
+    
+    // Validate drawing number format (should contain project/discipline/number pattern)
+    const isValidFormat = /\d+\/[A-Z]\//.test(drawingNumber) || /\d+\/[A-Z]\/\d+/.test(drawingNumber);
+    
+    // Auto-detect category from drawing number
+    const category = detectDrawingCategory(drawingNumber);
+    
+    // Find the latest revision from the row
+    const currentRevision = findLatestRevision(row, revisionStartCol);
+    
+    // Extract shop number if tenant drawing (pattern: /4XX or /401, etc.)
+    let shopNumber: string | undefined;
+    const shopMatch = drawingNumber.match(/\/4(\d+)/);
+    const shopNameMatch = drawingNumber.match(/\/4([A-Z]+)/);
+    if (shopMatch) {
+      shopNumber = shopMatch[1];
+    } else if (shopNameMatch) {
+      shopNumber = shopNameMatch[1];
+    }
+    
+    drawings.push({
+      drawing_number: drawingNumber,
+      drawing_title: title || 'Untitled',
+      category,
+      current_revision: currentRevision,
+      shop_number: shopNumber,
+      isValid: isValidFormat && !!title,
+      error: !isValidFormat ? 'Invalid drawing number format' : !title ? 'Missing title' : undefined,
+    });
+  }
+  
+  console.log('[BulkImport] Parsed', drawings.length, 'drawings');
+  return drawings;
 }
 
 export function BulkImportDialog({
@@ -64,80 +228,35 @@ export function BulkImportDialog({
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         
-        // Get first sheet
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
+        // Get the second sheet if available (drawing register is often on sheet 2)
+        // Otherwise use first sheet
+        let sheetName = workbook.SheetNames[0];
         
-        // Convert to JSON
+        // Look for a sheet that might be the drawing register
+        for (const name of workbook.SheetNames) {
+          const lowerName = name.toLowerCase();
+          if (lowerName.includes('register') || 
+              lowerName.includes('drawing') || 
+              lowerName.includes('issue')) {
+            sheetName = name;
+            break;
+          }
+        }
+        
+        // If sheet names don't help, try sheet 2 (index 1) if it exists
+        // as the first sheet is often a cover/info sheet
+        if (workbook.SheetNames.length > 1 && sheetName === workbook.SheetNames[0]) {
+          sheetName = workbook.SheetNames[1];
+        }
+        
+        console.log('[BulkImport] Using sheet:', sheetName);
+        
+        const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
         
-        // Find header row (looking for "DRW" or "Drawing" columns)
-        let headerRowIndex = -1;
-        let drawingNoColIndex = -1;
-        let titleColIndex = -1;
+        console.log('[BulkImport] Total rows in sheet:', jsonData.length);
         
-        for (let i = 0; i < Math.min(15, jsonData.length); i++) {
-          const row = jsonData[i] as unknown[];
-          if (!row) continue;
-          
-          for (let j = 0; j < row.length; j++) {
-            const cell = String(row[j] || '').toLowerCase().trim();
-            if (cell.includes('drw') || cell.includes('drawing no') || cell === 'no') {
-              drawingNoColIndex = j;
-              headerRowIndex = i;
-            }
-            if (cell.includes('title') || cell.includes('description')) {
-              titleColIndex = j;
-            }
-          }
-          
-          if (headerRowIndex !== -1) break;
-        }
-        
-        // If no header found, assume first row is data
-        if (headerRowIndex === -1) {
-          headerRowIndex = -1;
-          drawingNoColIndex = 0;
-          titleColIndex = 1;
-        }
-        
-        // Parse drawings
-        const drawings: ParsedDrawing[] = [];
-        
-        for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
-          const row = jsonData[i] as unknown[];
-          if (!row || row.length === 0) continue;
-          
-          const drawingNumber = String(row[drawingNoColIndex] || '').trim();
-          const title = String(row[titleColIndex] || '').trim();
-          
-          // Skip empty rows or summary rows
-          if (!drawingNumber || drawingNumber.toLowerCase().includes('total')) {
-            continue;
-          }
-          
-          // Validate drawing number format
-          const isValidFormat = /\d+\/[A-Z]\//.test(drawingNumber);
-          
-          // Auto-detect category
-          const category = detectDrawingCategory(drawingNumber);
-          
-          // Extract shop number if tenant drawing
-          let shopNumber: string | undefined;
-          const shopMatch = drawingNumber.match(/\/4(\d+)/);
-          if (shopMatch) {
-            shopNumber = shopMatch[1];
-          }
-          
-          drawings.push({
-            drawing_number: drawingNumber,
-            drawing_title: title || 'Untitled',
-            category,
-            shop_number: shopNumber,
-            isValid: isValidFormat && !!title,
-            error: !isValidFormat ? 'Invalid drawing number format' : !title ? 'Missing title' : undefined,
-          });
-        }
+        const drawings = parseDrawingRegister(jsonData);
         
         if (drawings.length === 0) {
           setParseError('No drawings found in the file. Please check the format.');
@@ -159,15 +278,9 @@ export function BulkImportDialog({
     parseExcelFile(file);
   };
 
-  // Handle Dropbox file import (receives ArrayBuffer)
   const handleDropboxFileSelect = (dropboxFile: DropboxFile, content: ArrayBuffer) => {
     setFileName(dropboxFile.name);
-    // Parse the ArrayBuffer directly
     try {
-      const data = new Uint8Array(content);
-      const workbook = XLSX.read(data, { type: 'array' });
-      
-      // Create a File-like object for parseExcelFile
       const blob = new Blob([content]);
       const file = new File([blob], dropboxFile.name);
       parseExcelFile(file);
@@ -189,7 +302,7 @@ export function BulkImportDialog({
       drawing_title: d.drawing_title,
       category: d.category,
       shop_number: d.shop_number,
-      current_revision: 'A',
+      current_revision: d.current_revision,
       status: 'draft',
       visible_to_contractor: true,
       visible_to_client: false,
@@ -210,11 +323,11 @@ export function BulkImportDialog({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Import Drawings from Excel</DialogTitle>
           <DialogDescription>
-            Upload an Excel file with your drawing register. The system will detect drawing numbers and titles automatically.
+            Upload your drawing register Excel file. The system will detect drawing numbers, titles, and current revisions.
           </DialogDescription>
         </DialogHeader>
         
@@ -248,11 +361,12 @@ export function BulkImportDialog({
             )}
             
             <div className="mt-6 p-4 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-2">Expected Format:</p>
+              <p className="text-sm font-medium mb-2">Supported Format:</p>
               <div className="text-sm text-muted-foreground space-y-1">
-                <p>• Column with drawing numbers (e.g., 636/E/001)</p>
-                <p>• Column with drawing titles/descriptions</p>
-                <p>• Headers can be: "DRW No", "Drawing No", "Title", "Description"</p>
+                <p>• WM Engineering Drawing Issue Register format</p>
+                <p>• Column A: Drawing numbers (e.g., 636/E/001)</p>
+                <p>• Column B: Drawing titles/descriptions</p>
+                <p>• Revision columns with dates - latest revision is auto-detected</p>
               </div>
             </div>
           </div>
@@ -284,9 +398,10 @@ export function BulkImportDialog({
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10" />
-                    <TableHead className="w-32">Drawing No.</TableHead>
+                    <TableHead className="w-36">Drawing No.</TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead className="w-24">Category</TableHead>
+                    <TableHead className="w-16">Rev</TableHead>
                     <TableHead className="w-20">Shop</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -312,6 +427,9 @@ export function BulkImportDialog({
                       <TableCell className="text-sm">{drawing.drawing_title}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{drawing.category}</Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm font-medium">
+                        {drawing.current_revision}
                       </TableCell>
                       <TableCell className="text-sm">{drawing.shop_number || '-'}</TableCell>
                     </TableRow>
