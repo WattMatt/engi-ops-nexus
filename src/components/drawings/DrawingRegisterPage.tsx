@@ -13,7 +13,7 @@ import {
   Search,
   LayoutGrid,
   LayoutList,
-  Filter
+  Route
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ import { DrawingGrid } from './DrawingGrid';
 import { AddDrawingDialog } from './AddDrawingDialog';
 import { BulkImportDialog } from './BulkImportDialog';
 import { DrawingStatsCards } from './DrawingStatsCards';
+import { SyncToRoadmapDialog } from './SyncToRoadmapDialog';
 import { DrawingFilters } from '@/types/drawings';
 
 export function DrawingRegisterPage() {
@@ -42,6 +43,7 @@ export function DrawingRegisterPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
 
   // Listen for project changes
   useEffect(() => {
@@ -89,6 +91,15 @@ export function DrawingRegisterPage() {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSyncDialogOpen(true)}
+            disabled={drawings.length === 0}
+          >
+            <Route className="h-4 w-4 mr-2" />
+            Sync to Roadmap
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -204,6 +215,13 @@ export function DrawingRegisterPage() {
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
         projectId={projectId}
+      />
+
+      <SyncToRoadmapDialog
+        open={isSyncDialogOpen}
+        onOpenChange={setIsSyncDialogOpen}
+        projectId={projectId}
+        drawings={drawings}
       />
     </div>
   );
