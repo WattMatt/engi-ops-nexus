@@ -89,26 +89,33 @@ export function useDropbox() {
   }, []);
 
   // Check connection status for current user
-  const checkConnection = useCallback(async () => {
+  const checkConnection = useCallback(async (forceRefresh: boolean = false) => {
     const correlationId = generateCorrelationId();
     const now = Date.now();
     
-    // Debounce: skip if checked recently
-    if (now - lastCheckTime < CHECK_DEBOUNCE_MS) {
+    // Debounce: skip if checked recently (unless forcing refresh)
+    if (!forceRefresh && now - lastCheckTime < CHECK_DEBOUNCE_MS) {
       console.log('[Dropbox] Skipping check - debounced', { correlationId });
       return;
     }
     
-    // Skip if another check is already in progress
-    if (globalCheckInProgress) {
+    // Skip if another check is already in progress (unless forcing refresh)
+    if (!forceRefresh && globalCheckInProgress) {
       console.log('[Dropbox] Skipping check - already in progress', { correlationId });
       return;
+    }
+    
+    // If forcing refresh, clear the cache first
+    if (forceRefresh) {
+      console.log('[Dropbox] Force refresh requested, clearing cache', { correlationId });
+      cachedConnectionState = null;
+      lastCheckTime = 0;
     }
     
     globalCheckInProgress = true;
     lastCheckTime = now;
     
-    console.log('[Dropbox] Checking connection status', { correlationId, timestamp: new Date().toISOString() });
+    console.log('[Dropbox] Checking connection status', { correlationId, timestamp: new Date().toISOString(), forceRefresh });
     
     try {
       setIsLoading(true);
@@ -170,6 +177,11 @@ export function useDropbox() {
       }
     }
   }, []);
+  
+  // Force refresh connection - clears cache and checks again
+  const refreshConnection = useCallback(async () => {
+    await checkConnection(true);
+  }, [checkConnection]);
 
   // Fetch account info for current user
   const fetchAccountInfo = async () => {
@@ -604,7 +616,7 @@ export function useDropbox() {
     getDownloadLink,
     downloadFile,
     deleteItem,
-    refreshConnection: checkConnection,
+    refreshConnection,
     clearError
   };
 }

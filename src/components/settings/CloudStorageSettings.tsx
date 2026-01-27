@@ -45,7 +45,7 @@ const actionLabels: Record<string, string> = {
 export function CloudStorageSettings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
-  const { isConnected, isLoading: dropboxLoading, accountInfo } = useDropbox();
+  const { isConnected, isLoading: dropboxLoading, accountInfo, refreshConnection } = useDropbox();
   const { logs, isLoading: logsLoading, fetchLogs, getActivityStats } = useDropboxActivityLogs();
   const [stats, setStats] = useState<Record<string, number> | null>(null);
 
@@ -74,6 +74,8 @@ export function CloudStorageSettings() {
     }
     
     if (success === 'dropbox_connected') {
+      // Force refresh the connection status after OAuth redirect
+      refreshConnection();
       toast({
         title: 'Dropbox Connected!',
         description: 'Your Dropbox account has been successfully connected.',
@@ -101,7 +103,7 @@ export function CloudStorageSettings() {
       searchParams.delete('error');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams, toast]);
+  }, [searchParams, setSearchParams, toast, refreshConnection]);
 
   // Fetch recent activity when connected - only on initial connection
   useEffect(() => {
