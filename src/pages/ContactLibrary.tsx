@@ -7,7 +7,7 @@ export default function ContactLibrary() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex-1 bg-background">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
