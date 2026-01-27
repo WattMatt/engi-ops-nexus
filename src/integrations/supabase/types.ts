@@ -14782,6 +14782,45 @@ export type Database = {
           },
         ]
       }
+      user_storage_connections: {
+        Row: {
+          account_info: Json | null
+          connected_at: string | null
+          created_at: string | null
+          credentials: Json | null
+          id: string
+          last_used_at: string | null
+          provider: string
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_info?: Json | null
+          connected_at?: string | null
+          created_at?: string | null
+          credentials?: Json | null
+          id?: string
+          last_used_at?: string | null
+          provider: string
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_info?: Json | null
+          connected_at?: string | null
+          created_at?: string | null
+          credentials?: Json | null
+          id?: string
+          last_used_at?: string | null
+          provider?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       variation_line_items: {
         Row: {
           amount: number
