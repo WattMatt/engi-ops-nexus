@@ -50,106 +50,106 @@ const Settings = () => {
   }, []);
 
   return (
-    <div className="pb-12">
-      <div className="container max-w-4xl py-8 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => navigate(-1)}
-          className="shrink-0"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-1">Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your application settings and preferences
-          </p>
+    <div className="min-h-screen overflow-y-auto bg-background">
+      <div className="container max-w-4xl py-8 pb-16 space-y-6">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate(-1)}
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-1">Settings</h1>
+            <p className="text-muted-foreground">
+              Manage your application settings and preferences
+            </p>
+          </div>
         </div>
-      </div>
 
-      <Tabs defaultValue={defaultTab} className="space-y-4">
-        <TabsList className="flex flex-wrap">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="app">App Settings</TabsTrigger>
-          <TabsTrigger value="storage">Cloud Storage</TabsTrigger>
-          <TabsTrigger value="company">Company</TabsTrigger>
-          <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
-          <TabsTrigger value="templates">PDF Templates</TabsTrigger>
-          <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
-          <TabsTrigger value="guides">Guides & Tours</TabsTrigger>
-          <TabsTrigger value="tools">Developer Tools</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue={defaultTab} className="space-y-4">
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="app">App Settings</TabsTrigger>
+            <TabsTrigger value="storage">Cloud Storage</TabsTrigger>
+            <TabsTrigger value="company">Company</TabsTrigger>
+            <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
+            <TabsTrigger value="templates">PDF Templates</TabsTrigger>
+            <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
+            <TabsTrigger value="guides">Guides & Tours</TabsTrigger>
+            <TabsTrigger value="tools">Developer Tools</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="profile">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Picture</CardTitle>
-              <CardDescription>
-                Upload a profile picture to personalize your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center py-8">
-              {userId && (
-                <AvatarUpload
-                  userId={userId}
-                  currentAvatarUrl={avatarUrl}
-                  userName={userName}
-                  onUploadComplete={(url) => setAvatarUrl(url)}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="profile">
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Picture</CardTitle>
+                <CardDescription>
+                  Upload a profile picture to personalize your account
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-center py-8">
+                {userId && (
+                  <AvatarUpload
+                    userId={userId}
+                    currentAvatarUrl={avatarUrl}
+                    userName={userName}
+                    onUploadComplete={(url) => setAvatarUrl(url)}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="notifications">
-          <NotificationPreferencesSettings />
-        </TabsContent>
+          <TabsContent value="notifications">
+            <NotificationPreferencesSettings />
+          </TabsContent>
 
-        <TabsContent value="app">
-          <PWASettings />
-        </TabsContent>
+          <TabsContent value="app">
+            <PWASettings />
+          </TabsContent>
 
-        <TabsContent value="storage">
-          <CloudStorageSettings />
-        </TabsContent>
+          <TabsContent value="storage">
+            <CloudStorageSettings />
+          </TabsContent>
 
-        <TabsContent value="company">
-          <CompanySettings />
-        </TabsContent>
+          <TabsContent value="company">
+            <CompanySettings />
+          </TabsContent>
 
-        <TabsContent value="pdf">
-          <PDFExportSettings />
-        </TabsContent>
+          <TabsContent value="pdf">
+            <PDFExportSettings />
+          </TabsContent>
 
-        <TabsContent value="templates">
-          <TemplateManager />
-        </TabsContent>
+          <TabsContent value="templates">
+            <TemplateManager />
+          </TabsContent>
 
-        <TabsContent value="invoice">
-          <InvoiceSettings />
-        </TabsContent>
+          <TabsContent value="invoice">
+            <InvoiceSettings />
+          </TabsContent>
 
-        <TabsContent value="guides">
-          <WalkthroughSettings />
-        </TabsContent>
+          <TabsContent value="guides">
+            <WalkthroughSettings />
+          </TabsContent>
 
-        <TabsContent value="tools">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Component Generator</CardTitle>
-              <CardDescription>
-                Generate React components from GitHub repositories using AI
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ComponentGenerator />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="tools">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Component Generator</CardTitle>
+                <CardDescription>
+                  Generate React components from GitHub repositories using AI
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ComponentGenerator />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
