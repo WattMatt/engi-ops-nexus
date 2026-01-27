@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,8 @@ export function DropboxBrowser({
   const [files, setFiles] = useState<DropboxFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<DropboxFile | null>(null);
+  const loadingRef = useRef(false);
+  const lastLoadedPath = useRef<string | null>(null);
   
   // Dialogs
   const [newFolderDialog, setNewFolderDialog] = useState(false);
@@ -75,10 +77,16 @@ export function DropboxBrowser({
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<DropboxFile | null>(null);
 
-  const loadFolder = useCallback(async (path: string) => {
+  const loadFolder = useCallback(async (path: string, force = false) => {
+    // Prevent duplicate loads
     if (!isConnected) return;
+    if (loadingRef.current && !force) return;
+    if (lastLoadedPath.current === path && !force) return;
     
+    loadingRef.current = true;
+    lastLoadedPath.current = path;
     setIsLoading(true);
+    
     try {
       const entries = await listFolder(path);
       // Sort: folders first, then by name
@@ -90,6 +98,7 @@ export function DropboxBrowser({
       setFiles(entries);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   }, [isConnected, listFolder]);
 
@@ -148,7 +157,7 @@ export function DropboxBrowser({
     if (success) {
       setNewFolderDialog(false);
       setNewFolderName('');
-      loadFolder(currentPath);
+      loadFolder(currentPath, true);
     }
   };
 
@@ -160,7 +169,7 @@ export function DropboxBrowser({
     if (success) {
       setDeleteDialog(false);
       setItemToDelete(null);
-      loadFolder(currentPath);
+      loadFolder(currentPath, true);
     }
   };
 
@@ -175,7 +184,7 @@ export function DropboxBrowser({
         const uploadPath = currentPath ? `${currentPath}/${file.name}` : `/${file.name}`;
         const success = await uploadFile(uploadPath, content as ArrayBuffer, file.type);
         if (success) {
-          loadFolder(currentPath);
+          loadFolder(currentPath, true);
         }
       }
     };
@@ -204,7 +213,7 @@ export function DropboxBrowser({
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => loadFolder(currentPath)}
+              onClick={() => loadFolder(currentPath, true)}
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
