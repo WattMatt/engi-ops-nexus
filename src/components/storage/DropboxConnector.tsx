@@ -82,35 +82,37 @@ export function DropboxConnector() {
         )}
 
         {/* Connected State */}
-        {isConnected && accountInfo && !isConnecting ? (
+        {isConnected && !isConnecting ? (
           <>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Account:</span>
-                <span className="font-medium">{accountInfo.name || accountInfo.email}</span>
-              </div>
-              
-              {accountInfo.spaceUsed !== undefined && accountInfo.spaceAllocated !== undefined && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <HardDrive className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Storage:</span>
-                    <span className="font-medium">
-                      {formatBytes(accountInfo.spaceUsed)} / {formatBytes(accountInfo.spaceAllocated)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-secondary rounded-full h-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full transition-all"
-                      style={{ 
-                        width: `${Math.min((accountInfo.spaceUsed / accountInfo.spaceAllocated) * 100, 100)}%` 
-                      }}
-                    />
-                  </div>
+            {accountInfo && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Account:</span>
+                  <span className="font-medium">{accountInfo.name || accountInfo.email}</span>
                 </div>
-              )}
-            </div>
+                
+                {accountInfo.spaceUsed !== undefined && accountInfo.spaceAllocated !== undefined && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <HardDrive className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Storage:</span>
+                      <span className="font-medium">
+                        {formatBytes(accountInfo.spaceUsed)} / {formatBytes(accountInfo.spaceAllocated)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-secondary rounded-full h-2">
+                      <div 
+                        className="bg-primary h-2 rounded-full transition-all"
+                        style={{ 
+                          width: `${Math.min((accountInfo.spaceUsed / accountInfo.spaceAllocated) * 100, 100)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-2 pt-2">
               <Button 
