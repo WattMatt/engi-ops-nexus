@@ -10,11 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { WalkthroughSettings } from "@/components/walkthrough/WalkthroughSettings";
 import { CloudStorageSettings } from "@/components/settings/CloudStorageSettings";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 const Settings = () => {
+  const navigate = useNavigate();
   const [userId, setUserId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -48,11 +51,21 @@ const Settings = () => {
 
   return (
     <div className="container max-w-4xl py-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your application settings and preferences
-        </p>
+      <div className="flex items-center gap-4">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => navigate(-1)}
+          className="shrink-0"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-1">Settings</h1>
+          <p className="text-muted-foreground">
+            Manage your application settings and preferences
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
