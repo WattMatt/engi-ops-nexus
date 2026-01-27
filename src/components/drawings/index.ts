@@ -3,6 +3,7 @@
  */
 
 export { DrawingRegisterPage } from './DrawingRegisterPage';
+export { SyncToRoadmapDialog } from './SyncToRoadmapDialog';
 export { DrawingTable } from './DrawingTable';
 export { DrawingGrid } from './DrawingGrid';
 export { DrawingStatsCards } from './DrawingStatsCards';
