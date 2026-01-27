@@ -72,6 +72,8 @@ export function DropboxBrowser({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<DropboxFile | null>(null);
   const mountedRef = useRef(true);
+  const loadingPathRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Dialogs
   const [newFolderDialog, setNewFolderDialog] = useState(false);
@@ -84,12 +86,27 @@ export function DropboxBrowser({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      // Abort any in-flight requests
+      abortControllerRef.current?.abort();
     };
   }, []);
 
-  const loadFolder = useCallback(async (path: string) => {
+  const loadFolder = useCallback(async (path: string, options?: { force?: boolean }) => {
     if (!isConnected) return;
     
+    const force = options?.force ?? false;
+    
+    // Skip if already loading this path (unless forced)
+    if (!force && loadingPathRef.current === path) {
+      console.log('[DropboxBrowser] Skipping duplicate load for:', path);
+      return;
+    }
+    
+    // Abort previous request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    
+    loadingPathRef.current = path;
     setIsLoading(true);
     setLoadError(null);
     
@@ -114,16 +131,22 @@ export function DropboxBrowser({
     } finally {
       if (mountedRef.current) {
         setIsLoading(false);
+        loadingPathRef.current = null;
       }
     }
   }, [isConnected, listFolder]);
 
-  // Load folder when path changes or on mount
+  // Load folder when path changes or on mount - with debounce
   useEffect(() => {
-    if (isConnected) {
+    if (!isConnected) return;
+    
+    // Small delay to prevent rapid re-renders causing multiple loads
+    const timeoutId = setTimeout(() => {
       loadFolder(currentPath);
-    }
-  }, [currentPath, isConnected]); // intentionally exclude loadFolder to prevent loops
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [currentPath, isConnected, loadFolder]);
 
   const navigateTo = (path: string) => {
     setCurrentPath(path);
@@ -176,7 +199,7 @@ export function DropboxBrowser({
     if (success) {
       setNewFolderDialog(false);
       setNewFolderName('');
-      loadFolder(currentPath);
+      loadFolder(currentPath, { force: true });
     }
   };
 
@@ -188,7 +211,7 @@ export function DropboxBrowser({
     if (success) {
       setDeleteDialog(false);
       setItemToDelete(null);
-      loadFolder(currentPath);
+      loadFolder(currentPath, { force: true });
     }
   };
 
@@ -203,7 +226,7 @@ export function DropboxBrowser({
         const uploadPath = currentPath ? `${currentPath}/${file.name}` : `/${file.name}`;
         const success = await uploadFile(uploadPath, content as ArrayBuffer, file.type);
         if (success) {
-          loadFolder(currentPath);
+          loadFolder(currentPath, { force: true });
         }
       }
     };
@@ -232,7 +255,7 @@ export function DropboxBrowser({
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => loadFolder(currentPath)}
+              onClick={() => loadFolder(currentPath, { force: true })}
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -298,7 +321,7 @@ export function DropboxBrowser({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="flex items-center justify-between">
                   <span>{loadError}</span>
-                  <Button variant="outline" size="sm" onClick={() => loadFolder(currentPath)}>
+                  <Button variant="outline" size="sm" onClick={() => loadFolder(currentPath, { force: true })}>
                     Retry
                   </Button>
                 </AlertDescription>
