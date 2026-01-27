@@ -9,13 +9,20 @@ import { ComponentGenerator } from "@/components/ComponentGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { WalkthroughSettings } from "@/components/walkthrough/WalkthroughSettings";
+import { CloudStorageSettings } from "@/components/settings/CloudStorageSettings";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 
 const Settings = () => {
   const [userId, setUserId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  
+  // Get tab from URL if specified (e.g., /settings?tab=storage)
+  const tabFromUrl = searchParams.get('tab');
+  const defaultTab = tabFromUrl === 'storage' ? 'storage' : 'profile';
 
   useEffect(() => {
     const loadUser = async () => {
@@ -48,11 +55,12 @@ const Settings = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-4">
+      <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="app">App Settings</TabsTrigger>
+          <TabsTrigger value="storage">Cloud Storage</TabsTrigger>
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
           <TabsTrigger value="templates">PDF Templates</TabsTrigger>
@@ -88,6 +96,10 @@ const Settings = () => {
 
         <TabsContent value="app">
           <PWASettings />
+        </TabsContent>
+
+        <TabsContent value="storage">
+          <CloudStorageSettings />
         </TabsContent>
 
         <TabsContent value="company">

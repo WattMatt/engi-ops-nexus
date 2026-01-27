@@ -59,7 +59,7 @@ const BackupManagement = () => {
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Backup & Recovery</h1>
           <p className="text-muted-foreground">
-            Manage automated backups and restore your data
+            System-wide backup management and cloud storage administration
           </p>
         </div>
         <Button onClick={() => setRestoreDialogOpen(true)}>
