@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -46,6 +46,11 @@ function generateCorrelationId(): string {
   return `dbx-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+// Global state to prevent duplicate API calls across multiple hook instances
+let globalCheckInProgress = false;
+let lastCheckTime = 0;
+const CHECK_DEBOUNCE_MS = 2000; // Minimum time between checks
+
 export function useDropbox() {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,10 +59,36 @@ export function useDropbox() {
   const [connectionStatus, setConnectionStatus] = useState<DropboxConnectionStatus | null>(null);
   const [accountInfo, setAccountInfo] = useState<DropboxAccountInfo | null>(null);
   const { toast } = useToast();
+  const mountedRef = useRef(true);
+
+  // Track mounted state
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Check connection status for current user
   const checkConnection = useCallback(async () => {
     const correlationId = generateCorrelationId();
+    const now = Date.now();
+    
+    // Debounce: skip if checked recently
+    if (now - lastCheckTime < CHECK_DEBOUNCE_MS) {
+      console.log('[Dropbox] Skipping check - debounced', { correlationId });
+      return;
+    }
+    
+    // Skip if another check is already in progress
+    if (globalCheckInProgress) {
+      console.log('[Dropbox] Skipping check - already in progress', { correlationId });
+      return;
+    }
+    
+    globalCheckInProgress = true;
+    lastCheckTime = now;
+    
     console.log('[Dropbox] Checking connection status', { correlationId, timestamp: new Date().toISOString() });
     
     try {
@@ -77,6 +108,8 @@ export function useDropbox() {
         }
       );
 
+      if (!mountedRef.current) return;
+
       if (response.ok) {
         const status = await response.json();
         console.log('[Dropbox] Connection status received', { correlationId, status: status.status, connected: status.connected });
@@ -84,12 +117,7 @@ export function useDropbox() {
         setIsConnected(status.connected);
         setConnectionError(null);
         
-        if (status.connected) {
-          // Fetch account info
-          await fetchAccountInfo();
-        } else {
-          setAccountInfo(null);
-        }
+        // Don't auto-fetch account info - it will be fetched on demand
       } else {
         console.warn('[Dropbox] Status check failed', { correlationId, status: response.status });
         setIsConnected(false);
@@ -98,11 +126,16 @@ export function useDropbox() {
       }
     } catch (error) {
       console.error('[Dropbox] Connection check error', { correlationId, error });
-      setIsConnected(false);
-      setConnectionStatus(null);
-      setAccountInfo(null);
+      if (mountedRef.current) {
+        setIsConnected(false);
+        setConnectionStatus(null);
+        setAccountInfo(null);
+      }
     } finally {
-      setIsLoading(false);
+      globalCheckInProgress = false;
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
