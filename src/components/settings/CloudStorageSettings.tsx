@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropboxConnector } from "@/components/storage/DropboxConnector";
 import { useDropbox } from "@/hooks/useDropbox";
 import { useDropboxActivityLogs } from "@/hooks/useDropboxActivityLogs";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Cloud, 
   FileText, 
@@ -43,12 +45,68 @@ const actionLabels: Record<string, string> = {
 };
 
 export function CloudStorageSettings() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
   const { isConnected, isLoading: dropboxLoading, accountInfo, listFolder } = useDropbox();
   const { logs, isLoading: logsLoading, fetchLogs, getActivityStats } = useDropboxActivityLogs();
   const { isAdmin } = useRoleAccess("admin");
   const [recentFiles, setRecentFiles] = useState<any[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [stats, setStats] = useState<Record<string, number> | null>(null);
+
+  // Handle OAuth callback success/error URL parameters
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    
+    // Log OAuth return for debugging
+    if (success || error) {
+      const correlationId = sessionStorage.getItem('dropbox_oauth_correlation_id');
+      const startedAt = sessionStorage.getItem('dropbox_oauth_started_at');
+      
+      console.log('[Dropbox] OAuth callback received', {
+        correlationId,
+        success,
+        error,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        duration: startedAt ? `${Date.now() - new Date(startedAt).getTime()}ms` : 'unknown'
+      });
+      
+      // Clear stored OAuth tracking data
+      sessionStorage.removeItem('dropbox_oauth_correlation_id');
+      sessionStorage.removeItem('dropbox_oauth_started_at');
+    }
+    
+    if (success === 'dropbox_connected') {
+      toast({
+        title: 'Dropbox Connected!',
+        description: 'Your Dropbox account has been successfully connected.',
+      });
+      // Clear the success param from URL
+      searchParams.delete('success');
+      setSearchParams(searchParams, { replace: true });
+    }
+    
+    if (error) {
+      const errorMessage = decodeURIComponent(error);
+      console.error('[Dropbox] OAuth error returned', { error: errorMessage });
+      toast({
+        title: 'Connection Failed',
+        description: errorMessage === 'no_code' 
+          ? 'Authorization was cancelled or failed.'
+          : errorMessage === 'invalid_state'
+          ? 'Invalid authorization state. Please try again.'
+          : errorMessage === 'token_exchange_failed'
+          ? 'Failed to complete authorization. Please try again.'
+          : errorMessage,
+        variant: 'destructive'
+      });
+      // Clear the error param from URL
+      searchParams.delete('error');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, toast]);
 
   // Fetch recent activity and files when connected
   useEffect(() => {

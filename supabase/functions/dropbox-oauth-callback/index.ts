@@ -10,6 +10,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const APP_URL = Deno.env.get('APP_URL') || 'https://engi-ops-nexus.lovable.app';
 
 serve(async (req) => {
+  const requestStartTime = Date.now();
+  let correlationId = `callback-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
@@ -17,41 +20,61 @@ serve(async (req) => {
     const error = url.searchParams.get('error');
     const errorDescription = url.searchParams.get('error_description');
 
-    console.log('Dropbox OAuth callback received');
+    console.log('[Dropbox Callback] OAuth callback received', {
+      correlationId,
+      hasCode: !!code,
+      hasState: !!state,
+      hasError: !!error,
+      timestamp: new Date().toISOString()
+    });
 
     if (error) {
-      console.error('OAuth error:', error, errorDescription);
-      return Response.redirect(`${APP_URL}/backup?error=${encodeURIComponent(errorDescription || error)}`);
+      console.error('[Dropbox Callback] OAuth error from Dropbox', {
+        correlationId,
+        error,
+        errorDescription
+      });
+      return Response.redirect(`${APP_URL}/settings?tab=storage&error=${encodeURIComponent(errorDescription || error)}`);
     }
 
     if (!code) {
-      console.error('No authorization code received');
-      return Response.redirect(`${APP_URL}/backup?error=no_code`);
+      console.error('[Dropbox Callback] No authorization code received', { correlationId });
+      return Response.redirect(`${APP_URL}/settings?tab=storage&error=no_code`);
     }
 
-    // Decode state to get user ID
+    // Decode state to get user ID and correlation ID
     let userId: string | null = null;
-    let returnUrl = '/backup';
+    let returnUrl = '/settings?tab=storage';
     
     if (state) {
       try {
         const stateData = JSON.parse(atob(state));
         userId = stateData.userId;
-        returnUrl = stateData.returnUrl || '/backup';
-        console.log('Decoded state - userId:', userId);
+        returnUrl = stateData.returnUrl || '/settings?tab=storage';
+        // Use correlation ID from state if available for end-to-end tracking
+        if (stateData.correlationId) {
+          correlationId = stateData.correlationId;
+        }
+        console.log('[Dropbox Callback] State decoded', {
+          correlationId,
+          userId: userId?.substring(0, 8) + '...',
+          returnUrl
+        });
       } catch (e) {
-        console.error('Failed to decode state:', e);
-        return Response.redirect(`${APP_URL}/backup?error=invalid_state`);
+        console.error('[Dropbox Callback] Failed to decode state', { correlationId, error: e });
+        return Response.redirect(`${APP_URL}/settings?tab=storage&error=invalid_state`);
       }
     }
 
     if (!userId) {
-      console.error('No user ID in state');
-      return Response.redirect(`${APP_URL}/backup?error=no_user_id`);
+      console.error('[Dropbox Callback] No user ID in state', { correlationId });
+      return Response.redirect(`${APP_URL}/settings?tab=storage&error=no_user_id`);
     }
 
     // Exchange code for tokens
     const redirectUri = `${SUPABASE_URL}/functions/v1/dropbox-oauth-callback`;
+    
+    console.log('[Dropbox Callback] Exchanging code for tokens', { correlationId });
     
     const tokenResponse = await fetch('https://api.dropboxapi.com/oauth2/token', {
       method: 'POST',
@@ -68,14 +91,19 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Token exchange failed:', errorText);
-      return Response.redirect(`${APP_URL}${returnUrl}?error=token_exchange_failed`);
+      console.error('[Dropbox Callback] Token exchange failed', {
+        correlationId,
+        status: tokenResponse.status,
+        error: errorText
+      });
+      return Response.redirect(`${APP_URL}${returnUrl}&error=token_exchange_failed`);
     }
 
     const tokens = await tokenResponse.json();
-    console.log('Token exchange successful');
+    console.log('[Dropbox Callback] Token exchange successful', { correlationId });
 
     // Get account info
+    console.log('[Dropbox Callback] Fetching account info', { correlationId });
     const accountResponse = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
       method: 'POST',
       headers: {
@@ -87,7 +115,15 @@ serve(async (req) => {
     let accountInfo = null;
     if (accountResponse.ok) {
       accountInfo = await accountResponse.json();
-      console.log('Got account info for:', accountInfo.email);
+      console.log('[Dropbox Callback] Account info retrieved', {
+        correlationId,
+        email: accountInfo.email
+      });
+    } else {
+      console.warn('[Dropbox Callback] Failed to get account info', {
+        correlationId,
+        status: accountResponse.status
+      });
     }
 
     // Get space usage
@@ -102,9 +138,10 @@ serve(async (req) => {
       });
       if (spaceResponse.ok) {
         spaceUsage = await spaceResponse.json();
+        console.log('[Dropbox Callback] Space usage retrieved', { correlationId });
       }
     } catch (e) {
-      console.warn('Failed to get space usage:', e);
+      console.warn('[Dropbox Callback] Failed to get space usage', { correlationId, error: e });
     }
 
     // Store in database - per-user storage
@@ -149,10 +186,16 @@ serve(async (req) => {
         .eq('id', existing.id);
 
       if (updateError) {
-        console.error('Failed to update storage connection:', updateError);
-        return Response.redirect(`${APP_URL}${returnUrl}?error=database_error`);
+        console.error('[Dropbox Callback] Failed to update storage connection', {
+          correlationId,
+          error: updateError.message
+        });
+        return Response.redirect(`${APP_URL}${returnUrl}&error=database_error`);
       }
-      console.log('Updated existing Dropbox connection for user:', userId);
+      console.log('[Dropbox Callback] Updated existing connection', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...'
+      });
     } else {
       // Insert new connection
       const { error: insertError } = await supabase
@@ -168,10 +211,16 @@ serve(async (req) => {
         });
 
       if (insertError) {
-        console.error('Failed to insert storage connection:', insertError);
-        return Response.redirect(`${APP_URL}${returnUrl}?error=database_error`);
+        console.error('[Dropbox Callback] Failed to insert storage connection', {
+          correlationId,
+          error: insertError.message
+        });
+        return Response.redirect(`${APP_URL}${returnUrl}&error=database_error`);
       }
-      console.log('Created new Dropbox connection for user:', userId);
+      console.log('[Dropbox Callback] Created new connection', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...'
+      });
     }
 
     // Create root folder in Dropbox if it doesn't exist
@@ -184,18 +233,33 @@ serve(async (req) => {
         },
         body: JSON.stringify({ path: '/EngiOps', autorename: false })
       });
-      console.log('Created EngiOps folder in Dropbox');
+      console.log('[Dropbox Callback] Created EngiOps folder', { correlationId });
     } catch (e) {
       // Folder might already exist, that's ok
-      console.log('EngiOps folder may already exist');
+      console.log('[Dropbox Callback] EngiOps folder may already exist', { correlationId });
     }
 
-    console.log('Dropbox connection established successfully for user:', userId);
-    return Response.redirect(`${APP_URL}${returnUrl}?success=dropbox_connected`);
+    console.log('[Dropbox Callback] OAuth flow completed successfully', {
+      correlationId,
+      userId: userId.substring(0, 8) + '...',
+      duration: `${Date.now() - requestStartTime}ms`
+    });
+
+    // Build return URL with success parameter
+    const finalReturnUrl = returnUrl.includes('?') 
+      ? `${returnUrl}&success=dropbox_connected`
+      : `${returnUrl}?success=dropbox_connected`;
+    
+    return Response.redirect(`${APP_URL}${finalReturnUrl}`);
 
   } catch (error: unknown) {
-    console.error('OAuth callback error:', error);
+    console.error('[Dropbox Callback] Unexpected error', {
+      correlationId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: `${Date.now() - requestStartTime}ms`
+    });
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return Response.redirect(`${APP_URL}/backup?error=${encodeURIComponent(message)}`);
+    return Response.redirect(`${APP_URL}/settings?tab=storage&error=${encodeURIComponent(message)}`);
   }
 });

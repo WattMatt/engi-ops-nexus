@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-correlation-id',
 };
 
 const DROPBOX_APP_KEY = Deno.env.get('DROPBOX_APP_KEY');
@@ -15,6 +15,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const APP_URL = Deno.env.get('APP_URL') || 'https://engi-ops-nexus.lovable.app';
 
 serve(async (req) => {
+  const requestStartTime = Date.now();
+  const correlationId = req.headers.get('X-Correlation-ID') || `srv-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -24,10 +27,15 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get('action') || 'initiate';
 
-    console.log(`Dropbox auth action: ${action}`);
+    console.log(`[Dropbox Auth] Request received`, {
+      correlationId,
+      action,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    });
 
     if (!DROPBOX_APP_KEY || !DROPBOX_APP_SECRET) {
-      console.error('Missing Dropbox credentials');
+      console.error('[Dropbox Auth] Missing credentials', { correlationId });
       return new Response(
         JSON.stringify({ error: 'Dropbox credentials not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -51,6 +59,7 @@ serve(async (req) => {
     if (action === 'initiate') {
       // Require authentication for initiating OAuth
       if (!userId) {
+        console.warn('[Dropbox Auth] Initiate without auth', { correlationId });
         return new Response(
           JSON.stringify({ error: 'Authentication required' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -60,14 +69,22 @@ serve(async (req) => {
       // Get custom return URL from query params, default to /settings?tab=storage
       const returnUrl = url.searchParams.get('returnUrl') || '/settings?tab=storage';
 
+      console.log('[Dropbox Auth] Initiating OAuth flow', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...',
+        returnUrl,
+        timestamp: new Date().toISOString()
+      });
+
       // Generate OAuth authorization URL with user ID encoded in state
       const redirectUri = `${SUPABASE_URL}/functions/v1/dropbox-oauth-callback`;
       
-      // Encode user ID and nonce in state for security
+      // Encode user ID, correlation ID, and nonce in state for security and tracking
       const stateData = {
         userId: userId,
         nonce: crypto.randomUUID(),
-        returnUrl: returnUrl
+        returnUrl: returnUrl,
+        correlationId: correlationId
       };
       const state = btoa(JSON.stringify(stateData));
       
@@ -78,7 +95,12 @@ serve(async (req) => {
       authUrl.searchParams.set('state', state);
       authUrl.searchParams.set('token_access_type', 'offline'); // Get refresh token
 
-      console.log('Generated Dropbox auth URL for user:', userId);
+      console.log('[Dropbox Auth] Auth URL generated', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...',
+        authUrlLength: authUrl.toString().length,
+        duration: `${Date.now() - requestStartTime}ms`
+      });
 
       return new Response(
         JSON.stringify({ authUrl: authUrl.toString(), state }),
@@ -89,11 +111,17 @@ serve(async (req) => {
     if (action === 'refresh') {
       // Refresh access token using refresh token for specific user
       if (!userId) {
+        console.warn('[Dropbox Auth] Refresh without auth', { correlationId });
         return new Response(
           JSON.stringify({ error: 'Authentication required' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      console.log('[Dropbox Auth] Token refresh requested', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...'
+      });
 
       // Get user's stored credentials
       const { data: connection, error: fetchError } = await supabase
@@ -105,6 +133,7 @@ serve(async (req) => {
         .single();
 
       if (fetchError || !connection) {
+        console.warn('[Dropbox Auth] No connection found for refresh', { correlationId, error: fetchError?.message });
         return new Response(
           JSON.stringify({ error: 'No Dropbox connection found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -114,6 +143,7 @@ serve(async (req) => {
       const credentials = connection.credentials as { refresh_token?: string };
       
       if (!credentials?.refresh_token) {
+        console.warn('[Dropbox Auth] No refresh token available', { correlationId });
         return new Response(
           JSON.stringify({ error: 'No refresh token available' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -134,7 +164,11 @@ serve(async (req) => {
 
       if (!tokenResponse.ok) {
         const error = await tokenResponse.text();
-        console.error('Token refresh failed:', error);
+        console.error('[Dropbox Auth] Token refresh failed', {
+          correlationId,
+          status: tokenResponse.status,
+          error
+        });
         
         // Mark connection as expired
         await supabase
@@ -149,7 +183,11 @@ serve(async (req) => {
       }
 
       const tokens = await tokenResponse.json();
-      console.log('Token refreshed successfully for user:', userId);
+      console.log('[Dropbox Auth] Token refreshed successfully', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...',
+        duration: `${Date.now() - requestStartTime}ms`
+      });
 
       // Update stored credentials
       const updatedCredentials = {
@@ -179,11 +217,17 @@ serve(async (req) => {
     if (action === 'disconnect') {
       // Require authentication
       if (!userId) {
+        console.warn('[Dropbox Auth] Disconnect without auth', { correlationId });
         return new Response(
           JSON.stringify({ error: 'Authentication required' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      console.log('[Dropbox Auth] Disconnect requested', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...'
+      });
 
       // Get user's stored credentials
       const { data: connection, error: fetchError } = await supabase
@@ -194,7 +238,7 @@ serve(async (req) => {
         .single();
 
       if (fetchError || !connection) {
-        console.log('No active Dropbox connection found for user:', userId);
+        console.log('[Dropbox Auth] No connection found for disconnect', { correlationId });
         return new Response(
           JSON.stringify({ success: true, message: 'No connection to disconnect' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -212,9 +256,9 @@ serve(async (req) => {
               'Authorization': `Bearer ${credentials.access_token}`
             }
           });
-          console.log('Dropbox token revoked for user:', userId);
+          console.log('[Dropbox Auth] Token revoked at Dropbox', { correlationId });
         } catch (e) {
-          console.warn('Failed to revoke Dropbox token:', e);
+          console.warn('[Dropbox Auth] Failed to revoke token at Dropbox', { correlationId, error: e });
         }
       }
 
@@ -225,8 +269,14 @@ serve(async (req) => {
         .eq('id', connection.id);
 
       if (deleteError) {
-        console.error('Failed to delete storage connection:', deleteError);
+        console.error('[Dropbox Auth] Failed to delete connection', { correlationId, error: deleteError.message });
       }
+
+      console.log('[Dropbox Auth] Disconnect completed', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...',
+        duration: `${Date.now() - requestStartTime}ms`
+      });
 
       return new Response(
         JSON.stringify({ success: true }),
@@ -235,6 +285,11 @@ serve(async (req) => {
     }
 
     if (action === 'status') {
+      console.log('[Dropbox Auth] Status check', {
+        correlationId,
+        hasUserId: !!userId
+      });
+
       // Check current user's connection status
       if (!userId) {
         return new Response(
@@ -255,6 +310,11 @@ serve(async (req) => {
         .single();
 
       if (!connection) {
+        console.log('[Dropbox Auth] No connection found', {
+          correlationId,
+          userId: userId.substring(0, 8) + '...',
+          duration: `${Date.now() - requestStartTime}ms`
+        });
         return new Response(
           JSON.stringify({
             connected: false,
@@ -266,6 +326,13 @@ serve(async (req) => {
       }
 
       const accountInfo = connection.account_info as { account_email?: string; account_name?: string } | null;
+
+      console.log('[Dropbox Auth] Status returned', {
+        correlationId,
+        userId: userId.substring(0, 8) + '...',
+        connected: connection.status === 'connected',
+        duration: `${Date.now() - requestStartTime}ms`
+      });
 
       return new Response(
         JSON.stringify({
@@ -281,13 +348,19 @@ serve(async (req) => {
       );
     }
 
+    console.warn('[Dropbox Auth] Invalid action', { correlationId, action });
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
-    console.error('Dropbox auth error:', error);
+    console.error('[Dropbox Auth] Unexpected error', {
+      correlationId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: `${Date.now() - requestStartTime}ms`
+    });
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: message }),
