@@ -3841,6 +3841,54 @@ export type Database = {
           },
         ]
       }
+      dropbox_activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          error_message: string | null
+          file_name: string | null
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          status: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_message?: string | null
+          file_name?: string | null
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          status?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          file_name?: string | null
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          status?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       electrical_budget_reports: {
         Row: {
           budget_id: string
