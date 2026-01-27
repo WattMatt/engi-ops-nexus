@@ -197,12 +197,23 @@ export function useDropbox() {
         
         // Navigate to Dropbox OAuth - use top-level window to avoid iframe restrictions
         // In an iframe (like Lovable preview), we need to navigate the top window
-        if (window.top && window.top !== window) {
-          // We're in an iframe - navigate top window
-          window.top.location.href = authUrl;
-        } else {
-          // We're not in an iframe - direct navigation
-          window.location.href = authUrl;
+        try {
+          if (window.top && window.top !== window) {
+            // We're in an iframe - navigate top window
+            window.top.location.href = authUrl;
+          } else {
+            // We're not in an iframe - direct navigation
+            window.location.href = authUrl;
+          }
+        } catch (securityError) {
+          // Cross-origin iframe restriction - fall back to opening in new tab
+          console.warn('[Dropbox] Cannot access top window due to cross-origin restrictions, opening in new tab', { correlationId });
+          window.open(authUrl, '_blank');
+          setIsConnecting(false);
+          toast({
+            title: 'Dropbox Login Opened',
+            description: 'Complete the login in the new tab, then refresh this page.',
+          });
         }
       } else {
         const errorData = await response.json();
