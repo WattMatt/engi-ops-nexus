@@ -49,14 +49,23 @@ const Settings = () => {
     loadUser();
   }, []);
 
+  // Smart back navigation - go to dashboard if no history
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background overflow-y-auto">
+    <div className="h-screen bg-background overflow-y-auto">
       <div className="max-w-4xl mx-auto p-6 pb-16 space-y-6">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
             className="shrink-0"
           >
             <ArrowLeft className="h-5 w-5" />
