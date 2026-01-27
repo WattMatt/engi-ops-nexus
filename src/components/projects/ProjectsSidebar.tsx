@@ -10,7 +10,7 @@ import {
   Folder,
   Library,
   Contact,
-  Users,
+  User,
   Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -115,6 +115,15 @@ export function ProjectsSidebar({
 
       {/* Quick Links */}
       <div className="p-3 border-t space-y-1">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="w-full justify-start text-muted-foreground"
+          onClick={() => navigate("/settings")}
+        >
+          <User className="h-4 w-4 mr-2" />
+          My Settings
+        </Button>
         <Button 
           variant="ghost" 
           size="sm" 
