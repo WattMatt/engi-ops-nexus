@@ -126,7 +126,8 @@ export function CloudStorageSettings() {
       
       setFilesLoading(true);
       try {
-        const files = await listFolder('');
+        // Use silent option to prevent toast errors during background loading
+        const files = await listFolder('', { silent: true });
         if (cancelled) return;
         // Get 5 most recent files (not folders)
         const fileEntries = files
