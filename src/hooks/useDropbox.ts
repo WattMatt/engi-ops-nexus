@@ -195,9 +195,15 @@ export function useDropbox() {
         sessionStorage.setItem('dropbox_oauth_correlation_id', correlationId);
         sessionStorage.setItem('dropbox_oauth_started_at', new Date().toISOString());
         
-        // Use window.open with _self to handle OAuth redirect
-        // This is more reliable for OAuth flows and works across browsers
-        window.open(authUrl, '_self');
+        // Navigate to Dropbox OAuth - use top-level window to avoid iframe restrictions
+        // In an iframe (like Lovable preview), we need to navigate the top window
+        if (window.top && window.top !== window) {
+          // We're in an iframe - navigate top window
+          window.top.location.href = authUrl;
+        } else {
+          // We're not in an iframe - direct navigation
+          window.location.href = authUrl;
+        }
       } else {
         const errorData = await response.json();
         const errorMsg = errorData.error || 'Failed to initiate connection';
