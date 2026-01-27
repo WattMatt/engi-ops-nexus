@@ -136,16 +136,11 @@ export function DropboxBrowser({
     }
   }, [isConnected, listFolder]);
 
-  // Load folder when path changes or on mount - with debounce
+  // Load folder when path changes or on mount - immediate since connection is from cache
   useEffect(() => {
-    if (!isConnected) return;
-    
-    // Small delay to prevent rapid re-renders causing multiple loads
-    const timeoutId = setTimeout(() => {
+    if (isConnected) {
       loadFolder(currentPath);
-    }, 100);
-    
-    return () => clearTimeout(timeoutId);
+    }
   }, [currentPath, isConnected, loadFolder]);
 
   const navigateTo = (path: string) => {

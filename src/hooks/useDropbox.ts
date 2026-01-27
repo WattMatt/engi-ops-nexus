@@ -51,13 +51,32 @@ let globalCheckInProgress = false;
 let lastCheckTime = 0;
 const CHECK_DEBOUNCE_MS = 2000; // Minimum time between checks
 
+// Cache for sharing connection state across hook instances
+let cachedConnectionState: {
+  isConnected: boolean;
+  connectionStatus: DropboxConnectionStatus | null;
+  accountInfo: DropboxAccountInfo | null;
+  timestamp: number;
+} | null = null;
+const CACHE_TTL_MS = 30000; // 30 seconds
+
 export function useDropbox() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize from cache if fresh
+  const hasFreshCache = cachedConnectionState && 
+    (Date.now() - cachedConnectionState.timestamp < CACHE_TTL_MS);
+  
+  const [isConnected, setIsConnected] = useState(
+    hasFreshCache ? cachedConnectionState!.isConnected : false
+  );
+  const [isLoading, setIsLoading] = useState(!hasFreshCache);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<DropboxConnectionStatus | null>(null);
-  const [accountInfo, setAccountInfo] = useState<DropboxAccountInfo | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<DropboxConnectionStatus | null>(
+    hasFreshCache ? cachedConnectionState!.connectionStatus : null
+  );
+  const [accountInfo, setAccountInfo] = useState<DropboxAccountInfo | null>(
+    hasFreshCache ? cachedConnectionState!.accountInfo : null
+  );
   const { toast } = useToast();
   const mountedRef = useRef(true);
 
@@ -113,6 +132,15 @@ export function useDropbox() {
       if (response.ok) {
         const status = await response.json();
         console.log('[Dropbox] Connection status received', { correlationId, status: status.status, connected: status.connected });
+        
+        // Update global cache for other hook instances
+        cachedConnectionState = {
+          isConnected: status.connected,
+          connectionStatus: status,
+          accountInfo: cachedConnectionState?.accountInfo || null,
+          timestamp: Date.now()
+        };
+        
         setConnectionStatus(status);
         setIsConnected(status.connected);
         setConnectionError(null);
@@ -120,6 +148,10 @@ export function useDropbox() {
         // Don't auto-fetch account info - it will be fetched on demand
       } else {
         console.warn('[Dropbox] Status check failed', { correlationId, status: response.status });
+        
+        // Clear cache on failure
+        cachedConnectionState = null;
+        
         setIsConnected(false);
         setConnectionStatus(null);
         setAccountInfo(null);
