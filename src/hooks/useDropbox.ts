@@ -150,8 +150,13 @@ export function useDropbox() {
 
       if (response.ok) {
         const { authUrl } = await response.json();
-        // Redirect to Dropbox OAuth
-        window.location.href = authUrl;
+        // Use window.open to handle OAuth redirect - more reliable than location.href
+        // This works better with async functions and popup blockers
+        const newWindow = window.open(authUrl, '_self');
+        if (!newWindow) {
+          // Fallback if window.open fails - try direct navigation
+          window.location.assign(authUrl);
+        }
       } else {
         const error = await response.json();
         throw new Error(error.error || 'Failed to initiate connection');
