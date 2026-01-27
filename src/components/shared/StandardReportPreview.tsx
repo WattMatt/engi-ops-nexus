@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { SaveToDropboxButton } from "@/components/storage/SaveToDropboxButton";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -29,6 +30,7 @@ export const StandardReportPreview = ({
   onRegeneratePDF
 }: StandardReportPreviewProps) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [numPages, setNumPages] = useState<number>(0);
@@ -37,8 +39,9 @@ export const StandardReportPreview = ({
     if (open && report) {
       loadPdfUrl();
     } else if (!open) {
-      // Clear PDF URL when dialog closes
+      // Clear state when dialog closes
       setPdfUrl(null);
+      setPdfBlob(null);
       setNumPages(0);
     }
   }, [open, report?.id, report?.file_path]);
@@ -48,23 +51,23 @@ export const StandardReportPreview = ({
     setNumPages(0);
     
     try {
-      // Create a signed URL that works for both public and private buckets
-      // Expires in 1 hour (3600 seconds)
-      const { data, error } = await supabase.storage
+      // Download the file to get both URL and blob
+      const { data: blobData, error: downloadError } = await supabase.storage
         .from(storageBucket)
-        .createSignedUrl(report.file_path, 3600);
+        .download(report.file_path);
 
-      if (error) {
-        console.error('[PDF PREVIEW] Signed URL error:', error);
-        throw error;
+      if (downloadError) {
+        console.error('[PDF PREVIEW] Download error:', downloadError);
+        throw downloadError;
       }
 
-      if (!data?.signedUrl) {
-        throw new Error("Failed to get PDF URL");
+      if (blobData) {
+        setPdfBlob(blobData);
+        const objectUrl = URL.createObjectURL(blobData);
+        setPdfUrl(objectUrl);
       }
 
-      console.log('[PDF PREVIEW] Loading PDF with signed URL');
-      setPdfUrl(data.signedUrl);
+      console.log('[PDF PREVIEW] Loading PDF');
       setLoading(false);
     } catch (error) {
       console.error('Preview error:', error);
@@ -76,22 +79,35 @@ export const StandardReportPreview = ({
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const { data, error } = await supabase.storage
-        .from(storageBucket)
-        .download(report.file_path);
+      if (pdfBlob) {
+        // Use already downloaded blob
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = report.report_name || 'report.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        toast.success('Report downloaded successfully');
+      } else {
+        // Fallback to fresh download
+        const { data, error } = await supabase.storage
+          .from(storageBucket)
+          .download(report.file_path);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const url = window.URL.createObjectURL(data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = report.report_name || 'report.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success('Report downloaded successfully');
+        const url = window.URL.createObjectURL(data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = report.report_name || 'report.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        toast.success('Report downloaded successfully');
+      }
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download report');
@@ -149,6 +165,14 @@ export const StandardReportPreview = ({
                 </>
               )}
             </Button>
+            
+            <SaveToDropboxButton
+              fileContent={pdfBlob}
+              filename={report?.report_name || 'report.pdf'}
+              contentType="application/pdf"
+              defaultFolder="/EngiOps/Reports"
+              disabled={!pdfBlob}
+            />
           </div>
         </div>
 

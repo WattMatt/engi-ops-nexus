@@ -5,6 +5,7 @@ import { BackupDashboard } from "@/components/backup/BackupDashboard";
 import { RestoreDialog } from "@/components/backup/RestoreDialog";
 import { DropboxConnector } from "@/components/storage/DropboxConnector";
 import { DropboxBrowser } from "@/components/storage/DropboxBrowser";
+import { DropboxBackupSync } from "@/components/storage/DropboxBackupSync";
 import { StorageProviderCard, GoogleDriveIcon, OneDriveIcon, S3Icon } from "@/components/storage/StorageProviderCard";
 import { Download, Cloud, HardDrive, CheckCircle2, AlertCircle } from "lucide-react";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
@@ -112,6 +113,9 @@ const BackupManagement = () => {
           {/* Storage Providers Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DropboxConnector />
+            
+            {/* Backup Sync - only show when connected */}
+            {dropboxConnected && <DropboxBackupSync />}
             
             <StorageProviderCard
               name="Google Drive"
