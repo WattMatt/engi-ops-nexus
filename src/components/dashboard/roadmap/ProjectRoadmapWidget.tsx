@@ -431,11 +431,11 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
 
                 return (
                   <div key={phase} className="border rounded-lg overflow-hidden">
-                    <button
-                      onClick={() => togglePhase(phase)}
-                      className="w-full flex items-center justify-between px-4 py-2 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-2">
+                    <div className="w-full flex items-center justify-between px-4 py-2 bg-muted/50 hover:bg-muted/80 transition-colors text-left">
+                      <button
+                        onClick={() => togglePhase(phase)}
+                        className="flex items-center gap-2 flex-1"
+                      >
                         {isExpanded ? (
                           <ChevronDown className="h-4 w-4" />
                         ) : (
@@ -445,19 +445,16 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
                         <span className="text-xs text-muted-foreground">
                           ({phaseItems.filter(i => i.is_completed).length}/{phaseItems.length})
                         </span>
-                      </div>
+                      </button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddItem(null);
-                        }}
+                        onClick={() => handleAddItem(null)}
                         className="h-6 px-2"
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
-                    </button>
+                    </div>
 
                     {isExpanded && (
                       <DndContext
