@@ -281,8 +281,9 @@ export function useDropbox() {
   };
 
   // List folder contents
-  const listFolder = async (path: string = ''): Promise<DropboxFile[]> => {
+  const listFolder = async (path: string = '', options?: { silent?: boolean }): Promise<DropboxFile[]> => {
     const correlationId = generateCorrelationId();
+    const silent = options?.silent ?? false;
     
     try {
       const authHeaders = await getAuthHeader();
@@ -306,7 +307,7 @@ export function useDropbox() {
       }
       
       const error = await response.json();
-      if (response.status === 401) {
+      if (response.status === 401 && !silent) {
         setIsConnected(false);
         toast({
           title: 'Connection Expired',
@@ -317,11 +318,13 @@ export function useDropbox() {
       return [];
     } catch (error) {
       console.error('[Dropbox] List folder error', { correlationId, error });
-      toast({
-        title: 'Error',
-        description: 'Failed to load folder contents',
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load folder contents',
+          variant: 'destructive'
+        });
+      }
       return [];
     }
   };
