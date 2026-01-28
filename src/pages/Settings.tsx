@@ -15,9 +15,11 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useUserRole();
   const [userId, setUserId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -84,12 +86,16 @@ const Settings = () => {
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="app">App Settings</TabsTrigger>
             <TabsTrigger value="storage">Cloud Storage</TabsTrigger>
-            <TabsTrigger value="company">Company</TabsTrigger>
-            <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
-            <TabsTrigger value="templates">PDF Templates</TabsTrigger>
-            <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
-            <TabsTrigger value="guides">Guides & Tours</TabsTrigger>
-            <TabsTrigger value="tools">Developer Tools</TabsTrigger>
+            {isAdmin && (
+              <>
+                <TabsTrigger value="company">Company</TabsTrigger>
+                <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
+                <TabsTrigger value="templates">PDF Templates</TabsTrigger>
+                <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
+                <TabsTrigger value="guides">Guides & Tours</TabsTrigger>
+                <TabsTrigger value="tools">Developer Tools</TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           <TabsContent value="profile">
@@ -125,39 +131,43 @@ const Settings = () => {
             <CloudStorageSettings />
           </TabsContent>
 
-          <TabsContent value="company">
-            <CompanySettings />
-          </TabsContent>
+          {isAdmin && (
+            <>
+              <TabsContent value="company">
+                <CompanySettings />
+              </TabsContent>
 
-          <TabsContent value="pdf">
-            <PDFExportSettings />
-          </TabsContent>
+              <TabsContent value="pdf">
+                <PDFExportSettings />
+              </TabsContent>
 
-          <TabsContent value="templates">
-            <TemplateManager />
-          </TabsContent>
+              <TabsContent value="templates">
+                <TemplateManager />
+              </TabsContent>
 
-          <TabsContent value="invoice">
-            <InvoiceSettings />
-          </TabsContent>
+              <TabsContent value="invoice">
+                <InvoiceSettings />
+              </TabsContent>
 
-          <TabsContent value="guides">
-            <WalkthroughSettings />
-          </TabsContent>
+              <TabsContent value="guides">
+                <WalkthroughSettings />
+              </TabsContent>
 
-          <TabsContent value="tools">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Component Generator</CardTitle>
-                <CardDescription>
-                  Generate React components from GitHub repositories using AI
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ComponentGenerator />
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <TabsContent value="tools">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>AI Component Generator</CardTitle>
+                    <CardDescription>
+                      Generate React components from GitHub repositories using AI
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ComponentGenerator />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </div>
     </div>
