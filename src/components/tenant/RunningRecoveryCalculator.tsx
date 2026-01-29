@@ -109,7 +109,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   });
 
   // Initialize zone settings when zones and saved settings are loaded
-  // Always recalculate fuel rate from current generator configuration
+  // Only recalculate fuel rate from current generator configuration
   useEffect(() => {
     if (!zones.length) return;
     
@@ -118,30 +118,34 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     zones.forEach((zone) => {
       const savedSetting = allSettings.find(s => s.generator_zone_id === zone.id);
       
-      // Always get the current generator size from zone_generators table
+      // Get the current generator size from zone_generators table for fuel rate calculation
       const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id);
       const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
       const generatorSize = firstGenerator?.generator_size || "";
       
       const sizeMatch = generatorSize.match(/(\d+)/);
-      const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 200; // Default to 200 kVA if no size set
+      const defaultKvaValue = sizeMatch ? Number(sizeMatch[1]) : 200; // Default to 200 kVA if no size set
       
       // Calculate fuel rate from sizing table based on current generator and running load
       const runningLoad = savedSetting ? Number(savedSetting.running_load) : 75;
       let fuelRate = getFuelConsumption(generatorSize, runningLoad);
       
       // If no fuel rate found (generator size not in table), estimate based on kVA
-      if (fuelRate === 0 && kvaValue > 0) {
-        fuelRate = kvaValue * 0.15;
+      if (fuelRate === 0 && defaultKvaValue > 0) {
+        fuelRate = defaultKvaValue * 0.15;
       }
       
       if (savedSetting) {
-        // Load saved settings but recalculate fuel rate from current generator config
+        // Load saved settings - use saved net_energy_kva if user has manually adjusted it
+        // Otherwise use the generator size as default
+        const savedNetEnergy = Number(savedSetting.net_energy_kva);
+        const netEnergyKva = savedNetEnergy > 0 ? savedNetEnergy : defaultKvaValue;
+        
         initialSettings.set(zone.id, {
           generator_zone_id: zone.id,
           plant_name: savedSetting.plant_name,
           running_load: Number(savedSetting.running_load),
-          net_energy_kva: kvaValue, // Use current generator size
+          net_energy_kva: netEnergyKva, // Use saved value, or default to generator size
           kva_to_kwh_conversion: Number(savedSetting.kva_to_kwh_conversion),
           fuel_consumption_rate: fuelRate, // Recalculated from current config
           diesel_price_per_litre: Number(savedSetting.diesel_price_per_litre),
@@ -154,7 +158,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
           generator_zone_id: zone.id,
           plant_name: zone.zone_name,
           running_load: 75,
-          net_energy_kva: kvaValue,
+          net_energy_kva: defaultKvaValue,
           kva_to_kwh_conversion: 0.95,
           fuel_consumption_rate: fuelRate,
           diesel_price_per_litre: 23.00,
