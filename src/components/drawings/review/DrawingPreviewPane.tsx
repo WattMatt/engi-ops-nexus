@@ -109,18 +109,20 @@ export function DrawingPreviewPane({
     setRotation(prev => (prev + 90) % 360);
   }, []);
   
-  // Mouse wheel zoom (centered on cursor)
+  // Mouse wheel zoom (default behavior, hold Shift to pan instead)
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom(prev => Math.min(Math.max(prev * delta, 0.1), 10));
-    } else {
-      // Pan with scroll
+    e.preventDefault();
+    
+    if (e.shiftKey) {
+      // Pan with Shift+scroll
       setOffset(prev => ({
         x: prev.x - e.deltaX * 0.5,
         y: prev.y - e.deltaY * 0.5,
       }));
+    } else {
+      // Zoom with scroll wheel (centered on cursor)
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom(prev => Math.min(Math.max(prev * delta, 0.1), 10));
     }
   }, []);
   
@@ -405,7 +407,7 @@ export function DrawingPreviewPane({
       
       {/* Footer info */}
       <div className="px-3 py-1.5 border-t bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
-        <span>Scroll to pan • Ctrl+Scroll to zoom • Drag to pan</span>
+        <span>Scroll to zoom • Shift+Scroll to pan • Drag to pan</span>
         {fileName && (
           <span className="truncate max-w-[200px]" title={fileName}>
             {fileName}
