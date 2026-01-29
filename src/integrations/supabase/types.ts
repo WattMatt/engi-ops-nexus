@@ -3794,6 +3794,167 @@ export type Database = {
         }
         Relationships: []
       }
+      drawing_checklist_items: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          linked_document_type: string | null
+          parent_id: string | null
+          sort_order: number
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          linked_document_type?: string | null
+          parent_id?: string | null
+          sort_order?: number
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          linked_document_type?: string | null
+          parent_id?: string | null
+          sort_order?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_checklist_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "drawing_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drawing_checklist_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "drawing_checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drawing_checklist_templates: {
+        Row: {
+          category_code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category_code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category_code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      drawing_review_checks: {
+        Row: {
+          checked_at: string | null
+          checked_by: string | null
+          id: string
+          is_checked: boolean
+          item_id: string
+          notes: string | null
+          review_id: string
+        }
+        Insert: {
+          checked_at?: string | null
+          checked_by?: string | null
+          id?: string
+          is_checked?: boolean
+          item_id: string
+          notes?: string | null
+          review_id: string
+        }
+        Update: {
+          checked_at?: string | null
+          checked_by?: string | null
+          id?: string
+          is_checked?: boolean
+          item_id?: string
+          notes?: string | null
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_review_checks_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "drawing_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drawing_review_checks_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "drawing_review_status"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drawing_review_status: {
+        Row: {
+          created_at: string
+          drawing_id: string
+          id: string
+          notes: string | null
+          review_date: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          drawing_id: string
+          id?: string
+          notes?: string | null
+          review_date?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          drawing_id?: string
+          id?: string
+          notes?: string | null
+          review_date?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_review_status_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: true
+            referencedRelation: "project_drawings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drawing_revisions: {
         Row: {
           created_at: string | null

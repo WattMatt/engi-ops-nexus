@@ -10,10 +10,10 @@ import {
   Pencil, 
   Trash2, 
   Download,
-  ExternalLink,
   Users,
   Building2,
-  FileCheck
+  FileCheck,
+  ClipboardCheck
 } from 'lucide-react';
 import {
   Table,
@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,9 +45,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteDrawing, useUpdateDrawingVisibility } from '@/hooks/useProjectDrawings';
+import { useDrawingReviewStatuses } from '@/hooks/useDrawingChecklists';
 import { ProjectDrawing, DRAWING_STATUS_OPTIONS, naturalSortDrawings } from '@/types/drawings';
+import { REVIEW_STATUS_OPTIONS } from '@/types/drawingChecklists';
 import { EditDrawingDialog } from './EditDrawingDialog';
+import { DrawingReviewDialog } from './review';
 import { format } from 'date-fns';
 
 interface DrawingTableProps {
@@ -59,9 +64,15 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingDrawing, setEditingDrawing] = useState<ProjectDrawing | null>(null);
   const [deletingDrawing, setDeletingDrawing] = useState<ProjectDrawing | null>(null);
+  const [reviewingDrawing, setReviewingDrawing] = useState<ProjectDrawing | null>(null);
   
   const deleteDrawing = useDeleteDrawing();
   const updateVisibility = useUpdateDrawingVisibility();
+  
+  // Fetch review statuses for all drawings
+  const drawingIds = drawings.map(d => d.id);
+  const { data: reviewStatuses = [] } = useDrawingReviewStatuses(drawingIds);
+  const reviewStatusMap = new Map(reviewStatuses.map(s => [s.drawing_id, s]));
   
   const sortedDrawings = [...drawings].sort(naturalSortDrawings);
   
@@ -195,13 +206,20 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
               <TableHead>Title</TableHead>
               <TableHead className="w-24">Rev</TableHead>
               <TableHead className="w-32">Status</TableHead>
+              <TableHead className="w-28">Review</TableHead>
               <TableHead className="w-24">File</TableHead>
               <TableHead className="w-24 text-center">Portals</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedDrawings.map(drawing => (
+            {sortedDrawings.map(drawing => {
+              const reviewStatus = reviewStatusMap.get(drawing.id);
+              const reviewOption = reviewStatus 
+                ? REVIEW_STATUS_OPTIONS.find(o => o.value === reviewStatus.status)
+                : null;
+              
+              return (
               <TableRow key={drawing.id}>
                 <TableCell>
                   <Checkbox
@@ -231,6 +249,28 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
                   )}
                 </TableCell>
                 <TableCell>{getStatusBadge(drawing.status)}</TableCell>
+                <TableCell>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setReviewingDrawing(drawing)}
+                        className="w-full justify-start gap-2"
+                      >
+                        <ClipboardCheck className="h-4 w-4" />
+                        {reviewOption ? (
+                          <Badge variant="outline" className={reviewOption.color}>
+                            {reviewOption.label}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Review</span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Open drawing review checklist</TooltipContent>
+                  </Tooltip>
+                </TableCell>
                 <TableCell>
                   {drawing.file_url ? (
                     <Button
@@ -297,7 +337,8 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -307,6 +348,13 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
         drawing={editingDrawing}
         onClose={() => setEditingDrawing(null)}
         projectId={projectId}
+      />
+      
+      {/* Review Dialog */}
+      <DrawingReviewDialog
+        open={!!reviewingDrawing}
+        onOpenChange={() => setReviewingDrawing(null)}
+        drawing={reviewingDrawing}
       />
       
       {/* Delete Confirmation */}
