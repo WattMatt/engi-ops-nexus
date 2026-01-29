@@ -113,13 +113,25 @@ export function useDrawingReview(drawingId: string | undefined) {
   });
 }
 
-// Create review status for a drawing
+// Create review status for a drawing (uses upsert to avoid duplicates)
 export function useCreateDrawingReview() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
   return useMutation({
     mutationFn: async (drawingId: string) => {
+      // First check if review already exists
+      const { data: existing } = await supabase
+        .from('drawing_review_status')
+        .select('*')
+        .eq('drawing_id', drawingId)
+        .maybeSingle();
+      
+      if (existing) {
+        return existing as DrawingReviewStatus;
+      }
+      
+      // Create new review if doesn't exist
       const { data, error } = await supabase
         .from('drawing_review_status')
         .insert({ drawing_id: drawingId })
