@@ -1,5 +1,5 @@
 /**
- * Edit Tick Sheet Dialog
+ * Edit Checklist Dialog
  * Dialog for creating and editing checklist templates with their items
  */
 
@@ -219,7 +219,7 @@ export function EditTickSheetDialog({ open, onOpenChange, template }: EditTickSh
       
       onOpenChange(false);
     } catch (error) {
-      console.error('Error saving tick sheet:', error);
+      console.error('Error saving checklist:', error);
     }
   };
   
@@ -240,7 +240,7 @@ export function EditTickSheetDialog({ open, onOpenChange, template }: EditTickSh
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {template ? 'Edit Tick Sheet' : 'Create New Tick Sheet'}
+            {template ? 'Edit Checklist' : 'Create New Checklist'}
           </DialogTitle>
         </DialogHeader>
         
@@ -416,7 +416,7 @@ export function EditTickSheetDialog({ open, onOpenChange, template }: EditTickSh
                 disabled={createTemplate.isPending || updateTemplate.isPending || saveItems.isPending}
               >
                 <Save className="h-4 w-4 mr-2" />
-                {template ? 'Save Changes' : 'Create Tick Sheet'}
+                {template ? 'Save Changes' : 'Create Checklist'}
               </Button>
             </DialogFooter>
           </form>

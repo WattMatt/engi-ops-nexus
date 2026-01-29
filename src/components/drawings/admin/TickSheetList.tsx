@@ -1,5 +1,5 @@
 /**
- * Tick Sheet List Component
+ * Checklist List Component
  * Displays all checklist templates with edit/add capabilities
  */
 
@@ -197,14 +197,14 @@ export function TickSheetList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Tick Sheet Templates</h2>
+          <h2 className="text-lg font-semibold">Checklist Templates</h2>
           <p className="text-sm text-muted-foreground">
             Manage checklist templates for drawing reviews
           </p>
         </div>
         <Button onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Tick Sheet
+          Add Checklist
         </Button>
       </div>
 
@@ -212,13 +212,13 @@ export function TickSheetList() {
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="font-medium mb-2">No tick sheets yet</h3>
+            <h3 className="font-medium mb-2">No checklists yet</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Create your first checklist template to start reviewing drawings
             </p>
             <Button onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Create Tick Sheet
+              Create Checklist
             </Button>
           </CardContent>
         </Card>
@@ -258,7 +258,7 @@ export function TickSheetList() {
       <AlertDialog open={!!deletingTemplate} onOpenChange={() => setDeletingTemplate(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Tick Sheet</AlertDialogTitle>
+            <AlertDialogTitle>Delete Checklist</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete "{deletingTemplate?.name}"? 
               This will also delete all checklist items. This action cannot be undone.
