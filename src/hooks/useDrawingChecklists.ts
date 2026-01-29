@@ -319,3 +319,226 @@ export function useDrawingReviewStatuses(drawingIds: string[]) {
     enabled: drawingIds.length > 0,
   });
 }
+
+// Create a new checklist template
+export function useCreateChecklistTemplate() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      category_code: string;
+      description?: string;
+      is_default: boolean;
+    }) => {
+      // If this is the new default, unset other defaults for this category
+      if (data.is_default) {
+        await supabase
+          .from('drawing_checklist_templates')
+          .update({ is_default: false })
+          .eq('category_code', data.category_code);
+      }
+      
+      const { data: newTemplate, error } = await supabase
+        .from('drawing_checklist_templates')
+        .insert(data)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return newTemplate as DrawingChecklistTemplate;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-templates'] });
+      toast({
+        title: 'Template Created',
+        description: 'Tick sheet template has been created',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'Failed to create template',
+        variant: 'destructive',
+      });
+      console.error(error);
+    },
+  });
+}
+
+// Update an existing checklist template
+export function useUpdateChecklistTemplate() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      name: string;
+      category_code: string;
+      description?: string;
+      is_default: boolean;
+    }) => {
+      // If this is becoming the new default, unset other defaults for this category
+      if (data.is_default) {
+        await supabase
+          .from('drawing_checklist_templates')
+          .update({ is_default: false })
+          .eq('category_code', data.category_code)
+          .neq('id', data.id);
+      }
+      
+      const { data: updated, error } = await supabase
+        .from('drawing_checklist_templates')
+        .update({
+          name: data.name,
+          category_code: data.category_code,
+          description: data.description,
+          is_default: data.is_default,
+        })
+        .eq('id', data.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return updated as DrawingChecklistTemplate;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-templates'] });
+      toast({
+        title: 'Template Updated',
+        description: 'Tick sheet template has been updated',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'Failed to update template',
+        variant: 'destructive',
+      });
+      console.error(error);
+    },
+  });
+}
+
+// Delete a checklist template
+export function useDeleteChecklistTemplate() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (templateId: string) => {
+      // Delete items first (cascade would handle this but let's be explicit)
+      await supabase
+        .from('drawing_checklist_items')
+        .delete()
+        .eq('template_id', templateId);
+      
+      const { error } = await supabase
+        .from('drawing_checklist_templates')
+        .delete()
+        .eq('id', templateId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-templates'] });
+      toast({
+        title: 'Template Deleted',
+        description: 'Tick sheet template has been deleted',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete template',
+        variant: 'destructive',
+      });
+      console.error(error);
+    },
+  });
+}
+
+// Save checklist items (create, update, delete)
+export function useSaveChecklistItems() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async ({
+      templateId,
+      items,
+      deletedItemIds,
+    }: {
+      templateId: string;
+      items: Array<{
+        id?: string;
+        template_id: string;
+        label: string;
+        parent_id: string | null;
+        linked_document_type: string | null;
+        sort_order: number;
+      }>;
+      deletedItemIds: string[];
+    }) => {
+      // Delete removed items
+      if (deletedItemIds.length > 0) {
+        await supabase
+          .from('drawing_checklist_items')
+          .delete()
+          .in('id', deletedItemIds);
+      }
+      
+      // Separate new and existing items
+      const newItems = items.filter(i => !i.id);
+      const existingItems = items.filter(i => i.id);
+      
+      // Insert new items
+      if (newItems.length > 0) {
+        const { error } = await supabase
+          .from('drawing_checklist_items')
+          .insert(newItems.map(item => ({
+            template_id: item.template_id,
+            label: item.label,
+            parent_id: item.parent_id,
+            linked_document_type: item.linked_document_type,
+            sort_order: item.sort_order,
+          })));
+        
+        if (error) throw error;
+      }
+      
+      // Update existing items
+      for (const item of existingItems) {
+        const { error } = await supabase
+          .from('drawing_checklist_items')
+          .update({
+            label: item.label,
+            parent_id: item.parent_id,
+            linked_document_type: item.linked_document_type,
+            sort_order: item.sort_order,
+          })
+          .eq('id', item.id!);
+        
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-items', variables.templateId] });
+      queryClient.invalidateQueries({ queryKey: ['checklist-items-flat', variables.templateId] });
+      toast({
+        title: 'Items Saved',
+        description: 'Checklist items have been saved',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'Failed to save checklist items',
+        variant: 'destructive',
+      });
+      console.error(error);
+    },
+  });
+}

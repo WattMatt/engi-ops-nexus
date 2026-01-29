@@ -13,7 +13,8 @@ import {
   Search,
   LayoutGrid,
   LayoutList,
-  Route
+  Route,
+  ClipboardList
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,7 @@ import { AddDrawingDialog } from './AddDrawingDialog';
 import { BulkImportDialog } from './BulkImportDialog';
 import { DrawingStatsCards } from './DrawingStatsCards';
 import { SyncToRoadmapDialog } from './SyncToRoadmapDialog';
+import { TickSheetList } from './admin';
 import { DrawingFilters } from '@/types/drawings';
 
 export function DrawingRegisterPage() {
@@ -38,6 +40,7 @@ export function DrawingRegisterPage() {
   const [projectId, setProjectId] = useState<string | null>(
     localStorage.getItem("selectedProjectId")
   );
+  const [activeMainTab, setActiveMainTab] = useState<'drawings' | 'ticksheets'>('drawings');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -90,118 +93,146 @@ export function DrawingRegisterPage() {
           </p>
         </div>
         
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSyncDialogOpen(true)}
-            disabled={drawings.length === 0}
-          >
-            <Route className="h-4 w-4 mr-2" />
-            Sync to Roadmap
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsImportDialogOpen(true)}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export PDF
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setIsAddDialogOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Drawing
-          </Button>
-        </div>
+        {activeMainTab === 'drawings' && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSyncDialogOpen(true)}
+              disabled={drawings.length === 0}
+            >
+              <Route className="h-4 w-4 mr-2" />
+              Sync to Roadmap
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsImportDialogOpen(true)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setIsAddDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Drawing
+            </Button>
+          </div>
+        )}
       </div>
       
-      {/* Stats Cards */}
-      <DrawingStatsCards stats={stats} categories={categories} />
-      
-      {/* Search and Filters */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search drawings..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setViewMode('table')}
-              >
-                <LayoutList className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setViewMode('grid')}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
+      {/* Main Tabs */}
+      <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'drawings' | 'ticksheets')}>
+        <TabsList>
+          <TabsTrigger value="drawings" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Drawings
+          </TabsTrigger>
+          <TabsTrigger value="ticksheets" className="gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Tick Sheets
+          </TabsTrigger>
+        </TabsList>
         
-        <CardContent>
-          {/* Category Tabs */}
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-            <TabsList className="flex flex-wrap h-auto gap-1 mb-4">
-              <TabsTrigger value="all" className="text-xs">
-                All
-                <Badge variant="secondary" className="ml-1">
-                  {stats?.total || 0}
-                </Badge>
-              </TabsTrigger>
-              {categories.map(cat => (
-                <TabsTrigger key={cat.code} value={cat.code} className="text-xs">
-                  {cat.name}
-                  {stats?.byCategory[cat.code] ? (
-                    <Badge variant="secondary" className="ml-1">
-                      {stats.byCategory[cat.code]}
-                    </Badge>
-                  ) : null}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+        {/* Drawings Tab Content */}
+        <TabsContent value="drawings" className="space-y-6 mt-6">
+          {/* Stats Cards */}
+          <DrawingStatsCards stats={stats} categories={categories} />
+          
+          {/* Search and Filters */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search drawings..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => setViewMode('table')}
+                  >
+                    <LayoutList className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => setViewMode('grid')}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
             
-            <TabsContent value={selectedCategory} className="mt-0">
-              {viewMode === 'table' ? (
-                <DrawingTable 
-                  drawings={drawings} 
-                  isLoading={isLoading}
-                  projectId={projectId}
-                />
-              ) : (
-                <DrawingGrid 
-                  drawings={drawings} 
-                  isLoading={isLoading}
-                  projectId={projectId}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            <CardContent>
+              {/* Category Tabs */}
+              <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
+                <TabsList className="flex flex-wrap h-auto gap-1 mb-4">
+                  <TabsTrigger value="all" className="text-xs">
+                    All
+                    <Badge variant="secondary" className="ml-1">
+                      {stats?.total || 0}
+                    </Badge>
+                  </TabsTrigger>
+                  {categories.map(cat => (
+                    <TabsTrigger key={cat.code} value={cat.code} className="text-xs">
+                      {cat.name}
+                      {stats?.byCategory[cat.code] ? (
+                        <Badge variant="secondary" className="ml-1">
+                          {stats.byCategory[cat.code]}
+                        </Badge>
+                      ) : null}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                
+                <TabsContent value={selectedCategory} className="mt-0">
+                  {viewMode === 'table' ? (
+                    <DrawingTable 
+                      drawings={drawings} 
+                      isLoading={isLoading}
+                      projectId={projectId}
+                    />
+                  ) : (
+                    <DrawingGrid 
+                      drawings={drawings} 
+                      isLoading={isLoading}
+                      projectId={projectId}
+                    />
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Tick Sheets Tab Content */}
+        <TabsContent value="ticksheets" className="mt-6">
+          <Card>
+            <CardContent className="pt-6">
+              <TickSheetList />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
       
       {/* Dialogs */}
       <AddDrawingDialog
