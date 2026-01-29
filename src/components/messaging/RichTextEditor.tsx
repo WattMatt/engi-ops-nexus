@@ -67,8 +67,14 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     }));
 
     useEffect(() => {
-      if (editor && value === "" && editor.getText() !== "") {
-        editor.commands.clearContent();
+      if (editor) {
+        const currentContent = editor.getHTML();
+        // Sync editor content with external value changes
+        if (value === "" && editor.getText() !== "") {
+          editor.commands.clearContent();
+        } else if (value && value !== currentContent && value !== "<p></p>") {
+          editor.commands.setContent(value);
+        }
       }
     }, [value, editor]);
 
