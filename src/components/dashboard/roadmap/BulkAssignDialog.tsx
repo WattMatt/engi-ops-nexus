@@ -278,7 +278,7 @@ export const BulkAssignDialog = ({
             <Skeleton className="h-40 w-full" />
           </div>
         ) : (
-          <div className="flex-1 space-y-4 overflow-hidden">
+          <div className="space-y-4 py-2">
             {/* Team Member Selection */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Assign To</Label>
@@ -309,8 +309,8 @@ export const BulkAssignDialog = ({
 
             {/* Item Selection */}
             {selectedMemberId && (
-              <div className="space-y-2 flex-1 overflow-hidden flex flex-col min-h-0">
-                <div className="flex items-center justify-between shrink-0">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">
                     Select Items to Assign
                     {selectedItemIds.size > 0 && (
@@ -329,7 +329,7 @@ export const BulkAssignDialog = ({
                   </div>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto border rounded-md">
+                <div className="border rounded-md max-h-[40vh] overflow-y-auto">
                   <div className="p-3 space-y-4">
                     {Object.entries(itemsByPhase).map(([phaseId, { phase, items }]) => {
                       // All items for this phase (phase + children, excluding completed)
@@ -401,7 +401,6 @@ export const BulkAssignDialog = ({
                 </div>
               </div>
             )}
-
             {/* Notification Toggle */}
             {selectedMemberId && selectedItemIds.size > 0 && (
               <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
