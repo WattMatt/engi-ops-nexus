@@ -111,27 +111,32 @@ export function EditDrawingDialog({
   const onSubmit = async (data: FormData) => {
     if (!drawing) return;
     
-    await updateDrawing.mutateAsync({
-      drawingId: drawing.id,
-      projectId,
-      data: {
-        drawing_number: data.drawing_number,
-        drawing_title: data.drawing_title,
-        category: data.category,
-        subcategory: data.subcategory,
-        shop_number: data.shop_number,
-        current_revision: data.current_revision,
-        revision_notes: data.revision_notes,
-        status: data.status as 'draft' | 'issued_for_construction' | 'as_built' | 'superseded',
-        notes: data.notes,
-        visible_to_client: data.visible_to_client,
-        visible_to_contractor: data.visible_to_contractor,
-      },
-      file: file || undefined,
-    });
-    
-    setFile(null);
-    onClose();
+    try {
+      await updateDrawing.mutateAsync({
+        drawingId: drawing.id,
+        projectId,
+        data: {
+          drawing_number: data.drawing_number,
+          drawing_title: data.drawing_title,
+          category: data.category,
+          subcategory: data.subcategory,
+          shop_number: data.shop_number,
+          current_revision: data.current_revision,
+          revision_notes: data.revision_notes,
+          status: data.status as 'draft' | 'issued_for_construction' | 'as_built' | 'superseded',
+          notes: data.notes,
+          visible_to_client: data.visible_to_client,
+          visible_to_contractor: data.visible_to_contractor,
+          included_in_handover: data.included_in_handover,
+        },
+        file: file || undefined,
+      });
+      
+      setFile(null);
+      onClose();
+    } catch (error) {
+      console.error('Failed to update drawing:', error);
+    }
   };
   
   return (
