@@ -46,9 +46,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           class: "prose prose-sm max-w-none focus:outline-none min-h-[60px] px-3 py-2",
         },
         handleKeyDown: (view, event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
+          // Only intercept Enter for submit when onSubmit is provided (chat mode)
+          // Otherwise, allow normal Enter behavior for new lines and list items
+          if (onSubmit && event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            onSubmit?.();
+            onSubmit();
             return true;
           }
           return false;
