@@ -28,6 +28,7 @@ import {
   useChecklistItemsFlat,
   useDrawingReview,
   useCreateDrawingReview,
+  useUpdateReviewTemplate,
   useReviewChecks,
   useToggleCheckItem,
   useUpdateReviewStatus,
@@ -76,29 +77,43 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
   // Mutations
   const toggleCheck = useToggleCheckItem();
   const updateStatus = useUpdateReviewStatus();
+  const updateTemplate = useUpdateReviewTemplate();
   
-  // Auto-select a template based on drawing category when templates load
+  // Auto-select a template based on drawing category or saved template
   useEffect(() => {
     if (allTemplates.length > 0 && !selectedTemplateId) {
-      // Try to find a template matching the drawing category
-      const categoryMatch = allTemplates.find(
-        t => t.category_code?.toLowerCase() === drawing.category?.toLowerCase()
-      );
-      if (categoryMatch) {
-        setSelectedTemplateId(categoryMatch.id);
-      } else if (allTemplates.length > 0) {
-        // Default to first template if no category match
-        setSelectedTemplateId(allTemplates[0].id);
+      // First check if review has a saved template
+      if (reviewStatus?.template_id) {
+        setSelectedTemplateId(reviewStatus.template_id);
+      } else {
+        // Try to find a template matching the drawing category
+        const categoryMatch = allTemplates.find(
+          t => t.category_code?.toLowerCase() === drawing.category?.toLowerCase()
+        );
+        if (categoryMatch) {
+          setSelectedTemplateId(categoryMatch.id);
+        } else if (allTemplates.length > 0) {
+          // Default to first template if no category match
+          setSelectedTemplateId(allTemplates[0].id);
+        }
       }
     }
-  }, [allTemplates, drawing.category, selectedTemplateId]);
+  }, [allTemplates, drawing.category, selectedTemplateId, reviewStatus?.template_id]);
   
   // Create review if it doesn't exist
   useEffect(() => {
     if (!reviewLoading && !reviewStatus && selectedTemplateId && !createReview.isPending) {
-      createReview.mutate(drawing.id);
+      createReview.mutate({ drawingId: drawing.id, templateId: selectedTemplateId });
     }
   }, [reviewLoading, reviewStatus, selectedTemplateId, drawing.id, createReview.isPending]);
+  
+  // Handle template selection change
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (reviewStatus?.id) {
+      updateTemplate.mutate({ reviewId: reviewStatus.id, templateId });
+    }
+  };
   
   // Load notes from review status
   useEffect(() => {
@@ -284,7 +299,7 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
           </label>
           <Select
             value={selectedTemplateId || ''}
-            onValueChange={(value) => setSelectedTemplateId(value)}
+            onValueChange={handleTemplateChange}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select a checklist template">

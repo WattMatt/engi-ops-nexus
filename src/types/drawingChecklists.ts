@@ -27,6 +27,7 @@ export interface DrawingChecklistItem {
 export interface DrawingReviewStatus {
   id: string;
   drawing_id: string;
+  template_id?: string | null;
   reviewed_by?: string | null;
   review_date?: string | null;
   status: DrawingReviewStatusType;
