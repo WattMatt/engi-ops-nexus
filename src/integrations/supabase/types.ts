@@ -3923,6 +3923,7 @@ export type Database = {
           review_date: string | null
           reviewed_by: string | null
           status: string
+          template_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3933,6 +3934,7 @@ export type Database = {
           review_date?: string | null
           reviewed_by?: string | null
           status?: string
+          template_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3943,6 +3945,7 @@ export type Database = {
           review_date?: string | null
           reviewed_by?: string | null
           status?: string
+          template_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3951,6 +3954,13 @@ export type Database = {
             columns: ["drawing_id"]
             isOneToOne: true
             referencedRelation: "project_drawings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drawing_review_status_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "drawing_checklist_templates"
             referencedColumns: ["id"]
           },
         ]
