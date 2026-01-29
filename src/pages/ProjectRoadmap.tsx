@@ -3,8 +3,9 @@ import { useSearchParams } from "react-router-dom";
 import { ProjectRoadmapWidget } from "@/components/dashboard/roadmap/ProjectRoadmapWidget";
 import { RoadmapProgressChart } from "@/components/dashboard/roadmap/RoadmapProgressChart";
 import { RoadmapExportPDFButton } from "@/components/dashboard/roadmap/RoadmapExportPDFButton";
+import { BulkAssignDialog } from "@/components/dashboard/roadmap/BulkAssignDialog";
 import { Button } from "@/components/ui/button";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Users } from "lucide-react";
 import { ReviewModeButton } from "@/components/dashboard/roadmap/ReviewModeButton";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -18,6 +19,7 @@ export default function ProjectRoadmap() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
 
   useEffect(() => {
     const storedProjectId = localStorage.getItem("selectedProjectId");
@@ -63,6 +65,14 @@ export default function ProjectRoadmap() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setBulkAssignOpen(true)}
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Bulk Assign
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowAnalytics(!showAnalytics)}
           >
             <BarChart3 className="h-4 w-4 mr-2" />
@@ -79,6 +89,12 @@ export default function ProjectRoadmap() {
       </Collapsible>
       
       <ProjectRoadmapWidget projectId={projectId} highlightedItemId={highlightedItemId} />
+      
+      <BulkAssignDialog 
+        open={bulkAssignOpen} 
+        onOpenChange={setBulkAssignOpen} 
+        projectId={projectId} 
+      />
     </div>
   );
 }
