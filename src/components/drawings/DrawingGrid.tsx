@@ -3,6 +3,7 @@
  * Displays drawings in a card grid format
  */
 
+import { useState } from 'react';
 import { 
   FileText, 
   Download, 
@@ -12,11 +13,13 @@ import {
   FileCheck,
   MoreHorizontal,
   Pencil,
-  Trash2
+  Trash2,
+  ClipboardCheck
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +28,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ProjectDrawing, DRAWING_STATUS_OPTIONS, naturalSortDrawings } from '@/types/drawings';
+import { REVIEW_STATUS_OPTIONS } from '@/types/drawingChecklists';
+import { useDrawingReviewStatuses } from '@/hooks/useDrawingChecklists';
+import { DrawingReviewDialog } from './review';
 
 interface DrawingGridProps {
   drawings: ProjectDrawing[];
@@ -34,7 +41,14 @@ interface DrawingGridProps {
 }
 
 export function DrawingGrid({ drawings, isLoading, projectId }: DrawingGridProps) {
+  const [reviewingDrawing, setReviewingDrawing] = useState<ProjectDrawing | null>(null);
+  
   const sortedDrawings = [...drawings].sort(naturalSortDrawings);
+  
+  // Fetch review statuses for all drawings
+  const drawingIds = drawings.map(d => d.id);
+  const { data: reviewStatuses = [] } = useDrawingReviewStatuses(drawingIds);
+  const reviewStatusMap = new Map(reviewStatuses.map(s => [s.drawing_id, s]));
   
   const getStatusBadge = (status: string) => {
     const option = DRAWING_STATUS_OPTIONS.find(o => o.value === status);
@@ -73,8 +87,15 @@ export function DrawingGrid({ drawings, isLoading, projectId }: DrawingGridProps
   }
   
   return (
+    <>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {sortedDrawings.map(drawing => (
+      {sortedDrawings.map(drawing => {
+        const reviewStatus = reviewStatusMap.get(drawing.id);
+        const reviewOption = reviewStatus 
+          ? REVIEW_STATUS_OPTIONS.find(o => o.value === reviewStatus.status)
+          : null;
+        
+        return (
         <Card key={drawing.id} className="group hover:shadow-md transition-shadow">
           <CardContent className="p-4">
             {/* Preview Area */}
@@ -106,6 +127,18 @@ export function DrawingGrid({ drawings, isLoading, projectId }: DrawingGridProps
                     </Button>
                   </>
                 )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={() => setReviewingDrawing(drawing)}
+                    >
+                      <ClipboardCheck className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Review Checklist</TooltipContent>
+                </Tooltip>
               </div>
               
               {/* Revision Badge */}
@@ -115,6 +148,16 @@ export function DrawingGrid({ drawings, isLoading, projectId }: DrawingGridProps
               >
                 Rev {drawing.current_revision}
               </Badge>
+              
+              {/* Review Status Badge */}
+              {reviewOption && (
+                <Badge 
+                  variant="outline" 
+                  className={`absolute top-2 left-2 ${reviewOption.color}`}
+                >
+                  {reviewOption.label}
+                </Badge>
+              )}
             </div>
             
             {/* Drawing Info */}
@@ -136,6 +179,10 @@ export function DrawingGrid({ drawings, isLoading, projectId }: DrawingGridProps
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setReviewingDrawing(drawing)}>
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                      Review
+                    </DropdownMenuItem>
                     <DropdownMenuItem>
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit
@@ -175,7 +222,16 @@ export function DrawingGrid({ drawings, isLoading, projectId }: DrawingGridProps
             </div>
           </CardContent>
         </Card>
-      ))}
+      );
+      })}
     </div>
+    
+    {/* Review Dialog */}
+    <DrawingReviewDialog
+      open={!!reviewingDrawing}
+      onOpenChange={() => setReviewingDrawing(null)}
+      drawing={reviewingDrawing}
+    />
+    </>
   );
 }
