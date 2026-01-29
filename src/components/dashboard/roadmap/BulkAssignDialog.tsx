@@ -106,23 +106,54 @@ export const BulkAssignDialog = ({
     enabled: open,
   });
 
-  // Filter unassigned, incomplete items (or items already assigned to the selected member)
-  const assignableItems = useMemo(() => {
-    return roadmapItems.filter(
-      (item) => !item.is_completed && (item.assigned_to !== selectedMemberId || !item.assigned_to)
-    );
-  }, [roadmapItems, selectedMemberId]);
+  // Get all items (don't pre-filter, show everything for full visibility)
+  const allItems = useMemo(() => {
+    return roadmapItems.filter((item) => !item.is_completed);
+  }, [roadmapItems]);
 
-  // Group items by phase
+  // Get top-level phases (items without parent_id)
+  const phases = useMemo(() => {
+    return roadmapItems.filter((item) => !item.parent_id);
+  }, [roadmapItems]);
+
+  // Group child items by their parent phase
   const itemsByPhase = useMemo(() => {
-    const grouped: Record<string, RoadmapItemData[]> = {};
-    assignableItems.forEach((item) => {
-      const phase = item.phase || "General";
-      if (!grouped[phase]) grouped[phase] = [];
-      grouped[phase].push(item);
+    const grouped: Record<string, { phase: RoadmapItemData; items: RoadmapItemData[] }> = {};
+    
+    // First, create entries for each phase
+    phases.forEach((phase) => {
+      grouped[phase.id] = { phase, items: [] };
     });
+    
+    // Then, assign child items to their parent phases
+    roadmapItems.forEach((item) => {
+      if (item.parent_id && grouped[item.parent_id] && !item.is_completed) {
+        grouped[item.parent_id].items.push(item);
+      }
+    });
+    
+    // Also handle items that are phases themselves but incomplete (can be assigned)
+    phases.forEach((phase) => {
+      if (!phase.is_completed && !grouped[phase.id].items.some(i => i.id === phase.id)) {
+        // Phase itself can be an assignable item if not completed
+      }
+    });
+    
     return grouped;
-  }, [assignableItems]);
+  }, [roadmapItems, phases]);
+
+  // Get flat list for select all / count
+  const assignableItems = useMemo(() => {
+    const items: RoadmapItemData[] = [];
+    Object.values(itemsByPhase).forEach(({ phase, items: children }) => {
+      // Include the phase itself if it's not completed
+      if (!phase.is_completed) {
+        items.push(phase);
+      }
+      items.push(...children);
+    });
+    return items;
+  }, [itemsByPhase]);
 
   const bulkAssignMutation = useMutation({
     mutationFn: async () => {
@@ -196,13 +227,17 @@ export const BulkAssignDialog = ({
     });
   };
 
-  const togglePhase = (phase: string) => {
-    const phaseItems = itemsByPhase[phase] || [];
-    const allSelected = phaseItems.every((item) => selectedItemIds.has(item.id));
+  const togglePhase = (phaseId: string) => {
+    const phaseData = itemsByPhase[phaseId];
+    if (!phaseData) return;
+    
+    // Get all items for this phase (phase itself + children)
+    const allPhaseItems = [phaseData.phase, ...phaseData.items].filter(i => !i.is_completed);
+    const allSelected = allPhaseItems.every((item) => selectedItemIds.has(item.id));
 
     setSelectedItemIds((prev) => {
       const next = new Set(prev);
-      phaseItems.forEach((item) => {
+      allPhaseItems.forEach((item) => {
         if (allSelected) {
           next.delete(item.id);
         } else {
@@ -296,27 +331,32 @@ export const BulkAssignDialog = ({
 
                 <ScrollArea className="flex-1 max-h-[300px] border rounded-md">
                   <div className="p-3 space-y-4">
-                    {Object.entries(itemsByPhase).map(([phase, items]) => {
-                      const allSelected = items.every((item) => selectedItemIds.has(item.id));
-                      const someSelected = items.some((item) => selectedItemIds.has(item.id));
+                    {Object.entries(itemsByPhase).map(([phaseId, { phase, items }]) => {
+                      // All items for this phase (phase + children, excluding completed)
+                      const allPhaseItems = [phase, ...items].filter(i => !i.is_completed);
+                      const allSelected = allPhaseItems.length > 0 && allPhaseItems.every((item) => selectedItemIds.has(item.id));
+                      const someSelected = allPhaseItems.some((item) => selectedItemIds.has(item.id));
 
                       return (
-                        <div key={phase} className="space-y-2">
+                        <div key={phaseId} className="space-y-2">
                           <div
                             className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
-                            onClick={() => togglePhase(phase)}
+                            onClick={() => togglePhase(phaseId)}
                           >
                             <Checkbox
                               checked={allSelected}
                               className={someSelected && !allSelected ? "opacity-50" : ""}
                             />
-                            <span className="font-medium text-sm">{phase}</span>
+                            <span className="font-medium text-sm">{phase.title}</span>
                             <span className="text-xs text-muted-foreground">
-                              ({items.length} items)
+                              ({allPhaseItems.length} items)
                             </span>
+                            {phase.is_completed && (
+                              <Badge variant="secondary" className="text-xs">Completed</Badge>
+                            )}
                           </div>
                           <div className="ml-6 space-y-1">
-                            {items.map((item) => (
+                            {items.filter(i => !i.is_completed).map((item) => (
                               <div
                                 key={item.id}
                                 className="flex items-center gap-2 cursor-pointer hover:bg-muted/30 p-2 rounded text-sm"
@@ -329,12 +369,12 @@ export const BulkAssignDialog = ({
                                     variant="outline"
                                     className={
                                       item.priority === "critical"
-                                        ? "border-red-500 text-red-600"
+                                        ? "border-destructive text-destructive"
                                         : item.priority === "high"
                                         ? "border-orange-500 text-orange-600"
                                         : item.priority === "medium"
                                         ? "border-yellow-500 text-yellow-600"
-                                        : "border-blue-500 text-blue-600"
+                                        : "border-primary text-primary"
                                     }
                                   >
                                     {item.priority}
@@ -342,7 +382,7 @@ export const BulkAssignDialog = ({
                                 )}
                                 {item.assigned_to && (
                                   <Badge variant="secondary" className="text-xs">
-                                    Already assigned
+                                    Assigned
                                   </Badge>
                                 )}
                               </div>
