@@ -140,7 +140,7 @@ export function DrawingRegisterPage() {
           </TabsTrigger>
           <TabsTrigger value="ticksheets" className="gap-2">
             <ClipboardList className="h-4 w-4" />
-            Tick Sheets
+            Checklists
           </TabsTrigger>
         </TabsList>
         
