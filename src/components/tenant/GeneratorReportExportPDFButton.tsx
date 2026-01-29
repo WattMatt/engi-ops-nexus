@@ -20,6 +20,31 @@ import {
 import { LoadDistributionChart } from "./charts/LoadDistributionChart";
 import { CostBreakdownChart } from "./charts/CostBreakdownChart";
 import { RecoveryProjectionChart } from "./charts/RecoveryProjectionChart";
+import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
+
+/**
+ * Get fuel consumption rate from sizing table based on generator size and load percentage.
+ * Matches the logic in RunningRecoveryCalculator.tsx to ensure PDF values match UI.
+ */
+function getFuelConsumption(generatorSize: string, loadPercentage: number): number {
+  const sizingData = GENERATOR_SIZING_TABLE.find(g => g.rating === generatorSize);
+  if (!sizingData) return 0;
+
+  if (loadPercentage <= 25) return sizingData.load25;
+  if (loadPercentage <= 50) {
+    const ratio = (loadPercentage - 25) / 25;
+    return sizingData.load25 + ratio * (sizingData.load50 - sizingData.load25);
+  }
+  if (loadPercentage <= 75) {
+    const ratio = (loadPercentage - 50) / 25;
+    return sizingData.load50 + ratio * (sizingData.load75 - sizingData.load50);
+  }
+  if (loadPercentage <= 100) {
+    const ratio = (loadPercentage - 75) / 25;
+    return sizingData.load75 + ratio * (sizingData.load100 - sizingData.load75);
+  }
+  return sizingData.load100;
+}
 
 interface GeneratorReportExportPDFButtonProps {
   projectId: string;
@@ -855,11 +880,34 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       });
       runningTableBody.push(conversionRow);
 
-      // Fuel Rate
+      // Fuel Rate - Calculate dynamically from sizing table to match UI
       const fuelRateRow = ["Fuel Rate (L/h per unit)"];
       expandedGenerators.forEach(gen => {
         const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
-        fuelRateRow.push(settings ? Number(settings.fuel_consumption_rate).toFixed(2) : "-");
+        if (!settings) {
+          fuelRateRow.push("-");
+          return;
+        }
+        
+        // Get generator size from zone_generators table
+        const zoneGens = zoneGenerators.filter(g => g.zone_id === gen.zoneId);
+        const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
+        const generatorSize = firstGenerator?.generator_size || "";
+        const runningLoad = Number(settings.running_load);
+        
+        // Calculate fuel rate dynamically like the UI does
+        let fuelRate = getFuelConsumption(generatorSize, runningLoad);
+        if (fuelRate === 0) {
+          const storedFuelRate = Number(settings.fuel_consumption_rate);
+          if (storedFuelRate > 0) {
+            fuelRate = storedFuelRate;
+          } else {
+            const netEnergyKVA = Number(settings.net_energy_kva);
+            fuelRate = netEnergyKVA * 0.15;
+          }
+        }
+        
+        fuelRateRow.push(fuelRate.toFixed(2));
       });
       runningTableBody.push(fuelRateRow);
 
@@ -914,13 +962,31 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const zoneGens = zoneGenerators.filter(g => g.zone_id === gen.zoneId);
         const numGenerators = zoneGens.length || 1;
         
+        // Get the first generator's size from zone_generators for fuel rate calculation
+        const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
+        const generatorSize = firstGenerator?.generator_size || "";
+        
+        const runningLoad = Number(settings.running_load);
         const netEnergyKVA = Number(settings.net_energy_kva);
         const kvaToKwhConversion = Number(settings.kva_to_kwh_conversion);
-        const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * (Number(settings.running_load) / 100) * numGenerators;
+        const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * (runningLoad / 100) * numGenerators;
         const expectedHours = Number(settings.expected_hours_per_month);
         const monthlyEnergyKWh = netTotalEnergyKWh * expectedHours;
         
-        const fuelRate = Number(settings.fuel_consumption_rate);
+        // Calculate fuel rate dynamically from sizing table (matching UI logic)
+        // This ensures PDF always matches what the RunningRecoveryCalculator shows
+        let fuelRate = getFuelConsumption(generatorSize, runningLoad);
+        // If no fuel rate found in sizing table (generator size not matched), use stored value as fallback
+        // or estimate based on kVA (15% rule)
+        if (fuelRate === 0) {
+          const storedFuelRate = Number(settings.fuel_consumption_rate);
+          if (storedFuelRate > 0) {
+            fuelRate = storedFuelRate;
+          } else {
+            fuelRate = netEnergyKVA * 0.15;
+          }
+        }
+        
         const dieselPrice = Number(settings.diesel_price_per_litre);
         const totalDieselCostPerHour = fuelRate * dieselPrice * numGenerators;
         const monthlyDieselCost = totalDieselCostPerHour * expectedHours;

@@ -362,12 +362,16 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   };
 
   // Memoize tariff calculation for a specific zone
+  // Calculate tariff using actual generator count from zone_generators table
   const calculateZoneTariff = useCallback((zoneId: string): number => {
     const settings = zoneSettings.get(zoneId);
     const zone = zones.find(z => z.id === zoneId);
     if (!settings || !zone) return 0;
 
-    const numGenerators = zone.num_generators || 1;
+    // Use actual generator count from zone_generators table, not deprecated zone.num_generators
+    const zoneGens = zoneGenerators.filter(g => g.zone_id === zoneId);
+    const numGenerators = zoneGens.length || 1;
+    
     const netTotalEnergyKWh = settings.net_energy_kva * settings.kva_to_kwh_conversion * (settings.running_load / 100) * numGenerators;
     const monthlyEnergyKWh = netTotalEnergyKWh * settings.expected_hours_per_month;
     const totalDieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre * numGenerators;
@@ -382,7 +386,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     const maintenanceContingency = totalTariffBeforeContingency * 0.1;
     
     return totalTariffBeforeContingency + maintenanceContingency;
-  }, [zoneSettings, zones]);
+  }, [zoneSettings, zones, zoneGenerators]);
 
   // Memoize expanded generators to prevent recalculation on unrelated renders
   // Use actual generator data from zone_generators table, not deprecated generator_zones fields
