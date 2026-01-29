@@ -140,8 +140,8 @@ function parseDrawingRegister(jsonData: unknown[][]): ParsedDrawing[] {
       if (!row || row.length < 2) continue;
       
       const firstCell = String(row[0] || '').trim();
-      // Check if first cell looks like a drawing number (contains / and numbers)
-      if (/\d+\/[A-Z]\//.test(firstCell)) {
+      // Check if first cell looks like a drawing number (contains / or . and numbers)
+      if (/\d+[\/\.][A-Z][\/\.]/.test(firstCell)) {
         headerRowIndex = i - 1; // Set header to row before data
         break;
       }
@@ -172,7 +172,8 @@ function parseDrawingRegister(jsonData: unknown[][]): ParsedDrawing[] {
     }
     
     // Validate drawing number format (should contain project/discipline/number pattern)
-    const isValidFormat = /\d+\/[A-Z]\//.test(drawingNumber) || /\d+\/[A-Z]\/\d+/.test(drawingNumber);
+    // Supports both "/" and "." delimiters (e.g., 636/E/001 or 652.E.408)
+    const isValidFormat = /\d+[\/\.][A-Z][\/\.]/.test(drawingNumber);
     
     // Auto-detect category from drawing number
     const category = detectDrawingCategory(drawingNumber);
