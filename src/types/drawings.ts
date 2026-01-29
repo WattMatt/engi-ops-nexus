@@ -89,6 +89,7 @@ export interface DrawingFormData {
   issue_date?: string;
   visible_to_client?: boolean;
   visible_to_contractor?: boolean;
+  included_in_handover?: boolean;
   notes?: string;
 }
 
