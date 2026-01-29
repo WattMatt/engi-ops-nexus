@@ -3,13 +3,13 @@
  * Displays checklist with manual template selection
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Check, Loader2, Save, ChevronDown, ChevronRight, AlertCircle, User, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor, RichTextEditorRef } from '@/components/messaging/RichTextEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -45,8 +45,10 @@ interface DrawingChecklistPaneProps {
 
 export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
   const [notes, setNotes] = useState('');
+  const [notesHtml, setNotesHtml] = useState('');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const notesEditorRef = useRef<RichTextEditorRef>(null);
   
   // Fetch all available templates
   const { data: allTemplates = [], isLoading: templatesLoading } = useChecklistTemplates();
@@ -102,6 +104,7 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
   useEffect(() => {
     if (reviewStatus?.notes) {
       setNotes(reviewStatus.notes);
+      setNotesHtml(reviewStatus.notes);
     }
   }, [reviewStatus?.notes]);
   
@@ -158,7 +161,7 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
     if (!reviewStatus) return;
     updateStatus.mutate({
       reviewId: reviewStatus.id,
-      notes,
+      notes: notesHtml,
       drawingId: drawing.id,
       projectId: drawing.project_id,
     });
@@ -366,13 +369,17 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
       </ScrollArea>
       
       {/* Notes Section */}
-      <div className="border-t p-3 space-y-2">
+      <div className="border-t p-3 space-y-3">
         <p className="text-sm font-medium">Review Notes</p>
-        <Textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+        <RichTextEditor
+          ref={notesEditorRef}
+          value={notesHtml}
+          onChange={(text, html) => {
+            setNotes(text);
+            setNotesHtml(html);
+          }}
           placeholder="Add overall review notes..."
-          className="min-h-[80px] text-sm"
+          className="min-h-[120px]"
         />
         <Button 
           size="sm" 
