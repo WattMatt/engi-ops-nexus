@@ -261,7 +261,7 @@ export const BulkAssignDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
@@ -329,7 +329,7 @@ export const BulkAssignDialog = ({
                   </div>
                 </div>
 
-                <ScrollArea className="flex-1 max-h-[300px] border rounded-md">
+                <ScrollArea className="flex-1 min-h-[200px] max-h-[50vh] border rounded-md">
                   <div className="p-3 space-y-4">
                     {Object.entries(itemsByPhase).map(([phaseId, { phase, items }]) => {
                       // All items for this phase (phase + children, excluding completed)
