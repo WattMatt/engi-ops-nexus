@@ -119,7 +119,7 @@ export function useCreateDrawingReview() {
   const { toast } = useToast();
   
   return useMutation({
-    mutationFn: async (drawingId: string) => {
+    mutationFn: async ({ drawingId, templateId }: { drawingId: string; templateId?: string }) => {
       // First check if review already exists
       const { data: existing } = await supabase
         .from('drawing_review_status')
@@ -128,13 +128,24 @@ export function useCreateDrawingReview() {
         .maybeSingle();
       
       if (existing) {
+        // If template changed, update it
+        if (templateId && existing.template_id !== templateId) {
+          const { data: updated, error: updateError } = await supabase
+            .from('drawing_review_status')
+            .update({ template_id: templateId })
+            .eq('id', existing.id)
+            .select()
+            .single();
+          if (updateError) throw updateError;
+          return updated as DrawingReviewStatus;
+        }
         return existing as DrawingReviewStatus;
       }
       
       // Create new review if doesn't exist
       const { data, error } = await supabase
         .from('drawing_review_status')
-        .insert({ drawing_id: drawingId })
+        .insert({ drawing_id: drawingId, template_id: templateId })
         .select()
         .single();
       
@@ -151,6 +162,28 @@ export function useCreateDrawingReview() {
         variant: 'destructive',
       });
       console.error(error);
+    },
+  });
+}
+
+// Update template for a review
+export function useUpdateReviewTemplate() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ reviewId, templateId }: { reviewId: string; templateId: string }) => {
+      const { data, error } = await supabase
+        .from('drawing_review_status')
+        .update({ template_id: templateId })
+        .eq('id', reviewId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as DrawingReviewStatus;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['drawing-review', data.drawing_id] });
     },
   });
 }
