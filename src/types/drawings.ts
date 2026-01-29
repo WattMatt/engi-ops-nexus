@@ -111,17 +111,32 @@ export interface DrawingStats {
 }
 
 // Utility functions for drawing number parsing
+// Supports both "/" and "." as delimiters (e.g., 636/E/001 or 652.E.408)
 export const DRAWING_PATTERNS = {
-  // Standard: 636/E/001
-  STANDARD: /^(\d+)\/([A-Z])\/(\d+)$/,
-  // With suffix: 636/E/407/L, 636/E/407/P1
-  SUFFIX: /^(\d+)\/([A-Z])\/(\d+)\/([A-Z]\d?)$/,
-  // Tenant with letter: 636/E/4CM, 636/E/4PA/L
-  TENANT: /^(\d+)\/([A-Z])\/4([A-Z]+)(?:\/([A-Z]))?$/,
+  // Standard: 636/E/001 or 652.E.408
+  STANDARD: /^(\d+)[\/.]([A-Z])[\/.](\d+)$/,
+  // With suffix: 636/E/407/L, 636/E/407/P1 or 652.E.407.L
+  SUFFIX: /^(\d+)[\/.]([A-Z])[\/.](\d+)[\/.]([A-Z]\d?)$/,
+  // Tenant with letter: 636/E/4CM, 636/E/4PA/L or 652.E.4CM
+  TENANT: /^(\d+)[\/.]([A-Z])[\/.]4([A-Z]+)(?:[\/.]([A-Z]))?$/,
 };
 
+/**
+ * Normalize drawing number delimiter to "/" for consistent parsing
+ */
+export function normalizeDrawingNumber(drawingNumber: string): string {
+  return drawingNumber.replace(/\./g, '/');
+}
+
+/**
+ * Split drawing number by either "/" or "." delimiter
+ */
+function splitDrawingNumber(drawingNumber: string): string[] {
+  return drawingNumber.split(/[\/.]/).filter(Boolean);
+}
+
 export function detectDrawingCategory(drawingNumber: string): string {
-  const parts = drawingNumber.split('/');
+  const parts = splitDrawingNumber(drawingNumber);
   if (parts.length < 3) return 'other';
   
   const numPart = parts[2];
@@ -188,9 +203,9 @@ export function parseDrawingNumber(drawingNumber: string): {
 }
 
 export function naturalSortDrawings(a: ProjectDrawing, b: ProjectDrawing): number {
-  // Natural sort for drawing numbers like 636/E/001, 636/E/100
-  const aParts = a.drawing_number.split('/');
-  const bParts = b.drawing_number.split('/');
+  // Natural sort for drawing numbers like 636/E/001, 636/E/100 or 652.E.408
+  const aParts = splitDrawingNumber(a.drawing_number);
+  const bParts = splitDrawingNumber(b.drawing_number);
   
   for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
     const aPart = aParts[i] || '';
