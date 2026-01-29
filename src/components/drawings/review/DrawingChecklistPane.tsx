@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Check, Loader2, Save, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
+import { Check, Loader2, Save, ChevronDown, ChevronRight, AlertCircle, User } from 'lucide-react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -29,6 +31,7 @@ import {
   useReviewChecks,
   useToggleCheckItem,
   useUpdateReviewStatus,
+  useReviewerProfile,
 } from '@/hooks/useDrawingChecklists';
 import { 
   DrawingChecklistItem,
@@ -53,6 +56,9 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
   // Fetch or create review status
   const { data: reviewStatus, isLoading: reviewLoading } = useDrawingReview(drawing.id);
   const createReview = useCreateDrawingReview();
+  
+  // Fetch reviewer profile if review is completed
+  const { data: reviewerProfile } = useReviewerProfile(reviewStatus?.reviewed_by);
   
   // Fetch review checks
   const { data: checks = [] } = useReviewChecks(reviewStatus?.id);
@@ -119,6 +125,8 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
     updateStatus.mutate({
       reviewId: reviewStatus.id,
       status,
+      drawingId: drawing.id,
+      projectId: drawing.project_id,
     });
   };
   
@@ -127,6 +135,8 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
     updateStatus.mutate({
       reviewId: reviewStatus.id,
       notes,
+      drawingId: drawing.id,
+      projectId: drawing.project_id,
     });
   };
   
@@ -230,7 +240,7 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
           {item.label}
         </label>
         {isChecked && (
-          <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <Check className="h-4 w-4 text-primary shrink-0" />
         )}
       </div>
     );
@@ -268,6 +278,26 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
           </div>
           <Progress value={progress.percentage} className="h-2" />
         </div>
+        
+        {/* Reviewer Info */}
+        {reviewerProfile && reviewStatus?.review_date && (
+          <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
+            <Avatar className="h-6 w-6">
+              <AvatarImage src={reviewerProfile.avatar_url || undefined} />
+              <AvatarFallback className="text-xs">
+                {reviewerProfile.full_name?.split(' ').map(n => n[0]).join('') || <User className="h-3 w-3" />}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate">
+                Reviewed by {reviewerProfile.full_name || reviewerProfile.email}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {format(new Date(reviewStatus.review_date), 'PPp')}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Checklist Items */}

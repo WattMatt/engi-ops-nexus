@@ -234,7 +234,7 @@ export function useToggleCheckItem() {
   });
 }
 
-// Update review status
+// Update review status with reviewer tracking and notifications
 export function useUpdateReviewStatus() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -244,16 +244,24 @@ export function useUpdateReviewStatus() {
       reviewId,
       status,
       notes,
+      drawingId,
+      projectId,
     }: {
       reviewId: string;
       status?: string;
       notes?: string;
+      drawingId?: string;
+      projectId?: string;
     }) => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const updateData: Record<string, unknown> = {};
       if (status) updateData.status = status;
       if (notes !== undefined) updateData.notes = notes;
       if (status === 'completed' || status === 'approved') {
         updateData.review_date = new Date().toISOString();
+        updateData.reviewed_by = user?.id;
       }
       
       const { data, error } = await supabase
@@ -264,10 +272,30 @@ export function useUpdateReviewStatus() {
         .single();
       
       if (error) throw error;
+      
+      // Send notification for completed/approved reviews
+      if ((status === 'completed' || status === 'approved') && drawingId && projectId && user?.id) {
+        try {
+          await supabase.functions.invoke('send-drawing-review-notification', {
+            body: {
+              reviewId,
+              drawingId,
+              projectId,
+              reviewerId: user.id,
+              status,
+            },
+          });
+        } catch (notificationError) {
+          console.error('Failed to send review notification:', notificationError);
+          // Don't fail the mutation if notification fails
+        }
+      }
+      
       return data as DrawingReviewStatus;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['drawing-review', data.drawing_id] });
+      queryClient.invalidateQueries({ queryKey: ['drawing-review-statuses'] });
       toast({
         title: 'Review Updated',
         description: 'Review status has been updated',
@@ -281,6 +309,26 @@ export function useUpdateReviewStatus() {
       });
       console.error(error);
     },
+  });
+}
+
+// Fetch reviewer profile by ID
+export function useReviewerProfile(reviewerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['reviewer-profile', reviewerId],
+    queryFn: async () => {
+      if (!reviewerId) return null;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url')
+        .eq('id', reviewerId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!reviewerId,
   });
 }
 
