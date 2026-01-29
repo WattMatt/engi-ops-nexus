@@ -769,14 +769,29 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       yPos += 15;
 
       // Expand zones into individual generators for display
+      // Use actual generator data from zone_generators table, not deprecated generator_zones fields
       const expandedGenerators = zones.flatMap(zone => {
-        const numGenerators = zone.num_generators || 1;
-        return Array.from({ length: numGenerators }, (_, index) => ({
+        const zoneGens = zoneGenerators.filter(g => g.zone_id === zone.id).sort((a: any, b: any) => a.generator_number - b.generator_number);
+        // Use actual count of configured generators, not the potentially stale num_generators field
+        const actualGeneratorCount = zoneGens.length || 1;
+        
+        // If no generators configured yet, show one placeholder
+        if (zoneGens.length === 0) {
+          return [{
+            zoneId: zone.id,
+            zoneName: zone.zone_name,
+            generatorSize: zone.generator_size || "Not configured",
+            generatorIndex: 1,
+            totalInZone: 1,
+          }];
+        }
+        
+        return zoneGens.map((generator: any, index: number) => ({
           zoneId: zone.id,
           zoneName: zone.zone_name,
-          generatorSize: zone.generator_size,
+          generatorSize: generator.generator_size || "Not configured",
           generatorIndex: index + 1,
-          totalInZone: numGenerators,
+          totalInZone: actualGeneratorCount,
         }));
       }).slice(0, 4); // Limit to 4 generators to fit on page
 
@@ -888,13 +903,17 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       }]);
 
       // Calculate values for each generator
+      // Use actual generator count from zone_generators table, matching RunningRecoveryCalculator logic
       const calculatedValues = expandedGenerators.map(gen => {
         const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
         const zone = zones.find(z => z.id === gen.zoneId);
         
         if (!settings || !zone) return null;
 
-        const numGenerators = zone.num_generators || 1;
+        // Use actual generator count from zone_generators table instead of deprecated zone.num_generators
+        const zoneGens = zoneGenerators.filter(g => g.zone_id === gen.zoneId);
+        const numGenerators = zoneGens.length || 1;
+        
         const netEnergyKVA = Number(settings.net_energy_kva);
         const kvaToKwhConversion = Number(settings.kva_to_kwh_conversion);
         const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * (Number(settings.running_load) / 100) * numGenerators;
@@ -910,14 +929,13 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const servicingPer250Hours = Number(settings.servicing_cost_per_250_hours);
         const servicingPerMonth = servicingPerYear / 12;
         const servicingByHours = (servicingPer250Hours / 250) * expectedHours;
-        const additionalServicing = Math.max(0, servicingByHours - servicingPerMonth);
+        const additionalServicing = Math.max(0, servicingByHours - servicingPerMonth) * numGenerators;
         
         const monthlyDieselCostPerKWh = netTotalEnergyKWh > 0 ? totalDieselCostPerHour / netTotalEnergyKWh : 0;
         const totalServicesCostPerKWh = monthlyEnergyKWh > 0 ? additionalServicing / monthlyEnergyKWh : 0;
         const totalTariffBeforeContingency = monthlyDieselCostPerKWh + totalServicesCostPerKWh;
         const maintenanceContingency = totalTariffBeforeContingency * 0.1;
         const totalTariff = totalTariffBeforeContingency + maintenanceContingency;
-
         return {
           totalEnergy: netTotalEnergyKWh,
           monthlyEnergy: monthlyEnergyKWh,
