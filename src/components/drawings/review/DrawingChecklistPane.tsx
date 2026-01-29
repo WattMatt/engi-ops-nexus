@@ -1,10 +1,10 @@
 /**
  * Drawing Checklist Pane
- * Displays the category-specific checklist with progress tracking
+ * Displays checklist with manual template selection
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Check, Loader2, Save, ChevronDown, ChevronRight, AlertCircle, User } from 'lucide-react';
+import { Check, Loader2, Save, ChevronDown, ChevronRight, AlertCircle, User, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { 
-  useChecklistTemplate,
+  useChecklistTemplates,
   useChecklistItems,
   useChecklistItemsFlat,
   useDrawingReview,
@@ -36,7 +36,6 @@ import {
 import { 
   DrawingChecklistItem,
   REVIEW_STATUS_OPTIONS,
-  DrawingReviewStatusType,
 } from '@/types/drawingChecklists';
 import { ProjectDrawing } from '@/types/drawings';
 
@@ -47,11 +46,20 @@ interface DrawingChecklistPaneProps {
 export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
   const [notes, setNotes] = useState('');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   
-  // Fetch template and items
-  const { data: template, isLoading: templateLoading } = useChecklistTemplate(drawing.category);
-  const { data: hierarchicalItems = [], isLoading: itemsLoading } = useChecklistItems(template?.id);
-  const { data: flatItems = [] } = useChecklistItemsFlat(template?.id);
+  // Fetch all available templates
+  const { data: allTemplates = [], isLoading: templatesLoading } = useChecklistTemplates();
+  
+  // Get the selected template
+  const selectedTemplate = useMemo(() => {
+    if (!selectedTemplateId) return null;
+    return allTemplates.find(t => t.id === selectedTemplateId) || null;
+  }, [allTemplates, selectedTemplateId]);
+  
+  // Fetch items for selected template
+  const { data: hierarchicalItems = [], isLoading: itemsLoading } = useChecklistItems(selectedTemplateId);
+  const { data: flatItems = [] } = useChecklistItemsFlat(selectedTemplateId);
   
   // Fetch or create review status
   const { data: reviewStatus, isLoading: reviewLoading } = useDrawingReview(drawing.id);
@@ -67,12 +75,28 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
   const toggleCheck = useToggleCheckItem();
   const updateStatus = useUpdateReviewStatus();
   
+  // Auto-select a template based on drawing category when templates load
+  useEffect(() => {
+    if (allTemplates.length > 0 && !selectedTemplateId) {
+      // Try to find a template matching the drawing category
+      const categoryMatch = allTemplates.find(
+        t => t.category_code?.toLowerCase() === drawing.category?.toLowerCase()
+      );
+      if (categoryMatch) {
+        setSelectedTemplateId(categoryMatch.id);
+      } else if (allTemplates.length > 0) {
+        // Default to first template if no category match
+        setSelectedTemplateId(allTemplates[0].id);
+      }
+    }
+  }, [allTemplates, drawing.category, selectedTemplateId]);
+  
   // Create review if it doesn't exist
   useEffect(() => {
-    if (!reviewLoading && !reviewStatus && template) {
+    if (!reviewLoading && !reviewStatus && selectedTemplateId && !createReview.isPending) {
       createReview.mutate(drawing.id);
     }
-  }, [reviewLoading, reviewStatus, template, drawing.id]);
+  }, [reviewLoading, reviewStatus, selectedTemplateId, drawing.id, createReview.isPending]);
   
   // Load notes from review status
   useEffect(() => {
@@ -152,9 +176,9 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
     });
   };
   
-  const isLoading = templateLoading || itemsLoading || reviewLoading;
+  const isLoading = templatesLoading || itemsLoading || reviewLoading;
   
-  if (isLoading) {
+  if (templatesLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -162,13 +186,13 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
     );
   }
   
-  if (!template) {
+  if (allTemplates.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8">
         <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
-        <p className="text-lg font-medium">No checklist available</p>
+        <p className="text-lg font-medium">No checklists available</p>
         <p className="text-sm text-center mt-2">
-          No checklist template found for category "{drawing.category}"
+          Create checklist templates in the Checklists tab first.
         </p>
       </div>
     );
@@ -250,12 +274,46 @@ export function DrawingChecklistPane({ drawing }: DrawingChecklistPaneProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b bg-muted/30">
+        {/* Template Selector */}
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+            Select Checklist
+          </label>
+          <Select
+            value={selectedTemplateId || ''}
+            onValueChange={(value) => setSelectedTemplateId(value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a checklist template">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  <span>{selectedTemplate?.name || 'Select checklist'}</span>
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {allTemplates.map(tmpl => (
+                <SelectItem key={tmpl.id} value={tmpl.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{tmpl.name}</span>
+                    {tmpl.category_code && (
+                      <Badge variant="outline" className="text-xs ml-2">
+                        {tmpl.category_code}
+                      </Badge>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold">{template.name}</h3>
+          <h3 className="font-semibold text-sm">Review Status</h3>
           <Select
             value={reviewStatus?.status || 'pending'}
             onValueChange={handleStatusChange}
-            disabled={updateStatus.isPending}
+            disabled={updateStatus.isPending || !selectedTemplateId}
           >
             <SelectTrigger className="w-32 h-8">
               <SelectValue />
