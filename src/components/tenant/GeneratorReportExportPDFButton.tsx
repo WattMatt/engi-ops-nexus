@@ -950,34 +950,32 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         styles: { halign: "center", fontStyle: "bold", fillColor: [235, 245, 255], textColor: [41, 128, 185] }
       }]);
 
-      // Calculate values for each generator
-      // Use actual generator count from zone_generators table, matching RunningRecoveryCalculator logic
+      // Calculate values for each generator - MATCHING UI RunningRecoveryCalculator logic
+      // UI shows per-generator values, NOT aggregate zone values
       const calculatedValues = expandedGenerators.map(gen => {
         const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
         const zone = zones.find(z => z.id === gen.zoneId);
         
         if (!settings || !zone) return null;
 
-        // Use actual generator count from zone_generators table instead of deprecated zone.num_generators
+        // Get the generator size from zone_generators for fuel rate calculation
         const zoneGens = zoneGenerators.filter(g => g.zone_id === gen.zoneId);
-        const numGenerators = zoneGens.length || 1;
-        
-        // Get the first generator's size from zone_generators for fuel rate calculation
         const firstGenerator = zoneGens.length > 0 ? zoneGens[0] : null;
         const generatorSize = firstGenerator?.generator_size || "";
         
         const runningLoad = Number(settings.running_load);
         const netEnergyKVA = Number(settings.net_energy_kva);
         const kvaToKwhConversion = Number(settings.kva_to_kwh_conversion);
-        const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * (runningLoad / 100) * numGenerators;
         const expectedHours = Number(settings.expected_hours_per_month);
-        const monthlyEnergyKWh = netTotalEnergyKWh * expectedHours;
+        
+        // UI calculates per-generator values (no numGenerators multiplication)
+        // Total Energy = net_energy_kva * kva_to_kwh_conversion * (running_load / 100)
+        const totalEnergy = netEnergyKVA * kvaToKwhConversion * (runningLoad / 100);
+        const monthlyEnergy = totalEnergy * expectedHours;
         
         // Calculate fuel rate dynamically from sizing table (matching UI logic)
-        // This ensures PDF always matches what the RunningRecoveryCalculator shows
         let fuelRate = getFuelConsumption(generatorSize, runningLoad);
-        // If no fuel rate found in sizing table (generator size not matched), use stored value as fallback
-        // or estimate based on kVA (15% rule)
+        // If no fuel rate found in sizing table, use stored value as fallback or estimate
         if (fuelRate === 0) {
           const storedFuelRate = Number(settings.fuel_consumption_rate);
           if (storedFuelRate > 0) {
@@ -988,24 +986,28 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         }
         
         const dieselPrice = Number(settings.diesel_price_per_litre);
-        const totalDieselCostPerHour = fuelRate * dieselPrice * numGenerators;
-        const monthlyDieselCost = totalDieselCostPerHour * expectedHours;
+        // Diesel Cost/Hour = fuel_consumption_rate * diesel_price_per_litre (per generator, no multiplication)
+        const dieselCostPerHour = fuelRate * dieselPrice;
+        const monthlyDieselCost = dieselCostPerHour * expectedHours;
         
+        // Servicing cost calculation (per generator, no numGenerators multiplication)
         const servicingPerYear = Number(settings.servicing_cost_per_year);
         const servicingPer250Hours = Number(settings.servicing_cost_per_250_hours);
         const servicingPerMonth = servicingPerYear / 12;
         const servicingByHours = (servicingPer250Hours / 250) * expectedHours;
-        const additionalServicing = Math.max(0, servicingByHours - servicingPerMonth) * numGenerators;
+        const additionalServicing = Math.max(0, servicingByHours - servicingPerMonth);
         
-        const monthlyDieselCostPerKWh = netTotalEnergyKWh > 0 ? totalDieselCostPerHour / netTotalEnergyKWh : 0;
-        const totalServicesCostPerKWh = monthlyEnergyKWh > 0 ? additionalServicing / monthlyEnergyKWh : 0;
+        // Tariff calculation - matches UI's calculateZoneTariff but per-generator basis
+        const monthlyDieselCostPerKWh = totalEnergy > 0 ? dieselCostPerHour / totalEnergy : 0;
+        const totalServicesCostPerKWh = monthlyEnergy > 0 ? additionalServicing / monthlyEnergy : 0;
         const totalTariffBeforeContingency = monthlyDieselCostPerKWh + totalServicesCostPerKWh;
         const maintenanceContingency = totalTariffBeforeContingency * 0.1;
         const totalTariff = totalTariffBeforeContingency + maintenanceContingency;
+        
         return {
-          totalEnergy: netTotalEnergyKWh,
-          monthlyEnergy: monthlyEnergyKWh,
-          dieselCostPerHour: totalDieselCostPerHour,
+          totalEnergy: totalEnergy,
+          monthlyEnergy: monthlyEnergy,
+          dieselCostPerHour: dieselCostPerHour,
           monthlyDieselCost: monthlyDieselCost,
           monthlyServicingCost: additionalServicing,
           tariff: totalTariff
