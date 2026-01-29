@@ -1,6 +1,7 @@
 /**
  * Drawing Preview Pane
  * PDF/Image viewer with zoom and pan functionality
+ * Supports file upload from local device or Dropbox
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -13,11 +14,27 @@ import {
   ChevronLeft, 
   ChevronRight,
   RefreshCw,
-  FileX
+  FileX,
+  Upload,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { DropboxFileInput } from '@/components/storage/DropboxFileInput';
+import { useDrawingFileUpload } from '@/hooks/useDrawingFileUpload';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -29,9 +46,21 @@ interface DrawingPreviewPaneProps {
   fileUrl?: string | null;
   fileName?: string;
   fileType?: string;
+  filePath?: string | null;
+  drawingId?: string;
+  projectId?: string;
+  onFileUploaded?: () => void;
 }
 
-export function DrawingPreviewPane({ fileUrl, fileName, fileType }: DrawingPreviewPaneProps) {
+export function DrawingPreviewPane({ 
+  fileUrl, 
+  fileName, 
+  fileType,
+  filePath,
+  drawingId,
+  projectId,
+  onFileUploaded
+}: DrawingPreviewPaneProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -40,12 +69,17 @@ export function DrawingPreviewPane({ fileUrl, fileName, fileType }: DrawingPrevi
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [pdfError, setPdfError] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   
+  const { uploadFile, deleteFile, isUploading, uploadProgress } = useDrawingFileUpload();
+  
   const isPdf = fileType?.includes('pdf') || fileUrl?.toLowerCase().endsWith('.pdf');
   const isImage = fileType?.startsWith('image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl || '');
+  
+  const canUpload = !!drawingId && !!projectId;
   
   // Reset view when file changes
   useEffect(() => {
@@ -123,13 +157,66 @@ export function DrawingPreviewPane({ fileUrl, fileName, fileType }: DrawingPrevi
   const onDocumentLoadError = () => {
     setPdfError(true);
   };
+
+  // Handle file upload
+  const handleFileSelect = async (file: File) => {
+    if (!canUpload) return;
+    
+    try {
+      await uploadFile(file, {
+        drawingId: drawingId!,
+        projectId: projectId!,
+        onSuccess: () => {
+          onFileUploaded?.();
+        }
+      });
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
+  };
+
+  // Handle file deletion
+  const handleDeleteFile = async () => {
+    if (!drawingId || !filePath) return;
+    
+    const success = await deleteFile(drawingId, filePath);
+    if (success) {
+      setShowDeleteDialog(false);
+      onFileUploaded?.();
+    }
+  };
   
+  // Empty state with upload option
   if (!fileUrl) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-muted/30 text-muted-foreground">
+      <div className="flex flex-col items-center justify-center h-full bg-muted/30 text-muted-foreground p-8">
         <FileX className="h-16 w-16 mb-4 opacity-50" />
-        <p className="text-lg font-medium">No file attached</p>
-        <p className="text-sm">Upload a drawing file to preview it here</p>
+        <p className="text-lg font-medium mb-2">No file attached</p>
+        
+        {canUpload ? (
+          <div className="w-full max-w-md">
+            {isUploading ? (
+              <div className="space-y-3 w-full">
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Uploading drawing file...</span>
+                </div>
+                <Progress value={uploadProgress} className="h-2" />
+              </div>
+            ) : (
+              <DropboxFileInput
+                onFileSelect={handleFileSelect}
+                allowedExtensions={['.pdf', '.png', '.jpg', '.jpeg', '.webp']}
+                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                placeholder="Upload a drawing file to preview it here"
+                dropboxTitle="Import Drawing from Dropbox"
+                dropboxDescription="Select a PDF or image file from your Dropbox"
+              />
+            )}
+          </div>
+        ) : (
+          <p className="text-sm">Upload a drawing file to preview it here</p>
+        )}
       </div>
     );
   }
@@ -183,6 +270,44 @@ export function DrawingPreviewPane({ fileUrl, fileName, fileType }: DrawingPrevi
         )}
         
         <div className="flex items-center gap-1">
+          {canUpload && filePath && (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setShowDeleteDialog(true)}
+              title="Remove file"
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          )}
+          
+          {canUpload && (
+            <label>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                asChild
+                disabled={isUploading}
+              >
+                <span>
+                  <Upload className="h-4 w-4 mr-1" />
+                  Replace
+                </span>
+              </Button>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileSelect(file);
+                  e.target.value = '';
+                }}
+                disabled={isUploading}
+              />
+            </label>
+          )}
+          
           <Button 
             variant="ghost" 
             size="sm"
@@ -196,11 +321,22 @@ export function DrawingPreviewPane({ fileUrl, fileName, fileType }: DrawingPrevi
         </div>
       </div>
       
+      {/* Upload progress overlay */}
+      {isUploading && (
+        <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+          <div className="text-center space-y-3">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+            <p className="text-sm">Uploading file...</p>
+            <Progress value={uploadProgress} className="w-48 h-2" />
+          </div>
+        </div>
+      )}
+      
       {/* Preview Area */}
       <div
         ref={containerRef}
         className={cn(
-          "flex-1 overflow-hidden bg-muted/20",
+          "flex-1 overflow-hidden bg-muted/20 relative",
           isDragging ? "cursor-grabbing" : "cursor-grab"
         )}
         onWheel={handleWheel}
@@ -268,9 +404,32 @@ export function DrawingPreviewPane({ fileUrl, fileName, fileType }: DrawingPrevi
       </div>
       
       {/* Footer info */}
-      <div className="px-3 py-1.5 border-t bg-muted/30 text-xs text-muted-foreground">
+      <div className="px-3 py-1.5 border-t bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
         <span>Scroll to pan • Ctrl+Scroll to zoom • Drag to pan</span>
+        {fileName && (
+          <span className="truncate max-w-[200px]" title={fileName}>
+            {fileName}
+          </span>
+        )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove drawing file?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the attached file from this drawing. The file will be deleted from storage.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFile} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

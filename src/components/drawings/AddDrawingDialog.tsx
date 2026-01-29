@@ -1,13 +1,14 @@
 /**
  * Add Drawing Dialog
  * Form for adding a new drawing to the register
+ * Supports local file upload and Dropbox import
  */
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Upload, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { DropboxFileInput } from '@/components/storage/DropboxFileInput';
 import { useCreateDrawing } from '@/hooks/useProjectDrawings';
 import { DrawingCategory, detectDrawingCategory, DRAWING_STATUS_OPTIONS } from '@/types/drawings';
 
@@ -93,11 +95,8 @@ export function AddDrawingDialog({
     }
   };
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-    }
+  const handleFileSelect = (selectedFile: File) => {
+    setFile(selectedFile);
   };
   
   const onSubmit = async (data: FormData) => {
@@ -224,14 +223,19 @@ export function AddDrawingDialog({
             </div>
           </div>
           
-          {/* File Upload */}
+          {/* File Upload with Dropbox support */}
           <div className="space-y-2">
-            <Label>Drawing File (PDF)</Label>
-            <div className="border-2 border-dashed rounded-lg p-4 text-center">
-              {file ? (
-                <div className="flex items-center justify-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span className="text-sm">{file.name}</span>
+            <Label>Drawing File (PDF/Image)</Label>
+            {file ? (
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <span className="text-sm truncate max-w-[250px]">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({(file.size / 1024).toFixed(1)} KB)
+                    </span>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -241,21 +245,17 @@ export function AddDrawingDialog({
                     Remove
                   </Button>
                 </div>
-              ) : (
-                <label className="cursor-pointer">
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Click to upload or drag and drop
-                  </p>
-                  <input
-                    type="file"
-                    accept=".pdf,.dwg,.dxf"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                </label>
-              )}
-            </div>
+              </div>
+            ) : (
+              <DropboxFileInput
+                onFileSelect={handleFileSelect}
+                allowedExtensions={['.pdf', '.png', '.jpg', '.jpeg', '.webp']}
+                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                placeholder="Upload a drawing file or import from Dropbox"
+                dropboxTitle="Import Drawing from Dropbox"
+                dropboxDescription="Select a PDF or image file from your Dropbox"
+              />
+            )}
           </div>
           
           {/* Notes */}
