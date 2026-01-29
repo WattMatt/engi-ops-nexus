@@ -3,14 +3,14 @@
  * Individual checkbox item with optional notes and document link
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Check, ChevronDown, ChevronRight, FileText, MessageSquare } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { DrawingChecklistItem } from '@/types/drawingChecklists';
+import { RichTextEditor, RichTextEditorRef } from '@/components/messaging/RichTextEditor';
 
 interface ChecklistItemProps {
   item: DrawingChecklistItem;
@@ -31,14 +31,21 @@ export function ChecklistItem({
 }: ChecklistItemProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [localNotes, setLocalNotes] = useState(notes || '');
+  const [localNotesHtml, setLocalNotesHtml] = useState(notes || '');
+  const editorRef = useRef<RichTextEditorRef>(null);
   const hasChildren = item.children && item.children.length > 0;
   
   const handleToggle = () => {
-    onToggle(item.id, !isChecked, localNotes);
+    onToggle(item.id, !isChecked, localNotesHtml);
   };
   
   const handleNotesSave = () => {
-    onNotesChange(item.id, localNotes);
+    onNotesChange(item.id, localNotesHtml);
+  };
+  
+  const handleNotesChange = (text: string, html: string) => {
+    setLocalNotes(text);
+    setLocalNotesHtml(html);
   };
   
   return (
@@ -115,14 +122,15 @@ export function ChecklistItem({
               )} />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-80">
-            <div className="space-y-2">
+          <PopoverContent align="end" className="w-96">
+            <div className="space-y-3">
               <p className="text-sm font-medium">Notes</p>
-              <Textarea
-                value={localNotes}
-                onChange={(e) => setLocalNotes(e.target.value)}
+              <RichTextEditor
+                ref={editorRef}
+                value={localNotesHtml}
+                onChange={handleNotesChange}
                 placeholder="Add notes about this item..."
-                className="min-h-[80px] text-sm"
+                className="min-h-[120px]"
               />
               <Button size="sm" onClick={handleNotesSave}>
                 Save Notes
