@@ -3,6 +3,7 @@
  * Full-screen dialog with split-view for drawing preview and checklist
  */
 
+import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Badge } from '@/components/ui/badge';
@@ -17,9 +18,16 @@ interface DrawingReviewDialogProps {
 }
 
 export function DrawingReviewDialog({ open, onOpenChange, drawing }: DrawingReviewDialogProps) {
+  const queryClient = useQueryClient();
+  
   if (!drawing) return null;
   
   const statusOption = DRAWING_STATUS_OPTIONS.find(o => o.value === drawing.status);
+
+  const handleFileUploaded = () => {
+    // Invalidate queries to refresh drawing data
+    queryClient.invalidateQueries({ queryKey: ['project-drawings'] });
+  };
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -51,6 +59,10 @@ export function DrawingReviewDialog({ open, onOpenChange, drawing }: DrawingRevi
                 fileUrl={drawing.file_url}
                 fileName={drawing.file_name}
                 fileType={drawing.file_type}
+                filePath={drawing.file_path}
+                drawingId={drawing.id}
+                projectId={drawing.project_id}
+                onFileUploaded={handleFileUploaded}
               />
             </ResizablePanel>
             

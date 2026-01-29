@@ -1,13 +1,14 @@
 /**
  * Edit Drawing Dialog
  * Form for editing an existing drawing
+ * Supports local file upload and Dropbox import
  */
 
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Upload, FileText } from 'lucide-react';
+import { FileText, ExternalLink } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { DropboxFileInput } from '@/components/storage/DropboxFileInput';
 import { useUpdateDrawing, useDrawingCategories } from '@/hooks/useProjectDrawings';
 import { ProjectDrawing, DRAWING_STATUS_OPTIONS } from '@/types/drawings';
 
@@ -97,14 +99,13 @@ export function EditDrawingDialog({
         visible_to_contractor: drawing.visible_to_contractor,
         included_in_handover: drawing.included_in_handover,
       });
+      // Reset file when drawing changes
+      setFile(null);
     }
   }, [drawing, form]);
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-    }
+  const handleFileSelect = (selectedFile: File) => {
+    setFile(selectedFile);
   };
   
   const onSubmit = async (data: FormData) => {
@@ -230,29 +231,35 @@ export function EditDrawingDialog({
           </div>
           
           {/* Current File */}
-          {drawing?.file_url && (
+          {drawing?.file_url && !file && (
             <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-1">Current File</p>
+              <p className="text-sm font-medium mb-2">Current File</p>
               <a 
                 href={drawing.file_url} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline flex items-center gap-1"
+                className="text-sm text-primary hover:underline flex items-center gap-2"
               >
                 <FileText className="h-4 w-4" />
-                {drawing.file_name || 'View File'}
+                <span className="truncate flex-1">{drawing.file_name || 'View File'}</span>
+                <ExternalLink className="h-3 w-3" />
               </a>
             </div>
           )}
           
-          {/* File Upload */}
+          {/* File Upload with Dropbox support */}
           <div className="space-y-2">
-            <Label>Upload New Revision</Label>
-            <div className="border-2 border-dashed rounded-lg p-4 text-center">
-              {file ? (
-                <div className="flex items-center justify-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span className="text-sm">{file.name}</span>
+            <Label>{drawing?.file_url ? 'Upload New Revision' : 'Drawing File'}</Label>
+            {file ? (
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({(file.size / 1024).toFixed(1)} KB)
+                    </span>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -262,21 +269,17 @@ export function EditDrawingDialog({
                     Remove
                   </Button>
                 </div>
-              ) : (
-                <label className="cursor-pointer">
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Click to upload new file
-                  </p>
-                  <input
-                    type="file"
-                    accept=".pdf,.dwg,.dxf"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                </label>
-              )}
-            </div>
+              </div>
+            ) : (
+              <DropboxFileInput
+                onFileSelect={handleFileSelect}
+                allowedExtensions={['.pdf', '.png', '.jpg', '.jpeg', '.webp']}
+                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                placeholder={drawing?.file_url ? "Upload new file to replace current" : "Upload a drawing file"}
+                dropboxTitle="Import Drawing from Dropbox"
+                dropboxDescription="Select a PDF or image file from your Dropbox"
+              />
+            )}
           </div>
           
           {/* Notes */}
