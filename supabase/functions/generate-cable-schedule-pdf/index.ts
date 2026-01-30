@@ -20,9 +20,6 @@ interface CableEntry {
   total_length?: number;
   ohm_per_km?: number;
   volt_drop?: number;
-  supply_cost?: number;
-  install_cost?: number;
-  total_cost?: number;
   notes?: string;
 }
 
@@ -32,10 +29,6 @@ interface OptimizationRecommendation {
   toLocation: string;
   currentConfig: string;
   recommendedConfig: string;
-  currentCost: number;
-  recommendedCost: number;
-  savings: number;
-  savingsPercent: number;
 }
 
 interface CableSchedulePdfRequest {
@@ -66,12 +59,6 @@ function sortByTag(entries: CableEntry[]): CableEntry[] {
   });
 }
 
-// Format currency
-function formatCurrency(value?: number): string {
-  if (value === undefined || value === null) return '-';
-  return `R ${value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 // Format number
 function formatNumber(value?: number, decimals = 2): string {
   if (value === undefined || value === null) return '-';
@@ -83,19 +70,15 @@ function generateHTML(data: CableSchedulePdfRequest): string {
   
   // Calculate totals
   const totalLength = sortedEntries.reduce((sum, e) => sum + (e.total_length || 0), 0);
-  const totalSupplyCost = sortedEntries.reduce((sum, e) => sum + (e.supply_cost || 0), 0);
-  const totalInstallCost = sortedEntries.reduce((sum, e) => sum + (e.install_cost || 0), 0);
-  const totalCost = sortedEntries.reduce((sum, e) => sum + (e.total_cost || 0), 0);
   
   // Group by voltage for summary
-  const voltageGroups = new Map<number, { count: number; length: number; cost: number }>();
+  const voltageGroups = new Map<number, { count: number; length: number }>();
   sortedEntries.forEach(e => {
     const v = e.voltage || 0;
-    const existing = voltageGroups.get(v) || { count: 0, length: 0, cost: 0 };
+    const existing = voltageGroups.get(v) || { count: 0, length: 0 };
     voltageGroups.set(v, {
       count: existing.count + 1,
       length: existing.length + (e.total_length || 0),
-      cost: existing.cost + (e.total_cost || 0),
     });
   });
 
@@ -114,9 +97,6 @@ function generateHTML(data: CableSchedulePdfRequest): string {
       <td class="text-right">${formatNumber(e.total_length)}</td>
       <td class="text-right">${formatNumber(e.ohm_per_km, 3)}</td>
       <td class="text-right">${formatNumber(e.volt_drop)}%</td>
-      <td class="text-right">${formatCurrency(e.supply_cost)}</td>
-      <td class="text-right">${formatCurrency(e.install_cost)}</td>
-      <td class="text-right font-medium">${formatCurrency(e.total_cost)}</td>
     </tr>
   `).join('');
 
@@ -128,24 +108,18 @@ function generateHTML(data: CableSchedulePdfRequest): string {
         <td>${voltage}V</td>
         <td class="text-right">${stats.count}</td>
         <td class="text-right">${formatNumber(stats.length)} m</td>
-        <td class="text-right">${formatCurrency(stats.cost)}</td>
       </tr>
     `).join('');
 
   // Optimization recommendations section
   let optimizationHtml = '';
   if (data.optimizations && data.optimizations.length > 0) {
-    const totalSavings = data.optimizations.reduce((sum, o) => sum + o.savings, 0);
-    
     const optimizationRows = data.optimizations.map(o => `
       <tr>
         <td class="font-medium">${o.cableTag}</td>
         <td>${o.fromLocation} → ${o.toLocation}</td>
         <td>${o.currentConfig}</td>
         <td class="text-success">${o.recommendedConfig}</td>
-        <td class="text-right">${formatCurrency(o.currentCost)}</td>
-        <td class="text-right text-success">${formatCurrency(o.recommendedCost)}</td>
-        <td class="text-right text-success font-medium">${formatCurrency(o.savings)} (${o.savingsPercent.toFixed(1)}%)</td>
       </tr>
     `).join('');
 
@@ -153,12 +127,7 @@ function generateHTML(data: CableSchedulePdfRequest): string {
       <div class="page" style="page-break-before: always;">
         <div class="section">
           <h2>Cable Sizing Recommendations</h2>
-          <p class="section-intro">The following recommendations show cost-effective alternatives for achieving the same circuit capacity while maintaining compliance with SANS 10142-1.</p>
-          
-          <div class="savings-banner">
-            <span class="savings-label">Total Potential Savings</span>
-            <span class="savings-amount">${formatCurrency(totalSavings)}</span>
-          </div>
+          <p class="section-intro">The following recommendations show alternatives for achieving the same circuit capacity while maintaining compliance with SANS 10142-1.</p>
           
           <table>
             <thead>
@@ -167,9 +136,6 @@ function generateHTML(data: CableSchedulePdfRequest): string {
                 <th>Route</th>
                 <th>Current Config</th>
                 <th>Recommended</th>
-                <th class="text-right">Current Cost</th>
-                <th class="text-right">New Cost</th>
-                <th class="text-right">Savings</th>
               </tr>
             </thead>
             <tbody>
@@ -536,14 +502,6 @@ function generateHTML(data: CableSchedulePdfRequest): string {
         <div class="summary-card-label">Total Length</div>
         <div class="summary-card-value">${formatNumber(totalLength, 1)} <span class="summary-card-unit">m</span></div>
       </div>
-      <div class="summary-card">
-        <div class="summary-card-label">Supply Cost</div>
-        <div class="summary-card-value">${formatCurrency(totalSupplyCost)}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-card-label">Total Cost</div>
-        <div class="summary-card-value">${formatCurrency(totalCost)}</div>
-      </div>
     </div>
     
     <h3 style="font-size: 11pt; margin-bottom: 3mm; color: #374151;">Summary by Voltage Level</h3>
@@ -553,7 +511,6 @@ function generateHTML(data: CableSchedulePdfRequest): string {
           <th>Voltage</th>
           <th class="text-right">Cables</th>
           <th class="text-right">Length</th>
-          <th class="text-right">Cost</th>
         </tr>
       </thead>
       <tbody>
@@ -562,7 +519,6 @@ function generateHTML(data: CableSchedulePdfRequest): string {
           <td>Total</td>
           <td class="text-right">${sortedEntries.length}</td>
           <td class="text-right">${formatNumber(totalLength)} m</td>
-          <td class="text-right">${formatCurrency(totalCost)}</td>
         </tr>
       </tbody>
     </table>
@@ -589,9 +545,6 @@ function generateHTML(data: CableSchedulePdfRequest): string {
           <th class="text-right">Total (m)</th>
           <th class="text-right">Ω/km</th>
           <th class="text-right">V.Drop</th>
-          <th class="text-right">Supply</th>
-          <th class="text-right">Install</th>
-          <th class="text-right">Total Cost</th>
         </tr>
       </thead>
       <tbody>
@@ -600,9 +553,6 @@ function generateHTML(data: CableSchedulePdfRequest): string {
           <td colspan="9"><strong>TOTALS</strong></td>
           <td class="text-right"><strong>${formatNumber(totalLength)}</strong></td>
           <td colspan="2"></td>
-          <td class="text-right"><strong>${formatCurrency(totalSupplyCost)}</strong></td>
-          <td class="text-right"><strong>${formatCurrency(totalInstallCost)}</strong></td>
-          <td class="text-right"><strong>${formatCurrency(totalCost)}</strong></td>
         </tr>
       </tbody>
     </table>

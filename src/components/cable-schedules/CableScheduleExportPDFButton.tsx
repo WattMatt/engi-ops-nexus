@@ -221,14 +221,14 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 {step === 'complete' ? (
-                  <CheckCircle className="h-5 w-5 text-emerald-600" />
+                  <CheckCircle className="h-5 w-5 text-primary" />
                 ) : step === 'error' ? (
                   <div className="h-5 w-5 rounded-full bg-destructive" />
                 ) : (
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 )}
                 <span className={`text-sm font-medium ${
-                  step === 'complete' ? 'text-emerald-600' : 
+                  step === 'complete' ? 'text-primary' : 
                   step === 'error' ? 'text-destructive' : ''
                 }`}>
                   {stepLabels[step]}
@@ -246,7 +246,6 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
                 <li>• Professional branded cover page</li>
                 <li>• Summary statistics by voltage level</li>
                 <li>• Complete cable schedule table</li>
-                <li>• Cost breakdown (supply, install, total)</li>
               </ul>
             </div>
           )}

@@ -175,7 +175,7 @@ export const CableScheduleReportHistory = ({ scheduleId }: CableScheduleReportHi
                   Rev {report.revision}
                 </Badge>
                 {index === 0 && (
-                  <Badge variant="outline" className="flex-shrink-0 text-emerald-600 border-emerald-600">
+                  <Badge variant="outline" className="flex-shrink-0 text-primary border-primary">
                     Latest
                   </Badge>
                 )}
