@@ -113,11 +113,6 @@ const reportModules = [
     url: "/dashboard/projects-report/lighting",
     icon: Lightbulb,
   },
-  {
-    title: "Handover Documents",
-    url: "/dashboard/projects-report/handover",
-    icon: FolderOpen,
-  },
 ];
 
 const budgetsModule = {
@@ -164,6 +159,12 @@ const operationalModules = [
     icon: MessageSquare,
   },
 ];
+
+const handoverModule = {
+  title: "Handover Documents",
+  url: "/dashboard/projects-report/handover",
+  icon: FolderOpen,
+};
 
 const settingsModules = [
   {
@@ -316,10 +317,21 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Settings at the bottom */}
+        {/* Handover Documents and Settings at the bottom */}
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Handover Documents */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to={handoverModule.url} className={getNavCls(handoverModule.url)}>
+                    <handoverModule.icon className="h-4 w-4" />
+                    {!collapsed && <span>{handoverModule.title}</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              
+              {/* Settings */}
               {settingsModules.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
