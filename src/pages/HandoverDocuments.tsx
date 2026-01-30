@@ -15,6 +15,7 @@ import { HandoverDashboard } from "@/components/handover/HandoverDashboard";
 import { AsBuiltDrawingsView } from "@/components/handover/AsBuiltDrawingsView";
 import { EquipmentDocumentsView } from "@/components/handover/EquipmentDocumentsView";
 import { GeneralDocumentsView } from "@/components/handover/GeneralDocumentsView";
+import { FolderBrowser } from "@/components/handover/folders";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -232,109 +233,109 @@ const HandoverDocuments = () => {
         </TabsContent>
 
         <TabsContent value="generators">
-          <EquipmentDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            equipmentType="generators"
-            equipmentLabel="Generators"
+            documentCategory="generators"
+            categoryLabel="Generators"
             icon={<Zap className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="transformers">
-          <EquipmentDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            equipmentType="transformers"
-            equipmentLabel="Transformers"
+            documentCategory="transformers"
+            categoryLabel="Transformers"
             icon={<Cpu className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="main-boards">
-          <EquipmentDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            equipmentType="main_boards"
-            equipmentLabel="Main Boards"
+            documentCategory="main_boards"
+            categoryLabel="Main Boards"
             icon={<Server className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="lighting">
-          <EquipmentDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            equipmentType="lighting"
-            equipmentLabel="Lighting"
+            documentCategory="lighting"
+            categoryLabel="Lighting"
             icon={<Lightbulb className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="cctv">
-          <EquipmentDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            equipmentType="cctv_access_control"
-            equipmentLabel="CCTV and Access Control"
+            documentCategory="cctv_access_control"
+            categoryLabel="CCTV and Access Control"
             icon={<Camera className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="lightning">
-          <EquipmentDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            equipmentType="lightning_protection"
-            equipmentLabel="Lightning Protection"
+            documentCategory="lightning_protection"
+            categoryLabel="Lightning Protection"
             icon={<Shield className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="specifications">
-          <GeneralDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            documentType="specifications"
-            documentLabel="Specifications"
+            documentCategory="specifications"
+            categoryLabel="Specifications"
             icon={<ClipboardCheck className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="test-certificates">
-          <GeneralDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            documentType="test_certificates"
-            documentLabel="Test Certificates"
+            documentCategory="test_certificates"
+            categoryLabel="Test Certificates"
             icon={<FileCheck className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="warranties">
-          <GeneralDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            documentType="warranties"
-            documentLabel="Warranties"
+            documentCategory="warranties"
+            categoryLabel="Warranties"
             icon={<Award className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="manuals">
-          <GeneralDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            documentType="manuals"
-            documentLabel="Manuals and Instructions"
+            documentCategory="manuals"
+            categoryLabel="Manuals and Instructions"
             icon={<BookOpen className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="commissioning">
-          <GeneralDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            documentType="commissioning_docs"
-            documentLabel="Commissioning Documents"
+            documentCategory="commissioning_docs"
+            categoryLabel="Commissioning Documents"
             icon={<BadgeCheck className="h-5 w-5" />}
           />
         </TabsContent>
 
         <TabsContent value="compliance">
-          <GeneralDocumentsView 
+          <FolderBrowser 
             projectId={projectId}
-            documentType="compliance_certs"
-            documentLabel="Compliance Certificates"
+            documentCategory="compliance_certs"
+            categoryLabel="Compliance Certificates"
             icon={<FileCheck className="h-5 w-5" />}
           />
         </TabsContent>
