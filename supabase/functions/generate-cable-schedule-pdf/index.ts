@@ -173,34 +173,12 @@ function generateHTML(data: CableSchedulePdfRequest): string {
     
     @page {
       size: A4 landscape;
-      margin: 15mm 10mm 20mm 10mm;
-      
-      @bottom-left {
-        content: "${data.scheduleName} | Rev ${data.revision}";
-        font-size: 7pt;
-        color: #6b7280;
-      }
-      
-      @bottom-center {
-        content: "Designed in accordance with SANS 10142-1";
-        font-size: 7pt;
-        font-style: italic;
-        color: #6b7280;
-      }
-      
-      @bottom-right {
-        content: "Page " counter(page) " of " counter(pages) " | Generated: ${shortDate}";
-        font-size: 7pt;
-        color: #6b7280;
-      }
+      margin: 15mm 10mm 15mm 10mm;
     }
     
     @page :first {
       margin-top: 0;
       margin-bottom: 0;
-      @bottom-left { content: none; }
-      @bottom-center { content: none; }
-      @bottom-right { content: none; }
     }
     
     /* Cover Page */
