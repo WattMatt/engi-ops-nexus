@@ -147,6 +147,9 @@ function generateHTML(data: CableSchedulePdfRequest): string {
     `;
   }
 
+  const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const shortDate = new Date().toLocaleDateString('en-GB');
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -170,20 +173,34 @@ function generateHTML(data: CableSchedulePdfRequest): string {
     
     @page {
       size: A4 landscape;
-      margin: 12mm 10mm 18mm 10mm;
+      margin: 15mm 10mm 20mm 10mm;
+      
+      @bottom-left {
+        content: "${data.scheduleName} | Rev ${data.revision}";
+        font-size: 7pt;
+        color: #6b7280;
+      }
+      
+      @bottom-center {
+        content: "Designed in accordance with SANS 10142-1";
+        font-size: 7pt;
+        font-style: italic;
+        color: #6b7280;
+      }
+      
+      @bottom-right {
+        content: "Page " counter(page) " of " counter(pages) " | Generated: ${shortDate}";
+        font-size: 7pt;
+        color: #6b7280;
+      }
     }
     
     @page :first {
       margin-top: 0;
       margin-bottom: 0;
-    }
-    
-    .page {
-      page-break-after: always;
-    }
-    
-    .page:last-child {
-      page-break-after: avoid;
+      @bottom-left { content: none; }
+      @bottom-center { content: none; }
+      @bottom-right { content: none; }
     }
     
     /* Cover Page */
@@ -194,8 +211,9 @@ function generateHTML(data: CableSchedulePdfRequest): string {
       background: linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #3b82f6 100%);
       color: white;
       padding: 0;
-      margin: -12mm -10mm;
+      margin: 0 -10mm;
       width: calc(100% + 20mm);
+      page-break-after: always;
     }
     
     .cover-header {
@@ -305,7 +323,13 @@ function generateHTML(data: CableSchedulePdfRequest): string {
       border-bottom: 2px solid #1e40af;
     }
     
-    /* Tables */
+    h3 {
+      font-size: 11pt;
+      margin-bottom: 3mm;
+      color: #374151;
+    }
+    
+    /* Tables - Critical for proper page breaks */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -315,6 +339,19 @@ function generateHTML(data: CableSchedulePdfRequest): string {
     
     thead {
       display: table-header-group;
+    }
+    
+    tbody {
+      display: table-row-group;
+    }
+    
+    tfoot {
+      display: table-footer-group;
+    }
+    
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     
     th {
@@ -333,7 +370,7 @@ function generateHTML(data: CableSchedulePdfRequest): string {
       vertical-align: middle;
     }
     
-    tr:nth-child(even) {
+    tbody tr:nth-child(even) {
       background: #f9fafb;
     }
     
@@ -388,28 +425,6 @@ function generateHTML(data: CableSchedulePdfRequest): string {
       font-weight: 400;
     }
     
-    /* Savings Banner */
-    .savings-banner {
-      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-      color: white;
-      padding: 5mm 8mm;
-      border-radius: 2mm;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6mm;
-    }
-    
-    .savings-label {
-      font-size: 11pt;
-      font-weight: 500;
-    }
-    
-    .savings-amount {
-      font-size: 18pt;
-      font-weight: 700;
-    }
-    
     /* Voltage Summary Table */
     .voltage-summary {
       width: auto;
@@ -421,19 +436,15 @@ function generateHTML(data: CableSchedulePdfRequest): string {
       padding: 2mm 4mm;
     }
     
-    /* Footer */
-    .page-footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 3mm 10mm;
-      font-size: 7pt;
-      color: #6b7280;
-      border-top: 1px solid #e5e7eb;
-      display: flex;
-      justify-content: space-between;
-      background: white;
+    /* Page Break Controls */
+    .page-break {
+      page-break-after: always;
+      break-after: page;
+    }
+    
+    .no-break {
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     
     .compliance-note {
@@ -444,129 +455,122 @@ function generateHTML(data: CableSchedulePdfRequest): string {
 <body>
 
 <!-- Cover Page -->
-<div class="page">
-  <div class="cover-page">
-    <div class="cover-header">
-      ${data.companyLogoBase64 ? `<img src="${data.companyLogoBase64}" class="cover-logo" alt="Company Logo" />` : '<div></div>'}
-      <div class="cover-badge">Rev ${data.revision}</div>
-    </div>
+<div class="cover-page">
+  <div class="cover-header">
+    ${data.companyLogoBase64 ? `<img src="${data.companyLogoBase64}" class="cover-logo" alt="Company Logo" />` : '<div></div>'}
+    <div class="cover-badge">Rev ${data.revision}</div>
+  </div>
+  
+  <div class="cover-content">
+    <div class="cover-title">Cable Schedule</div>
+    <div class="cover-subtitle">Comprehensive Cable Installation Report</div>
     
-    <div class="cover-content">
-      <div class="cover-title">Cable Schedule</div>
-      <div class="cover-subtitle">Comprehensive Cable Installation Report</div>
-      
-      <div class="cover-project-name">${data.scheduleName}</div>
-      
-      <div class="cover-meta">
-        ${data.projectNumber ? `
-        <div class="cover-meta-item">
-          <div class="cover-meta-label">Project Number</div>
-          <div class="cover-meta-value">${data.projectNumber}</div>
-        </div>
-        ` : ''}
-        <div class="cover-meta-item">
-          <div class="cover-meta-label">Schedule Number</div>
-          <div class="cover-meta-value">${data.scheduleNumber}</div>
-        </div>
-        <div class="cover-meta-item">
-          <div class="cover-meta-label">Total Cables</div>
-          <div class="cover-meta-value">${sortedEntries.length}</div>
-        </div>
-        ${data.clientName ? `
-        <div class="cover-meta-item">
-          <div class="cover-meta-label">Client</div>
-          <div class="cover-meta-value">${data.clientName}</div>
-        </div>
-        ` : ''}
+    <div class="cover-project-name">${data.scheduleName}</div>
+    
+    <div class="cover-meta">
+      ${data.projectNumber ? `
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Project Number</div>
+        <div class="cover-meta-value">${data.projectNumber}</div>
       </div>
+      ` : ''}
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Schedule Number</div>
+        <div class="cover-meta-value">${data.scheduleNumber}</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Total Cables</div>
+        <div class="cover-meta-value">${sortedEntries.length}</div>
+      </div>
+      ${data.clientName ? `
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Client</div>
+        <div class="cover-meta-value">${data.clientName}</div>
+      </div>
+      ` : ''}
     </div>
-    
-    <div class="cover-footer">
-      <div class="compliance-note">Designed in accordance with SANS 10142-1</div>
-      <div>Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-    </div>
+  </div>
+  
+  <div class="cover-footer">
+    <div class="compliance-note">Designed in accordance with SANS 10142-1</div>
+    <div>Generated: ${currentDate}</div>
   </div>
 </div>
 
 <!-- Summary Page -->
-<div class="page" style="page-break-before: always;">
-  <div class="section">
-    <h2>Schedule Summary</h2>
-    
-    <div class="summary-grid">
-      <div class="summary-card">
-        <div class="summary-card-label">Total Cables</div>
-        <div class="summary-card-value">${sortedEntries.length}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-card-label">Total Length</div>
-        <div class="summary-card-value">${formatNumber(totalLength, 1)} <span class="summary-card-unit">m</span></div>
-      </div>
+<div class="section">
+  <h2>Schedule Summary</h2>
+  
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-card-label">Total Cables</div>
+      <div class="summary-card-value">${sortedEntries.length}</div>
     </div>
-    
-    <h3 style="font-size: 11pt; margin-bottom: 3mm; color: #374151;">Summary by Voltage Level</h3>
-    <table class="voltage-summary">
-      <thead>
-        <tr>
-          <th>Voltage</th>
-          <th class="text-right">Cables</th>
-          <th class="text-right">Length</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${voltageSummaryRows}
-        <tr class="total-row">
-          <td>Total</td>
-          <td class="text-right">${sortedEntries.length}</td>
-          <td class="text-right">${formatNumber(totalLength)} m</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="summary-card">
+      <div class="summary-card-label">Total Length</div>
+      <div class="summary-card-value">${formatNumber(totalLength, 1)} <span class="summary-card-unit">m</span></div>
+    </div>
   </div>
+  
+  <h3>Summary by Voltage Level</h3>
+  <table class="voltage-summary">
+    <thead>
+      <tr>
+        <th>Voltage</th>
+        <th class="text-right">Cables</th>
+        <th class="text-right">Length</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${voltageSummaryRows}
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td>Total</td>
+        <td class="text-right">${sortedEntries.length}</td>
+        <td class="text-right">${formatNumber(totalLength)} m</td>
+      </tr>
+    </tfoot>
+  </table>
 </div>
 
+<div class="page-break"></div>
+
 <!-- Cable Schedule Table -->
-<div class="page" style="page-break-before: always;">
-  <div class="section">
-    <h2>Cable Schedule</h2>
-    
-    <table>
-      <thead>
-        <tr>
-          <th>Cable Tag</th>
-          <th>From</th>
-          <th>To</th>
-          <th class="text-center">Voltage</th>
-          <th class="text-right">Load (A)</th>
-          <th>Type</th>
-          <th>Size</th>
-          <th class="text-right">Measured (m)</th>
-          <th class="text-right">Extra (m)</th>
-          <th class="text-right">Total (m)</th>
-          <th class="text-right">Ω/km</th>
-          <th class="text-right">V.Drop</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tableRows}
-        <tr class="total-row">
-          <td colspan="9"><strong>TOTALS</strong></td>
-          <td class="text-right"><strong>${formatNumber(totalLength)}</strong></td>
-          <td colspan="2"></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+<div class="section">
+  <h2>Cable Schedule</h2>
+  
+  <table>
+    <thead>
+      <tr>
+        <th>Cable Tag</th>
+        <th>From</th>
+        <th>To</th>
+        <th class="text-center">Voltage</th>
+        <th class="text-right">Load (A)</th>
+        <th>Type</th>
+        <th>Size</th>
+        <th class="text-right">Measured (m)</th>
+        <th class="text-right">Extra (m)</th>
+        <th class="text-right">Total (m)</th>
+        <th class="text-right">Ω/km</th>
+        <th class="text-right">V.Drop</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="9"><strong>TOTALS</strong></td>
+        <td class="text-right"><strong>${formatNumber(totalLength)}</strong></td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
+  </table>
 </div>
 
 ${optimizationHtml}
-
-<!-- Page Footer -->
-<div class="page-footer">
-  <span>${data.scheduleName} | Rev ${data.revision}</span>
-  <span class="compliance-note">Designed in accordance with SANS 10142-1</span>
-  <span>Generated: ${new Date().toLocaleDateString('en-GB')}</span>
-</div>
 
 </body>
 </html>`;
