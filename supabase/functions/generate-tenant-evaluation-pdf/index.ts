@@ -28,13 +28,17 @@ serve(async (req) => {
     pdfMake.vfs = vfs || {};
 
     // Helper function to get checkbox row for evaluation items
+    // Using X and empty for checkboxes since Unicode box characters don't render properly in pdfmake
     const getYesNoNaRow = (item: string, description: string, value: string | null) => {
+      const checked = { text: 'X', fontSize: 10, bold: true, alignment: 'center' as const, margin: [0, 3, 0, 3] };
+      const unchecked = { text: '-', fontSize: 10, color: '#999999', alignment: 'center' as const, margin: [0, 3, 0, 3] };
+      
       return [
-        { text: item, fontSize: 9, alignment: 'center', margin: [0, 4, 0, 4] },
+        { text: item, fontSize: 9, alignment: 'center' as const, margin: [0, 4, 0, 4] },
         { text: description, fontSize: 9, margin: [4, 4, 4, 4] },
-        { text: value === 'yes' ? '☒' : '☐', fontSize: 10, alignment: 'center', margin: [0, 3, 0, 3] },
-        { text: value === 'no' ? '☒' : '☐', fontSize: 10, alignment: 'center', margin: [0, 3, 0, 3] },
-        { text: value === 'na' ? '☒' : '☐', fontSize: 10, alignment: 'center', margin: [0, 3, 0, 3] },
+        value === 'yes' ? { ...checked } : { ...unchecked },
+        value === 'no' ? { ...checked } : { ...unchecked },
+        value === 'na' ? { ...checked } : { ...unchecked },
       ];
     };
 
