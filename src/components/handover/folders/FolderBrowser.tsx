@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { FolderPlus, Upload, Search, Folder } from "lucide-react";
+import { DndContext, DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import { useFolders } from "./useFolders";
 import { FolderBreadcrumb } from "./FolderBreadcrumb";
-import { FolderItem } from "./FolderItem";
-import { DocumentItem } from "./DocumentItem";
+import { DroppableFolderItem } from "./DroppableFolderItem";
+import { DraggableDocumentItem } from "./DraggableDocumentItem";
+import { DroppableRootZone } from "./DroppableRootZone";
+import { DragOverlay } from "./DragOverlay";
 import { CreateFolderDialog } from "./CreateFolderDialog";
 import { DocumentPreviewDialog } from "@/components/tenant/DocumentPreviewDialog";
 import { UploadToFolderDialog } from "./UploadToFolderDialog";
-import { HandoverFolder, HandoverDocument } from "./types";
+import { HandoverDocument } from "./types";
 
 interface FolderBrowserProps {
   projectId: string;
@@ -25,24 +29,33 @@ export const FolderBrowser = ({
   categoryLabel,
   icon,
 }: FolderBrowserProps) => {
+  const { toast } = useToast();
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createParentId, setCreateParentId] = useState<string | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<HandoverDocument | null>(null);
+  const [activeDocument, setActiveDocument] = useState<HandoverDocument | null>(null);
 
   const {
     folders,
     documents,
-    folderTree,
-    rootDocuments,
     isLoading,
     createFolder,
     renameFolder,
     deleteFolder,
     moveDocument,
   } = useFolders(projectId, documentCategory);
+
+  // Configure drag sensors with activation constraints
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement before drag starts
+      },
+    })
+  );
 
   // Get current folder
   const currentFolder = folders.find((f) => f.id === currentFolderId) || null;
@@ -93,6 +106,58 @@ export const FolderBrowser = ({
 
   const getDocumentCount = (folderId: string): number => {
     return documents.filter((d) => d.folder_id === folderId).length;
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    if (active.data.current?.type === "document") {
+      setActiveDocument(active.data.current.document);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDocument(null);
+
+    if (!over) return;
+
+    const activeData = active.data.current;
+    const overData = over.data.current;
+
+    if (activeData?.type !== "document") return;
+
+    const document = activeData.document as HandoverDocument;
+    let targetFolderId: string | null = null;
+
+    if (overData?.type === "folder") {
+      targetFolderId = overData.folder.id;
+    } else if (overData?.type === "root") {
+      targetFolderId = null;
+    } else {
+      return;
+    }
+
+    // Don't move if already in the target folder
+    if (document.folder_id === targetFolderId) return;
+
+    moveDocument.mutate(
+      { documentId: document.id, folderId: targetFolderId },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Document moved",
+            description: targetFolderId
+              ? `Moved to ${folders.find((f) => f.id === targetFolderId)?.folder_name}`
+              : "Moved to root",
+          });
+        },
+      }
+    );
+  };
+
+  const handleDragCancel = () => {
+    setActiveDocument(null);
   };
 
   return (
@@ -148,64 +213,77 @@ export const FolderBrowser = ({
             />
           )}
 
-          {/* Content */}
-          {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Loading...
-            </div>
-          ) : filteredFolders.length === 0 && filteredDocuments.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Folder className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="font-medium">
-                {searchQuery ? "No results found" : "This folder is empty"}
-              </p>
-              <p className="text-sm mt-1">
-                {searchQuery
-                  ? "Try a different search term"
-                  : "Create a folder or upload documents to get started"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Folders */}
-              {filteredFolders.map((folder) => (
-                <FolderItem
-                  key={folder.id}
-                  folder={folder}
-                  documentCount={getDocumentCount(folder.id)}
-                  subfolderCount={getSubfolderCount(folder.id)}
-                  onOpen={() => {
-                    setCurrentFolderId(folder.id);
-                    setSearchQuery("");
-                  }}
-                  onRename={(newName) =>
-                    renameFolder.mutate({ folderId: folder.id, newName })
-                  }
-                  onDelete={() => deleteFolder.mutate(folder.id)}
-                  onCreateSubfolder={() => {
-                    setCreateParentId(folder.id);
-                    setCreateDialogOpen(true);
-                  }}
-                  isRenaming={renameFolder.isPending}
-                  isDeleting={deleteFolder.isPending}
-                />
-              ))}
+          {/* Content with DnD */}
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            {isLoading ? (
+              <div className="text-center py-12 text-muted-foreground">
+                Loading...
+              </div>
+            ) : filteredFolders.length === 0 && filteredDocuments.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Folder className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium">
+                  {searchQuery ? "No results found" : "This folder is empty"}
+                </p>
+                <p className="text-sm mt-1">
+                  {searchQuery
+                    ? "Try a different search term"
+                    : "Create a folder or upload documents to get started"}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {/* Root drop zone - only show when in a subfolder and dragging */}
+                <DroppableRootZone isVisible={!!currentFolderId && !!activeDocument} />
 
-              {/* Documents */}
-              {filteredDocuments.map((doc) => (
-                <DocumentItem
-                  key={doc.id}
-                  document={doc}
-                  folders={folders}
-                  onPreview={() => setPreviewDocument(doc)}
-                  onDownload={() => handleDownload(doc)}
-                  onMoveToFolder={(folderId) =>
-                    moveDocument.mutate({ documentId: doc.id, folderId })
-                  }
-                />
-              ))}
-            </div>
-          )}
+                {/* Folders */}
+                {filteredFolders.map((folder) => (
+                  <DroppableFolderItem
+                    key={folder.id}
+                    folder={folder}
+                    documentCount={getDocumentCount(folder.id)}
+                    subfolderCount={getSubfolderCount(folder.id)}
+                    onOpen={() => {
+                      setCurrentFolderId(folder.id);
+                      setSearchQuery("");
+                    }}
+                    onRename={(newName) =>
+                      renameFolder.mutate({ folderId: folder.id, newName })
+                    }
+                    onDelete={() => deleteFolder.mutate(folder.id)}
+                    onCreateSubfolder={() => {
+                      setCreateParentId(folder.id);
+                      setCreateDialogOpen(true);
+                    }}
+                    isRenaming={renameFolder.isPending}
+                    isDeleting={deleteFolder.isPending}
+                  />
+                ))}
+
+                {/* Documents */}
+                {filteredDocuments.map((doc) => (
+                  <DraggableDocumentItem
+                    key={doc.id}
+                    document={doc}
+                    folders={folders}
+                    onPreview={() => setPreviewDocument(doc)}
+                    onDownload={() => handleDownload(doc)}
+                    onMoveToFolder={(folderId) =>
+                      moveDocument.mutate({ documentId: doc.id, folderId })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Drag overlay */}
+            <DragOverlay activeDocument={activeDocument} />
+          </DndContext>
 
           {/* Stats footer */}
           <div className="pt-4 border-t text-sm text-muted-foreground flex gap-4">
