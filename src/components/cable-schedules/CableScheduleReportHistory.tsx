@@ -47,24 +47,28 @@ export const CableScheduleReportHistory = ({ scheduleId }: CableScheduleReportHi
   const handleDownload = async (report: any) => {
     setDownloading(report.id);
     try {
-      const { data, error } = await supabase.storage
+      // Get a signed URL for direct download
+      const { data: signedUrl, error: signedError } = await supabase.storage
         .from("cable-schedule-reports")
-        .download(report.file_path);
+        .createSignedUrl(report.file_path, 60); // 60 second expiry
 
-      if (error) throw error;
+      if (signedError || !signedUrl?.signedUrl) {
+        throw signedError || new Error("Failed to create download URL");
+      }
 
-      const url = window.URL.createObjectURL(data);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${report.report_name}_${report.revision}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // Open in new tab - this works better in iframe contexts
+      const link = document.createElement("a");
+      link.href = signedUrl.signedUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.download = `${report.report_name}_${report.revision}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
       toast({
         title: "Success",
-        description: "Report downloaded successfully",
+        description: "Report download started",
       });
     } catch (error) {
       console.error("Download error:", error);
