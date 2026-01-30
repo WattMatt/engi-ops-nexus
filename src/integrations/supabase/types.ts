@@ -6847,6 +6847,7 @@ export type Database = {
           document_type: string
           file_size: number | null
           file_url: string | null
+          folder_id: string | null
           id: string
           notes: string | null
           project_id: string
@@ -6861,6 +6862,7 @@ export type Database = {
           document_type: string
           file_size?: number | null
           file_url?: string | null
+          folder_id?: string | null
           id?: string
           notes?: string | null
           project_id: string
@@ -6875,6 +6877,7 @@ export type Database = {
           document_type?: string
           file_size?: number | null
           file_url?: string | null
+          folder_id?: string | null
           id?: string
           notes?: string | null
           project_id?: string
@@ -6884,7 +6887,65 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "handover_documents_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "handover_folders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "handover_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handover_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_category: string
+          folder_name: string
+          folder_path: string | null
+          id: string
+          parent_folder_id: string | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_category: string
+          folder_name: string
+          folder_path?: string | null
+          id?: string
+          parent_folder_id?: string | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_category?: string
+          folder_name?: string
+          folder_path?: string | null
+          id?: string
+          parent_folder_id?: string | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_folders_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "handover_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handover_folders_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
