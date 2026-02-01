@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
 import { AddLineItemDialog } from "./AddLineItemDialog";
 import { AddVariationDialog } from "./AddVariationDialog";
@@ -22,6 +23,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { compareShopNumbers } from "@/utils/tenantSorting";
 
+// Threshold for enabling virtualization
+const VIRTUALIZATION_THRESHOLD = 50;
+
 interface CategoryCardProps {
   category: any;
   onUpdate: () => void;
@@ -35,6 +39,10 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  
+  // Ref for virtualization container
+  const lineItemsContainerRef = useRef<HTMLDivElement>(null);
+  const variationsContainerRef = useRef<HTMLDivElement>(null);
 
   // Check if this is the Variations category
   const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
@@ -83,6 +91,26 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
   const lineItems = useMemo(() => {
     return [...lineItemsData].sort((a, b) => compareShopNumbers(a.code, b.code));
   }, [lineItemsData]);
+
+  // Determine if we should use virtualization (for large datasets)
+  const useLineItemsVirtualization = lineItems.length >= VIRTUALIZATION_THRESHOLD;
+  const useVariationsVirtualization = variations.length >= VIRTUALIZATION_THRESHOLD;
+
+  // Virtualizer for line items
+  const lineItemsVirtualizer = useVirtualizer({
+    count: lineItems.length,
+    getScrollElement: () => lineItemsContainerRef.current,
+    estimateSize: () => 40, // Approximate row height
+    overscan: 10,
+  });
+
+  // Virtualizer for variations
+  const variationsVirtualizer = useVirtualizer({
+    count: variations.length,
+    getScrollElement: () => variationsContainerRef.current,
+    estimateSize: () => 56, // Approximate row height (includes shop info)
+    overscan: 10,
+  });
 
   // Calculate category totals
   let categoryOriginalBudget = 0;
@@ -237,7 +265,72 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                         Add Variation
                       </Button>
                     </div>
+                  ) : useVariationsVirtualization ? (
+                    // Virtualized rendering for large variation lists
+                    <div
+                      ref={variationsContainerRef}
+                      className="overflow-auto"
+                      style={{ maxHeight: '400px' }}
+                    >
+                      <div
+                        style={{
+                          height: `${variationsVirtualizer.getTotalSize()}px`,
+                          width: '100%',
+                          position: 'relative',
+                        }}
+                      >
+                        {variationsVirtualizer.getVirtualItems().map((virtualRow) => {
+                          const variation = variations[virtualRow.index];
+                          const index = virtualRow.index;
+                          return (
+                            <div
+                              key={variation.id}
+                              data-index={virtualRow.index}
+                              ref={variationsVirtualizer.measureElement}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                transform: `translateY(${virtualRow.start}px)`,
+                              }}
+                              className={`grid grid-cols-24 gap-2 text-sm py-2 px-4 border-b ${
+                                index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                              } hover:bg-muted/40 transition-colors group`}
+                            >
+                              <div className="col-span-2 font-medium">{variation.code}</div>
+                              <div className="col-span-5">
+                                {variation.description}
+                                {variation.tenants && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    {variation.tenants.shop_number} - {variation.tenants.shop_name}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="col-span-3 text-right">-</div>
+                              <div className="col-span-3 text-right">-</div>
+                              <div className="col-span-3 text-right font-medium">
+                                {variation.is_credit ? "-" : "+"}R
+                                {Math.abs(Number(variation.amount)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                              </div>
+                              <div className="col-span-4 text-right font-medium">
+                                {variation.is_credit ? "-" : "+"}R
+                                {Math.abs(Number(variation.amount)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                              </div>
+                              <div className="col-span-4 text-right font-medium">
+                                {variation.is_credit ? "-" : "+"}R
+                                {Math.abs(Number(variation.amount)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="sticky bottom-0 bg-background/95 text-xs text-muted-foreground py-1 px-4 border-t">
+                        Showing {variations.length} variations (virtualized)
+                      </div>
+                    </div>
                   ) : (
+                    // Standard rendering for small variation lists
                     <div>
                       {variations.map((variation, index) => (
                       <div 
@@ -290,7 +383,50 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                         Add Line Item
                       </Button>
                     </div>
+                  ) : useLineItemsVirtualization ? (
+                    // Virtualized rendering for large line item lists
+                    <div
+                      ref={lineItemsContainerRef}
+                      className="overflow-auto"
+                      style={{ maxHeight: '400px' }}
+                    >
+                      <div
+                        style={{
+                          height: `${lineItemsVirtualizer.getTotalSize()}px`,
+                          width: '100%',
+                          position: 'relative',
+                        }}
+                      >
+                        {lineItemsVirtualizer.getVirtualItems().map((virtualRow) => {
+                          const item = lineItems[virtualRow.index];
+                          return (
+                            <div
+                              key={item.id}
+                              data-index={virtualRow.index}
+                              ref={lineItemsVirtualizer.measureElement}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                transform: `translateY(${virtualRow.start}px)`,
+                              }}
+                            >
+                              <LineItemRow 
+                                item={item} 
+                                onUpdate={refetchLineItems}
+                                isEven={virtualRow.index % 2 === 0}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="sticky bottom-0 bg-background/95 text-xs text-muted-foreground py-1 px-4 border-t">
+                        Showing {lineItems.length} line items (virtualized)
+                      </div>
+                    </div>
                   ) : (
+                    // Standard rendering for small line item lists
                     <div>
                       {lineItems.map((item, index) => (
                         <LineItemRow 
