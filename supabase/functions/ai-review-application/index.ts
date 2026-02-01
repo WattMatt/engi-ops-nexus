@@ -6,6 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface RLSPolicyInfo {
+  table_name: string;
+  policy_count: number;
+  has_rls: boolean;
+}
+
+interface PreviousReviewSummary {
+  score: number;
+  date: string;
+  topIssues: string[];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -33,154 +45,24 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Gather application context
-    let applicationContext: {
-      projectInfo: any;
-      features: string[];
-      databaseTables: string[];
-      edgeFunctions: string[];
-      storageBuckets: string[];
-    } = {
-      projectInfo: projectContext || {},
-      features: [],
-      databaseTables: [],
-      edgeFunctions: [],
-      storageBuckets: [],
-    };
+    // Gather comprehensive application context
+    const applicationContext = await gatherApplicationContext(supabase, includeDatabase);
 
-    // Get database schema if requested
-    if (includeDatabase) {
-      const { data: tables } = await supabase
-        .from('information_schema.tables')
-        .select('table_name')
-        .eq('table_schema', 'public')
-        .limit(50);
-      
-      applicationContext.databaseTables = (tables?.map((t: any) => t.table_name) || []) as string[];
-    }
+    // Get previous review for comparison
+    const previousReview = await getPreviousReview(supabase);
 
-    // Build comprehensive review prompt
-    const reviewPrompt = `You are an expert software architect and code reviewer specializing in full-stack applications. 
-Perform a comprehensive review of this electrical engineering project management application.
-
-APPLICATION OVERVIEW:
-This is a React + TypeScript application with Supabase backend (PostgreSQL + Edge Functions).
-Tech Stack: React, TypeScript, Tailwind CSS, shadcn/ui, Recharts, Supabase, TanStack Query
-
-CURRENT FEATURES:
-- Project Management & Multi-project support
-- Tenant Tracking & Management
-- Generator Sizing & Reports
-- Cost Reports & Budget Management
-- Cable Schedules & Calculations
-- Bulk Services Documentation (SANS 204)
-- Floor Plan Designer with Equipment Placement
-- Handover Document Management
-- Staff Management & HR
-- Site Diary & Task Management
-- Messaging System
-- Document Templates & PDF Generation
-- AI-powered tools (chatbot, document generation, cost prediction, data analysis)
-
-DATABASE TABLES: ${applicationContext.databaseTables.join(', ')}
-
-PROJECT CONTEXT: ${JSON.stringify(applicationContext.projectInfo, null, 2)}
-
-FOCUS AREAS: ${focusAreas.join(', ')}
-
-REVIEW REQUIREMENTS:
-Provide a detailed analysis covering:
-
-${includeUI ? `
-1. **User Experience & Interface:**
-   - UI/UX improvements
-   - Accessibility issues
-   - Mobile responsiveness
-   - Navigation and workflow optimization
-   - Design consistency
-` : ''}
-
-${includePerformance ? `
-2. **Performance Optimization:**
-   - Frontend performance issues
-   - Database query optimization
-   - Caching strategies
-   - Bundle size optimization
-   - Loading states and perceived performance
-` : ''}
-
-${includeSecurity ? `
-3. **Security & Data Protection:**
-   - RLS policy coverage
-   - Authentication/authorization gaps
-   - Data validation issues
-   - Sensitive data handling
-   - API security
-` : ''}
-
-${includeComponents ? `
-4. **Component Structure & Reusability:**
-   - Component organization and file structure
-   - Reusable component patterns
-   - Props design and API consistency
-   - Component composition patterns
-   - Shared utilities and hooks
-   - Design system adherence
-` : ''}
-
-${includeOperational ? `
-5. **Operational Functionality & Workflows:**
-   - Business workflow efficiency
-   - Feature completeness for electrical engineering tasks
-   - User journey optimization
-   - Automation opportunities
-   - Integration improvements
-   - Reporting and analytics enhancements
-   - Data entry and validation workflows
-` : ''}
-
-6. **Code Quality & Architecture:**
-   - Code organization and structure
-   - Type safety improvements
-   - Error handling patterns
-   - State management
-
-7. **Technical Debt:**
-   - Deprecated patterns
-   - Inconsistencies
-   - Code duplication
-   - Outdated dependencies
-
-8. **Best Practices:**
-   - React best practices
-   - TypeScript usage
-   - Supabase patterns
-   - Testing coverage
-
-RESPONSE FORMAT:
-Return a JSON object with this structure:
-{
-  "overallScore": number (0-100),
-  "summary": "Brief executive summary",
-  "categories": {
-    "ux": {
-      "score": number (0-100),
-      "issues": [{"severity": "high|medium|low", "title": "", "description": "", "recommendation": ""}],
-      "strengths": [""]
-    },
-    "performance": { same structure },
-    "security": { same structure },
-    "components": { same structure },
-    "operational": { same structure },
-    "codeQuality": { same structure },
-    "technicalDebt": { same structure }
-  },
-  "quickWins": [{"title": "", "effort": "low|medium|high", "impact": "low|medium|high", "description": ""}],
-  "priorityActions": [{"priority": 1-5, "title": "", "description": "", "estimatedEffort": ""}],
-  "longTermRecommendations": [""]
-}
-
-Be specific, actionable, and prioritize recommendations that will have the most impact for an electrical engineering project management application.`;
+    // Build comprehensive review prompt with enhanced context
+    const reviewPrompt = buildEnhancedReviewPrompt({
+      applicationContext,
+      previousReview,
+      projectContext,
+      focusAreas,
+      includeUI,
+      includePerformance,
+      includeSecurity,
+      includeComponents,
+      includeOperational,
+    });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -193,7 +75,15 @@ Be specific, actionable, and prioritize recommendations that will have the most 
         messages: [
           {
             role: "system",
-            content: "You are an expert full-stack software architect and engineering application specialist. Provide detailed, actionable code reviews with specific recommendations. You must respond with valid JSON."
+            content: `You are an expert full-stack software architect and engineering application specialist. 
+You provide detailed, actionable code reviews with specific recommendations that include:
+- Exact file paths when known
+- Priority order for implementation
+- Dependencies between fixes
+- Test criteria for each fix
+- Effort estimates
+
+You must respond with valid JSON matching the specified format exactly.`
           },
           {
             role: "user",
@@ -240,7 +130,7 @@ Be specific, actionable, and prioritize recommendations that will have the most 
       };
     }
 
-    // Store the review in database for history
+    // Store the review in database for history with link to previous review
     const { data: savedReview, error: saveError } = await supabase
       .from('application_reviews')
       .insert({
@@ -260,7 +150,14 @@ Be specific, actionable, and prioritize recommendations that will have the most 
       JSON.stringify({ 
         ...reviewData,
         reviewId: savedReview?.id,
-        reviewDate: new Date().toISOString()
+        reviewDate: new Date().toISOString(),
+        previousReviewScore: previousReview?.score,
+        contextUsed: {
+          tables: applicationContext.databaseTables.length,
+          rlsPolicies: applicationContext.rlsPolicies.length,
+          edgeFunctions: applicationContext.edgeFunctions.length,
+          storageBuckets: applicationContext.storageBuckets.length,
+        }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -272,3 +169,346 @@ Be specific, actionable, and prioritize recommendations that will have the most 
     );
   }
 });
+
+async function gatherApplicationContext(supabase: any, includeDatabase: boolean) {
+  const context = {
+    projectInfo: {
+      name: "EngiOps Nexus",
+      type: "Electrical Engineering Project Management",
+      techStack: ["React", "TypeScript", "Tailwind CSS", "shadcn/ui", "Supabase", "TanStack Query"],
+    },
+    features: [
+      "Project Management & Multi-project support",
+      "Tenant Tracking & Management",
+      "Generator Sizing & Reports",
+      "Cost Reports & Budget Management",
+      "Cable Schedules & Calculations",
+      "Bulk Services Documentation (SANS 204)",
+      "Floor Plan Designer with Equipment Placement",
+      "Handover Document Management",
+      "Staff Management & HR",
+      "Site Diary & Task Management",
+      "Messaging System",
+      "Document Templates & PDF Generation",
+      "AI-powered tools (chatbot, document generation, cost prediction, data analysis)",
+    ],
+    databaseTables: [] as string[],
+    rlsPolicies: [] as RLSPolicyInfo[],
+    edgeFunctions: [] as string[],
+    storageBuckets: [] as string[],
+  };
+
+  if (includeDatabase) {
+    try {
+      // Get database tables
+      const { data: tables } = await supabase
+        .from('information_schema.tables')
+        .select('table_name')
+        .eq('table_schema', 'public')
+        .limit(100);
+      
+      context.databaseTables = (tables?.map((t: any) => t.table_name) || []) as string[];
+
+      // Get RLS status for each table
+      for (const tableName of context.databaseTables.slice(0, 30)) {
+        try {
+          const { count } = await supabase
+            .from('pg_policies')
+            .select('*', { count: 'exact', head: true })
+            .eq('tablename', tableName);
+          
+          context.rlsPolicies.push({
+            table_name: tableName,
+            policy_count: count || 0,
+            has_rls: (count || 0) > 0,
+          });
+        } catch (e) {
+          // Skip if can't get policy info
+        }
+      }
+    } catch (e) {
+      console.error("Error gathering database context:", e);
+    }
+
+    // Get storage buckets
+    try {
+      const { data: buckets } = await supabase.storage.listBuckets();
+      context.storageBuckets = buckets?.map((b: any) => b.name) || [];
+    } catch (e) {
+      console.error("Error gathering storage context:", e);
+    }
+  }
+
+  // Edge functions are known from the codebase
+  context.edgeFunctions = [
+    "ai-chat", "ai-review-application", "send-review-findings",
+    "generate-cable-schedule-report", "generate-cost-report",
+    "process-document", "embed-document", "send-notification-email",
+  ];
+
+  return context;
+}
+
+async function getPreviousReview(supabase: any): Promise<PreviousReviewSummary | null> {
+  try {
+    const { data } = await supabase
+      .from('application_reviews')
+      .select('overall_score, review_date, review_data')
+      .order('review_date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!data) return null;
+
+    const reviewData = data.review_data as any;
+    const topIssues: string[] = [];
+
+    // Extract top issues from previous review
+    if (reviewData?.categories) {
+      for (const [category, catData] of Object.entries(reviewData.categories)) {
+        const issues = (catData as any)?.issues || [];
+        const highIssues = issues.filter((i: any) => i.severity === 'high' || i.severity === 'critical');
+        topIssues.push(...highIssues.slice(0, 2).map((i: any) => `${category}: ${i.title}`));
+      }
+    }
+
+    return {
+      score: data.overall_score,
+      date: data.review_date,
+      topIssues: topIssues.slice(0, 5),
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+interface ReviewPromptParams {
+  applicationContext: any;
+  previousReview: PreviousReviewSummary | null;
+  projectContext: any;
+  focusAreas: string[];
+  includeUI: boolean;
+  includePerformance: boolean;
+  includeSecurity: boolean;
+  includeComponents: boolean;
+  includeOperational: boolean;
+}
+
+function buildEnhancedReviewPrompt(params: ReviewPromptParams): string {
+  const {
+    applicationContext,
+    previousReview,
+    projectContext,
+    focusAreas,
+    includeUI,
+    includePerformance,
+    includeSecurity,
+    includeComponents,
+    includeOperational,
+  } = params;
+
+  // Build RLS summary
+  const tablesWithRLS = applicationContext.rlsPolicies.filter((p: RLSPolicyInfo) => p.has_rls);
+  const tablesWithoutRLS = applicationContext.rlsPolicies.filter((p: RLSPolicyInfo) => !p.has_rls);
+
+  let rlsSummary = `Tables with RLS: ${tablesWithRLS.length}/${applicationContext.rlsPolicies.length}\n`;
+  if (tablesWithoutRLS.length > 0) {
+    rlsSummary += `⚠️ Tables WITHOUT RLS: ${tablesWithoutRLS.map((t: RLSPolicyInfo) => t.table_name).join(', ')}\n`;
+  }
+
+  // Build previous review context
+  let previousReviewContext = '';
+  if (previousReview) {
+    previousReviewContext = `
+PREVIOUS REVIEW (${new Date(previousReview.date).toLocaleDateString()}):
+- Previous Score: ${previousReview.score}/100
+- Unresolved High-Priority Issues:
+${previousReview.topIssues.map(i => `  - ${i}`).join('\n')}
+
+Please identify which issues from the previous review may still be relevant and which should be considered resolved.
+`;
+  }
+
+  const reviewPrompt = `You are an expert software architect and code reviewer specializing in full-stack applications. 
+Perform a comprehensive review of this electrical engineering project management application.
+
+═══════════════════════════════════════════════════════════════
+APPLICATION OVERVIEW
+═══════════════════════════════════════════════════════════════
+
+**Project:** ${applicationContext.projectInfo.name}
+**Type:** ${applicationContext.projectInfo.type}
+**Tech Stack:** ${applicationContext.projectInfo.techStack.join(', ')}
+
+═══════════════════════════════════════════════════════════════
+CURRENT FEATURES
+═══════════════════════════════════════════════════════════════
+
+${applicationContext.features.map((f: string) => `• ${f}`).join('\n')}
+
+═══════════════════════════════════════════════════════════════
+DATABASE CONTEXT
+═══════════════════════════════════════════════════════════════
+
+**Total Tables:** ${applicationContext.databaseTables.length}
+**Key Tables:** ${applicationContext.databaseTables.slice(0, 20).join(', ')}
+
+**RLS Security Status:**
+${rlsSummary}
+
+**Storage Buckets:** ${applicationContext.storageBuckets.join(', ') || 'None configured'}
+
+**Edge Functions (${applicationContext.edgeFunctions.length}):**
+${applicationContext.edgeFunctions.join(', ')}
+
+═══════════════════════════════════════════════════════════════
+KNOWN CODEBASE PATTERNS
+═══════════════════════════════════════════════════════════════
+
+• Components in src/components/ organized by feature
+• Pages in src/pages/ with React Router
+• Custom hooks in src/hooks/
+• Supabase client in src/integrations/supabase/
+• Edge functions in supabase/functions/
+• Tailwind CSS with shadcn/ui component library
+• TanStack Query for data fetching
+• React Hook Form + Zod for form validation
+• PDFMake for PDF generation
+• Recharts for data visualization
+
+${previousReviewContext}
+
+═══════════════════════════════════════════════════════════════
+FOCUS AREAS: ${focusAreas.join(', ')}
+═══════════════════════════════════════════════════════════════
+
+REVIEW REQUIREMENTS:
+Provide a detailed analysis covering:
+
+${includeUI ? `
+**1. User Experience & Interface:**
+- UI/UX improvements with specific component paths
+- Accessibility issues (ARIA, keyboard navigation, color contrast)
+- Mobile responsiveness problems
+- Navigation and workflow optimization
+- Design consistency issues
+- Loading state handling
+` : ''}
+
+${includePerformance ? `
+**2. Performance Optimization:**
+- Frontend performance issues (bundle size, lazy loading)
+- Database query optimization opportunities
+- Caching strategies recommendations
+- Large dataset handling (virtualization needs)
+- Image optimization opportunities
+- API call optimization
+` : ''}
+
+${includeSecurity ? `
+**3. Security & Data Protection:**
+- RLS policy gaps and recommendations
+- Authentication/authorization issues
+- Data validation vulnerabilities
+- Sensitive data handling problems
+- API security concerns
+- Input sanitization issues
+` : ''}
+
+${includeComponents ? `
+**4. Component Structure & Reusability:**
+- Component organization issues
+- Reusable component opportunities
+- Props design improvements
+- Component composition patterns
+- Shared utilities and hooks
+- Design system adherence
+` : ''}
+
+${includeOperational ? `
+**5. Operational Functionality & Workflows:**
+- Business workflow efficiency issues
+- Feature completeness gaps for electrical engineering
+- User journey optimization opportunities
+- Automation opportunities
+- Integration improvements
+- Reporting and analytics gaps
+- Data entry workflow improvements
+` : ''}
+
+**6. Code Quality & Architecture:**
+- Code organization and structure issues
+- Type safety improvements needed
+- Error handling pattern issues
+- State management concerns
+
+**7. Technical Debt:**
+- Deprecated patterns found
+- Inconsistencies to address
+- Code duplication to refactor
+- Dependency updates needed
+
+**8. Best Practices:**
+- React best practices violations
+- TypeScript usage improvements
+- Supabase pattern issues
+- Testing coverage gaps
+
+═══════════════════════════════════════════════════════════════
+RESPONSE FORMAT (JSON)
+═══════════════════════════════════════════════════════════════
+
+Return a JSON object with this EXACT structure:
+{
+  "overallScore": number (0-100),
+  "summary": "Brief executive summary (2-3 sentences)",
+  "categories": {
+    "ux": {
+      "score": number (0-100),
+      "issues": [
+        {
+          "severity": "critical" | "high" | "medium" | "low",
+          "title": "Clear issue title",
+          "description": "What the problem is",
+          "recommendation": "Specific fix with file paths if known",
+          "affectedFiles": ["src/components/...", "src/pages/..."],
+          "estimatedEffort": "1-2 hours" | "half day" | "1 day" | "2-3 days" | "1 week+"
+        }
+      ],
+      "strengths": ["What's working well"]
+    },
+    "performance": { same structure },
+    "security": { same structure },
+    "components": { same structure },
+    "operational": { same structure },
+    "codeQuality": { same structure },
+    "technicalDebt": { same structure }
+  },
+  "quickWins": [
+    {
+      "title": "Quick win title",
+      "effort": "low" | "medium" | "high",
+      "impact": "low" | "medium" | "high",
+      "description": "What to do and why",
+      "affectedFiles": ["src/..."]
+    }
+  ],
+  "priorityActions": [
+    {
+      "priority": 1-5,
+      "title": "Action title",
+      "description": "Detailed description with implementation steps",
+      "estimatedEffort": "2 hours",
+      "dependencies": ["Other actions this depends on"],
+      "testCriteria": ["How to verify this is fixed"]
+    }
+  ],
+  "longTermRecommendations": ["Strategic recommendations"],
+  "resolvedFromPrevious": ["Issues from previous review that appear resolved"],
+  "newIssues": ["Issues not present in previous review"]
+}
+
+Be specific, actionable, and prioritize recommendations that will have the most impact for an electrical engineering project management application.`;
+
+  return reviewPrompt;
+}

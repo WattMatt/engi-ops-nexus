@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -13,20 +12,22 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
-import { ArrowRight, TrendingUp, TrendingDown, Minus, GitCompare } from "lucide-react";
+import { ArrowRight, TrendingUp, TrendingDown, Minus, GitCompare, CheckCircle2, AlertCircle, Plus, X } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
+
+interface ReviewIssue {
+  severity: string;
+  title: string;
+  description: string;
+  recommendation: string;
+}
 
 interface ReviewData {
   overallScore: number;
   summary: string;
   categories?: Record<string, {
     score: number;
-    issues: Array<{
-      severity: string;
-      title: string;
-      description: string;
-      recommendation: string;
-    }>;
+    issues: ReviewIssue[];
     strengths: string[];
   }>;
   quickWins?: Array<{
@@ -52,6 +53,12 @@ interface Review {
   review_date: string;
 }
 
+interface IssueDiff {
+  issue: ReviewIssue;
+  category: string;
+  status: 'resolved' | 'new' | 'unchanged';
+}
+
 export function ReviewComparisonView() {
   const [leftReviewId, setLeftReviewId] = useState<string>("");
   const [rightReviewId, setRightReviewId] = useState<string>("");
@@ -75,6 +82,52 @@ export function ReviewComparisonView() {
 
   const leftData = leftReview?.review_data as unknown as ReviewData;
   const rightData = rightReview?.review_data as unknown as ReviewData;
+
+  // Calculate issue diffs
+  const issueDiffs = useMemo(() => {
+    if (!leftData?.categories || !rightData?.categories) return { resolved: [], new: [], unchanged: [] };
+
+    const leftIssues: Map<string, { issue: ReviewIssue; category: string }> = new Map();
+    const rightIssues: Map<string, { issue: ReviewIssue; category: string }> = new Map();
+
+    // Index left (previous) review issues
+    Object.entries(leftData.categories).forEach(([cat, data]) => {
+      data.issues?.forEach((issue) => {
+        const key = `${cat}-${issue.title.toLowerCase().trim()}`;
+        leftIssues.set(key, { issue, category: cat });
+      });
+    });
+
+    // Index right (current) review issues
+    Object.entries(rightData.categories).forEach(([cat, data]) => {
+      data.issues?.forEach((issue) => {
+        const key = `${cat}-${issue.title.toLowerCase().trim()}`;
+        rightIssues.set(key, { issue, category: cat });
+      });
+    });
+
+    const resolved: IssueDiff[] = [];
+    const newIssues: IssueDiff[] = [];
+    const unchanged: IssueDiff[] = [];
+
+    // Find resolved issues (in left but not in right)
+    leftIssues.forEach((value, key) => {
+      if (!rightIssues.has(key)) {
+        resolved.push({ ...value, status: 'resolved' });
+      } else {
+        unchanged.push({ ...value, status: 'unchanged' });
+      }
+    });
+
+    // Find new issues (in right but not in left)
+    rightIssues.forEach((value, key) => {
+      if (!leftIssues.has(key)) {
+        newIssues.push({ ...value, status: 'new' });
+      }
+    });
+
+    return { resolved, new: newIssues, unchanged };
+  }, [leftData, rightData]);
 
   const getScoreDiff = (oldScore: number, newScore: number) => {
     const diff = newScore - oldScore;
@@ -127,7 +180,7 @@ export function ReviewComparisonView() {
           <GitCompare className="h-5 w-5" />
           Compare Reviews
         </CardTitle>
-        <CardDescription>Side-by-side comparison of application health</CardDescription>
+        <CardDescription>Side-by-side comparison with issue tracking</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Review Selectors */}
@@ -201,6 +254,33 @@ export function ReviewComparisonView() {
               </div>
             </div>
 
+            {/* Issue Diff Summary */}
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+                <CardContent className="p-4 text-center">
+                  <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-green-600">{issueDiffs.resolved.length}</div>
+                  <div className="text-xs text-green-700 dark:text-green-400">Resolved Issues</div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
+                <CardContent className="p-4 text-center">
+                  <AlertCircle className="h-6 w-6 text-red-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-red-600">{issueDiffs.new.length}</div>
+                  <div className="text-xs text-red-700 dark:text-red-400">New Issues</div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-muted/50">
+                <CardContent className="p-4 text-center">
+                  <Minus className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{issueDiffs.unchanged.length}</div>
+                  <div className="text-xs text-muted-foreground">Unchanged</div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Category Comparison */}
             {allCategories.size > 0 && (
               <div>
@@ -241,48 +321,106 @@ export function ReviewComparisonView() {
               </div>
             )}
 
-            {/* Issues Comparison */}
-            <div className="grid md:grid-cols-2 gap-4">
+            {/* Resolved Issues */}
+            {issueDiffs.resolved.length > 0 && (
               <div>
-                <h4 className="font-semibold mb-3 text-sm">
-                  Previous Issues ({leftData?.categories ? Object.values(leftData.categories).reduce((sum, cat) => sum + (cat.issues?.length || 0), 0) : 0})
+                <h4 className="font-semibold mb-3 flex items-center gap-2 text-green-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Resolved Issues ({issueDiffs.resolved.length})
                 </h4>
-                <ScrollArea className="h-48">
+                <ScrollArea className="h-40">
                   <div className="space-y-2">
-                    {leftData?.categories && Object.entries(leftData.categories).map(([cat, data]) =>
-                      data.issues?.map((issue, idx) => (
-                        <div key={`${cat}-${idx}`} className="text-sm p-2 rounded border bg-muted/30">
-                          <Badge variant={issue.severity === "high" ? "destructive" : issue.severity === "medium" ? "default" : "secondary"} className="mb-1">
-                            {issue.severity}
+                    {issueDiffs.resolved.map((item, idx) => (
+                      <div key={idx} className="text-sm p-3 rounded border bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                        <div className="flex items-center gap-2">
+                          <X className="h-4 w-4 text-green-600" />
+                          <Badge variant="outline" className="text-green-700 border-green-300">
+                            {item.issue.severity}
                           </Badge>
-                          <p className="font-medium">{issue.title}</p>
+                          <span className="text-xs text-muted-foreground capitalize">{item.category}</span>
                         </div>
-                      ))
-                    )}
+                        <p className="font-medium mt-1 line-through text-muted-foreground">{item.issue.title}</p>
+                      </div>
+                    ))}
                   </div>
                 </ScrollArea>
               </div>
+            )}
 
+            {/* New Issues */}
+            {issueDiffs.new.length > 0 && (
               <div>
-                <h4 className="font-semibold mb-3 text-sm">
-                  Current Issues ({rightData?.categories ? Object.values(rightData.categories).reduce((sum, cat) => sum + (cat.issues?.length || 0), 0) : 0})
+                <h4 className="font-semibold mb-3 flex items-center gap-2 text-red-600">
+                  <Plus className="h-4 w-4" />
+                  New Issues ({issueDiffs.new.length})
                 </h4>
-                <ScrollArea className="h-48">
+                <ScrollArea className="h-40">
                   <div className="space-y-2">
-                    {rightData?.categories && Object.entries(rightData.categories).map(([cat, data]) =>
-                      data.issues?.map((issue, idx) => (
-                        <div key={`${cat}-${idx}`} className="text-sm p-2 rounded border bg-muted/30">
-                          <Badge variant={issue.severity === "high" ? "destructive" : issue.severity === "medium" ? "default" : "secondary"} className="mb-1">
-                            {issue.severity}
+                    {issueDiffs.new.map((item, idx) => (
+                      <div key={idx} className="text-sm p-3 rounded border bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-red-600" />
+                          <Badge variant={item.issue.severity === "high" || item.issue.severity === "critical" ? "destructive" : "default"}>
+                            {item.issue.severity}
                           </Badge>
-                          <p className="font-medium">{issue.title}</p>
+                          <span className="text-xs text-muted-foreground capitalize">{item.category}</span>
                         </div>
-                      ))
-                    )}
+                        <p className="font-medium mt-1">{item.issue.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{item.issue.description}</p>
+                      </div>
+                    ))}
                   </div>
                 </ScrollArea>
               </div>
-            </div>
+            )}
+
+            {/* Issues Comparison (Original View - Collapsed) */}
+            <details className="group">
+              <summary className="cursor-pointer font-semibold text-sm text-muted-foreground hover:text-foreground">
+                View All Issues Side-by-Side
+              </summary>
+              <div className="grid md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <h4 className="font-semibold mb-3 text-sm">
+                    Previous Issues ({leftData?.categories ? Object.values(leftData.categories).reduce((sum, cat) => sum + (cat.issues?.length || 0), 0) : 0})
+                  </h4>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-2">
+                      {leftData?.categories && Object.entries(leftData.categories).map(([cat, data]) =>
+                        data.issues?.map((issue, idx) => (
+                          <div key={`${cat}-${idx}`} className="text-sm p-2 rounded border bg-muted/30">
+                            <Badge variant={issue.severity === "high" || issue.severity === "critical" ? "destructive" : issue.severity === "medium" ? "default" : "secondary"} className="mb-1">
+                              {issue.severity}
+                            </Badge>
+                            <p className="font-medium">{issue.title}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-3 text-sm">
+                    Current Issues ({rightData?.categories ? Object.values(rightData.categories).reduce((sum, cat) => sum + (cat.issues?.length || 0), 0) : 0})
+                  </h4>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-2">
+                      {rightData?.categories && Object.entries(rightData.categories).map(([cat, data]) =>
+                        data.issues?.map((issue, idx) => (
+                          <div key={`${cat}-${idx}`} className="text-sm p-2 rounded border bg-muted/30">
+                            <Badge variant={issue.severity === "high" || issue.severity === "critical" ? "destructive" : issue.severity === "medium" ? "default" : "secondary"} className="mb-1">
+                              {issue.severity}
+                            </Badge>
+                            <p className="font-medium">{issue.title}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            </details>
           </>
         )}
       </CardContent>

@@ -52,23 +52,62 @@ serve(async (req) => {
     const reviewData = await reviewResponse.json();
     console.log("Review completed, processing findings...");
 
-    // Extract all findings from the review
+    // Extract all findings from the review - FIXED to use correct structure
     const findings: ReviewFinding[] = [];
 
-    if (reviewData.sections) {
-      for (const section of reviewData.sections) {
-        if (section.findings && Array.isArray(section.findings)) {
-          for (const finding of section.findings) {
+    // Handle the correct response format: categories[categoryKey].issues
+    if (reviewData.categories && typeof reviewData.categories === 'object') {
+      for (const [categoryKey, categoryData] of Object.entries(reviewData.categories)) {
+        const category = categoryData as {
+          score?: number;
+          issues?: Array<{
+            severity?: string;
+            title?: string;
+            description?: string;
+            recommendation?: string;
+            location?: string;
+          }>;
+          strengths?: string[];
+        };
+        
+        if (category.issues && Array.isArray(category.issues)) {
+          for (const issue of category.issues) {
             findings.push({
-              category: section.category || "General",
-              severity: finding.severity || "medium",
-              title: finding.title || "Untitled Finding",
-              description: finding.description || "",
-              recommendation: finding.recommendation || "",
-              location: finding.location,
+              category: formatCategoryName(categoryKey),
+              severity: normalizeSeverity(issue.severity),
+              title: issue.title || "Untitled Finding",
+              description: issue.description || "",
+              recommendation: issue.recommendation || "",
+              location: issue.location,
             });
           }
         }
+      }
+    }
+
+    // Also include quick wins as findings
+    if (reviewData.quickWins && Array.isArray(reviewData.quickWins)) {
+      for (const win of reviewData.quickWins) {
+        findings.push({
+          category: "Quick Win",
+          severity: win.impact === "high" ? "high" : "medium",
+          title: win.title || "Untitled Quick Win",
+          description: win.description || "",
+          recommendation: `Effort: ${win.effort}, Impact: ${win.impact}`,
+        });
+      }
+    }
+
+    // Include priority actions
+    if (reviewData.priorityActions && Array.isArray(reviewData.priorityActions)) {
+      for (const action of reviewData.priorityActions) {
+        findings.push({
+          category: "Priority Action",
+          severity: action.priority <= 2 ? "critical" : action.priority <= 3 ? "high" : "medium",
+          title: action.title || "Untitled Priority Action",
+          description: action.description || "",
+          recommendation: `Priority: ${action.priority}, Effort: ${action.estimatedEffort}`,
+        });
       }
     }
 
@@ -104,7 +143,7 @@ serve(async (req) => {
       .slice(0, 15);
 
     const findingsHtml = topFindings
-      .map((finding, index) => {
+      .map((finding) => {
         const config = severityColors[finding.severity];
         return `
           <div class="card" style="margin-bottom: 12px; border-left: 3px solid ${config.border};">
@@ -129,6 +168,15 @@ serve(async (req) => {
       <p style="margin: 0 0 20px 0; font-size: 15px;">
         The automated application review has been completed. Here's a summary of the findings:
       </p>
+      
+      <div style="margin-bottom: 24px; padding: 16px; background: #f8fafc; border-radius: 8px;">
+        <p style="margin: 0 0 12px 0; font-weight: 600; font-size: 16px;">
+          📊 Overall Score: ${reviewData.overallScore || 'N/A'}/100
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 14px;">
+          ${reviewData.summary || 'No summary available'}
+        </p>
+      </div>
       
       <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;">
         ${criticalCount > 0 ? `<span class="badge badge-red">🔴 ${criticalCount} Critical</span>` : ""}
@@ -163,13 +211,14 @@ serve(async (req) => {
     // Send consolidated email via Resend
     const emailResult = await sendEmail({
       to: "arno@wmeng.co.za",
-      subject: `Application Review: ${findings.length} findings (${criticalCount} critical, ${highCount} high)`,
+      subject: `Application Review: ${findings.length} findings (${criticalCount} critical, ${highCount} high) - Score: ${reviewData.overallScore || 'N/A'}/100`,
       html: emailHtml,
       from: DEFAULT_FROM_ADDRESSES.system,
       tags: [
         { name: "type", value: "review_findings" },
         { name: "findings_count", value: String(findings.length) },
         { name: "critical_count", value: String(criticalCount) },
+        { name: "overall_score", value: String(reviewData.overallScore || 0) },
       ],
     });
 
@@ -181,6 +230,12 @@ serve(async (req) => {
         totalFindings: findings.length,
         emailId: emailResult.id,
         reviewData: reviewData,
+        findingsByCategory: {
+          critical: criticalCount,
+          high: highCount,
+          medium: mediumCount,
+          low: lowCount,
+        },
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -201,3 +256,21 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to format category names
+function formatCategoryName(key: string): string {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
+// Helper function to normalize severity values
+function normalizeSeverity(severity?: string): "critical" | "high" | "medium" | "low" {
+  if (!severity) return "medium";
+  const normalized = severity.toLowerCase();
+  if (normalized === "critical") return "critical";
+  if (normalized === "high") return "high";
+  if (normalized === "low") return "low";
+  return "medium";
+}
