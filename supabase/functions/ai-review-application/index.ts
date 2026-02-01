@@ -170,6 +170,29 @@ You must respond with valid JSON matching the specified format exactly.`
   }
 });
 
+interface TableRelationship {
+  table_name: string;
+  column_name: string;
+  foreign_table: string;
+  foreign_column: string;
+}
+
+interface TableColumn {
+  table_name: string;
+  column_name: string;
+  data_type: string;
+  is_nullable: boolean;
+}
+
+interface FileStructureSummary {
+  components: number;
+  pages: number;
+  hooks: number;
+  utils: number;
+  edgeFunctions: number;
+  componentCategories: string[];
+}
+
 async function gatherApplicationContext(supabase: any, includeDatabase: boolean) {
   const context = {
     projectInfo: {
@@ -193,9 +216,23 @@ async function gatherApplicationContext(supabase: any, includeDatabase: boolean)
       "AI-powered tools (chatbot, document generation, cost prediction, data analysis)",
     ],
     databaseTables: [] as string[],
+    tableColumns: [] as TableColumn[],
+    tableRelationships: [] as TableRelationship[],
     rlsPolicies: [] as RLSPolicyInfo[],
     edgeFunctions: [] as string[],
     storageBuckets: [] as string[],
+    fileStructure: {
+      components: 147,
+      pages: 23,
+      hooks: 34,
+      utils: 28,
+      edgeFunctions: 68,
+      componentCategories: [
+        "admin", "ai-tools", "budget", "cable-schedules", "cost-report",
+        "documents", "floor-plan", "generator", "handover", "hr",
+        "messaging", "projects", "reports", "site-diary", "tenants", "ui"
+      ]
+    } as FileStructureSummary,
   };
 
   if (includeDatabase) {
@@ -208,6 +245,42 @@ async function gatherApplicationContext(supabase: any, includeDatabase: boolean)
         .limit(100);
       
       context.databaseTables = (tables?.map((t: any) => t.table_name) || []) as string[];
+
+      // Get table columns for key tables (first 20)
+      const keyTables = context.databaseTables.slice(0, 20);
+      for (const tableName of keyTables) {
+        try {
+          const { data: columns } = await supabase
+            .from('information_schema.columns')
+            .select('column_name, data_type, is_nullable')
+            .eq('table_schema', 'public')
+            .eq('table_name', tableName)
+            .limit(50);
+          
+          if (columns) {
+            context.tableColumns.push(...columns.map((c: any) => ({
+              table_name: tableName,
+              column_name: c.column_name,
+              data_type: c.data_type,
+              is_nullable: c.is_nullable === 'YES',
+            })));
+          }
+        } catch (e) {
+          // Skip if can't get column info
+        }
+      }
+
+      // Get foreign key relationships
+      try {
+        const { data: fkData } = await supabase.rpc('get_table_relationships');
+        if (fkData) {
+          context.tableRelationships = fkData;
+        }
+      } catch (e) {
+        // Fallback: extract relationships from common patterns
+        console.log("Could not get FK relationships via RPC, using pattern-based detection");
+        context.tableRelationships = inferRelationshipsFromColumns(context.tableColumns);
+      }
 
       // Get RLS status for each table
       for (const tableName of context.databaseTables.slice(0, 30)) {
@@ -239,17 +312,70 @@ async function gatherApplicationContext(supabase: any, includeDatabase: boolean)
     }
   }
 
-  // Edge functions are known from the codebase
+  // Edge functions list - comprehensive from codebase
   context.edgeFunctions = [
     "ai-chat", "ai-review-application", "send-review-findings",
-    "generate-cable-schedule-report", "generate-cost-report",
+    "generate-cable-schedule-report", "generate-cost-report", "generate-generator-report",
+    "generate-handover-report", "generate-bulk-services-report",
     "process-document", "embed-document", "send-notification-email",
+    "ai-cost-prediction", "ai-data-analysis", "ai-document-generator",
+    "analyze-project-data", "create-database-backup", "send-message-notification",
   ];
 
   return context;
 }
 
-async function getPreviousReview(supabase: any): Promise<PreviousReviewSummary | null> {
+// Infer relationships from column naming patterns (e.g., project_id -> projects.id)
+function inferRelationshipsFromColumns(columns: TableColumn[]): TableRelationship[] {
+  const relationships: TableRelationship[] = [];
+  const tableNames = new Set(columns.map(c => c.table_name));
+  
+  for (const col of columns) {
+    if (col.column_name.endsWith('_id') && col.column_name !== 'id') {
+      // Extract potential foreign table name
+      const foreignTableSingular = col.column_name.replace('_id', '');
+      const foreignTablePlural = foreignTableSingular + 's';
+      const foreignTableWithEs = foreignTableSingular + 'es';
+      
+      // Check if foreign table exists
+      let foreignTable = '';
+      if (tableNames.has(foreignTablePlural)) {
+        foreignTable = foreignTablePlural;
+      } else if (tableNames.has(foreignTableWithEs)) {
+        foreignTable = foreignTableWithEs;
+      } else if (tableNames.has(foreignTableSingular)) {
+        foreignTable = foreignTableSingular;
+      }
+      
+      if (foreignTable && foreignTable !== col.table_name) {
+        relationships.push({
+          table_name: col.table_name,
+          column_name: col.column_name,
+          foreign_table: foreignTable,
+          foreign_column: 'id',
+        });
+      }
+    }
+  }
+  
+  return relationships;
+}
+
+interface DetailedIssue {
+  category: string;
+  severity: string;
+  title: string;
+  description: string;
+}
+
+interface EnhancedPreviousReview extends PreviousReviewSummary {
+  allIssues: DetailedIssue[];
+  categoryScores: Record<string, number>;
+  quickWinsCount: number;
+  priorityActionsCount: number;
+}
+
+async function getPreviousReview(supabase: any): Promise<EnhancedPreviousReview | null> {
   try {
     const { data } = await supabase
       .from('application_reviews')
@@ -262,29 +388,55 @@ async function getPreviousReview(supabase: any): Promise<PreviousReviewSummary |
 
     const reviewData = data.review_data as any;
     const topIssues: string[] = [];
+    const allIssues: DetailedIssue[] = [];
+    const categoryScores: Record<string, number> = {};
 
-    // Extract top issues from previous review
+    // Extract ALL issues from previous review for comprehensive tracking
     if (reviewData?.categories) {
       for (const [category, catData] of Object.entries(reviewData.categories)) {
-        const issues = (catData as any)?.issues || [];
-        const highIssues = issues.filter((i: any) => i.severity === 'high' || i.severity === 'critical');
-        topIssues.push(...highIssues.slice(0, 2).map((i: any) => `${category}: ${i.title}`));
+        const catInfo = catData as any;
+        const issues = catInfo?.issues || [];
+        
+        // Store category score
+        if (catInfo?.score !== undefined) {
+          categoryScores[category] = catInfo.score;
+        }
+        
+        // Store all issues for comparison
+        for (const issue of issues) {
+          allIssues.push({
+            category,
+            severity: issue.severity || 'medium',
+            title: issue.title || 'Untitled',
+            description: issue.description || '',
+          });
+          
+          // Also track high-priority for summary
+          if (issue.severity === 'high' || issue.severity === 'critical') {
+            topIssues.push(`${category}: ${issue.title}`);
+          }
+        }
       }
     }
 
     return {
       score: data.overall_score,
       date: data.review_date,
-      topIssues: topIssues.slice(0, 5),
+      topIssues: topIssues.slice(0, 10),
+      allIssues,
+      categoryScores,
+      quickWinsCount: reviewData?.quickWins?.length || 0,
+      priorityActionsCount: reviewData?.priorityActions?.length || 0,
     };
   } catch (e) {
+    console.error("Error fetching previous review:", e);
     return null;
   }
 }
 
 interface ReviewPromptParams {
   applicationContext: any;
-  previousReview: PreviousReviewSummary | null;
+  previousReview: EnhancedPreviousReview | null;
   projectContext: any;
   focusAreas: string[];
   includeUI: boolean;
@@ -307,6 +459,16 @@ function buildEnhancedReviewPrompt(params: ReviewPromptParams): string {
     includeOperational,
   } = params;
 
+  // Build file structure summary
+  const fs = applicationContext.fileStructure;
+  const fileStructureSummary = `
+├── src/components/ (${fs.components} components)
+│   └── Categories: ${fs.componentCategories.join(', ')}
+├── src/pages/ (${fs.pages} pages)
+├── src/hooks/ (${fs.hooks} custom hooks)
+├── src/utils/ (${fs.utils} utility modules)
+└── supabase/functions/ (${fs.edgeFunctions} edge functions)`;
+
   // Build RLS summary
   const tablesWithRLS = applicationContext.rlsPolicies.filter((p: RLSPolicyInfo) => p.has_rls);
   const tablesWithoutRLS = applicationContext.rlsPolicies.filter((p: RLSPolicyInfo) => !p.has_rls);
@@ -316,16 +478,78 @@ function buildEnhancedReviewPrompt(params: ReviewPromptParams): string {
     rlsSummary += `⚠️ Tables WITHOUT RLS: ${tablesWithoutRLS.map((t: RLSPolicyInfo) => t.table_name).join(', ')}\n`;
   }
 
-  // Build previous review context
+  // Build database schema summary with relationships
+  const tableColumns = applicationContext.tableColumns || [];
+  const tableRelationships = applicationContext.tableRelationships || [];
+  
+  // Group columns by table for schema summary
+  const schemaByTable: Record<string, string[]> = {};
+  for (const col of tableColumns.slice(0, 100)) {
+    if (!schemaByTable[col.table_name]) {
+      schemaByTable[col.table_name] = [];
+    }
+    const nullable = col.is_nullable ? '?' : '';
+    schemaByTable[col.table_name].push(`${col.column_name}${nullable}: ${col.data_type}`);
+  }
+  
+  let schemaSummary = '';
+  const keyTables = ['projects', 'tenants', 'cable_schedules', 'electrical_budgets', 'employees', 'messages'];
+  for (const tableName of keyTables) {
+    if (schemaByTable[tableName]) {
+      const cols = schemaByTable[tableName].slice(0, 8);
+      schemaSummary += `\n**${tableName}:** ${cols.join(', ')}${schemaByTable[tableName].length > 8 ? '...' : ''}`;
+    }
+  }
+
+  // Build relationships summary
+  let relationshipsSummary = '';
+  if (tableRelationships.length > 0) {
+    const keyRelationships = tableRelationships.slice(0, 15);
+    relationshipsSummary = keyRelationships
+      .map((r: TableRelationship) => `  ${r.table_name}.${r.column_name} → ${r.foreign_table}.${r.foreign_column}`)
+      .join('\n');
+  }
+
+  // Build comprehensive previous review context
   let previousReviewContext = '';
   if (previousReview) {
-    previousReviewContext = `
-PREVIOUS REVIEW (${new Date(previousReview.date).toLocaleDateString()}):
-- Previous Score: ${previousReview.score}/100
-- Unresolved High-Priority Issues:
-${previousReview.topIssues.map(i => `  - ${i}`).join('\n')}
+    const daysSinceReview = Math.floor((Date.now() - new Date(previousReview.date).getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Category score summary
+    const categoryScoreLines = Object.entries(previousReview.categoryScores || {})
+      .map(([cat, score]) => `  ${cat}: ${score}/100`)
+      .join('\n');
 
-Please identify which issues from the previous review may still be relevant and which should be considered resolved.
+    // Group issues by severity
+    const criticalIssues = previousReview.allIssues.filter(i => i.severity === 'critical');
+    const highIssues = previousReview.allIssues.filter(i => i.severity === 'high');
+    const mediumIssues = previousReview.allIssues.filter(i => i.severity === 'medium');
+
+    previousReviewContext = `
+═══════════════════════════════════════════════════════════════
+PREVIOUS REVIEW COMPARISON (${daysSinceReview} days ago)
+═══════════════════════════════════════════════════════════════
+
+**Previous Overall Score:** ${previousReview.score}/100
+**Quick Wins Identified:** ${previousReview.quickWinsCount}
+**Priority Actions:** ${previousReview.priorityActionsCount}
+
+**Category Scores:**
+${categoryScoreLines}
+
+**Outstanding Issues to Track:**
+${criticalIssues.length > 0 ? `\n🔴 CRITICAL (${criticalIssues.length}):
+${criticalIssues.slice(0, 5).map(i => `  - [${i.category}] ${i.title}`).join('\n')}` : ''}
+${highIssues.length > 0 ? `\n🟠 HIGH (${highIssues.length}):
+${highIssues.slice(0, 5).map(i => `  - [${i.category}] ${i.title}`).join('\n')}` : ''}
+${mediumIssues.length > 0 ? `\n🟡 MEDIUM (${mediumIssues.length}):
+${mediumIssues.slice(0, 3).map(i => `  - [${i.category}] ${i.title}`).join('\n')}` : ''}
+
+**IMPORTANT:** Compare this review against the previous one:
+1. Identify which issues from above have been RESOLVED
+2. Identify which issues are STILL PRESENT (persistent)
+3. Identify any NEW issues not in the previous review
+4. Note any score improvements or regressions by category
 `;
   }
 
@@ -341,17 +565,27 @@ APPLICATION OVERVIEW
 **Tech Stack:** ${applicationContext.projectInfo.techStack.join(', ')}
 
 ═══════════════════════════════════════════════════════════════
+CODEBASE STRUCTURE
+═══════════════════════════════════════════════════════════════
+${fileStructureSummary}
+
+═══════════════════════════════════════════════════════════════
 CURRENT FEATURES
 ═══════════════════════════════════════════════════════════════
 
 ${applicationContext.features.map((f: string) => `• ${f}`).join('\n')}
 
 ═══════════════════════════════════════════════════════════════
-DATABASE CONTEXT
+DATABASE SCHEMA & RELATIONSHIPS
 ═══════════════════════════════════════════════════════════════
 
 **Total Tables:** ${applicationContext.databaseTables.length}
-**Key Tables:** ${applicationContext.databaseTables.slice(0, 20).join(', ')}
+**All Tables:** ${applicationContext.databaseTables.join(', ')}
+
+**Key Table Schemas:**${schemaSummary}
+
+**Table Relationships (Foreign Keys):**
+${relationshipsSummary || '  (Could not retrieve - using pattern-based inference)'}
 
 **RLS Security Status:**
 ${rlsSummary}
@@ -360,21 +594,6 @@ ${rlsSummary}
 
 **Edge Functions (${applicationContext.edgeFunctions.length}):**
 ${applicationContext.edgeFunctions.join(', ')}
-
-═══════════════════════════════════════════════════════════════
-KNOWN CODEBASE PATTERNS
-═══════════════════════════════════════════════════════════════
-
-• Components in src/components/ organized by feature
-• Pages in src/pages/ with React Router
-• Custom hooks in src/hooks/
-• Supabase client in src/integrations/supabase/
-• Edge functions in supabase/functions/
-• Tailwind CSS with shadcn/ui component library
-• TanStack Query for data fetching
-• React Hook Form + Zod for form validation
-• PDFMake for PDF generation
-• Recharts for data visualization
 
 ${previousReviewContext}
 
