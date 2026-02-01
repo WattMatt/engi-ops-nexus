@@ -79,15 +79,27 @@ export const StandardReportPreview = ({
     }
   };
 
+  // Helper to generate a safe filename with .pdf extension
+  const getDownloadFilename = () => {
+    const baseName = report?.report_name || 'report';
+    const revision = report?.revision;
+    const name = revision ? `${baseName}_${revision}` : baseName;
+    // Sanitize and ensure .pdf extension
+    const sanitized = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    return sanitized.endsWith('.pdf') ? sanitized : `${sanitized}.pdf`;
+  };
+
   const handleDownload = async () => {
     setDownloading(true);
     try {
+      const filename = getDownloadFilename();
+      
       if (pdfBlob) {
         // Use already downloaded blob
         const url = window.URL.createObjectURL(pdfBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = report.report_name || 'report.pdf';
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -104,7 +116,7 @@ export const StandardReportPreview = ({
         const url = window.URL.createObjectURL(data);
         const link = document.createElement('a');
         link.href = url;
-        link.download = report.report_name || 'report.pdf';
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -171,7 +183,7 @@ export const StandardReportPreview = ({
             
             <DropboxSaveButton
               fileContent={pdfBlob}
-              filename={report?.report_name || 'report.pdf'}
+              filename={getDownloadFilename()}
               contentType="application/pdf"
               defaultFolder={dropboxFolderPath || ""}
               disabled={!pdfBlob}
