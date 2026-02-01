@@ -321,7 +321,7 @@ export function ReviewHistoryDashboard() {
 
       {/* Review Detail Dialog */}
       <Dialog open={!!selectedReview} onOpenChange={() => setSelectedReview(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Review from {selectedReview && format(new Date(selectedReview.review_date), "MMMM dd, yyyy")}
