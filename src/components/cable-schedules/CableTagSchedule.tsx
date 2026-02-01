@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { compareShopNumbers } from "@/utils/tenantSorting";
 
 interface CableTagScheduleProps {
   scheduleId: string;
@@ -48,15 +49,33 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
 
       if (error) throw error;
       
-      // Sort by base tag first, then by cable number for parallel cables
+      // Extract shop number from cable tag for sorting
+      // Tags follow pattern like "Main Board 1.2-Shop 1-Alu-185mm"
+      const extractShopNumber = (tag: string): string => {
+        // Look for "Shop X" pattern in the tag
+        const shopMatch = tag.match(/Shop\s*(\d+[A-Za-z]*)/i);
+        return shopMatch ? `Shop ${shopMatch[1]}` : '';
+      };
+
+      // Sort by shop number first, then by cable number within each shop
       return (data || []).sort((a, b) => {
-        const baseTagA = a.base_cable_tag || a.cable_tag;
-        const baseTagB = b.base_cable_tag || b.cable_tag;
+        const tagA = a.base_cable_tag || a.cable_tag;
+        const tagB = b.base_cable_tag || b.cable_tag;
         
-        const tagCompare = baseTagA.localeCompare(baseTagB, undefined, { numeric: true, sensitivity: 'base' });
-        if (tagCompare !== 0) return tagCompare;
+        const shopA = extractShopNumber(tagA);
+        const shopB = extractShopNumber(tagB);
         
-        // For same base tag (parallel cables), sort by cable number
+        // If both have shop numbers, compare them using natural sorting
+        if (shopA && shopB) {
+          const shopCompare = compareShopNumbers(shopA, shopB);
+          if (shopCompare !== 0) return shopCompare;
+        } else if (shopA && !shopB) {
+          return 1; // Entries with shop numbers come after general entries
+        } else if (!shopA && shopB) {
+          return -1; // General entries come first
+        }
+        
+        // Within same shop (or both without shop), sort by cable number
         return (a.cable_number || 0) - (b.cable_number || 0);
       });
     },
