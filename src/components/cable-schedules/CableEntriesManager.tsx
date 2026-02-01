@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Download, Users, RefreshCw, FileSpreadsheet } from "lucide-react";
+import { Plus, Download, Users, RefreshCw, FileSpreadsheet, Loader2 } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
 import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
@@ -11,6 +11,7 @@ import { ImportTenantsDialog } from "./ImportTenantsDialog";
 import { ImportExcelCableDialog } from "./ImportExcelCableDialog";
 import { SplitParallelCablesDialog } from "./SplitParallelCablesDialog";
 import { VirtualizedCableTable } from "./VirtualizedCableTable";
+import { PaginationControls } from "@/components/common/PaginationControls";
 import { useToast } from "@/hooks/use-toast";
 import { calculateCableSize } from "@/utils/cableSizing";
 import { useCalculationSettings } from "@/hooks/useCalculationSettings";
@@ -30,6 +31,9 @@ interface CableEntriesManagerProps {
   scheduleId: string;
 }
 
+const PAGE_SIZE_OPTIONS = [50, 100, 200, 500];
+const DEFAULT_PAGE_SIZE = 100;
+
 export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) => {
   const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -42,6 +46,11 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [floorPlanIds, setFloorPlanIds] = useState<string[]>([]);
   
   // Fetch calculation settings
   const { data: calcSettings } = useCalculationSettings(projectId);
@@ -85,10 +94,10 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
     }
   });
 
-  const { data: entries, refetch } = useQuery({
-    queryKey: ["cable-entries", scheduleId],
+  // First, fetch schedule info and floor plan IDs (cached)
+  const { data: scheduleInfo } = useQuery({
+    queryKey: ["cable-schedule-info", scheduleId],
     queryFn: async () => {
-      // First get the schedule to get project_id
       const { data: schedule } = await supabase
         .from("cable_schedules")
         .select("project_id")
@@ -97,20 +106,65 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
 
       if (schedule) {
         setProjectId(schedule.project_id);
+        
+        // Get all floor plan IDs for this project
+        const { data: floorPlans } = await supabase
+          .from("floor_plan_projects")
+          .select("id")
+          .eq("project_id", schedule.project_id);
+
+        const fpIds = floorPlans?.map(fp => fp.id) || [];
+        setFloorPlanIds(fpIds);
+        
+        return { projectId: schedule.project_id, floorPlanIds: fpIds };
       }
+      return null;
+    },
+    enabled: !!scheduleId,
+    staleTime: 60000, // Cache for 1 minute
+  });
 
-      // Get all floor plan IDs for this project
-      const { data: floorPlans } = await supabase
-        .from("floor_plan_projects")
-        .select("id")
-        .eq("project_id", schedule?.project_id || "");
+  // Build OR filter for query
+  const orFilter = floorPlanIds.length > 0 
+    ? `schedule_id.eq.${scheduleId},floor_plan_id.in.(${floorPlanIds.join(',')})` 
+    : undefined;
 
-      const floorPlanIds = floorPlans?.map(fp => fp.id) || [];
-
-      // Get cable entries linked to this schedule OR to floor plans in this project
+  // Get total count for pagination
+  const { data: totalCount = 0 } = useQuery({
+    queryKey: ["cable-entries-count", scheduleId, floorPlanIds],
+    queryFn: async () => {
       let query = supabase
         .from("cable_entries")
-        .select("*");
+        .select("*", { count: 'exact', head: true });
+
+      if (floorPlanIds.length > 0) {
+        query = query.or(`schedule_id.eq.${scheduleId},floor_plan_id.in.(${floorPlanIds.join(',')})`);
+      } else {
+        query = query.eq("schedule_id", scheduleId);
+      }
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!scheduleId && !!scheduleInfo,
+    staleTime: 30000,
+  });
+
+  // Calculate pagination
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  // Paginated cable entries query
+  const { data: entries = [], refetch, isLoading, isFetching } = useQuery({
+    queryKey: ["cable-entries", scheduleId, floorPlanIds, page, pageSize],
+    queryFn: async () => {
+      let query = supabase
+        .from("cable_entries")
+        .select("*")
+        .range(from, to)
+        .order("display_order");
 
       if (floorPlanIds.length > 0) {
         query = query.or(`schedule_id.eq.${scheduleId},floor_plan_id.in.(${floorPlanIds.join(',')})`);
@@ -119,12 +173,10 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
       
       // Sort by shop number extracted from to_location or cable_tag, then by cable_number
       const sorted = (data || []).sort((a, b) => {
-        // Extract shop numbers (e.g., "Shop 13" -> 13, "Shop 13/14 - MR DIY" -> 13)
         const shopRegex = /Shop\s+(\d+)/i;
         const matchA = (a.to_location || a.cable_tag).match(shopRegex);
         const matchB = (b.to_location || b.cable_tag).match(shopRegex);
@@ -132,12 +184,10 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         const numA = matchA ? parseInt(matchA[1], 10) : 9999;
         const numB = matchB ? parseInt(matchB[1], 10) : 9999;
         
-        // If shop numbers are different, sort by number
         if (numA !== numB) {
           return numA - numB;
         }
         
-        // If same shop number, compare the base tags or full locations
         const baseTagA = a.base_cable_tag || a.cable_tag;
         const baseTagB = b.base_cable_tag || b.cable_tag;
         const locationCompare = (a.to_location || baseTagA).localeCompare(
@@ -146,28 +196,57 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           { numeric: true }
         );
         
-        // If locations/base tags are different, sort by location
         if (locationCompare !== 0) {
           return locationCompare;
         }
         
-        // If same location/base tag (parallel cables), sort by cable_number
         return (a.cable_number || 0) - (b.cable_number || 0);
       });
       
       return sorted;
     },
-    enabled: !!scheduleId,
+    enabled: !!scheduleId && !!scheduleInfo,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+    staleTime: 10000,
   });
+
+  // Get total cost across all pages
+  const { data: totalCostData } = useQuery({
+    queryKey: ["cable-entries-total-cost", scheduleId, floorPlanIds],
+    queryFn: async () => {
+      let query = supabase
+        .from("cable_entries")
+        .select("total_cost");
+
+      if (floorPlanIds.length > 0) {
+        query = query.or(`schedule_id.eq.${scheduleId},floor_plan_id.in.(${floorPlanIds.join(',')})`);
+      } else {
+        query = query.eq("schedule_id", scheduleId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return round(sum((data || []).map(e => e.total_cost)), 2);
+    },
+    enabled: !!scheduleId && !!scheduleInfo,
+    staleTime: 30000,
+  });
+
+  const totalCost = totalCostData || 0;
+
+  // Handle page size change
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return "R 0.00";
     return `R ${round(value, 2).toFixed(2)}`;
   };
 
-  const totalCost = round(sum(entries?.map(entry => entry.total_cost) || []), 2);
+  
 
   const handleEdit = (entry: any) => {
     setSelectedEntry(entry);
@@ -299,9 +378,12 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Cable Entries</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Cable Entries
+              {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </CardTitle>
             <div className="flex gap-2">
-              {entries && entries.length > 0 && (
+              {totalCount > 0 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -337,20 +419,56 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <VirtualizedCableTable
-              entries={entries || []}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              onSplit={handleSplit}
-              tenantLoadMap={tenantLoadMap}
-              tenantNameMap={tenantNameMap}
-            />
-            {entries && entries.length > 0 && (
-              <div className="flex justify-end">
-                <Card className="w-64">
-                  <CardContent className="pt-6">
+            {/* Top Pagination Controls */}
+            {totalCount > 0 && (
+              <PaginationControls
+                pagination={{
+                  page,
+                  pageSize,
+                  totalCount,
+                  totalPages,
+                }}
+                onPageChange={setPage}
+                onPageSizeChange={handlePageSizeChange}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                isLoading={isFetching}
+              />
+            )}
+
+            {/* Loading state */}
+            {isLoading && (!entries || entries.length === 0) ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <VirtualizedCableTable
+                entries={entries || []}
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+                onSplit={handleSplit}
+                tenantLoadMap={tenantLoadMap}
+                tenantNameMap={tenantNameMap}
+              />
+            )}
+
+            {/* Bottom: Pagination + Total Cost */}
+            {totalCount > 0 && (
+              <div className="flex items-center justify-between">
+                <PaginationControls
+                  pagination={{
+                    page,
+                    pageSize,
+                    totalCount,
+                    totalPages,
+                  }}
+                  onPageChange={setPage}
+                  showPageSizeSelector={false}
+                  isLoading={isFetching}
+                />
+                <Card className="w-72">
+                  <CardContent className="pt-4 pb-3">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold">Total Cost:</span>
+                      <span className="font-semibold text-sm">Total Cost (All Pages):</span>
                       <span className="text-lg font-bold">{formatCurrency(totalCost)}</span>
                     </div>
                   </CardContent>

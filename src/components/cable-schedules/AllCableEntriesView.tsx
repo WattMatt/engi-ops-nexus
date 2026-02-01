@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,40 +12,82 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
+import { PaginationControls } from "@/components/common/PaginationControls";
+import { Loader2 } from "lucide-react";
 
 interface AllCableEntriesViewProps {
   projectId: string;
 }
 
+const PAGE_SIZE_OPTIONS = [50, 100, 200, 500];
+const DEFAULT_PAGE_SIZE = 100;
+
 export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => {
   const navigate = useNavigate();
   const parentRef = useRef<HTMLDivElement>(null);
+  
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  const { data: entries, isLoading } = useQuery({
-    queryKey: ["all-cable-entries", projectId],
+  // First, get the schedules for this project
+  const { data: schedules = [] } = useQuery({
+    queryKey: ["cable-schedules-list", projectId],
     queryFn: async () => {
-      // Get all schedules for this project
-      const { data: schedules, error: schedulesError } = await supabase
+      const { data, error } = await supabase
         .from("cable_schedules")
         .select("id, schedule_name, revision")
         .eq("project_id", projectId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+    staleTime: 60000, // Cache for 1 minute
+  });
 
-      if (schedulesError) throw schedulesError;
+  const scheduleIds = schedules.map(s => s.id);
 
-      const scheduleIds = schedules?.map(s => s.id) || [];
-
-      // Get all cable entries
-      const { data: entries, error: entriesError } = await supabase
+  // Get total count for pagination
+  const { data: totalCount = 0 } = useQuery({
+    queryKey: ["all-cable-entries-count", projectId, scheduleIds],
+    queryFn: async () => {
+      if (scheduleIds.length === 0) return 0;
+      
+      const { count, error } = await supabase
         .from("cable_entries")
-        .select("*, schedule_id")
+        .select("*", { count: 'exact', head: true })
+        .in("schedule_id", scheduleIds);
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: scheduleIds.length > 0,
+    staleTime: 30000, // Cache count for 30 seconds
+  });
+
+  // Calculate pagination
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  // Get paginated cable entries
+  const { data: entries = [], isLoading, isFetching } = useQuery({
+    queryKey: ["all-cable-entries", projectId, scheduleIds, page, pageSize],
+    queryFn: async () => {
+      if (scheduleIds.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from("cable_entries")
+        .select("*")
         .in("schedule_id", scheduleIds)
-        .order("display_order");
-
-      if (entriesError) throw entriesError;
-
+        .order("display_order")
+        .range(from, to);
+      
+      if (error) throw error;
+      
       // Combine entries with schedule info
-      return entries?.map(entry => {
-        const schedule = schedules?.find(s => s.id === entry.schedule_id);
+      return (data || []).map(entry => {
+        const schedule = schedules.find(s => s.id === entry.schedule_id);
         return {
           ...entry,
           schedule_name: schedule?.schedule_name,
@@ -53,43 +95,103 @@ export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => 
         };
       });
     },
-    enabled: !!projectId,
+    enabled: scheduleIds.length > 0,
+    staleTime: 10000, // Cache for 10 seconds
   });
+
+  // Get total cost (from all entries, not just current page)
+  const { data: totalCostData } = useQuery({
+    queryKey: ["all-cable-entries-total-cost", projectId, scheduleIds],
+    queryFn: async () => {
+      if (scheduleIds.length === 0) return 0;
+      
+      // For large datasets, we sum on the server
+      const { data, error } = await supabase
+        .from("cable_entries")
+        .select("total_cost")
+        .in("schedule_id", scheduleIds);
+      
+      if (error) throw error;
+      return (data || []).reduce((sum, entry) => sum + (entry.total_cost || 0), 0);
+    },
+    enabled: scheduleIds.length > 0,
+    staleTime: 30000,
+  });
+
+  const totalCost = totalCostData || 0;
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return "R 0.00";
     return `R ${value.toFixed(2)}`;
   };
 
-  const totalCost = entries?.reduce((sum, entry) => sum + (entry.total_cost || 0), 0) || 0;
+  // Reset to page 1 when page size changes
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
+  // Virtualizer for current page entries
   const rowVirtualizer = useVirtualizer({
-    count: entries?.length || 0,
+    count: entries.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 53,
     overscan: 10,
   });
 
-  if (isLoading) {
-    return <div>Loading cable entries...</div>;
+  // Reset virtualizer scroll when page changes
+  useEffect(() => {
+    if (parentRef.current) {
+      parentRef.current.scrollTop = 0;
+    }
+  }, [page]);
+
+  if (isLoading && entries.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All Cable Entries</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>All Cable Entries</span>
+          {isFetching && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        {!entries || entries.length === 0 ? (
+        {totalCount === 0 ? (
           <p className="text-center text-muted-foreground py-8">
             No cable entries found across all schedules.
           </p>
         ) : (
           <div className="space-y-4">
+            {/* Pagination Controls - Top */}
+            <PaginationControls
+              pagination={{
+                page,
+                pageSize,
+                totalCount,
+                totalPages,
+              }}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              isLoading={isFetching}
+            />
+
+            {/* Virtualized Table */}
             <div 
               ref={parentRef}
               className="rounded-md border overflow-auto"
-              style={{ height: '600px' }}
+              style={{ height: '500px' }}
             >
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
@@ -150,11 +252,27 @@ export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => 
                 </TableBody>
               </Table>
             </div>
-            <div className="flex justify-end">
+
+            {/* Summary Footer */}
+            <div className="flex items-center justify-between">
+              {/* Pagination Controls - Bottom */}
+              <PaginationControls
+                pagination={{
+                  page,
+                  pageSize,
+                  totalCount,
+                  totalPages,
+                }}
+                onPageChange={setPage}
+                showPageSizeSelector={false}
+                isLoading={isFetching}
+              />
+
+              {/* Total Cost */}
               <Card className="w-64">
-                <CardContent className="pt-6">
+                <CardContent className="pt-4 pb-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold">Total Cost:</span>
+                    <span className="font-semibold text-sm">Total Cost (All Pages):</span>
                     <span className="text-lg font-bold">{formatCurrency(totalCost)}</span>
                   </div>
                 </CardContent>
