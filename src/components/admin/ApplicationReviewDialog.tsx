@@ -360,7 +360,7 @@ export function ApplicationReviewDialog() {
         </DialogHeader>
 
         {!reviewData ? (
-          <ScrollArea className="flex-1 pr-4">
+          <ScrollArea className="flex-1 max-h-[calc(90vh-120px)] pr-4">
             <div className="space-y-6 py-4">
             <div className="space-y-4">
               <h3 className="font-semibold">Review Scope</h3>
