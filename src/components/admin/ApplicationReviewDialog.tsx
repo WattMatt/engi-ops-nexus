@@ -348,7 +348,7 @@ export function ApplicationReviewDialog() {
           AI Application Review
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Sparkles className="h-6 w-6 text-primary" />
@@ -360,7 +360,7 @@ export function ApplicationReviewDialog() {
         </DialogHeader>
 
         {!reviewData ? (
-          <ScrollArea className="flex-1 max-h-[calc(90vh-120px)] pr-4">
+          <div className="flex-1 overflow-y-auto pr-4">
             <div className="space-y-6 py-4">
             <div className="space-y-4">
               <h3 className="font-semibold">Review Scope</h3>
@@ -465,9 +465,9 @@ export function ApplicationReviewDialog() {
               </Button>
             )}
             </div>
-          </ScrollArea>
+          </div>
         ) : (
-          <ScrollArea className="h-[600px] pr-4">
+          <div className="flex-1 overflow-y-auto max-h-[calc(90vh-120px)] pr-4">
             <div className="space-y-6 py-4">
               {/* Overall Score */}
               <Card className="border-2 border-primary/20">
@@ -738,7 +738,7 @@ export function ApplicationReviewDialog() {
                 Start New Review
               </Button>
             </div>
-          </ScrollArea>
+          </div>
         )}
       </DialogContent>
     </Dialog>
