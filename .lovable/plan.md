@@ -1,353 +1,230 @@
 
-
-# Drawing Review Checklist System - Implementation Plan
+# Plan: Review, Test, and Improve the AI Application Review Process
 
 ## Overview
-
-This plan expands the Drawing Register to include category-specific review checklists with verification items, a split-view drawing reviewer with zoom/pan functionality, and document linkage capabilities.
-
-## Feature Summary
-
-| Feature | Description |
-|---------|-------------|
-| Category-Based Checklists | Predefined check items for Site Plan, Power Layouts, CCTV/Access Control, and Tenant Layout drawings |
-| Drawing Review Mode | Split-view panel with drawing preview (zoom/pan) and adjacent checklist |
-| Editable Checklists | Admin ability to manage checklist templates and items |
-| Document Links | Ability to link checklist items to required documentation |
-| Progress Tracking | Visual indicators for review completion status |
+Comprehensive enhancement of the AI Application Review system to provide more actionable, context-aware, and measurable insights with improved testing capabilities and a streamlined implementation workflow.
 
 ---
 
-## Architecture
+## Current State Analysis
 
-### New Database Tables
+### Existing Components
+| Component | Status | Issues Identified |
+|-----------|--------|-------------------|
+| `ai-review-application` Edge Function | Working | Limited context (only table names), no code analysis |
+| `send-review-findings` Edge Function | Partial | Response format mismatch (`sections` vs `categories`) |
+| `ApplicationReviewDialog` | Working | Good UI but missing real-time streaming feedback |
+| `ReviewHistoryDashboard` | Working | No category-level trend charts |
+| `ProgressTrackingView` | Working | No automatic linking between reviews |
+| `ReviewComparisonView` | Working | No resolved/new issue highlighting |
+| Database Schema | Adequate | Missing `reviewer_notes`, `implementation_prs` columns |
 
+### Key Issues Found
+1. **Response Format Mismatch**: `send-review-findings` expects `sections[].findings` but `ai-review-application` returns `categories[].issues`
+2. **Limited Context**: AI only receives table names, not actual codebase structure or patterns
+3. **No Streaming**: 30-60 second wait with no progress indication
+4. **No Scheduled Reviews**: Manual trigger only
+5. **Generic Recommendations**: Not tailored to specific project context
+
+---
+
+## Implementation Plan
+
+### Phase 1: Fix Response Format Mismatch
+
+Update `send-review-findings` to correctly parse the AI review response:
+
+| Current Code | Issue | Fix |
+|--------------|-------|-----|
+| `reviewData.sections[].findings` | Field doesn't exist | Use `reviewData.categories[].issues` |
+| `finding.severity` | May be undefined | Default to "medium" |
+| Email summary counts | Uses wrong structure | Iterate over categories |
+
+### Phase 2: Enhanced AI Context
+
+Provide richer context to the AI for more specific recommendations:
+
+**New Context Sources:**
+- File structure summary (component directories, page count)
+- Recent git-like activity (recently modified areas)
+- Database schema with relationships
+- Edge function inventory
+- Storage bucket configurations
+- RLS policy status summary
+- Previous review findings for comparison
+
+**Updated Prompt Structure:**
 ```text
-+----------------------------------+       +----------------------------------+
-|   drawing_checklist_templates    |       |   drawing_checklist_items        |
-+----------------------------------+       +----------------------------------+
-| id (uuid, PK)                    |       | id (uuid, PK)                    |
-| category_code (text, FK)         |------>| template_id (uuid, FK)           |
-| name (text)                      |       | label (text)                     |
-| description (text)               |       | parent_id (uuid, nullable)       |
-| is_default (boolean)             |       | linked_document_type (text)      |
-| created_at                       |       | sort_order (int)                 |
-| updated_at                       |       | created_at                       |
-+----------------------------------+       +----------------------------------+
-                                                       |
-                                                       v
-+----------------------------------+       +----------------------------------+
-|   drawing_review_status          |       |   drawing_review_checks          |
-+----------------------------------+       +----------------------------------+
-| id (uuid, PK)                    |       | id (uuid, PK)                    |
-| drawing_id (uuid, FK)            |       | review_id (uuid, FK)             |
-| reviewed_by (uuid, FK)           |       | item_id (uuid, FK)               |
-| review_date (timestamp)          |       | is_checked (boolean)             |
-| status (text)                    |       | notes (text)                     |
-| notes (text)                     |       | checked_at (timestamp)           |
-| created_at                       |       | checked_by (uuid, FK)            |
-+----------------------------------+       +----------------------------------+
+CODEBASE STRUCTURE:
+├── src/components/ (147 components)
+├── src/pages/ (23 pages)
+├── supabase/functions/ (68 edge functions)
+└── src/hooks/ (34 custom hooks)
+
+RECENT FOCUS AREAS:
+- Report automation (last 7 days)
+- Cable schedule improvements (last 14 days)
+
+DATABASE TABLES (with RLS status):
+- projects (RLS: enabled, 4 policies)
+- tenants (RLS: enabled, 3 policies)
+- cable_schedules (RLS: enabled, 2 policies)
+
+PREVIOUS REVIEW (score: 78):
+- High: RLS complexity in multi-tenancy (unresolved)
+- Medium: Large dataset rendering (in progress)
 ```
 
-### Component Architecture
+### Phase 3: Streaming Review Progress
 
+Implement real-time streaming to show review progress:
+
+**Backend Changes:**
+- Add streaming response mode to edge function
+- Send progress updates as SSE events
+- Categories analyzed in sequence with status updates
+
+**Frontend Changes:**
 ```text
-DrawingRegisterPage
-├── DrawingTable (existing)
-│   └── [Review] action button -> Opens DrawingReviewDialog
-├── DrawingGrid (existing)
-│   └── [Review] action button -> Opens DrawingReviewDialog
-└── DrawingReviewDialog (NEW)
-    └── ResizablePanelGroup
-        ├── Left Panel: DrawingPreviewPane
-        │   ├── PDF/Image viewer with zoom/pan
-        │   ├── Mouse wheel zoom
-        │   └── Pan with drag
-        └── Right Panel: DrawingChecklistPane
-            ├── Category header with progress
-            ├── Collapsible checklist sections
-            │   ├── Checkbox items
-            │   ├── Sub-items (indented)
-            │   └── Document link icons
-            └── Notes section
+[Analyzing UI/UX...] ████████░░ 40%
+✓ UI/UX: Score 82
+✓ Performance: Score 74
+→ Security: Analyzing...
 ```
 
----
+### Phase 4: Review Scheduling
 
-## Detailed Implementation
+Add automated scheduled reviews:
 
-### Phase 1: Database Schema
+| Schedule Option | Description |
+|-----------------|-------------|
+| Weekly | Every Monday 6:00 AM |
+| Bi-weekly | Every other Monday |
+| Monthly | First of month |
+| Manual only | Current behavior |
 
-Create four new tables to store checklist templates and review progress:
+**Database Addition:**
+```sql
+CREATE TABLE review_schedules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  schedule_type TEXT NOT NULL, -- weekly, biweekly, monthly
+  last_run TIMESTAMPTZ,
+  next_run TIMESTAMPTZ,
+  notification_email TEXT,
+  enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
 
-1. **drawing_checklist_templates** - Stores checklist definitions per drawing category
-2. **drawing_checklist_items** - Stores individual checklist items with hierarchy support
-3. **drawing_review_status** - Tracks overall review status per drawing
-4. **drawing_review_checks** - Stores individual check completions
+### Phase 5: Actionable Implementation Prompts
 
-Default checklist data will be seeded for:
-- Site Plan (19 items)
-- Power Layouts (28 items with sub-items)
-- CCTV and Access Control (14 items with sub-items)
-- Tenant Layout (12 items with sub-items)
+Enhance the implementation prompt generation:
 
-### Phase 2: Hooks and Types
+**Current:** Generic markdown prompts
+**Improved:** 
+- Context-aware prompts with file paths
+- Dependency order for related changes
+- Test suggestions per fix
+- Rollback guidance
 
-Create new TypeScript types and React Query hooks:
+**Example Enhanced Prompt:**
+```text
+## Fix: Large Dataset Rendering in Cable Schedules
 
-**Types (src/types/drawingChecklists.ts):**
-- `DrawingChecklistTemplate`
-- `DrawingChecklistItem`
-- `DrawingReviewStatus`
-- `DrawingReviewCheck`
+### Affected Files:
+- src/components/cable-schedules/CableTagSchedule.tsx
+- src/components/cable-schedules/CableScheduleTable.tsx
 
-**Hooks (src/hooks/useDrawingChecklists.ts):**
-- `useChecklistTemplates(categoryCode)` - Fetch templates by category
-- `useChecklistItems(templateId)` - Fetch items for a template
-- `useDrawingReview(drawingId)` - Fetch/create review status
-- `useToggleCheckItem()` - Toggle check state mutation
-- `useSaveReviewNotes()` - Save review notes mutation
-- `useChecklistProgress(drawingId)` - Calculate completion percentage
+### Implementation Steps:
+1. Install @tanstack/react-virtual if not present
+2. Wrap table body with Virtualizer
+3. Update row height calculations
 
-### Phase 3: Drawing Preview Component with Zoom/Pan
+### Test Criteria:
+- [ ] Load schedule with 1000+ cables
+- [ ] Scroll performance < 16ms frame time
+- [ ] Filter/sort maintains virtualization
 
-Create `DrawingPreviewPane.tsx` with:
+### Rollback:
+If issues occur, revert virtualization wrapper only
+```
 
-1. **PDF Rendering** using react-pdf (already installed)
-2. **Zoom/Pan Controls:**
-   - Mouse wheel for zoom (centered on cursor position)
-   - Click and drag for panning
-   - Zoom in/out buttons
-   - Reset view button
-   - Fit to width/height options
-3. **View State Management:**
-   - `zoom` (number, 0.1 to 10)
-   - `offset` (x, y coordinates)
-4. **Controls toolbar:**
-   - Page navigation (for multi-page PDFs)
-   - Zoom percentage indicator
-   - Fullscreen toggle
+### Phase 6: Review Comparison Improvements
 
-### Phase 4: Checklist Panel Component
+Enhance the comparison view with:
 
-Create `DrawingChecklistPane.tsx` with:
-
-1. **Header:**
-   - Category name and icon
-   - Progress bar (X of Y items checked)
-   - Review status badge
-
-2. **Checklist Items:**
-   - Grouped by parent/child hierarchy
-   - Collapsible sections for parent items
-   - Checkbox with label
-   - Document link icon (if linked_document_type set)
-   - Notes tooltip/popover per item
-
-3. **Footer:**
-   - Overall notes textarea
-   - Submit review button
-   - Status selector (Draft, In Review, Approved)
-
-### Phase 5: Review Dialog and Integration
-
-Create `DrawingReviewDialog.tsx`:
-
-1. **Layout:** Full-screen dialog with ResizablePanelGroup
-2. **Left Panel (60%):** DrawingPreviewPane
-3. **Resize Handle:** Draggable divider
-4. **Right Panel (40%):** DrawingChecklistPane
-5. **Header:** Drawing number, title, current revision
-
-Integrate into existing components:
-- Add "Review" button to DrawingTable row actions
-- Add "Review" button to DrawingGrid card actions
-- Add review progress indicator to drawing list
-
-### Phase 6: Checklist Management (Admin)
-
-Create admin interface at `/dashboard/drawings/checklists`:
-
-1. **Template List:**
-   - View all templates by category
-   - Create new template
-   - Set default template
-
-2. **Template Editor:**
-   - Add/edit/delete items
-   - Drag-and-drop reordering
-   - Set parent-child relationships
-   - Link to document types
+1. **Resolved Issues Highlight**: Show issues from previous review that no longer appear
+2. **New Issues Alert**: Highlight issues that are new since last review
+3. **Score Delta Visualization**: Category-by-category change indicators
+4. **Recommendation Diff**: Side-by-side recommendation comparison
 
 ---
 
-## Files to Create
+## File Changes Summary
 
-| File | Purpose |
-|------|---------|
-| `src/types/drawingChecklists.ts` | Type definitions |
-| `src/hooks/useDrawingChecklists.ts` | Data hooks |
-| `src/components/drawings/review/DrawingPreviewPane.tsx` | PDF viewer with zoom/pan |
-| `src/components/drawings/review/DrawingChecklistPane.tsx` | Checklist panel |
-| `src/components/drawings/review/DrawingReviewDialog.tsx` | Main review dialog |
-| `src/components/drawings/review/ChecklistItem.tsx` | Individual checklist item |
-| `src/components/drawings/review/ChecklistSection.tsx` | Grouped items section |
-| `src/components/drawings/admin/ChecklistTemplateEditor.tsx` | Admin template editor |
-| `src/components/drawings/admin/ChecklistItemEditor.tsx` | Admin item editor |
-
-## Files to Modify
-
+### Modified Edge Functions
 | File | Changes |
 |------|---------|
-| `src/components/drawings/DrawingTable.tsx` | Add Review action, progress indicator |
-| `src/components/drawings/DrawingGrid.tsx` | Add Review action, progress indicator |
-| `src/components/drawings/index.ts` | Export new components |
-| `src/types/drawings.ts` | Add review-related types |
-| `src/App.tsx` | Add checklist admin route (if needed) |
+| `supabase/functions/ai-review-application/index.ts` | Add richer context, streaming mode |
+| `supabase/functions/send-review-findings/index.ts` | Fix response parsing, use `categories.issues` |
+
+### Modified UI Components
+| File | Changes |
+|------|---------|
+| `src/components/admin/ApplicationReviewDialog.tsx` | Add streaming progress UI, enhanced prompts |
+| `src/components/admin/ReviewHistoryDashboard.tsx` | Add category trend charts |
+| `src/components/admin/ProgressTrackingView.tsx` | Auto-link between reviews |
+| `src/components/admin/ReviewComparisonView.tsx` | Add resolved/new issue highlighting |
+
+### New Components
+| File | Purpose |
+|------|---------|
+| `src/components/admin/ReviewScheduleSettings.tsx` | Schedule configuration UI |
+| `src/components/admin/ReviewStreamingProgress.tsx` | Real-time progress display |
+
+### Database Migrations
+- Add `review_schedules` table
+- Add `previous_review_id` column to `application_reviews`
+- Add `resolved_from_review_id` column to track fixed issues
 
 ---
 
-## Default Checklist Data
+## Improvement Priority Order
 
-### Site Plan Check Sheet (19 items)
-- Access control detail - booms at entrances
-- Lighting circuiting
-- Generator plinth details
-- Anchor supply routing
-- North arrow to be indicated
-- MV cable between council and consumer RMU
-- Routing to electrical connection
-- Sleeves for electrified fence
-- Landscaping sleeves
-- Sleeve schedule
-- Parking area lights
-- Kiosk positions
-- Lighting schedule
-- Lighting specification
-- Telecom routing
-- Generator positions
-- Telkom/Meet me room position
-- Mini sub positions
-- Main board positions
-- Electrical connection position
-
-### Power Layouts Check Sheet (28+ items with sub-items)
-- Fire cupboard detail
-  - Plug in fire hose reel cupboards
-- Legend
-  - Check notes on title block
-  - Check legend items
-- Grid lines
-- Break glass units
-- Energizer isolators
-- Title block check
-  - Author details
-  - Client name/logo
-  - Drawing name
-- Key plan
-- Sockets in main board cupboards
-- Walkway/Mall - decoration plugs
-- Shop boards
-  - Correct position
-  - Correct size
-  - AC controller draw box with 25mm conduit to ceiling void
-  - Fibre draw box with 25mm conduit to ceiling void
-  - P9000 trunking to ceiling void
-  - P8000 trunking to ceiling void
-- Cable tray/wire basket notes with heights
-- Isolators points for lifts
-  - 60A TP isolator at the top
-  - 20A SP isolator at the bottom for sump pump
-- Isolators for shop signage
-- Routes for mall lighting
-- Ensure main boards are indicated to scale
-
-### CCTV and Access Control Check Sheet (14+ items)
-- Issue of layouts to both parties
-- CCTV points
-  - Images
-  - Sleeves to be indicated on site plan early on for coordination with civil
-  - Conduit links
-  - Heights
-- Data cabinets
-  - Power required for each
-  - Wire basket to also link these up
-- Speakers
-  - Conduit link
-- Booms
-  - Power
-  - Data
-  - Conduits
-  - Details
-  - Goose necks
-- Access control at centre management
-- Electrified fencing
-  - Energiser plug
-  - Route to boundary
-  - Entrance details at all gates
-- Control room
-  - Points and the rest
-
-### Tenant Layout Check Sheet (12+ items)
-- Power layout section reflected
-  - Correctly scaled board position with dimensions
-  - Telkom point
-  - AC point
-- Lighting layout section reflected
-  - Trunking reflected with dimensions and height
-- DB board elevation detail
-- Schematic distribution board indicated
-  - Correct and corresponding cable size reflected
-  - Correct board size reflected
-  - Circuit breakers align with circuits reflected on layouts
-  - Correct air-conditioning information reflected
-- Key plan indicated with correct position
-- Lighting schedule reflected
-  - Images
-  - Description
-  - Supplier
-  - Quantity
-- Single applicable legend indicated
-- Scope of work indicated
-  - Key points to be highlighted
+| Priority | Enhancement | Impact | Effort |
+|----------|-------------|--------|--------|
+| 1 | Fix response format mismatch | Critical | Low |
+| 2 | Enhanced AI context | High | Medium |
+| 3 | Resolved/new issue highlighting | High | Low |
+| 4 | Streaming progress UI | Medium | Medium |
+| 5 | Actionable prompts with file paths | Medium | Medium |
+| 6 | Review scheduling | Medium | High |
+| 7 | Category trend charts | Low | Medium |
 
 ---
 
-## Technical Specifications
+## Testing Plan
 
-### Zoom/Pan Implementation
-```text
-Zoom: Mouse wheel (factor 1.1x per scroll)
-      Centered on cursor position
-      Range: 10% to 1000%
-Pan:  Click and drag with mouse
-      Cursor changes to grab/grabbing
-```
+### Manual Testing
+1. Run a new review and verify all categories are populated
+2. Trigger email notification and verify findings are correctly extracted
+3. Compare two reviews and verify issue diff detection
+4. Test progress tracking status updates
 
-### Document Link Types
-Checklist items can link to documentation types:
-- `lighting_schedule`
-- `scope_of_work`
-- `db_elevation`
-- `schematic_diagram`
-- `cable_schedule`
-- `equipment_spec`
-- (extensible)
-
-### RLS Policies
-- All users can view checklists and review status
-- Only assigned reviewers can modify review checks
-- Only admins can modify checklist templates
+### Edge Cases
+- Empty categories (no issues found)
+- AI rate limiting (429 errors)
+- Very long recommendations (truncation)
+- Reviews with different focus areas
 
 ---
 
-## Additional Improvements
+## Additional Improvement Suggestions
 
-After core implementation, consider:
+After core implementation:
 
-1. **Export Review Report** - Generate PDF of completed review with checked items
-2. **Review History** - Track changes over time with audit log
-3. **Bulk Review** - Review multiple drawings with shared checklist
-4. **Notifications** - Alert when drawing ready for review
-5. **Review Assignment** - Assign specific reviewers to drawings
-
+1. **AI-Suggested Code Fixes**: Generate actual code snippets for common issues
+2. **Integration with Roadmap**: Auto-create roadmap items from high-priority findings
+3. **Team Review Assignment**: Assign issues to team members
+4. **Export to PDF**: Generate professional review report document
+5. **Benchmark Comparison**: Compare scores against industry standards
