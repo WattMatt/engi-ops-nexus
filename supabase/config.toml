@@ -188,3 +188,6 @@ verify_jwt = false
 
 [functions.send-scheduled-report]
 verify_jwt = false
+
+[functions.generate-tenant-tracker-pdf]
+verify_jwt = false
