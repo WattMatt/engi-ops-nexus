@@ -24,6 +24,7 @@ import { GlobalContactsManager } from "@/components/settings/GlobalContactsManag
 import { ClientPortalManagement } from "@/components/client-portal/ClientPortalManagement";
 import { ContractorPortalSettings } from "@/components/project-settings/ContractorPortalSettings";
 import { ProcurementTrackingSettings } from "@/components/project-settings/ProcurementTrackingSettings";
+import { ReportAutomationSettings } from "@/components/project-settings/ReportAutomationSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -203,6 +204,7 @@ export default function ProjectSettings() {
           <TabsTrigger value="client-portal">Client Portal</TabsTrigger>
           <TabsTrigger value="contractor-portal">Contractor Portal</TabsTrigger>
           <TabsTrigger value="procurement">Procurement Tracking</TabsTrigger>
+          <TabsTrigger value="report-automation">Report Automation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -740,6 +742,10 @@ export default function ProjectSettings() {
 
         <TabsContent value="procurement">
           {projectId && <ProcurementTrackingSettings projectId={projectId} />}
+        </TabsContent>
+
+        <TabsContent value="report-automation">
+          {projectId && <ReportAutomationSettings projectId={projectId} />}
         </TabsContent>
       </Tabs>
     </div>

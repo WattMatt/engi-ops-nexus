@@ -11954,6 +11954,71 @@ export type Database = {
           },
         ]
       }
+      report_automation_settings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          id: string
+          include_cover_page: boolean
+          include_kpi_page: boolean
+          include_tenant_schedule: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          project_id: string
+          recipient_emails: string[] | null
+          report_type: string
+          schedule_day: number | null
+          schedule_time: string
+          schedule_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          include_cover_page?: boolean
+          include_kpi_page?: boolean
+          include_tenant_schedule?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          project_id: string
+          recipient_emails?: string[] | null
+          report_type?: string
+          schedule_day?: number | null
+          schedule_time?: string
+          schedule_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          include_cover_page?: boolean
+          include_kpi_page?: boolean
+          include_tenant_schedule?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          project_id?: string
+          recipient_emails?: string[] | null
+          report_type?: string
+          schedule_day?: number | null
+          schedule_time?: string
+          schedule_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_automation_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_drafts: {
         Row: {
           content: Json
