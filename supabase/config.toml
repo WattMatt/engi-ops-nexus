@@ -194,3 +194,6 @@ verify_jwt = false
 
 [functions.generate-generator-report-pdf]
 verify_jwt = false
+
+[functions.run-scheduled-review]
+verify_jwt = false
