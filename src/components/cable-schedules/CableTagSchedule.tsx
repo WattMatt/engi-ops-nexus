@@ -1,18 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { VirtualizedTable, Column } from "@/components/common/VirtualizedTable";
 import { compareShopNumbers } from "@/utils/tenantSorting";
+import { useMemo } from "react";
 
 interface CableTagScheduleProps {
   scheduleId: string;
+}
+
+interface CableTagEntry {
+  id: string;
+  cable_tag: string;
+  base_cable_tag: string | null;
+  cable_number: number | null;
+  parallel_group_id: string | null;
+  parallel_total_count: number | null;
+  cable_size: string | null;
+  cable_type: string | null;
 }
 
 export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
@@ -77,10 +82,71 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
         
         // Within same shop (or both without shop), sort by cable number
         return (a.cable_number || 0) - (b.cable_number || 0);
-      });
+      }) as CableTagEntry[];
     },
     enabled: !!scheduleId,
   });
+
+  // Build display tag for each entry
+  const getDisplayTag = (entry: CableTagEntry) => {
+    const baseTag = entry.base_cable_tag || entry.cable_tag;
+    const cableNumber = entry.cable_number || 1;
+    const isParallel = entry.parallel_group_id && entry.parallel_total_count && entry.parallel_total_count > 1;
+    
+    // Build display tag: BaseTag-Material-Size
+    const materialShort = entry.cable_type === 'Aluminium' ? 'Alu' : 
+                          entry.cable_type === 'Copper' ? 'Cu' : 
+                          entry.cable_type || '';
+    const sizeShort = entry.cable_size?.replace('mm²', 'mm') || '';
+    
+    let displayTag = baseTag;
+    if (materialShort) displayTag += `-${materialShort}`;
+    if (sizeShort) displayTag += `-${sizeShort}`;
+    
+    if (isParallel) {
+      displayTag += ` (${cableNumber}/${entry.parallel_total_count})`;
+    }
+    
+    return displayTag;
+  };
+
+  // Define virtualized table columns
+  const columns: Column<CableTagEntry>[] = useMemo(() => [
+    {
+      key: 'cable_number',
+      header: 'Cable Number',
+      width: '120px',
+      align: 'center' as const,
+      render: (entry) => (
+        <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary font-bold text-lg">
+          {entry.cable_number || 1}
+        </span>
+      ),
+    },
+    {
+      key: 'cable_tag',
+      header: 'Cable Tag',
+      render: (entry) => (
+        <span className="font-medium text-lg">{getDisplayTag(entry)}</span>
+      ),
+    },
+    {
+      key: 'cable_size',
+      header: 'Cable Size',
+      width: '160px',
+      render: (entry) => (
+        <span className="font-medium">{entry.cable_size || '-'}</span>
+      ),
+    },
+    {
+      key: 'cable_type',
+      header: 'Type',
+      width: '120px',
+      render: (entry) => (
+        <span className="text-muted-foreground">{entry.cable_type || '-'}</span>
+      ),
+    },
+  ], []);
 
   if (isLoading) {
     return <div>Loading cable tags...</div>;
@@ -104,59 +170,14 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
             No cable entries found in this schedule.
           </p>
         ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-32 text-center">Cable Number</TableHead>
-                  <TableHead>Cable Tag</TableHead>
-                  <TableHead className="w-40">Cable Size</TableHead>
-                  <TableHead className="w-32">Type</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {entries.map((entry) => {
-                  const baseTag = entry.base_cable_tag || entry.cable_tag;
-                  const cableNumber = entry.cable_number || 1;
-                  const isParallel = entry.parallel_group_id && entry.parallel_total_count && entry.parallel_total_count > 1;
-                  
-                  // Build display tag: BaseTag-Material-Size
-                  // e.g., "Main Board 1.2-Shop 1-Alu-185mm"
-                  const materialShort = entry.cable_type === 'Aluminium' ? 'Alu' : 
-                                        entry.cable_type === 'Copper' ? 'Cu' : 
-                                        entry.cable_type || '';
-                  const sizeShort = entry.cable_size?.replace('mm²', 'mm') || '';
-                  
-                  let displayTag = baseTag;
-                  if (materialShort) displayTag += `-${materialShort}`;
-                  if (sizeShort) displayTag += `-${sizeShort}`;
-                  
-                  if (isParallel) {
-                    displayTag += ` (${cableNumber}/${entry.parallel_total_count})`;
-                  }
-                  
-                  return (
-                    <TableRow key={entry.id}>
-                      <TableCell className="text-center">
-                        <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary font-bold text-lg">
-                          {cableNumber}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-medium text-lg">
-                        {displayTag}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {entry.cable_size || '-'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {entry.cable_type || '-'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          <VirtualizedTable
+            data={entries}
+            columns={columns}
+            getRowKey={(entry) => entry.id}
+            rowHeight={72}
+            maxHeight={600}
+            emptyMessage="No cable entries found in this schedule."
+          />
         )}
       </CardContent>
     </Card>
