@@ -77,33 +77,33 @@ export const useConversations = (projectId?: string | null) => {
       if (error) throw error;
       
       const conversations = data as Conversation[];
+      
+      // Return early if no conversations
+      if (!conversations.length) return conversations;
 
-      // Fetch attachment info for each conversation
-      const conversationsWithAttachments = await Promise.all(
-        conversations.map(async (conv) => {
-          const { data: messagesWithAttachments } = await supabase
-            .from("messages")
-            .select("id, attachments")
-            .eq("conversation_id", conv.id)
-            .not("attachments", "is", null);
+      // Batch fetch attachment counts for all conversations (fixes N+1 query)
+      const conversationIds = conversations.map(c => c.id);
+      const { data: messagesWithAttachments } = await supabase
+        .from("messages")
+        .select("conversation_id, attachments")
+        .in("conversation_id", conversationIds)
+        .not("attachments", "is", null);
 
-          const totalAttachments = messagesWithAttachments?.reduce(
-            (sum, msg) => {
-              const attachments = msg.attachments as any[];
-              return sum + (Array.isArray(attachments) ? attachments.length : 0);
-            },
-            0
-          ) || 0;
+      // Build attachment count map
+      const attachmentCountMap = new Map<string, number>();
+      messagesWithAttachments?.forEach(msg => {
+        const attachments = msg.attachments as unknown[];
+        const count = Array.isArray(attachments) ? attachments.length : 0;
+        const current = attachmentCountMap.get(msg.conversation_id) || 0;
+        attachmentCountMap.set(msg.conversation_id, current + count);
+      });
 
-          return {
-            ...conv,
-            has_attachments: totalAttachments > 0,
-            attachment_count: totalAttachments,
-          };
-        })
-      );
-
-      return conversationsWithAttachments;
+      // Map attachment data to conversations
+      return conversations.map(conv => ({
+        ...conv,
+        attachment_count: attachmentCountMap.get(conv.id) || 0,
+        has_attachments: (attachmentCountMap.get(conv.id) || 0) > 0,
+      }));
     },
   });
 
