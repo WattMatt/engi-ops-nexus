@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,6 +39,14 @@ import {
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AIImplementationGuide } from "./AIImplementationGuide";
+import { ReviewStreamingProgress, DEFAULT_REVIEW_STEPS } from "./ReviewStreamingProgress";
+
+interface ReviewStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  score?: number;
+}
 
 interface ReviewData {
   overallScore: number;
@@ -81,6 +89,77 @@ export function ApplicationReviewDialog() {
   const [includeDatabase, setIncludeDatabase] = useState(true);
   const [includeComponents, setIncludeComponents] = useState(true);
   const [includeOperational, setIncludeOperational] = useState(true);
+  
+  // Streaming progress state
+  const [reviewSteps, setReviewSteps] = useState<ReviewStep[]>(DEFAULT_REVIEW_STEPS);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [overallProgress, setOverallProgress] = useState(0);
+
+  // Simulate step progression during review
+  const advanceStep = useCallback((stepId: string, score?: number) => {
+    setReviewSteps(prev => prev.map(step => {
+      if (step.id === stepId) {
+        return { ...step, status: 'completed' as const, score };
+      }
+      return step;
+    }));
+    
+    setCurrentStepIndex(prev => {
+      const nextIndex = prev + 1;
+      // Set next step to in_progress
+      setReviewSteps(prevSteps => prevSteps.map((step, idx) => {
+        if (idx === nextIndex) {
+          return { ...step, status: 'in_progress' as const };
+        }
+        return step;
+      }));
+      return nextIndex;
+    });
+  }, []);
+
+  // Progress simulation effect
+  useEffect(() => {
+    if (!isReviewing) return;
+
+    // Reset steps when starting
+    setReviewSteps(DEFAULT_REVIEW_STEPS.map((step, idx) => ({
+      ...step,
+      status: idx === 0 ? 'in_progress' : 'pending',
+      score: undefined
+    })));
+    setCurrentStepIndex(0);
+    setOverallProgress(0);
+
+    // Simulate step progression with realistic timing
+    const stepTimings = [
+      { stepId: 'init', delay: 1500 },
+      { stepId: 'context', delay: 3000 },
+      { stepId: 'ux', delay: 6000 },
+      { stepId: 'performance', delay: 4000 },
+      { stepId: 'security', delay: 5000 },
+      { stepId: 'components', delay: 4000 },
+      { stepId: 'operational', delay: 5000 },
+      { stepId: 'codeQuality', delay: 4000 },
+    ];
+
+    let totalDelay = 0;
+    const timeouts: NodeJS.Timeout[] = [];
+
+    stepTimings.forEach(({ stepId, delay }, index) => {
+      totalDelay += delay;
+      const timeout = setTimeout(() => {
+        if (isReviewing) {
+          advanceStep(stepId);
+          setOverallProgress(((index + 1) / (stepTimings.length + 1)) * 100);
+        }
+      }, totalDelay);
+      timeouts.push(timeout);
+    });
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, [isReviewing, advanceStep]);
 
   const handleStartReview = async () => {
     setIsReviewing(true);
@@ -103,6 +182,13 @@ export function ApplicationReviewDialog() {
       if (error) throw error;
 
       if (data) {
+        // Complete the final step
+        advanceStep('finalize');
+        setOverallProgress(100);
+        
+        // Small delay to show completion before showing results
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         setReviewData(data);
         toast.success("Application review completed!");
       }
@@ -348,24 +434,35 @@ export function ApplicationReviewDialog() {
 
             <AIImplementationGuide />
 
-            <Button 
-              onClick={handleStartReview} 
-              disabled={isReviewing}
-              className="w-full h-12"
-              size="lg"
-            >
-              {isReviewing ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Analyzing Application... (This may take 30-60 seconds)
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Start AI Review
-                </>
-              )}
-            </Button>
+            {isReviewing ? (
+              <Card className="border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                    AI Review in Progress
+                  </CardTitle>
+                  <CardDescription>
+                    Analyzing your application across multiple dimensions...
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ReviewStreamingProgress
+                    steps={reviewSteps}
+                    currentStep={currentStepIndex}
+                    overallProgress={overallProgress}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <Button 
+                onClick={handleStartReview} 
+                className="w-full h-12"
+                size="lg"
+              >
+                <Sparkles className="mr-2 h-5 w-5" />
+                Start AI Review
+              </Button>
+            )}
           </div>
         ) : (
           <ScrollArea className="h-[600px] pr-4">
