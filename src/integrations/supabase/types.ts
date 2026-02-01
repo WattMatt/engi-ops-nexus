@@ -11956,8 +11956,10 @@ export type Database = {
       }
       report_automation_settings: {
         Row: {
+          contact_id: string | null
           created_at: string
           created_by: string | null
+          document_id: string | null
           enabled: boolean
           id: string
           include_cover_page: boolean
@@ -11967,6 +11969,7 @@ export type Database = {
           next_run_at: string | null
           project_id: string
           recipient_emails: string[] | null
+          report_config: Json | null
           report_type: string
           schedule_day: number | null
           schedule_time: string
@@ -11974,8 +11977,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          contact_id?: string | null
           created_at?: string
           created_by?: string | null
+          document_id?: string | null
           enabled?: boolean
           id?: string
           include_cover_page?: boolean
@@ -11985,6 +11990,7 @@ export type Database = {
           next_run_at?: string | null
           project_id: string
           recipient_emails?: string[] | null
+          report_config?: Json | null
           report_type?: string
           schedule_day?: number | null
           schedule_time?: string
@@ -11992,8 +11998,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          contact_id?: string | null
           created_at?: string
           created_by?: string | null
+          document_id?: string | null
           enabled?: boolean
           id?: string
           include_cover_page?: boolean
@@ -12003,6 +12011,7 @@ export type Database = {
           next_run_at?: string | null
           project_id?: string
           recipient_emails?: string[] | null
+          report_config?: Json | null
           report_type?: string
           schedule_day?: number | null
           schedule_time?: string
@@ -12010,6 +12019,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "report_automation_settings_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "project_contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "report_automation_settings_project_id_fkey"
             columns: ["project_id"]
