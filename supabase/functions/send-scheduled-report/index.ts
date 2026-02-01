@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,7 +7,6 @@ const corsHeaders = {
 };
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const PDFSHIFT_API_KEY = Deno.env.get("PDFSHIFT_API_KEY");
 
 interface ManualTriggerRequest {
   mode: 'manual';
@@ -17,6 +15,7 @@ interface ManualTriggerRequest {
   includeCoverPage?: boolean;
   includeKpiPage?: boolean;
   includeTenantSchedule?: boolean;
+  contactId?: string;
 }
 
 interface ScheduledTriggerRequest {
@@ -25,24 +24,10 @@ interface ScheduledTriggerRequest {
 
 type RequestPayload = ManualTriggerRequest | ScheduledTriggerRequest;
 
-interface Tenant {
-  id: string;
-  shop_name: string | null;
-  shop_number: string | null;
-  shop_category: string | null;
-  sow_received: boolean;
-  layout_received: boolean;
-  db_ordered: boolean;
-  lighting_ordered: boolean;
-  db_size_allowance: string | null;
-}
-
 interface Project {
   id: string;
   name: string;
   project_number: string;
-  project_logo_url: string | null;
-  client_logo_url: string | null;
 }
 
 interface AutomationSetting {
@@ -56,6 +41,7 @@ interface AutomationSetting {
   include_cover_page: boolean;
   include_kpi_page: boolean;
   include_tenant_schedule: boolean;
+  contact_id: string | null;
 }
 
 serve(async (req) => {
@@ -75,7 +61,7 @@ serve(async (req) => {
 
     if (payload.mode === 'manual') {
       // Manual trigger for testing
-      const { projectId, recipientEmails, includeCoverPage, includeKpiPage, includeTenantSchedule } = payload;
+      const { projectId, recipientEmails, includeCoverPage, includeKpiPage, includeTenantSchedule, contactId } = payload;
 
       if (!projectId || !recipientEmails?.length) {
         return new Response(
@@ -84,12 +70,13 @@ serve(async (req) => {
         );
       }
 
-      const result = await generateAndSendReport(supabase, {
+      const result = await generateAndSendReport(supabaseUrl, supabaseServiceKey, supabase, {
         projectId,
         recipientEmails,
         includeCoverPage: includeCoverPage ?? true,
         includeKpiPage: includeKpiPage ?? true,
         includeTenantSchedule: includeTenantSchedule ?? true,
+        contactId,
       });
 
       return new Response(
@@ -118,12 +105,13 @@ serve(async (req) => {
       const results: Array<{ settingId: string; success: boolean; emailId?: string; error?: string }> = [];
       for (const setting of (dueSettings || []) as AutomationSetting[]) {
         try {
-          const result = await generateAndSendReport(supabase, {
+          const result = await generateAndSendReport(supabaseUrl, supabaseServiceKey, supabase, {
             projectId: setting.project_id,
             recipientEmails: setting.recipient_emails || [],
             includeCoverPage: setting.include_cover_page,
             includeKpiPage: setting.include_kpi_page,
             includeTenantSchedule: setting.include_tenant_schedule,
+            contactId: setting.contact_id || undefined,
           });
 
           // Update last_run_at and calculate next_run_at
@@ -166,21 +154,24 @@ interface ReportOptions {
   includeCoverPage: boolean;
   includeKpiPage: boolean;
   includeTenantSchedule: boolean;
+  contactId?: string;
 }
 
 // deno-lint-ignore no-explicit-any
 async function generateAndSendReport(
+  supabaseUrl: string,
+  supabaseServiceKey: string,
   supabase: any,
   options: ReportOptions
 ): Promise<{ success: boolean; emailId?: string; error?: string }> {
-  const { projectId, recipientEmails, includeCoverPage, includeKpiPage, includeTenantSchedule } = options;
+  const { projectId, recipientEmails, includeCoverPage, includeKpiPage, includeTenantSchedule, contactId } = options;
 
   console.log(`[SendScheduledReport] Generating report for project ${projectId}`);
 
-  // Fetch project data
+  // Fetch project data for email content
   const { data: project, error: projectError } = await supabase
     .from('projects')
-    .select('*')
+    .select('id, name, project_number')
     .eq('id', projectId)
     .single();
 
@@ -190,25 +181,24 @@ async function generateAndSendReport(
 
   const projectData = project as Project;
 
-  // Fetch tenant data
-  const { data: tenants, error: tenantsError } = await supabase
+  // Fetch tenant count for email summary
+  const { count: totalTenants } = await supabase
     .from('tenants')
-    .select('id, shop_name, shop_number, shop_category, sow_received, layout_received, db_ordered, lighting_ordered, db_size_allowance')
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', projectId);
+
+  const { count: completedTenants } = await supabase
+    .from('tenants')
+    .select('id', { count: 'exact', head: true })
     .eq('project_id', projectId)
-    .order('shop_number', { ascending: true });
+    .eq('sow_received', true)
+    .eq('layout_received', true)
+    .eq('db_ordered', true)
+    .eq('lighting_ordered', true);
 
-  if (tenantsError) {
-    throw new Error(`Failed to fetch tenants: ${tenantsError.message}`);
-  }
-
-  const tenantData = (tenants || []) as Tenant[];
-
-  // Calculate statistics
-  const totalTenants = tenantData.length;
-  const completedTenants = tenantData.filter(t => 
-    t.sow_received && t.layout_received && t.db_ordered && t.lighting_ordered
-  ).length;
-  const completionPercentage = totalTenants > 0 ? Math.round((completedTenants / totalTenants) * 100) : 0;
+  const completionPercentage = (totalTenants || 0) > 0 
+    ? Math.round(((completedTenants || 0) / (totalTenants || 1)) * 100) 
+    : 0;
 
   const reportDate = new Date().toLocaleDateString('en-ZA', { 
     year: 'numeric', 
@@ -216,17 +206,38 @@ async function generateAndSendReport(
     day: 'numeric' 
   });
 
-  // Generate PDF using PDFShift
-  console.log('[SendScheduledReport] Generating PDF...');
-  const pdfBase64 = await generatePDF(projectData, tenantData, {
-    includeCoverPage,
-    includeKpiPage,
-    includeTenantSchedule,
-    reportDate,
-    totalTenants,
-    completedTenants,
-    completionPercentage,
+  // Generate PDF using the dedicated Edge Function
+  console.log('[SendScheduledReport] Calling generate-tenant-tracker-pdf...');
+  
+  const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/generate-tenant-tracker-pdf`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseServiceKey}`,
+    },
+    body: JSON.stringify({
+      projectId,
+      includeCoverPage,
+      includeKpiPage,
+      includeTenantSchedule,
+      contactId,
+    }),
   });
+
+  if (!pdfResponse.ok) {
+    const errorText = await pdfResponse.text();
+    console.error('[SendScheduledReport] PDF generation failed:', errorText);
+    throw new Error(`PDF generation failed: ${pdfResponse.status}`);
+  }
+
+  const pdfResult = await pdfResponse.json();
+  
+  if (!pdfResult.success || !pdfResult.pdf) {
+    throw new Error(pdfResult.error || 'PDF generation returned no data');
+  }
+
+  const pdfBase64 = pdfResult.pdf;
+  console.log(`[SendScheduledReport] PDF generated: ${pdfResult.fileSize} bytes`);
 
   // Generate filename
   const dateStr = new Date().toISOString().split('T')[0];
@@ -263,11 +274,11 @@ async function generateAndSendReport(
       <table style="width: 100%;">
         <tr>
           <td style="padding: 5px 0; color: #6b7280;">Total Tenants:</td>
-          <td style="padding: 5px 0; font-weight: bold; text-align: right;">${totalTenants}</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right;">${totalTenants || 0}</td>
         </tr>
         <tr>
           <td style="padding: 5px 0; color: #6b7280;">Completed:</td>
-          <td style="padding: 5px 0; font-weight: bold; text-align: right; color: #10b981;">${completedTenants}</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right; color: #10b981;">${completedTenants || 0}</td>
         </tr>
         <tr>
           <td style="padding: 5px 0; color: #6b7280;">Completion Rate:</td>
@@ -321,353 +332,35 @@ async function generateAndSendReport(
   return { success: true, emailId: emailResult.id };
 }
 
-interface PDFOptions {
-  includeCoverPage: boolean;
-  includeKpiPage: boolean;
-  includeTenantSchedule: boolean;
-  reportDate: string;
-  totalTenants: number;
-  completedTenants: number;
-  completionPercentage: number;
-}
-
-async function generatePDF(
-  project: Project,
-  tenants: Tenant[],
-  options: PDFOptions
-): Promise<string> {
-  if (!PDFSHIFT_API_KEY) {
-    throw new Error('PDFSHIFT_API_KEY is not configured');
-  }
-
-  const { includeCoverPage, includeKpiPage, includeTenantSchedule, reportDate, totalTenants, completedTenants, completionPercentage } = options;
-
-  // Build tenant table rows
-  const tenantRows = tenants.map((tenant, index) => {
-    const checkCount = [tenant.sow_received, tenant.layout_received, tenant.db_ordered, tenant.lighting_ordered].filter(Boolean).length;
-    const statusLabel = checkCount === 4 ? 'Complete' : checkCount > 0 ? 'In Progress' : 'Pending';
-    const statusColor = checkCount === 4 ? '#10b981' : checkCount > 0 ? '#3b82f6' : '#f59e0b';
-    const bgColor = index % 2 === 0 ? '#ffffff' : '#f9fafb';
-    
-    return `
-      <tr style="background: ${bgColor};">
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">${tenant.shop_number || '-'}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">${tenant.shop_name || '-'}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">${tenant.shop_category || '-'}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">${tenant.db_size_allowance || '-'}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">
-          ${tenant.sow_received ? '✓' : '○'}
-        </td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">
-          ${tenant.layout_received ? '✓' : '○'}
-        </td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">
-          ${tenant.db_ordered ? '✓' : '○'}
-        </td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">
-          ${tenant.lighting_ordered ? '✓' : '○'}
-        </td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">
-          <span style="padding: 4px 10px; border-radius: 12px; font-size: 11px; background-color: ${statusColor}; color: white; white-space: nowrap;">
-            ${statusLabel}
-          </span>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Tenant Tracker Report - ${project.name}</title>
-  <style>
-    @page {
-      size: A4 landscape;
-      margin: 15mm;
-    }
-    
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      line-height: 1.5;
-      color: #1f2937;
-      margin: 0;
-      padding: 0;
-    }
-    
-    .cover-page {
-      page-break-after: always;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-      color: white;
-      margin: -15mm;
-      padding: 15mm;
-    }
-    
-    .cover-title {
-      font-size: 42px;
-      font-weight: bold;
-      margin-bottom: 20px;
-      letter-spacing: -0.5px;
-    }
-    
-    .cover-project {
-      font-size: 28px;
-      margin-bottom: 10px;
-      opacity: 0.95;
-    }
-    
-    .cover-number {
-      font-size: 18px;
-      opacity: 0.8;
-      margin-bottom: 40px;
-    }
-    
-    .cover-date {
-      font-size: 16px;
-      opacity: 0.7;
-      margin-top: 60px;
-    }
-    
-    .cover-company {
-      font-size: 14px;
-      opacity: 0.6;
-      margin-top: 10px;
-    }
-    
-    .kpi-section {
-      margin-bottom: 30px;
-    }
-    
-    .kpi-grid {
-      display: flex;
-      gap: 20px;
-      margin-top: 15px;
-    }
-    
-    .kpi-card {
-      flex: 1;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-    }
-    
-    .kpi-value {
-      font-size: 36px;
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-    
-    .kpi-label {
-      font-size: 14px;
-      color: #64748b;
-    }
-    
-    .section-title {
-      font-size: 20px;
-      font-weight: 600;
-      color: #1e3a5f;
-      margin-bottom: 15px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #2563eb;
-    }
-    
-    .tenant-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-    
-    .tenant-table th {
-      background: #1e3a5f;
-      color: white;
-      padding: 12px 10px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .tenant-table th:nth-child(n+5):nth-child(-n+8) {
-      text-align: center;
-    }
-    
-    .header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 25px;
-      padding-bottom: 15px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    
-    .header-info h1 {
-      margin: 0;
-      font-size: 24px;
-      color: #1e3a5f;
-    }
-    
-    .header-info p {
-      margin: 5px 0 0 0;
-      color: #64748b;
-      font-size: 14px;
-    }
-    
-    .header-date {
-      text-align: right;
-      color: #64748b;
-      font-size: 13px;
-    }
-    
-    .footer {
-      margin-top: 30px;
-      padding-top: 15px;
-      border-top: 1px solid #e5e7eb;
-      text-align: center;
-      font-size: 11px;
-      color: #9ca3af;
-    }
-  </style>
-</head>
-<body>
-  ${includeCoverPage ? `
-  <div class="cover-page">
-    <div class="cover-title">Tenant Tracker Report</div>
-    <div class="cover-project">${project.name}</div>
-    <div class="cover-number">${project.project_number}</div>
-    <div class="cover-date">Generated: ${reportDate}</div>
-    <div class="cover-company">Watson Mattheus Engineering</div>
-  </div>
-  ` : ''}
-  
-  <div class="header-row">
-    <div class="header-info">
-      <h1>Tenant Tracker Report</h1>
-      <p>${project.name} | ${project.project_number}</p>
-    </div>
-    <div class="header-date">
-      Generated: ${reportDate}
-    </div>
-  </div>
-
-  ${includeKpiPage ? `
-  <div class="kpi-section">
-    <div class="section-title">Summary Statistics</div>
-    <div class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-value" style="color: #2563eb;">${totalTenants}</div>
-        <div class="kpi-label">Total Tenants</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value" style="color: #10b981;">${completedTenants}</div>
-        <div class="kpi-label">Completed</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value" style="color: #f59e0b;">${totalTenants - completedTenants}</div>
-        <div class="kpi-label">In Progress</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value" style="color: #8b5cf6;">${completionPercentage}%</div>
-        <div class="kpi-label">Completion Rate</div>
-      </div>
-    </div>
-  </div>
-  ` : ''}
-
-  ${includeTenantSchedule ? `
-  <div class="schedule-section">
-    <div class="section-title">Tenant Schedule</div>
-    <table class="tenant-table">
-      <thead>
-        <tr>
-          <th style="width: 70px;">Shop No.</th>
-          <th style="width: 180px;">Tenant Name</th>
-          <th style="width: 120px;">Category</th>
-          <th style="width: 90px;">Connection</th>
-          <th style="width: 60px;">SOW</th>
-          <th style="width: 60px;">Layout</th>
-          <th style="width: 60px;">DB</th>
-          <th style="width: 60px;">Lighting</th>
-          <th style="width: 90px;">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tenantRows || '<tr><td colspan="9" style="padding: 20px; text-align: center; color: #9ca3af;">No tenants found</td></tr>'}
-      </tbody>
-    </table>
-  </div>
-  ` : ''}
-
-  <div class="footer">
-    <p>Watson Mattheus Engineering | EngiOps Nexus | Confidential</p>
-  </div>
-</body>
-</html>
-  `;
-
-  // Call PDFShift API to generate PDF
-  console.log('[SendScheduledReport] Calling PDFShift API...');
-  
-  const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${btoa(`api:${PDFSHIFT_API_KEY}`)}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      source: htmlContent,
-      landscape: true,
-      use_print: true,
-      format: 'A4',
-      margin: '15mm',
-    }),
-  });
-
-  if (!pdfResponse.ok) {
-    const errorText = await pdfResponse.text();
-    console.error('[SendScheduledReport] PDFShift error:', errorText);
-    throw new Error(`PDF generation failed: ${pdfResponse.status}`);
-  }
-
-  // Get PDF as array buffer and convert to base64
-  const pdfBuffer = await pdfResponse.arrayBuffer();
-  const pdfBase64 = base64Encode(pdfBuffer);
-  
-  console.log(`[SendScheduledReport] PDF generated successfully, size: ${Math.round(pdfBuffer.byteLength / 1024)}KB`);
-
-  return pdfBase64;
-}
-
 function calculateNextRunAt(setting: AutomationSetting): string {
   const now = new Date();
-  const [hours, minutes] = (setting.schedule_time || '09:00').split(':').map(Number);
-  
-  const nextRun = new Date();
-  nextRun.setHours(hours, minutes, 0, 0);
+  let nextRun = new Date(now);
 
   if (setting.schedule_type === 'weekly') {
-    const targetDay = setting.schedule_day ?? 1;
+    // Schedule for next occurrence of schedule_day (0 = Sunday, 1 = Monday, etc.)
+    const targetDay = setting.schedule_day ?? 1; // Default to Monday
     const currentDay = now.getDay();
-    let daysUntil = targetDay - currentDay;
-    if (daysUntil <= 0) {
-      daysUntil += 7;
+    let daysToAdd = targetDay - currentDay;
+    if (daysToAdd <= 0) {
+      daysToAdd += 7; // Next week
     }
-    nextRun.setDate(now.getDate() + daysUntil);
+    nextRun.setDate(now.getDate() + daysToAdd);
   } else if (setting.schedule_type === 'monthly') {
-    const targetDay = setting.schedule_day ?? 1;
-    nextRun.setDate(targetDay);
-    if (nextRun <= now) {
-      nextRun.setMonth(nextRun.getMonth() + 1);
-    }
+    // Schedule for next month on schedule_day
+    const targetDate = setting.schedule_day ?? 1;
+    nextRun.setMonth(now.getMonth() + 1);
+    nextRun.setDate(Math.min(targetDate, new Date(nextRun.getFullYear(), nextRun.getMonth() + 1, 0).getDate()));
+  } else if (setting.schedule_type === 'specific_date') {
+    // For specific date, add 1 year (or could be disabled after running)
+    nextRun.setFullYear(now.getFullYear() + 1);
+  }
+
+  // Apply schedule_time if set
+  if (setting.schedule_time) {
+    const [hours, minutes] = setting.schedule_time.split(':').map(Number);
+    nextRun.setHours(hours || 8, minutes || 0, 0, 0);
+  } else {
+    nextRun.setHours(8, 0, 0, 0); // Default to 8 AM
   }
 
   return nextRun.toISOString();
