@@ -4,8 +4,9 @@ import { ApplicationReviewDialog } from "@/components/admin/ApplicationReviewDia
 import { ReviewHistoryDashboard } from "@/components/admin/ReviewHistoryDashboard";
 import { ReviewComparisonView } from "@/components/admin/ReviewComparisonView";
 import { ProgressTrackingView } from "@/components/admin/ProgressTrackingView";
+import { ScheduledReviewSettings } from "@/components/admin/ScheduledReviewSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GitCompare, BarChart3, ListTodo } from "lucide-react";
+import { GitCompare, BarChart3, ListTodo, CalendarClock } from "lucide-react";
 
 const AdminAIReview = () => {
   return (
@@ -51,6 +52,10 @@ const AdminAIReview = () => {
             <GitCompare className="h-4 w-4" />
             Compare
           </TabsTrigger>
+          <TabsTrigger value="schedule" className="gap-2">
+            <CalendarClock className="h-4 w-4" />
+            Schedule
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
@@ -63,6 +68,10 @@ const AdminAIReview = () => {
 
         <TabsContent value="compare">
           <ReviewComparisonView />
+        </TabsContent>
+
+        <TabsContent value="schedule">
+          <ScheduledReviewSettings />
         </TabsContent>
       </Tabs>
     </div>

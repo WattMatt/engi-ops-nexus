@@ -12840,6 +12840,48 @@ export type Database = {
           },
         ]
       }
+      scheduled_review_settings: {
+        Row: {
+          created_at: string
+          focus_areas: string[]
+          id: string
+          is_enabled: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          recipient_emails: string[]
+          schedule_day: number | null
+          schedule_frequency: string
+          schedule_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          focus_areas?: string[]
+          id?: string
+          is_enabled?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          recipient_emails?: string[]
+          schedule_day?: number | null
+          schedule_frequency?: string
+          schedule_time?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          focus_areas?: string[]
+          id?: string
+          is_enabled?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          recipient_emails?: string[]
+          schedule_day?: number | null
+          schedule_frequency?: string
+          schedule_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shared_notes: {
         Row: {
           content: string
