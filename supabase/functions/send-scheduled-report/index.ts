@@ -8,14 +8,20 @@ const corsHeaders = {
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
+type ReportType = 'tenant_tracker' | 'cost_report' | 'cable_schedule' | 'generator_report';
+
 interface ManualTriggerRequest {
   mode: 'manual';
+  reportType?: ReportType;
   projectId: string;
   recipientEmails: string[];
+  documentId?: string;
+  contactId?: string;
+  reportConfig?: Record<string, any>;
+  // Legacy support for tenant tracker
   includeCoverPage?: boolean;
   includeKpiPage?: boolean;
   includeTenantSchedule?: boolean;
-  contactId?: string;
 }
 
 interface ScheduledTriggerRequest {
@@ -33,6 +39,7 @@ interface Project {
 interface AutomationSetting {
   id: string;
   project_id: string;
+  report_type: string;
   enabled: boolean;
   schedule_type: string;
   schedule_day: number | null;
@@ -42,7 +49,37 @@ interface AutomationSetting {
   include_kpi_page: boolean;
   include_tenant_schedule: boolean;
   contact_id: string | null;
+  document_id: string | null;
+  report_config: Record<string, any> | null;
 }
+
+// Report type configuration
+const REPORT_CONFIG: Record<ReportType, {
+  edgeFunction: string;
+  subjectPrefix: string;
+  reportName: string;
+}> = {
+  tenant_tracker: {
+    edgeFunction: 'generate-tenant-tracker-pdf',
+    subjectPrefix: 'Tenant Tracker Report',
+    reportName: 'Tenant_Tracker',
+  },
+  cost_report: {
+    edgeFunction: 'generate-cost-report-pdf',
+    subjectPrefix: 'Cost Report',
+    reportName: 'Cost_Report',
+  },
+  cable_schedule: {
+    edgeFunction: 'generate-cable-schedule-pdf',
+    subjectPrefix: 'Cable Schedule Report',
+    reportName: 'Cable_Schedule',
+  },
+  generator_report: {
+    edgeFunction: 'generate-generator-report-pdf',
+    subjectPrefix: 'Generator Financial Evaluation',
+    reportName: 'Generator_Report',
+  },
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -60,8 +97,18 @@ serve(async (req) => {
     console.log('[SendScheduledReport] Payload:', JSON.stringify(payload));
 
     if (payload.mode === 'manual') {
-      // Manual trigger for testing
-      const { projectId, recipientEmails, includeCoverPage, includeKpiPage, includeTenantSchedule, contactId } = payload;
+      const { 
+        reportType = 'tenant_tracker',
+        projectId, 
+        recipientEmails, 
+        documentId,
+        contactId,
+        reportConfig,
+        // Legacy params
+        includeCoverPage, 
+        includeKpiPage, 
+        includeTenantSchedule,
+      } = payload;
 
       if (!projectId || !recipientEmails?.length) {
         return new Response(
@@ -70,13 +117,20 @@ serve(async (req) => {
         );
       }
 
+      // Build config object (merge legacy and new format)
+      const config = reportConfig || {
+        include_cover_page: includeCoverPage ?? true,
+        include_kpi_page: includeKpiPage ?? true,
+        include_tenant_schedule: includeTenantSchedule ?? true,
+      };
+
       const result = await generateAndSendReport(supabaseUrl, supabaseServiceKey, supabase, {
+        reportType,
         projectId,
         recipientEmails,
-        includeCoverPage: includeCoverPage ?? true,
-        includeKpiPage: includeKpiPage ?? true,
-        includeTenantSchedule: includeTenantSchedule ?? true,
+        documentId,
         contactId,
+        reportConfig: config,
       });
 
       return new Response(
@@ -85,14 +139,13 @@ serve(async (req) => {
       );
 
     } else {
-      // Scheduled trigger - check for due reports
+      // Scheduled trigger - check for due reports of ALL types
       const now = new Date().toISOString();
       
       const { data: dueSettings, error: fetchError } = await supabase
         .from('report_automation_settings')
         .select('*')
         .eq('enabled', true)
-        .eq('report_type', 'tenant_tracker')
         .lte('next_run_at', now);
 
       if (fetchError) {
@@ -102,16 +155,26 @@ serve(async (req) => {
 
       console.log(`[SendScheduledReport] Found ${dueSettings?.length || 0} due reports`);
 
-      const results: Array<{ settingId: string; success: boolean; emailId?: string; error?: string }> = [];
+      const results: Array<{ settingId: string; reportType: string; success: boolean; emailId?: string; error?: string }> = [];
+      
       for (const setting of (dueSettings || []) as AutomationSetting[]) {
         try {
+          const reportType = setting.report_type as ReportType;
+          
+          // Build config from settings
+          const config = setting.report_config || {
+            include_cover_page: setting.include_cover_page,
+            include_kpi_page: setting.include_kpi_page,
+            include_tenant_schedule: setting.include_tenant_schedule,
+          };
+          
           const result = await generateAndSendReport(supabaseUrl, supabaseServiceKey, supabase, {
+            reportType,
             projectId: setting.project_id,
             recipientEmails: setting.recipient_emails || [],
-            includeCoverPage: setting.include_cover_page,
-            includeKpiPage: setting.include_kpi_page,
-            includeTenantSchedule: setting.include_tenant_schedule,
+            documentId: setting.document_id || undefined,
             contactId: setting.contact_id || undefined,
+            reportConfig: config,
           });
 
           // Update last_run_at and calculate next_run_at
@@ -124,11 +187,11 @@ serve(async (req) => {
             })
             .eq('id', setting.id);
 
-          results.push({ settingId: setting.id, success: true, emailId: result.emailId });
+          results.push({ settingId: setting.id, reportType, success: true, emailId: result.emailId });
         } catch (err: unknown) {
           const errorMessage = err instanceof Error ? err.message : 'Unknown error';
           console.error(`[SendScheduledReport] Failed for setting ${setting.id}:`, errorMessage);
-          results.push({ settingId: setting.id, success: false, error: errorMessage });
+          results.push({ settingId: setting.id, reportType: setting.report_type, success: false, error: errorMessage });
         }
       }
 
@@ -149,12 +212,12 @@ serve(async (req) => {
 });
 
 interface ReportOptions {
+  reportType: ReportType;
   projectId: string;
   recipientEmails: string[];
-  includeCoverPage: boolean;
-  includeKpiPage: boolean;
-  includeTenantSchedule: boolean;
+  documentId?: string;
   contactId?: string;
+  reportConfig: Record<string, any>;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -164,11 +227,12 @@ async function generateAndSendReport(
   supabase: any,
   options: ReportOptions
 ): Promise<{ success: boolean; emailId?: string; error?: string }> {
-  const { projectId, recipientEmails, includeCoverPage, includeKpiPage, includeTenantSchedule, contactId } = options;
+  const { reportType, projectId, recipientEmails, documentId, contactId, reportConfig } = options;
+  const config = REPORT_CONFIG[reportType];
 
-  console.log(`[SendScheduledReport] Generating report for project ${projectId}`);
+  console.log(`[SendScheduledReport] Generating ${reportType} report for project ${projectId}`);
 
-  // Fetch project data for email content
+  // Fetch project data
   const { data: project, error: projectError } = await supabase
     .from('projects')
     .select('id, name, project_number')
@@ -181,96 +245,60 @@ async function generateAndSendReport(
 
   const projectData = project as Project;
 
-  // Fetch tenant count for email summary
-  const { count: totalTenants } = await supabase
-    .from('tenants')
-    .select('id', { count: 'exact', head: true })
-    .eq('project_id', projectId);
-
-  const { count: completedTenants } = await supabase
-    .from('tenants')
-    .select('id', { count: 'exact', head: true })
-    .eq('project_id', projectId)
-    .eq('sow_received', true)
-    .eq('layout_received', true)
-    .eq('db_ordered', true)
-    .eq('lighting_ordered', true);
-
-  const completionPercentage = (totalTenants || 0) > 0 
-    ? Math.round(((completedTenants || 0) / (totalTenants || 1)) * 100) 
-    : 0;
-
-  const reportDate = new Date().toLocaleDateString('en-ZA', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
-
-  // Generate PDF using the dedicated Edge Function
-  console.log('[SendScheduledReport] Calling generate-tenant-tracker-pdf...');
+  // Generate PDF based on report type
+  let pdfBase64: string;
+  let summaryHtml: string;
   
-  const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/generate-tenant-tracker-pdf`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseServiceKey}`,
-    },
-    body: JSON.stringify({
-      projectId,
-      includeCoverPage,
-      includeKpiPage,
-      includeTenantSchedule,
-      contactId,
-    }),
-  });
+  console.log(`[SendScheduledReport] Calling ${config.edgeFunction}...`);
 
-  if (!pdfResponse.ok) {
-    const errorText = await pdfResponse.text();
-    console.error('[SendScheduledReport] PDF generation failed:', errorText);
-    throw new Error(`PDF generation failed: ${pdfResponse.status}`);
-  }
+  if (reportType === 'tenant_tracker') {
+    const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/${config.edgeFunction}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        projectId,
+        includeCoverPage: reportConfig.include_cover_page ?? true,
+        includeKpiPage: reportConfig.include_kpi_page ?? true,
+        includeTenantSchedule: reportConfig.include_tenant_schedule ?? true,
+        contactId,
+      }),
+    });
 
-  const pdfResult = await pdfResponse.json();
-  
-  if (!pdfResult.success || !pdfResult.pdf) {
-    throw new Error(pdfResult.error || 'PDF generation returned no data');
-  }
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error('[SendScheduledReport] PDF generation failed:', errorText);
+      throw new Error(`PDF generation failed: ${pdfResponse.status}`);
+    }
 
-  const pdfBase64 = pdfResult.pdf;
-  console.log(`[SendScheduledReport] PDF generated: ${pdfResult.fileSize} bytes`);
-
-  // Generate filename
-  const dateStr = new Date().toISOString().split('T')[0];
-  const filename = `${projectData.project_number}_Tenant_Tracker_${dateStr}.pdf`;
-
-  // Send email via Resend with PDF attachment
-  if (!RESEND_API_KEY) {
-    throw new Error('RESEND_API_KEY is not configured');
-  }
-
-  console.log(`[SendScheduledReport] Sending email with PDF attachment to ${recipientEmails.join(', ')}`);
-
-  // Email body HTML (brief summary)
-  const emailHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tenant Tracker Report</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 30px; border-radius: 8px;">
-    <h1 style="margin: 0 0 10px 0; font-size: 24px;">Tenant Tracker Report</h1>
-    <p style="margin: 0; opacity: 0.9;">${projectData.name}</p>
-    <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.8;">${projectData.project_number}</p>
-  </div>
-
-  <div style="padding: 25px 0;">
-    <p style="margin: 0 0 15px 0;">Please find attached the latest Tenant Tracker Report for your project.</p>
+    const pdfResult = await pdfResponse.json();
+    if (!pdfResult.success || !pdfResult.pdf) {
+      throw new Error(pdfResult.error || 'PDF generation returned no data');
+    }
+    pdfBase64 = pdfResult.pdf;
     
-    <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 16px;">Quick Summary</h3>
+    // Build summary for tenant tracker
+    const { count: totalTenants } = await supabase
+      .from('tenants')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_id', projectId);
+
+    const { count: completedTenants } = await supabase
+      .from('tenants')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_id', projectId)
+      .eq('sow_received', true)
+      .eq('layout_received', true)
+      .eq('db_ordered', true)
+      .eq('lighting_ordered', true);
+
+    const completionPercentage = (totalTenants || 0) > 0 
+      ? Math.round(((completedTenants || 0) / (totalTenants || 1)) * 100) 
+      : 0;
+
+    summaryHtml = `
       <table style="width: 100%;">
         <tr>
           <td style="padding: 5px 0; color: #6b7280;">Total Tenants:</td>
@@ -285,6 +313,257 @@ async function generateAndSendReport(
           <td style="padding: 5px 0; font-weight: bold; text-align: right; color: #8b5cf6;">${completionPercentage}%</td>
         </tr>
       </table>
+    `;
+
+  } else if (reportType === 'generator_report') {
+    const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/${config.edgeFunction}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        projectId,
+        includeCoverPage: reportConfig.include_cover_page ?? true,
+        includeExecutiveSummary: reportConfig.include_executive_summary ?? true,
+        includeTenantSchedule: reportConfig.include_tenant_schedule ?? true,
+        includeCapitalRecovery: reportConfig.include_capital_recovery ?? true,
+        includeRunningCosts: reportConfig.include_running_costs ?? true,
+        contactId,
+      }),
+    });
+
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error('[SendScheduledReport] Generator PDF generation failed:', errorText);
+      throw new Error(`Generator PDF generation failed: ${pdfResponse.status}`);
+    }
+
+    const pdfResult = await pdfResponse.json();
+    if (!pdfResult.success || !pdfResult.pdf) {
+      throw new Error(pdfResult.error || 'Generator PDF generation returned no data');
+    }
+    pdfBase64 = pdfResult.pdf;
+    
+    // Build summary for generator report
+    const { data: zones } = await supabase
+      .from('generator_zones')
+      .select('id')
+      .eq('project_id', projectId);
+
+    const { data: generators } = await supabase
+      .from('zone_generators')
+      .select('generator_cost')
+      .in('zone_id', (zones || []).map((z: any) => z.id));
+
+    const totalCost = (generators || []).reduce((sum: number, g: any) => sum + (Number(g.generator_cost) || 0), 0);
+
+    summaryHtml = `
+      <table style="width: 100%;">
+        <tr>
+          <td style="padding: 5px 0; color: #6b7280;">Total Zones:</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right;">${zones?.length || 0}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; color: #6b7280;">Total Generators:</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right;">${generators?.length || 0}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; color: #6b7280;">Capital Cost:</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right; color: #f59e0b;">R ${totalCost.toLocaleString()}</td>
+        </tr>
+      </table>
+    `;
+
+  } else if (reportType === 'cable_schedule') {
+    if (!documentId) {
+      throw new Error('Cable schedule requires a document ID');
+    }
+
+    // Fetch cable schedule data
+    const { data: schedule } = await supabase
+      .from('cable_schedules')
+      .select('*')
+      .eq('id', documentId)
+      .single();
+
+    const { data: entries } = await supabase
+      .from('cable_schedule_entries')
+      .select('*')
+      .eq('schedule_id', documentId);
+
+    const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/${config.edgeFunction}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        scheduleName: schedule?.schedule_name || 'Cable Schedule',
+        scheduleNumber: schedule?.schedule_number || 'CS-001',
+        revision: schedule?.revision || 'A',
+        projectName: projectData.name,
+        projectNumber: projectData.project_number,
+        entries: entries || [],
+        userId: 'system',
+        scheduleId: documentId,
+        filename: `${projectData.project_number}_Cable_Schedule.pdf`,
+      }),
+    });
+
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error('[SendScheduledReport] Cable schedule PDF generation failed:', errorText);
+      throw new Error(`Cable schedule PDF generation failed: ${pdfResponse.status}`);
+    }
+
+    const pdfResult = await pdfResponse.json();
+    if (!pdfResult.success || !pdfResult.pdf) {
+      throw new Error(pdfResult.error || 'Cable schedule PDF generation returned no data');
+    }
+    pdfBase64 = pdfResult.pdf;
+
+    const totalLength = (entries || []).reduce((sum: number, e: any) => sum + (e.total_length || 0), 0);
+    summaryHtml = `
+      <table style="width: 100%;">
+        <tr>
+          <td style="padding: 5px 0; color: #6b7280;">Total Cables:</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right;">${entries?.length || 0}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; color: #6b7280;">Total Length:</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right;">${totalLength.toFixed(1)} m</td>
+        </tr>
+      </table>
+    `;
+
+  } else if (reportType === 'cost_report') {
+    if (!documentId) {
+      throw new Error('Cost report requires a document ID');
+    }
+
+    // For cost reports, we need to fetch and prepare all the data
+    // This is more complex, so we'll call the existing PDF generation flow
+    const { data: report } = await supabase
+      .from('cost_reports')
+      .select('*')
+      .eq('id', documentId)
+      .single();
+
+    const { data: categories } = await supabase
+      .from('cost_report_categories')
+      .select('*')
+      .eq('report_id', documentId);
+
+    const { data: variations } = await supabase
+      .from('cost_report_variations')
+      .select('*')
+      .eq('report_id', documentId);
+
+    const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/${config.edgeFunction}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        reportId: documentId,
+        pdfData: {
+          report,
+          categoriesData: categories || [],
+          variationsData: variations || [],
+          variationLineItemsMap: {},
+          grandTotals: {},
+          categoryTotals: {},
+        },
+        options: {
+          includeCoverPage: reportConfig.include_cover_page ?? true,
+          includeExecutiveSummary: reportConfig.include_executive_summary ?? true,
+          includeCategoryBreakdown: reportConfig.include_category_breakdown ?? true,
+          includeVariations: reportConfig.include_variations ?? true,
+        },
+      }),
+    });
+
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error('[SendScheduledReport] Cost report PDF generation failed:', errorText);
+      throw new Error(`Cost report PDF generation failed: ${pdfResponse.status}`);
+    }
+
+    const pdfResult = await pdfResponse.json();
+    if (!pdfResult.success || !pdfResult.pdf) {
+      throw new Error(pdfResult.error || 'Cost report PDF generation returned no data');
+    }
+    pdfBase64 = pdfResult.pdf;
+
+    const totalBudget = (categories || []).reduce((sum: number, c: any) => sum + (c.budget || 0), 0);
+    const totalActual = (categories || []).reduce((sum: number, c: any) => sum + (c.actual || 0), 0);
+    const variance = totalBudget - totalActual;
+
+    summaryHtml = `
+      <table style="width: 100%;">
+        <tr>
+          <td style="padding: 5px 0; color: #6b7280;">Total Budget:</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right;">R ${totalBudget.toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; color: #6b7280;">Total Actual:</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right;">R ${totalActual.toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; color: #6b7280;">Variance:</td>
+          <td style="padding: 5px 0; font-weight: bold; text-align: right; color: ${variance >= 0 ? '#10b981' : '#ef4444'};">
+            ${variance >= 0 ? '+' : ''}R ${variance.toLocaleString()}
+          </td>
+        </tr>
+      </table>
+    `;
+
+  } else {
+    throw new Error(`Unknown report type: ${reportType}`);
+  }
+
+  console.log(`[SendScheduledReport] PDF generated for ${reportType}`);
+
+  // Generate filename
+  const dateStr = new Date().toISOString().split('T')[0];
+  const filename = `${projectData.project_number}_${config.reportName}_${dateStr}.pdf`;
+
+  // Send email via Resend with PDF attachment
+  if (!RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not configured');
+  }
+
+  const reportDate = new Date().toLocaleDateString('en-ZA', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+
+  console.log(`[SendScheduledReport] Sending email with PDF attachment to ${recipientEmails.join(', ')}`);
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${config.subjectPrefix}</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 30px; border-radius: 8px;">
+    <h1 style="margin: 0 0 10px 0; font-size: 24px;">${config.subjectPrefix}</h1>
+    <p style="margin: 0; opacity: 0.9;">${projectData.name}</p>
+    <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.8;">${projectData.project_number}</p>
+  </div>
+
+  <div style="padding: 25px 0;">
+    <p style="margin: 0 0 15px 0;">Please find attached the latest ${config.subjectPrefix} for your project.</p>
+    
+    <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 16px;">Quick Summary</h3>
+      ${summaryHtml}
     </div>
 
     <p style="margin: 0; font-size: 14px; color: #6b7280;">
@@ -309,7 +588,7 @@ async function generateAndSendReport(
     body: JSON.stringify({
       from: 'Watson Mattheus <noreply@watsonmattheus.com>',
       to: recipientEmails,
-      subject: `[${projectData.project_number}] Tenant Tracker Report - ${reportDate}`,
+      subject: `[${projectData.project_number}] ${config.subjectPrefix} - ${reportDate}`,
       html: emailHtml,
       attachments: [
         {
@@ -337,30 +616,26 @@ function calculateNextRunAt(setting: AutomationSetting): string {
   let nextRun = new Date(now);
 
   if (setting.schedule_type === 'weekly') {
-    // Schedule for next occurrence of schedule_day (0 = Sunday, 1 = Monday, etc.)
-    const targetDay = setting.schedule_day ?? 1; // Default to Monday
+    const targetDay = setting.schedule_day ?? 1;
     const currentDay = now.getDay();
     let daysToAdd = targetDay - currentDay;
     if (daysToAdd <= 0) {
-      daysToAdd += 7; // Next week
+      daysToAdd += 7;
     }
     nextRun.setDate(now.getDate() + daysToAdd);
   } else if (setting.schedule_type === 'monthly') {
-    // Schedule for next month on schedule_day
     const targetDate = setting.schedule_day ?? 1;
     nextRun.setMonth(now.getMonth() + 1);
     nextRun.setDate(Math.min(targetDate, new Date(nextRun.getFullYear(), nextRun.getMonth() + 1, 0).getDate()));
   } else if (setting.schedule_type === 'specific_date') {
-    // For specific date, add 1 year (or could be disabled after running)
     nextRun.setFullYear(now.getFullYear() + 1);
   }
 
-  // Apply schedule_time if set
   if (setting.schedule_time) {
     const [hours, minutes] = setting.schedule_time.split(':').map(Number);
     nextRun.setHours(hours || 8, minutes || 0, 0, 0);
   } else {
-    nextRun.setHours(8, 0, 0, 0); // Default to 8 AM
+    nextRun.setHours(8, 0, 0, 0);
   }
 
   return nextRun.toISOString();
