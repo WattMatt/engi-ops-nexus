@@ -348,8 +348,8 @@ export function ApplicationReviewDialog() {
           AI Application Review
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-6xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Sparkles className="h-6 w-6 text-primary" />
             AI-Powered Application Review
@@ -360,7 +360,8 @@ export function ApplicationReviewDialog() {
         </DialogHeader>
 
         {!reviewData ? (
-          <div className="space-y-6 py-4">
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-6 py-4">
             <div className="space-y-4">
               <h3 className="font-semibold">Review Scope</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -463,7 +464,8 @@ export function ApplicationReviewDialog() {
                 Start AI Review
               </Button>
             )}
-          </div>
+            </div>
+          </ScrollArea>
         ) : (
           <ScrollArea className="h-[600px] pr-4">
             <div className="space-y-6 py-4">
