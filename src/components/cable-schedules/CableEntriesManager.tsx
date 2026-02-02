@@ -11,6 +11,9 @@ import { ImportTenantsDialog } from "./ImportTenantsDialog";
 import { ImportExcelCableDialog } from "./ImportExcelCableDialog";
 import { SplitParallelCablesDialog } from "./SplitParallelCablesDialog";
 import { VirtualizedCableTable } from "./VirtualizedCableTable";
+import { GroupedCableTable } from "./GroupedCableTable";
+import { CableScheduleFilters, DEFAULT_CABLE_FILTERS, type CableFilters } from "./CableScheduleFilters";
+import { useFilterOptions, useFilteredEntries, useGroupedEntries } from "./useCableFiltering";
 import { PaginationControls } from "@/components/common/PaginationControls";
 import { useToast } from "@/hooks/use-toast";
 import { calculateCableSize } from "@/utils/cableSizing";
@@ -54,6 +57,10 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [floorPlanIds, setFloorPlanIds] = useState<string[]>([]);
+  
+  // Filtering and grouping state
+  const [filters, setFilters] = useState<CableFilters>(DEFAULT_CABLE_FILTERS);
+  const [groupByShop, setGroupByShop] = useState(false);
   
   // Fetch calculation settings
   const { data: calcSettings } = useCalculationSettings(projectId);
@@ -238,6 +245,11 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
 
   const totalCost = totalCostData || 0;
 
+  // Filtering and grouping hooks
+  const filterOptions = useFilterOptions(entries || []);
+  const filteredEntries = useFilteredEntries(entries || [], filters);
+  const groupedEntries = useGroupedEntries(filteredEntries, groupByShop, tenantNameMap);
+
   // Handle page size change
   const handlePageSizeChange = (newSize: number) => {
     setPageSize(newSize);
@@ -250,7 +262,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   };
 
   
-
   const handleEdit = (entry: any) => {
     setSelectedEntry(entry);
     setShowEditDialog(true);
@@ -485,6 +496,23 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
               </div>
             )}
 
+            {/* Filters and Grouping */}
+            <CableScheduleFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              groupByShop={groupByShop}
+              onGroupByShopChange={setGroupByShop}
+              availableOptions={filterOptions}
+            />
+
+            {/* Filter results info */}
+            {(filters.search || filters.cableType !== "all" || filters.installationMethod !== "all" || 
+              filters.cableSize !== "all" || filters.voltage !== "all" || filters.status !== "all") && (
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredEntries.length} of {entries?.length || 0} cables
+              </div>
+            )}
+
             {/* Top Pagination Controls */}
             {totalCount > 0 && (
               <PaginationControls
@@ -506,9 +534,20 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
+            ) : groupByShop ? (
+              <GroupedCableTable
+                groups={groupedEntries}
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+                onSplit={handleSplit}
+                tenantLoadMap={tenantLoadMap}
+                tenantNameMap={tenantNameMap}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
+              />
             ) : (
               <VirtualizedCableTable
-                entries={entries || []}
+                entries={filteredEntries}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
                 onSplit={handleSplit}
