@@ -197,3 +197,6 @@ verify_jwt = false
 
 [functions.run-scheduled-review]
 verify_jwt = false
+
+[functions.send-cable-verification-email]
+verify_jwt = false
