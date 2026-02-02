@@ -13271,6 +13271,7 @@ export type Database = {
           priority: Database["public"]["Enums"]["task_priority"]
           progress: number | null
           project_id: string
+          roadmap_item_id: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["task_status"]
           time_tracked_hours: number | null
@@ -13295,6 +13296,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["task_priority"]
           progress?: number | null
           project_id: string
+          roadmap_item_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           time_tracked_hours?: number | null
@@ -13319,6 +13321,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["task_priority"]
           progress?: number | null
           project_id?: string
+          roadmap_item_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           time_tracked_hours?: number | null
@@ -13346,6 +13349,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_diary_tasks_roadmap_item_id_fkey"
+            columns: ["roadmap_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_roadmap_items"
             referencedColumns: ["id"]
           },
         ]

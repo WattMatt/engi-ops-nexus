@@ -302,6 +302,7 @@ export function useOfflineSiteDiary({
         position: task.position ?? null,
         priority: task.priority ?? 'medium',
         progress: task.progress ?? null,
+        roadmap_item_id: task.roadmap_item_id ?? null,
         start_date: task.start_date ?? null,
         status: task.status ?? 'pending',
         time_tracked_hours: task.time_tracked_hours ?? null,

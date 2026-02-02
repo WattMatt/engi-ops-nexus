@@ -20,11 +20,13 @@ import {
   Plus,
   Upload,
   X,
-  Send
+  Send,
+  Map
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useImageCompression } from "@/hooks/useImageCompression";
+import { RoadmapItemSelector } from "./RoadmapItemSelector";
 
 interface TaskDetailsModalProps {
   taskId: string;
@@ -354,6 +356,19 @@ export const TaskDetailsModal = ({ taskId, projectId, open, onClose }: TaskDetai
               <span className="text-sm font-medium">{task?.progress || 0}%</span>
             </div>
           </div>
+        </div>
+
+        {/* Roadmap Link Section */}
+        <div className="mb-4 p-3 border rounded-lg bg-muted/30">
+          <div className="flex items-center gap-2 mb-2">
+            <Map className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-sm font-medium">Linked Roadmap Item</Label>
+          </div>
+          <RoadmapItemSelector
+            projectId={projectId}
+            value={task?.roadmap_item_id || null}
+            onChange={(value) => updateTask.mutate({ field: "roadmap_item_id", value })}
+          />
         </div>
 
         <Tabs defaultValue="subtasks" className="flex-1 flex flex-col overflow-hidden">
