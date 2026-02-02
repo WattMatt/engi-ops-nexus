@@ -2174,6 +2174,10 @@ export type Database = {
           created_at: string
           id: string
           ip_address: string | null
+          location_accuracy: number | null
+          location_captured_at: string | null
+          location_latitude: number | null
+          location_longitude: number | null
           overall_notes: string | null
           schedule_id: string
           signature_image_url: string | null
@@ -2193,6 +2197,10 @@ export type Database = {
           created_at?: string
           id?: string
           ip_address?: string | null
+          location_accuracy?: number | null
+          location_captured_at?: string | null
+          location_latitude?: number | null
+          location_longitude?: number | null
           overall_notes?: string | null
           schedule_id: string
           signature_image_url?: string | null
@@ -2212,6 +2220,10 @@ export type Database = {
           created_at?: string
           id?: string
           ip_address?: string | null
+          location_accuracy?: number | null
+          location_captured_at?: string | null
+          location_latitude?: number | null
+          location_longitude?: number | null
           overall_notes?: string | null
           schedule_id?: string
           signature_image_url?: string | null
@@ -2289,6 +2301,9 @@ export type Database = {
           cable_entry_id: string
           created_at: string
           id: string
+          location_accuracy: number | null
+          location_latitude: number | null
+          location_longitude: number | null
           measured_length_actual: number | null
           notes: string | null
           photo_urls: string[] | null
@@ -2301,6 +2316,9 @@ export type Database = {
           cable_entry_id: string
           created_at?: string
           id?: string
+          location_accuracy?: number | null
+          location_latitude?: number | null
+          location_longitude?: number | null
           measured_length_actual?: number | null
           notes?: string | null
           photo_urls?: string[] | null
@@ -2313,6 +2331,9 @@ export type Database = {
           cable_entry_id?: string
           created_at?: string
           id?: string
+          location_accuracy?: number | null
+          location_latitude?: number | null
+          location_longitude?: number | null
           measured_length_actual?: number | null
           notes?: string | null
           photo_urls?: string[] | null

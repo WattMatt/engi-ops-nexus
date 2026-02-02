@@ -8,3 +8,4 @@ export { CableVerificationList } from './CableVerificationList';
 export { SignatureCanvas } from './SignatureCanvas';
 export { ElectricianCredentialsForm } from './ElectricianCredentialsForm';
 export { VerificationProgressBar } from './VerificationProgressBar';
+export { LocationCaptureButton, LocationDisplay } from './LocationCaptureButton';
