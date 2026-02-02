@@ -2,10 +2,11 @@
 // ⚠️ CRITICAL: These tables MUST be verified against SANS 10142-1 Edition 3 (2020)
 // Last verification: UNVERIFIED - Requires qualified electrical engineer sign-off
 // Simplified table for copper and aluminium conductors, PVC insulated cables
-import { bignumber, add, subtract, multiply, divide, sqrt, abs, format } from 'mathjs';
 import { validateCableCalculation } from './cableValidation';
 
-// Math.js configured for high-precision electrical calculations
+// Helper function for formatting numbers to fixed precision
+const toFixed = (value: number, precision: number = 2): number => 
+  Number(value.toFixed(precision));
 
 export interface CableData {
   size: string;
@@ -112,18 +113,6 @@ export interface CableCalculationParams {
   voltageDropLimit?: number; // Custom voltage drop limit percentage
 }
 
-
-export interface CableAlternative {
-  cableSize: string;
-  cablesInParallel: number;
-  loadPerCable: number;
-  totalCost: number;
-  supplyCost: number;
-  installCost: number;
-  voltDropPercentage: number;
-  isRecommended: boolean;
-}
-
 /**
  * Calculate recommended cable size based on load current
  * Applies derating factor and selects cable with adequate current rating
@@ -159,9 +148,7 @@ export function calculateCableSize(
   if (loadAmps <= maxAmpsPerCable) {
     // Apply derating factor and safety margin to get required current rating
     // Safety margin increases required rating, derating factor also increases it (cable must handle MORE)
-    const requiredRating = Number(
-      format(divide(multiply(bignumber(loadAmps), bignumber(safetyMargin)), bignumber(deratingFactor)), { notation: 'fixed', precision: 2 })
-    );
+    const requiredRating = toFixed((loadAmps * safetyMargin) / deratingFactor);
     
     // Find the smallest cable that can handle the required current based on installation method
     let selectedCable = cableTable.find((cable) => {
@@ -265,9 +252,7 @@ export function calculateCableSize(
     current.totalCost > max.totalCost ? current : max
   );
 
-  const costSavings = Number(
-    subtract(bignumber(mostExpensive.totalCost), bignumber(recommended.totalCost)).toFixed(2)
-  );
+  const costSavings = toFixed(mostExpensive.totalCost - recommended.totalCost);
 
   // Find the cable details for the recommended option
   const recommendedCable = cableTable.find(c => c.size === recommended.cableSize)!;
@@ -342,36 +327,24 @@ function evaluateParallelOptions(
         totalLength
       );
       
-      // Calculate voltage drop percentage using proper SANS values with math.js
+      // Calculate voltage drop percentage
       const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable);
-      const voltDropPercentage = Number(
-        format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 })
-      );
+      const voltDropPercentage = toFixed((voltDrop / voltage) * 100);
       
       // Skip if voltage drop is still too high
       if (voltDropPercentage > maxVoltDropPercentage) continue;
     }
 
-    // Calculate total costs for this configuration using math.js
-    const supplyCostPerCable = Number(
-      format(multiply(bignumber(selectedCable.supplyCost), bignumber(totalLength || 0)), { notation: 'fixed', precision: 2 })
-    );
-    const installCostPerCable = Number(
-      format(multiply(bignumber(selectedCable.installCost), bignumber(totalLength || 0)), { notation: 'fixed', precision: 2 })
-    );
-    const totalSupplyCost = Number(
-      format(multiply(bignumber(supplyCostPerCable), bignumber(numCables)), { notation: 'fixed', precision: 2 })
-    );
-    const totalInstallCost = Number(
-      format(multiply(bignumber(installCostPerCable), bignumber(numCables)), { notation: 'fixed', precision: 2 })
-    );
-    const totalCost = Number(
-      format(add(bignumber(totalSupplyCost), bignumber(totalInstallCost)), { notation: 'fixed', precision: 2 })
-    );
+    // Calculate total costs for this configuration
+    const supplyCostPerCable = toFixed(selectedCable.supplyCost * (totalLength || 0));
+    const installCostPerCable = toFixed(selectedCable.installCost * (totalLength || 0));
+    const totalSupplyCost = toFixed(supplyCostPerCable * numCables);
+    const totalInstallCost = toFixed(installCostPerCable * numCables);
+    const totalCost = toFixed(totalSupplyCost + totalInstallCost);
 
     const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable);
     const voltDropPercentage = totalLength > 0 
-      ? Number(format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 }))
+      ? toFixed((voltDrop / voltage) * 100)
       : 0;
 
     alternatives.push({
@@ -407,9 +380,7 @@ function findCableWithAcceptableVoltDrop(
   while (cableIndex < cableTable.length) {
     const testCable = cableTable[cableIndex];
     const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, testCable);
-    const voltDropPercentage = Number(
-      format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 })
-    );
+    const voltDropPercentage = toFixed((voltDrop / voltage) * 100);
 
     console.log(`[TEST CABLE ${cableIndex}] Size: ${testCable.size}, Impedance: ${testCable.impedance}, VD: ${voltDropPercentage}%`);
 
@@ -438,18 +409,10 @@ function calculateVoltDrop(
   
   // If passed a CableData object, use the proper voltage drop values
   if (typeof cableData === 'object') {
-    // Use SANS voltage drop values (mV/A/m) with math.js precision
+    // Use SANS voltage drop values (mV/A/m)
     const voltDropPerAmpPerMeter = voltage === 400 ? cableData.voltDrop3Phase : cableData.voltDrop1Phase;
     // Convert mV to V: (mV/A/m) * A * m / 1000
-    return Number(
-      format(
-        divide(
-          multiply(multiply(bignumber(voltDropPerAmpPerMeter), bignumber(loadAmps)), bignumber(totalLength)),
-          bignumber(1000)
-        ),
-        { notation: 'fixed', precision: 2 }
-      )
-    );
+    return toFixed((voltDropPerAmpPerMeter * loadAmps * totalLength) / 1000);
   } else {
     // Legacy: if just impedance value is passed
     const impedance = cableData;
@@ -471,21 +434,14 @@ function calculateSingleCableResult(
   totalLength: number
 ): Omit<CableCalculationResult, 'cablesInParallel' | 'loadPerCable'> {
   const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, cable);
-  // Use math.js for percentage calculation
   const voltDropPercentage = totalLength > 0 
-    ? Number(format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 }))
+    ? toFixed((voltDrop / voltage) * 100)
     : 0;
   
-  // Use math.js for cost calculations
-  const supplyCost = Number(
-    format(multiply(bignumber(cable.supplyCost), bignumber(totalLength || 0)), { notation: 'fixed', precision: 2 })
-  );
-  const installCost = Number(
-    format(multiply(bignumber(cable.installCost), bignumber(totalLength || 0)), { notation: 'fixed', precision: 2 })
-  );
-  const totalCost = Number(
-    format(add(bignumber(supplyCost), bignumber(installCost)), { notation: 'fixed', precision: 2 })
-  );
+  // Calculate costs
+  const supplyCost = toFixed(cable.supplyCost * (totalLength || 0));
+  const installCost = toFixed(cable.installCost * (totalLength || 0));
+  const totalCost = toFixed(supplyCost + installCost);
 
   // CRITICAL SAFETY CHECK: Verify cable data matches expected size
   const csaFromSize = cable.size.match(/(\d+\.?\d*)/);
@@ -497,8 +453,8 @@ function calculateSingleCableResult(
   return {
     recommendedSize: cable.size,
     ohmPerKm: cable.impedance,
-    voltDrop: Number(format(bignumber(voltDrop), { notation: 'fixed', precision: 2 })),
-    voltDropPercentage: Number(format(bignumber(voltDropPercentage), { notation: 'fixed', precision: 2 })),
+    voltDrop: toFixed(voltDrop),
+    voltDropPercentage: toFixed(voltDropPercentage),
     supplyCost,
     installCost,
     totalCost,

@@ -1,9 +1,7 @@
-
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { X, Maximize2 } from 'lucide-react';
-import { FloorPlan3D } from './3D/FloorPlan3D';
+import { X, Maximize2, Box } from 'lucide-react';
 import { SupplyLine, EquipmentItem, Containment, ScaleInfo } from '../types';
 
 interface FloorPlan3DDialogProps {
@@ -36,17 +34,21 @@ export function FloorPlan3DDialog({
                     </Button>
                 </div>
 
-                <div className="flex-1 overflow-hidden relative bg-slate-900">
-                    <FloorPlan3D
-                        lines={lines}
-                        equipment={equipment}
-                        containment={containment}
-                        scaleInfo={scaleInfo}
-                    />
+                <div className="flex-1 overflow-hidden relative bg-slate-900 flex items-center justify-center">
+                    <div className="text-center text-slate-400">
+                        <Box className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">3D Visualization Temporarily Unavailable</p>
+                        <p className="text-sm mt-2 text-slate-500">
+                            Equipment: {equipment.length} items • Lines: {lines.length} • Containment: {containment.length}
+                        </p>
+                        <p className="text-xs mt-4 text-slate-600">
+                            Use the 2D view for floor plan editing
+                        </p>
+                    </div>
                 </div>
 
                 <div className="p-2 bg-slate-900 border-t border-slate-800 text-[10px] text-slate-500 text-center">
-                    Use mouse to navigate (Left-drag to rotate, Right-drag to pan, Scroll to zoom)
+                    3D visualization is being updated
                 </div>
             </DialogContent>
         </Dialog>

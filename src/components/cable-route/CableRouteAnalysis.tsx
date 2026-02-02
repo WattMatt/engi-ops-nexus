@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Route3DViewer } from './Route3DViewer';
 import { ComplianceChecker } from './ComplianceChecker';
 import { MaterialTakeoffReport } from './MaterialTakeoffReport';
 import { TestingCommissioningChecklist } from './TestingCommissioningChecklist';
 import { CostBreakdown } from './CostBreakdown';
 import { CostTemplateManager } from './CostTemplateManager';
 import { RouteVersionHistory } from './RouteVersionHistory';
-import { ClashDetection } from './ClashDetection';
 import { CableRoute, CostTemplate, RouteVersion } from './types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Box, AlertTriangle } from 'lucide-react';
 
 interface CableRouteAnalysisProps {
   route: CableRoute;
@@ -38,19 +38,15 @@ export function CableRouteAnalysis({ route, onRouteUpdate }: CableRouteAnalysisP
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="3d-view" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="3d-view">3D View</TabsTrigger>
-          <TabsTrigger value="clash">Clash Detection</TabsTrigger>
+      <Tabs defaultValue="metrics" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="compliance">Compliance</TabsTrigger>
           <TabsTrigger value="materials">Materials</TabsTrigger>
           <TabsTrigger value="testing">Testing</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="3d-view" className="space-y-6">
-          <Route3DViewer points={route.points} cableDiameter={route.diameter} />
-          
+        <TabsContent value="metrics" className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             {route.metrics && (
               <div className="space-y-4">
@@ -78,10 +74,24 @@ export function CableRouteAnalysis({ route, onRouteUpdate }: CableRouteAnalysisP
             
             <CostBreakdown route={route} />
           </div>
-        </TabsContent>
-
-        <TabsContent value="clash" className="mt-6">
-          <ClashDetection points={route.points} cableDiameter={route.diameter} />
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Box className="h-5 w-5" />
+                3D Visualization
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 flex items-center justify-center bg-muted/50 rounded-lg border-2 border-dashed border-muted-foreground/20">
+                <div className="text-center text-muted-foreground">
+                  <Box className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">3D visualization temporarily unavailable</p>
+                  <p className="text-xs mt-1">View route metrics above</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="compliance" className="mt-6">
@@ -95,20 +105,18 @@ export function CableRouteAnalysis({ route, onRouteUpdate }: CableRouteAnalysisP
         <TabsContent value="testing" className="mt-6">
           <TestingCommissioningChecklist />
         </TabsContent>
-
-        <TabsContent value="settings" className="space-y-6">
-          <CostTemplateManager onTemplateChange={setCostTemplate} />
-          
-          {versions.length > 0 && (
-            <RouteVersionHistory
-              versions={versions}
-              currentVersionId={route.id}
-              onRevert={handleRevertVersion}
-              onDelete={handleDeleteVersion}
-            />
-          )}
-        </TabsContent>
       </Tabs>
+      
+      <CostTemplateManager onTemplateChange={setCostTemplate} />
+      
+      {versions.length > 0 && (
+        <RouteVersionHistory
+          versions={versions}
+          currentVersionId={route.id}
+          onRevert={handleRevertVersion}
+          onDelete={handleDeleteVersion}
+        />
+      )}
     </div>
   );
 }
