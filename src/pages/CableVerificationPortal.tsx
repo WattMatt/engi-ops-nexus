@@ -15,7 +15,8 @@ import {
   User,
   Building2,
   Calendar,
-  Shield
+  Shield,
+  MapPin
 } from "lucide-react";
 import { format } from "date-fns";
 import { 
@@ -28,14 +29,17 @@ import { LoadingState, ErrorState } from "@/components/common";
 import { 
   CableVerificationList, 
   ElectricianCredentialsForm,
-  VerificationProgressBar 
+  VerificationProgressBar,
+  LocationCaptureButton
 } from "@/components/cable-verification";
 import { useToast } from "@/hooks/use-toast";
+import { useGeolocation, GeolocationPosition } from "@/hooks/useGeolocation";
 
 export default function CableVerificationPortal() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const { toast } = useToast();
+  const { position: gpsPosition, captureLocation, isLoading: isCapturingLocation } = useGeolocation();
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +56,7 @@ export default function CableVerificationPortal() {
   const [updatingCableId, setUpdatingCableId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [capturedLocation, setCapturedLocation] = useState<GeolocationPosition | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -186,6 +191,15 @@ export default function CableVerificationPortal() {
 
     setUpdatingCableId(cableId);
     try {
+      // Capture location if not already captured
+      let locationData = capturedLocation;
+      if (!locationData) {
+        locationData = await captureLocation();
+        if (locationData) {
+          setCapturedLocation(locationData);
+        }
+      }
+
       // Check if verification item exists
       const { data: existing } = await supabase
         .from('cable_verification_items')
@@ -200,6 +214,10 @@ export default function CableVerificationPortal() {
         measured_length_actual: measuredLength || null,
         verified_at: status !== 'pending' ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
+        // Add location data to individual cable verification
+        location_latitude: locationData?.latitude || null,
+        location_longitude: locationData?.longitude || null,
+        location_accuracy: locationData?.accuracy || null,
       };
 
       if (existing) {
@@ -218,12 +236,17 @@ export default function CableVerificationPortal() {
       }
 
       // Update verification status to in_progress if still pending
+      // Also save location to the main verification record
       if (portalData.verification_status === 'pending') {
         await supabase
           .from('cable_schedule_verifications')
           .update({ 
             status: 'in_progress',
             started_at: new Date().toISOString(),
+            location_latitude: locationData?.latitude || null,
+            location_longitude: locationData?.longitude || null,
+            location_accuracy: locationData?.accuracy || null,
+            location_captured_at: locationData ? new Date().toISOString() : null,
           })
           .eq('id', portalData.verification_id);
       }
@@ -257,7 +280,7 @@ export default function CableVerificationPortal() {
     } finally {
       setUpdatingCableId(null);
     }
-  }, [portalData, cables, toast]);
+  }, [portalData, cables, toast, capturedLocation, captureLocation]);
 
   // Batch status change for multiple cables at once
   const handleBatchStatusChange = useCallback(async (
@@ -267,6 +290,15 @@ export default function CableVerificationPortal() {
     if (!portalData || cableIds.length === 0) return;
 
     try {
+      // Capture location if not already captured
+      let locationData = capturedLocation;
+      if (!locationData) {
+        locationData = await captureLocation();
+        if (locationData) {
+          setCapturedLocation(locationData);
+        }
+      }
+
       // Prepare batch updates
       const now = new Date().toISOString();
       
@@ -300,6 +332,9 @@ export default function CableVerificationPortal() {
             status,
             verified_at: status !== 'pending' ? now : null,
             updated_at: now,
+            location_latitude: locationData?.latitude || null,
+            location_longitude: locationData?.longitude || null,
+            location_accuracy: locationData?.accuracy || null,
           })
           .in('id', updateIds);
       }
@@ -311,6 +346,9 @@ export default function CableVerificationPortal() {
           cable_entry_id: cableId,
           status,
           verified_at: status !== 'pending' ? now : null,
+          location_latitude: locationData?.latitude || null,
+          location_longitude: locationData?.longitude || null,
+          location_accuracy: locationData?.accuracy || null,
         }));
         
         await supabase
@@ -325,6 +363,10 @@ export default function CableVerificationPortal() {
           .update({ 
             status: 'in_progress',
             started_at: now,
+            location_latitude: locationData?.latitude || null,
+            location_longitude: locationData?.longitude || null,
+            location_accuracy: locationData?.accuracy || null,
+            location_captured_at: locationData ? now : null,
           })
           .eq('id', portalData.verification_id);
       }
@@ -347,7 +389,7 @@ export default function CableVerificationPortal() {
       console.error('Batch update failed:', err);
       throw err;
     }
-  }, [portalData, cables]);
+  }, [portalData, cables, capturedLocation, captureLocation]);
 
   const handlePhotoUpload = useCallback(async (cableId: string, file: File): Promise<string> => {
     if (!portalData) throw new Error('No portal data');
@@ -608,6 +650,14 @@ export default function CableVerificationPortal() {
                 <span>{portalData.electrician.registration}</span>
               </div>
             )}
+            {/* GPS Location Capture */}
+            <div className="flex items-center gap-2">
+              <LocationCaptureButton
+                variant="compact"
+                capturedLocation={capturedLocation}
+                onLocationCaptured={(pos) => setCapturedLocation(pos)}
+              />
+            </div>
             <div className="flex items-center gap-1.5 ml-auto">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">
