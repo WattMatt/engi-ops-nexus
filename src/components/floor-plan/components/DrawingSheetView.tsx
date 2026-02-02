@@ -12,7 +12,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { EquipmentItem, SupplyLine, Containment, EquipmentType, ContainmentType, ScaleInfo } from '../types';
-import { Isometric3DViewer } from './Isometric3DViewer';
 import { CableSchedule } from './CableSchedule';
 import { DrawingSheet2DCanvas } from './DrawingSheet2DCanvas';
 // Enhanced Schedule Components
@@ -471,15 +470,15 @@ export function DrawingSheetView({
                 <div className="absolute top-2 left-2 z-10 bg-background/80 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium">
                   3D ILLUSTRATION
                 </div>
-                <Isometric3DViewer
-                  equipment={filteredEquipment}
-                  containment={filteredContainment}
-                  lines={lines}
-                  scaleInfo={scaleInfo}
-                  ceilingHeight={2.7}
-                  selectedItemId={selectedItemId}
-                  onItemSelect={onItemSelect}
-                />
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <div className="text-center p-8">
+                    <Box className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm font-medium">3D View Temporarily Unavailable</p>
+                    <p className="text-xs mt-2">
+                      Equipment: {filteredEquipment.length} • Containment: {filteredContainment.length}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
