@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { TaskDetailsModal } from "./TaskDetailsModal";
 import { cn } from "@/lib/utils";
+import { useRoadmapCompletionCheck } from "@/hooks/useRoadmapCompletionCheck";
+import { RoadmapCompletionPrompt } from "@/components/dashboard/roadmap/RoadmapCompletionPrompt";
 
 interface Task {
   id: string;
@@ -21,12 +23,13 @@ interface Task {
   progress: number;
   roadmap_item_id: string | null;
   profiles?: { full_name: string | null };
-  roadmap_item?: { title: string } | null;
+  roadmap_item?: { title: string; phase: string | null } | null;
 }
 
 interface KanbanBoardProps {
   projectId: string;
   onCreateTask: () => void;
+  phaseFilter?: string | null;
 }
 
 const STATUSES = [
@@ -35,13 +38,14 @@ const STATUSES = [
   { id: "completed", label: "Completed", icon: CheckCircle2 },
 ];
 
-export const KanbanBoard = ({ projectId, onCreateTask }: KanbanBoardProps) => {
+export const KanbanBoard = ({ projectId, onCreateTask, phaseFilter }: KanbanBoardProps) => {
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const { promptData, isPromptOpen, checkAndPromptCompletion, closePrompt } = useRoadmapCompletionCheck();
 
   const { data: tasks } = useQuery({
-    queryKey: ["kanban-tasks", projectId],
+    queryKey: ["kanban-tasks", projectId, phaseFilter],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("site_diary_tasks")
@@ -78,7 +82,7 @@ export const KanbanBoard = ({ projectId, onCreateTask }: KanbanBoardProps) => {
           if (task.roadmap_item_id) {
             const { data: roadmapItem } = await supabase
               .from("project_roadmap_items")
-              .select("title")
+              .select("title, phase")
               .eq("id", task.roadmap_item_id)
               .single();
             roadmap_item = roadmapItem;
@@ -88,22 +92,36 @@ export const KanbanBoard = ({ projectId, onCreateTask }: KanbanBoardProps) => {
         })
       );
 
-      return tasksWithProfiles as Task[];
+      // Apply phase filter
+      let filteredTasks = tasksWithProfiles as Task[];
+      if (phaseFilter) {
+        if (phaseFilter === "_unlinked") {
+          filteredTasks = filteredTasks.filter((t) => !t.roadmap_item_id);
+        } else {
+          filteredTasks = filteredTasks.filter((t) => t.roadmap_item?.phase === phaseFilter);
+        }
+      }
+
+      return filteredTasks;
     },
   });
 
   const updateTaskStatus = useMutation({
-    mutationFn: async ({ taskId, status }: { taskId: string; status: any }) => {
+    mutationFn: async ({ taskId, status, roadmapItemId }: { taskId: string; status: any; roadmapItemId: string | null }) => {
       const { error } = await supabase
         .from("site_diary_tasks")
         .update({ status })
         .eq("id", taskId);
 
       if (error) throw error;
+      return { taskId, status, roadmapItemId };
     },
-    onSuccess: () => {
+    onSuccess: ({ taskId, status, roadmapItemId }) => {
       queryClient.invalidateQueries({ queryKey: ["kanban-tasks"] });
       toast.success("Task moved successfully");
+      
+      // Check for roadmap completion
+      checkAndPromptCompletion(taskId, status, roadmapItemId);
     },
   });
 
@@ -117,7 +135,11 @@ export const KanbanBoard = ({ projectId, onCreateTask }: KanbanBoardProps) => {
 
   const handleDrop = (status: string) => {
     if (draggedTask && draggedTask.status !== status) {
-      updateTaskStatus.mutate({ taskId: draggedTask.id, status: status as any });
+      updateTaskStatus.mutate({ 
+        taskId: draggedTask.id, 
+        status: status as any,
+        roadmapItemId: draggedTask.roadmap_item_id 
+      });
     }
     setDraggedTask(null);
   };
@@ -234,6 +256,17 @@ export const KanbanBoard = ({ projectId, onCreateTask }: KanbanBoardProps) => {
           projectId={projectId}
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
+        />
+      )}
+
+      {/* Roadmap completion prompt */}
+      {promptData && (
+        <RoadmapCompletionPrompt
+          open={isPromptOpen}
+          onOpenChange={closePrompt}
+          roadmapItemId={promptData.roadmapItemId}
+          roadmapItemTitle={promptData.roadmapItemTitle}
+          projectId={projectId}
         />
       )}
     </div>
