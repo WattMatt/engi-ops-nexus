@@ -1,6 +1,7 @@
 import { useRef, useCallback, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Pencil, Trash2, Split } from 'lucide-react';
 import { round } from '@/utils/decimalPrecision';
 
@@ -31,15 +32,18 @@ interface VirtualizedCableTableProps {
   onSplit: (entry: CableEntry) => void;
   tenantLoadMap?: Map<string, number>;
   tenantNameMap?: Map<string, string>;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 // Column styles for full-width distribution
 const colStyles = {
+  checkbox: 'w-[3%] min-w-[40px] text-center',
   status: 'w-[4%] min-w-[50px] text-center',
   cableNum: 'w-[5%] min-w-[50px]',
-  cableTag: 'w-[14%] min-w-[120px]',
-  from: 'w-[12%] min-w-[100px]',
-  to: 'w-[12%] min-w-[100px]',
+  cableTag: 'w-[13%] min-w-[120px]',
+  from: 'w-[11%] min-w-[100px]',
+  to: 'w-[11%] min-w-[100px]',
   qty: 'w-[4%] min-w-[40px] text-center',
   voltage: 'w-[6%] min-w-[60px]',
   loadAmps: 'w-[6%] min-w-[60px]',
@@ -64,7 +68,9 @@ const CableRow = memo(({
   onSplit,
   style,
   tenantLoadMap,
-  tenantNameMap
+  tenantNameMap,
+  isSelected,
+  onToggleSelect,
 }: { 
   entry: CableEntry; 
   onEdit: (entry: CableEntry) => void;
@@ -73,6 +79,8 @@ const CableRow = memo(({
   style: React.CSSProperties;
   tenantLoadMap?: Map<string, number>;
   tenantNameMap?: Map<string, string>;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
 }) => {
   const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
   
@@ -105,9 +113,16 @@ const CableRow = memo(({
 
   return (
     <div 
-      className="flex items-center border-b hover:bg-muted/50 transition-colors text-sm"
+      className={`flex items-center border-b hover:bg-muted/50 transition-colors text-sm ${isSelected ? 'bg-primary/10' : ''}`}
       style={style}
     >
+      <div className={`${colStyles.checkbox} px-2 py-3 flex justify-center`}>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelect(entry.id)}
+          aria-label={`Select ${entry.cable_tag}`}
+        />
+      </div>
       <div className={`${colStyles.status} px-2 py-3 flex justify-center`}>
         {hasCompleteData ? (
           <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Complete" />
@@ -154,6 +169,8 @@ export function VirtualizedCableTable({
   onSplit,
   tenantLoadMap,
   tenantNameMap,
+  selectedIds = new Set(),
+  onSelectionChange,
 }: VirtualizedCableTableProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -167,6 +184,29 @@ export function VirtualizedCableTable({
   const handleEdit = useCallback((entry: CableEntry) => onEdit(entry), [onEdit]);
   const handleDelete = useCallback((entry: CableEntry) => onDelete(entry), [onDelete]);
   const handleSplit = useCallback((entry: CableEntry) => onSplit(entry), [onSplit]);
+  
+  const handleToggleSelect = useCallback((id: string) => {
+    if (!onSelectionChange) return;
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    onSelectionChange(newSet);
+  }, [selectedIds, onSelectionChange]);
+
+  const handleSelectAll = useCallback(() => {
+    if (!onSelectionChange) return;
+    if (selectedIds.size === entries.length) {
+      onSelectionChange(new Set());
+    } else {
+      onSelectionChange(new Set(entries.map(e => e.id)));
+    }
+  }, [entries, selectedIds.size, onSelectionChange]);
+
+  const allSelected = entries.length > 0 && selectedIds.size === entries.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < entries.length;
 
   if (entries.length === 0) {
     return (
@@ -180,6 +220,18 @@ export function VirtualizedCableTable({
     <div className="rounded-md border w-full">
       {/* Fixed header */}
       <div className="flex items-center bg-muted/50 border-b sticky top-0 z-20 text-xs font-medium text-muted-foreground">
+        <div className={`${colStyles.checkbox} px-2 py-2 flex justify-center`}>
+          <Checkbox
+            checked={allSelected}
+            ref={(el) => {
+              if (el) {
+                (el as HTMLButtonElement).dataset.state = someSelected ? 'indeterminate' : allSelected ? 'checked' : 'unchecked';
+              }
+            }}
+            onCheckedChange={handleSelectAll}
+            aria-label="Select all"
+          />
+        </div>
         <div className={`${colStyles.status} px-2 py-2`}>Status</div>
         <div className={`${colStyles.cableNum} px-2 py-2`}>Cable #</div>
         <div className={`${colStyles.cableTag} px-2 py-2`}>Cable Tag</div>
@@ -219,6 +271,8 @@ export function VirtualizedCableTable({
                 onSplit={handleSplit}
                 tenantLoadMap={tenantLoadMap}
                 tenantNameMap={tenantNameMap}
+                isSelected={selectedIds.has(entry.id)}
+                onToggleSelect={handleToggleSelect}
                 style={{
                   position: 'absolute',
                   top: 0,
