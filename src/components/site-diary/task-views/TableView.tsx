@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { TaskDetailsModal } from "./TaskDetailsModal";
 import { cn } from "@/lib/utils";
+import { useRoadmapCompletionCheck } from "@/hooks/useRoadmapCompletionCheck";
+import { RoadmapCompletionPrompt } from "@/components/dashboard/roadmap/RoadmapCompletionPrompt";
 
 interface Task {
   id: string;
@@ -24,21 +26,23 @@ interface Task {
   time_tracked_hours: number;
   roadmap_item_id: string | null;
   profiles?: { full_name: string | null };
-  roadmap_item?: { title: string } | null;
+  roadmap_item?: { title: string; phase: string | null } | null;
 }
 
 interface TableViewProps {
   projectId: string;
   onCreateTask: () => void;
+  phaseFilter?: string | null;
 }
 
-export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
+export const TableView = ({ projectId, onCreateTask, phaseFilter }: TableViewProps) => {
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const { promptData, isPromptOpen, checkAndPromptCompletion, closePrompt } = useRoadmapCompletionCheck();
 
   const { data: tasks } = useQuery({
-    queryKey: ["table-tasks", projectId],
+    queryKey: ["table-tasks", projectId, phaseFilter],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("site_diary_tasks")
@@ -75,7 +79,7 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
           if (task.roadmap_item_id) {
             const { data: roadmapItem } = await supabase
               .from("project_roadmap_items")
-              .select("title")
+              .select("title, phase")
               .eq("id", task.roadmap_item_id)
               .single();
             roadmap_item = roadmapItem;
@@ -85,22 +89,38 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
         })
       );
 
-      return tasksWithProfiles as Task[];
+      // Apply phase filter
+      let filteredTasks = tasksWithProfiles as Task[];
+      if (phaseFilter) {
+        if (phaseFilter === "_unlinked") {
+          filteredTasks = filteredTasks.filter((t) => !t.roadmap_item_id);
+        } else {
+          filteredTasks = filteredTasks.filter((t) => t.roadmap_item?.phase === phaseFilter);
+        }
+      }
+
+      return filteredTasks;
     },
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ taskId, field, value }: { taskId: string; field: string; value: any }) => {
+    mutationFn: async ({ taskId, field, value, roadmapItemId }: { taskId: string; field: string; value: any; roadmapItemId?: string | null }) => {
       const { error } = await supabase
         .from("site_diary_tasks")
         .update({ [field]: value })
         .eq("id", taskId);
 
       if (error) throw error;
+      return { taskId, field, value, roadmapItemId };
     },
-    onSuccess: () => {
+    onSuccess: ({ taskId, field, value, roadmapItemId }) => {
       queryClient.invalidateQueries({ queryKey: ["table-tasks"] });
       toast.success("Task updated");
+      
+      // Check for roadmap completion when status changes
+      if (field === "status" && roadmapItemId) {
+        checkAndPromptCompletion(taskId, value, roadmapItemId);
+      }
     },
   });
 
@@ -175,7 +195,12 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
                     <Select
                       value={task.status}
                       onValueChange={(value) => {
-                        updateTask.mutate({ taskId: task.id, field: "status", value });
+                        updateTask.mutate({ 
+                          taskId: task.id, 
+                          field: "status", 
+                          value,
+                          roadmapItemId: task.roadmap_item_id 
+                        });
                       }}
                     >
                       <SelectTrigger className="w-32 h-8">
@@ -222,6 +247,17 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
           projectId={projectId}
           open={!!selectedTask}
           onClose={() => setSelectedTask(null)}
+        />
+      )}
+
+      {/* Roadmap completion prompt */}
+      {promptData && (
+        <RoadmapCompletionPrompt
+          open={isPromptOpen}
+          onOpenChange={closePrompt}
+          roadmapItemId={promptData.roadmapItemId}
+          roadmapItemTitle={promptData.roadmapItemTitle}
+          projectId={projectId}
         />
       )}
     </div>

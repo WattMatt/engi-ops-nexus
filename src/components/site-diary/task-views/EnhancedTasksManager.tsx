@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, LayoutGrid, List, Calendar as CalendarIcon, Filter, Search } from "lucide-react";
+import { Plus, LayoutGrid, List, Calendar as CalendarIcon, Link2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { KanbanBoard } from "./KanbanBoard";
 import { TableView } from "./TableView";
 import { CalendarView } from "./CalendarView";
+import { RoadmapPhaseFilter } from "./RoadmapPhaseFilter";
+import { BulkSyncTasksDialog } from "./BulkSyncTasksDialog";
+import { RoadmapItemSelector } from "./RoadmapItemSelector";
 
 interface EnhancedTasksManagerProps {
   projectId: string;
@@ -22,8 +25,10 @@ interface EnhancedTasksManagerProps {
 export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksManagerProps) => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkSyncOpen, setBulkSyncOpen] = useState(false);
   const [view, setView] = useState<"board" | "table" | "calendar">("board");
   const [searchQuery, setSearchQuery] = useState("");
+  const [phaseFilter, setPhaseFilter] = useState<string | null>(null);
   
   // Form state
   const [title, setTitle] = useState("");
@@ -34,6 +39,7 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [estimatedHours, setEstimatedHours] = useState("");
+  const [roadmapItemId, setRoadmapItemId] = useState<string | null>(null);
 
   const { data: projectMembers } = useQuery({
     queryKey: ["project-members", projectId],
@@ -65,6 +71,7 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
         estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
         progress: 0,
         time_tracked_hours: 0,
+        roadmap_item_id: roadmapItemId,
       };
 
       if (diaryEntryId) {
@@ -80,6 +87,7 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
       queryClient.invalidateQueries({ queryKey: ["kanban-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["table-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["calendar-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap-linked-tasks-stats"] });
       setDialogOpen(false);
       resetForm();
     },
@@ -97,6 +105,7 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
     setDueDate("");
     setStartDate("");
     setEstimatedHours("");
+    setRoadmapItemId(null);
   };
 
   return (
@@ -115,8 +124,15 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
             />
           </div>
           
-          <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
+          <RoadmapPhaseFilter
+            projectId={projectId}
+            value={phaseFilter}
+            onChange={setPhaseFilter}
+          />
+          
+          <Button variant="outline" onClick={() => setBulkSyncOpen(true)}>
+            <Link2 className="h-4 w-4 mr-2" />
+            Bulk Link
           </Button>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -228,6 +244,14 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
                     placeholder="e.g., 8"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Link to Roadmap Item</Label>
+                  <RoadmapItemSelector
+                    projectId={projectId}
+                    value={roadmapItemId}
+                    onChange={setRoadmapItemId}
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -259,17 +283,23 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
         </TabsList>
 
         <TabsContent value="board" className="mt-6">
-          <KanbanBoard projectId={projectId} onCreateTask={() => setDialogOpen(true)} />
+          <KanbanBoard projectId={projectId} onCreateTask={() => setDialogOpen(true)} phaseFilter={phaseFilter} />
         </TabsContent>
 
         <TabsContent value="table" className="mt-6">
-          <TableView projectId={projectId} onCreateTask={() => setDialogOpen(true)} />
+          <TableView projectId={projectId} onCreateTask={() => setDialogOpen(true)} phaseFilter={phaseFilter} />
         </TabsContent>
 
         <TabsContent value="calendar" className="mt-6">
           <CalendarView projectId={projectId} />
         </TabsContent>
       </Tabs>
+
+      <BulkSyncTasksDialog
+        open={bulkSyncOpen}
+        onOpenChange={setBulkSyncOpen}
+        projectId={projectId}
+      />
     </div>
   );
 };
