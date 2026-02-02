@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Download, Users, RefreshCw, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Plus, Download, Users, RefreshCw, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
 import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
@@ -39,13 +39,16 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showImportTenantsDialog, setShowImportTenantsDialog] = useState(false);
   const [showImportExcelDialog, setShowImportExcelDialog] = useState(false);
   const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [projectId, setProjectId] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   
   // Pagination state
   const [page, setPage] = useState(1);
@@ -292,6 +295,38 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
     }
   };
 
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedIds.size === 0) return;
+
+    setBulkDeleting(true);
+    try {
+      const idsArray = Array.from(selectedIds);
+      const { error } = await supabase
+        .from("cable_entries")
+        .delete()
+        .in("id", idsArray);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Deleted ${idsArray.length} cable entries`,
+      });
+
+      setSelectedIds(new Set());
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkDeleting(false);
+      setShowBulkDeleteDialog(false);
+    }
+  };
+
   const handleRecalculateAll = async () => {
     if (!entries || entries.length === 0 || !calcSettings) return;
 
@@ -419,6 +454,37 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* Bulk Action Bar */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center justify-between bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3">
+                <span className="text-sm font-medium">
+                  {selectedIds.size} cable{selectedIds.size > 1 ? 's' : ''} selected
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    Clear Selection
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowBulkDeleteDialog(true)}
+                    disabled={bulkDeleting}
+                  >
+                    {bulkDeleting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-2 h-4 w-4" />
+                    )}
+                    Delete Selected
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Top Pagination Controls */}
             {totalCount > 0 && (
               <PaginationControls
@@ -448,6 +514,8 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                 onSplit={handleSplit}
                 tenantLoadMap={tenantLoadMap}
                 tenantNameMap={tenantNameMap}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
               />
             )}
 
@@ -557,6 +625,29 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} Cable Entries</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedIds.size} cable {selectedIds.size > 1 ? 'entries' : 'entry'}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Delete {selectedIds.size} Entries
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
