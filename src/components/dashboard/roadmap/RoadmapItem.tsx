@@ -55,6 +55,7 @@ import {
   PlayCircle,
   Flag,
   Calendar,
+  ListTodo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoadmapItemDiscussion } from "./RoadmapItemDiscussion";
@@ -63,6 +64,8 @@ import { isPast, isToday, differenceInDays, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { InlineDatePicker } from "./InlineDatePicker";
+import { LinkedTasksBadge } from "./LinkedTasksBadge";
+import { LinkedTasksPanel } from "./LinkedTasksPanel";
 
 export interface RoadmapItemData {
   id: string;
@@ -124,6 +127,7 @@ export const RoadmapItem = ({
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(true);
   const [discussionOpen, setDiscussionOpen] = useState(false);
+  const [linkedTasksOpen, setLinkedTasksOpen] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
   const hasChildren = children.length > 0;
   
@@ -353,6 +357,12 @@ export const RoadmapItem = ({
                 <RoadmapItemDiscussion itemId={item.id} itemTitle={item.title} />
               </DialogContent>
             </Dialog>
+            
+            {/* Linked Tasks Badge */}
+            <LinkedTasksBadge 
+              roadmapItemId={item.id} 
+              onClick={() => setLinkedTasksOpen(true)} 
+            />
           </div>
           {item.description && (
             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
@@ -421,6 +431,10 @@ export const RoadmapItem = ({
               <Plus className="h-4 w-4 mr-2" />
               Add Sub-item
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setLinkedTasksOpen(true)}>
+              <ListTodo className="h-4 w-4 mr-2" />
+              View Linked Tasks
+            </DropdownMenuItem>
             {item.due_date && !item.is_completed && (
               <DropdownMenuItem onClick={handleNotifyTeam} disabled={isNotifying}>
                 <Bell className="h-4 w-4 mr-2" />
@@ -438,6 +452,15 @@ export const RoadmapItem = ({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Linked Tasks Panel */}
+      <LinkedTasksPanel
+        open={linkedTasksOpen}
+        onClose={() => setLinkedTasksOpen(false)}
+        roadmapItemId={item.id}
+        roadmapItemTitle={item.title}
+        projectId={projectId}
+      />
 
       {hasChildren && (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>

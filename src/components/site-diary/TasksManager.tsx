@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, CheckCircle2, Clock, AlertCircle, XCircle } from "lucide-react";
+import { Plus, CheckCircle2, Clock, AlertCircle, XCircle, Map } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { RoadmapItemSelector } from "./task-views/RoadmapItemSelector";
 
 interface Task {
   id: string;
@@ -23,7 +24,9 @@ interface Task {
   due_date: string | null;
   start_date: string | null;
   estimated_hours: number | null;
+  roadmap_item_id: string | null;
   profiles?: { full_name: string | null };
+  roadmap_item?: { title: string; phase: string | null } | null;
 }
 
 interface TasksManagerProps {
@@ -41,6 +44,7 @@ export const TasksManager = ({ projectId, diaryEntryId }: TasksManagerProps) => 
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [estimatedHours, setEstimatedHours] = useState("");
+  const [roadmapItemId, setRoadmapItemId] = useState<string | null>(null);
 
   const { data: projectMembers } = useQuery({
     queryKey: ["project-members", projectId],
@@ -68,7 +72,8 @@ export const TasksManager = ({ projectId, diaryEntryId }: TasksManagerProps) => 
           priority,
           due_date,
           start_date,
-          estimated_hours
+          estimated_hours,
+          roadmap_item_id
         `)
         .eq("project_id", projectId)
         .order("due_date", { ascending: true });
@@ -80,19 +85,31 @@ export const TasksManager = ({ projectId, diaryEntryId }: TasksManagerProps) => 
       const { data, error } = await query;
       if (error) throw error;
 
-      // Fetch user names separately
+      // Fetch user names and roadmap items separately
       const tasksWithProfiles = await Promise.all(
         (data || []).map(async (task) => {
+          let profiles = null;
+          let roadmap_item = null;
+          
           if (task.assigned_to) {
             const { data: profile } = await supabase
               .from("profiles")
               .select("full_name")
               .eq("id", task.assigned_to)
               .single();
-            
-            return { ...task, profiles: profile };
+            profiles = profile;
           }
-          return { ...task, profiles: null };
+          
+          if (task.roadmap_item_id) {
+            const { data: roadmapItem } = await supabase
+              .from("project_roadmap_items")
+              .select("title, phase")
+              .eq("id", task.roadmap_item_id)
+              .single();
+            roadmap_item = roadmapItem;
+          }
+          
+          return { ...task, profiles, roadmap_item };
         })
       );
 
@@ -115,6 +132,7 @@ export const TasksManager = ({ projectId, diaryEntryId }: TasksManagerProps) => 
         due_date: dueDate || null,
         start_date: startDate || null,
         estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
+        roadmap_item_id: roadmapItemId,
       };
 
       if (diaryEntryId) {
@@ -164,6 +182,7 @@ export const TasksManager = ({ projectId, diaryEntryId }: TasksManagerProps) => 
     setDueDate("");
     setStartDate("");
     setEstimatedHours("");
+    setRoadmapItemId(null);
   };
 
   const getStatusIcon = (status: string) => {
@@ -292,6 +311,14 @@ export const TasksManager = ({ projectId, diaryEntryId }: TasksManagerProps) => 
                   placeholder="e.g., 8"
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Link to Roadmap Item</Label>
+                <RoadmapItemSelector
+                  projectId={projectId}
+                  value={roadmapItemId}
+                  onChange={setRoadmapItemId}
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -323,6 +350,12 @@ export const TasksManager = ({ projectId, diaryEntryId }: TasksManagerProps) => 
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
+                {task.roadmap_item && (
+                  <Badge variant="outline" className="gap-1 bg-primary/10">
+                    <Map className="h-3 w-3" />
+                    <span className="text-xs truncate max-w-[150px]">{task.roadmap_item.title}</span>
+                  </Badge>
+                )}
                 {task.description && (
                   <p className="text-sm text-muted-foreground">{task.description}</p>
                 )}

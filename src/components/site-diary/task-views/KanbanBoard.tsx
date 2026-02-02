@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, MoreVertical, CheckCircle2, Circle, Clock } from "lucide-react";
+import { Plus, MoreVertical, CheckCircle2, Circle, Clock, Map } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TaskDetailsModal } from "./TaskDetailsModal";
+import { cn } from "@/lib/utils";
 
 interface Task {
   id: string;
@@ -18,7 +19,9 @@ interface Task {
   due_date: string | null;
   assigned_to: string | null;
   progress: number;
+  roadmap_item_id: string | null;
   profiles?: { full_name: string | null };
+  roadmap_item?: { title: string } | null;
 }
 
 interface KanbanBoardProps {
@@ -50,7 +53,8 @@ export const KanbanBoard = ({ projectId, onCreateTask }: KanbanBoardProps) => {
           priority,
           due_date,
           assigned_to,
-          progress
+          progress,
+          roadmap_item_id
         `)
         .eq("project_id", projectId)
         .order("position");
@@ -59,15 +63,28 @@ export const KanbanBoard = ({ projectId, onCreateTask }: KanbanBoardProps) => {
 
       const tasksWithProfiles = await Promise.all(
         (data || []).map(async (task) => {
+          let profiles = null;
+          let roadmap_item = null;
+          
           if (task.assigned_to) {
             const { data: profile } = await supabase
               .from("profiles")
               .select("full_name")
               .eq("id", task.assigned_to)
               .single();
-            return { ...task, profiles: profile };
+            profiles = profile;
           }
-          return { ...task, profiles: null };
+          
+          if (task.roadmap_item_id) {
+            const { data: roadmapItem } = await supabase
+              .from("project_roadmap_items")
+              .select("title")
+              .eq("id", task.roadmap_item_id)
+              .single();
+            roadmap_item = roadmapItem;
+          }
+          
+          return { ...task, profiles, roadmap_item };
         })
       );
 
@@ -170,6 +187,12 @@ export const KanbanBoard = ({ projectId, onCreateTask }: KanbanBoardProps) => {
                       <p className="text-xs text-muted-foreground line-clamp-2">
                         {task.description}
                       </p>
+                    )}
+                    {task.roadmap_item && (
+                      <Badge variant="outline" className="gap-1 bg-primary/10 h-5">
+                        <Map className="h-3 w-3" />
+                        <span className="text-xs truncate max-w-[120px]">{task.roadmap_item.title}</span>
+                      </Badge>
                     )}
                     <div className="flex items-center justify-between">
                       <Badge variant={getPriorityColor(task.priority)} className="text-xs">

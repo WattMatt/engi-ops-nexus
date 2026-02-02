@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Map } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TaskDetailsModal } from "./TaskDetailsModal";
+import { cn } from "@/lib/utils";
 
 interface Task {
   id: string;
@@ -21,7 +22,9 @@ interface Task {
   assigned_to: string | null;
   progress: number;
   time_tracked_hours: number;
+  roadmap_item_id: string | null;
   profiles?: { full_name: string | null };
+  roadmap_item?: { title: string } | null;
 }
 
 interface TableViewProps {
@@ -47,7 +50,8 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
           due_date,
           assigned_to,
           progress,
-          time_tracked_hours
+          time_tracked_hours,
+          roadmap_item_id
         `)
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
@@ -56,15 +60,28 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
 
       const tasksWithProfiles = await Promise.all(
         (data || []).map(async (task) => {
+          let profiles = null;
+          let roadmap_item = null;
+          
           if (task.assigned_to) {
             const { data: profile } = await supabase
               .from("profiles")
               .select("full_name")
               .eq("id", task.assigned_to)
               .single();
-            return { ...task, profiles: profile };
+            profiles = profile;
           }
-          return { ...task, profiles: null };
+          
+          if (task.roadmap_item_id) {
+            const { data: roadmapItem } = await supabase
+              .from("project_roadmap_items")
+              .select("title")
+              .eq("id", task.roadmap_item_id)
+              .single();
+            roadmap_item = roadmapItem;
+          }
+          
+          return { ...task, profiles, roadmap_item };
         })
       );
 
@@ -120,6 +137,7 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[300px]">Task</TableHead>
+              <TableHead>Roadmap</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Assigned To</TableHead>
@@ -130,8 +148,8 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
           </TableHeader>
           <TableBody>
             {filteredTasks.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+            <TableRow>
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   No tasks found
                 </TableCell>
               </TableRow>
@@ -143,6 +161,16 @@ export const TableView = ({ projectId, onCreateTask }: TableViewProps) => {
                   onClick={() => setSelectedTask(task.id)}
                 >
                   <TableCell className="font-medium">{task.title}</TableCell>
+                  <TableCell>
+                    {task.roadmap_item ? (
+                      <Badge variant="outline" className="gap-1 bg-primary/10 h-5">
+                        <Map className="h-3 w-3" />
+                        <span className="text-xs truncate max-w-[100px]">{task.roadmap_item.title}</span>
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Select
                       value={task.status}
