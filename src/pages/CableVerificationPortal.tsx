@@ -259,6 +259,96 @@ export default function CableVerificationPortal() {
     }
   }, [portalData, cables, toast]);
 
+  // Batch status change for multiple cables at once
+  const handleBatchStatusChange = useCallback(async (
+    cableIds: string[],
+    status: VerificationItemStatus
+  ) => {
+    if (!portalData || cableIds.length === 0) return;
+
+    try {
+      // Prepare batch updates
+      const now = new Date().toISOString();
+      
+      // Get existing verification items
+      const { data: existingItems } = await supabase
+        .from('cable_verification_items')
+        .select('id, cable_entry_id')
+        .eq('verification_id', portalData.verification_id)
+        .in('cable_entry_id', cableIds);
+
+      const existingMap = new Map(existingItems?.map(item => [item.cable_entry_id, item.id]) || []);
+
+      // Separate into updates and inserts
+      const toUpdate: string[] = [];
+      const toInsert: string[] = [];
+
+      cableIds.forEach(cableId => {
+        if (existingMap.has(cableId)) {
+          toUpdate.push(cableId);
+        } else {
+          toInsert.push(cableId);
+        }
+      });
+
+      // Batch update existing items
+      if (toUpdate.length > 0) {
+        const updateIds = toUpdate.map(id => existingMap.get(id)!);
+        await supabase
+          .from('cable_verification_items')
+          .update({
+            status,
+            verified_at: status !== 'pending' ? now : null,
+            updated_at: now,
+          })
+          .in('id', updateIds);
+      }
+
+      // Batch insert new items
+      if (toInsert.length > 0) {
+        const insertData = toInsert.map(cableId => ({
+          verification_id: portalData.verification_id,
+          cable_entry_id: cableId,
+          status,
+          verified_at: status !== 'pending' ? now : null,
+        }));
+        
+        await supabase
+          .from('cable_verification_items')
+          .insert(insertData);
+      }
+
+      // Update verification status to in_progress if still pending
+      if (portalData.verification_status === 'pending') {
+        await supabase
+          .from('cable_schedule_verifications')
+          .update({ 
+            status: 'in_progress',
+            started_at: now,
+          })
+          .eq('id', portalData.verification_id);
+      }
+
+      // Update local state for all affected cables
+      setCables(prev => prev.map(cable => 
+        cableIds.includes(cable.id)
+          ? { ...cable, verification_status: status }
+          : cable
+      ));
+
+      // Update stats
+      updateStats(cables.map(cable => 
+        cableIds.includes(cable.id)
+          ? { ...cable, verification_status: status }
+          : cable
+      ));
+
+    } catch (err) {
+      console.error('Batch update failed:', err);
+      throw err;
+    }
+  }, [portalData, cables]);
+
   const handlePhotoUpload = useCallback(async (cableId: string, file: File): Promise<string> => {
     if (!portalData) throw new Error('No portal data');
 
@@ -586,6 +676,7 @@ export default function CableVerificationPortal() {
                 <CableVerificationList
                   cables={cables}
                   onStatusChange={handleStatusChange}
+                  onBatchStatusChange={handleBatchStatusChange}
                   onPhotoUpload={handlePhotoUpload}
                   onPhotoRemove={handlePhotoRemove}
                   updatingCableId={updatingCableId}
