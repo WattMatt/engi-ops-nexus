@@ -17,3 +17,6 @@ export { useAsyncAction, useMutationAction, useFormSubmit } from './useAsyncActi
 // Offline support
 export { useOfflineSync } from './useOfflineSync';
 export { useNetworkStatus } from './useNetworkStatus';
+
+// Image loading
+export { useImageLoader, preloadImages, supportsWebP, supportsAvif } from './useImageLoader';

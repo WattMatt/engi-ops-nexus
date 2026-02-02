@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
@@ -90,7 +91,12 @@ export const LogoUpload = ({ currentUrl = "", onUrlChange, label, id }: LogoUplo
       <div className="flex items-center gap-4">
         <div className="w-32 h-32 border rounded-lg flex items-center justify-center bg-muted overflow-hidden">
           {preview ? (
-            <img src={preview} alt={label} className="w-full h-full object-contain" />
+            <OptimizedImage 
+              src={preview} 
+              alt={label} 
+              className="w-full h-full" 
+              style={{ objectFit: "contain" }}
+            />
           ) : (
             <ImageIcon className="h-8 w-8 text-muted-foreground" />
           )}
