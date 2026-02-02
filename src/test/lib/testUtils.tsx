@@ -3,10 +3,13 @@
  * Provides common testing patterns and wrapper components
  */
 import { ReactElement, ReactNode } from "react";
-import { render, RenderOptions } from "@testing-library/react";
+import { render, RenderOptions, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { vi, Mock } from "vitest";
+
+// Re-export useful testing utilities
+export { screen, fireEvent, waitFor, within };
 
 // Create a test QueryClient with no retries
 export function createTestQueryClient() {
@@ -65,8 +68,8 @@ export function renderWithProviders(
   });
 }
 
-// Re-export testing-library
-export * from "@testing-library/react";
+// Note: We manually export the render utilities above, not via export *
+// because @testing-library/react v16+ relies on @testing-library/dom for screen/fireEvent
 export { renderWithProviders as render };
 
 // ============================================

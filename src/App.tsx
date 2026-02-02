@@ -85,6 +85,7 @@ const ClientView = lazy(() => import("./pages/ClientView"));
 const ContractorReviewPortal = lazy(() => import("./pages/ContractorReviewPortal"));
 const ClientGeneratorReportView = lazy(() => import("./pages/ClientGeneratorReportView"));
 const ContractorPortal = lazy(() => import("./pages/ContractorPortal"));
+const CableVerificationPortal = lazy(() => import("./pages/CableVerificationPortal"));
 
 // Client subpages
 const ClientTenantReport = lazy(() => import("./pages/client/ClientTenantReport"));
@@ -147,6 +148,7 @@ const App = () => (
                   <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
                   <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
                   <Route path="/contractor-portal" element={<ContractorPortal />} />
+                  <Route path="/cable-verification" element={<CableVerificationPortal />} />
                   
                   {/* Global pages */}
                   <Route path="/master-library" element={<MasterLibrary />} />

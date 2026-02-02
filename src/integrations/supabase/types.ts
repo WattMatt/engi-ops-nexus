@@ -2098,6 +2098,150 @@ export type Database = {
           },
         ]
       }
+      cable_schedule_verification_tokens: {
+        Row: {
+          access_count: number | null
+          accessed_at: string | null
+          company_name: string | null
+          created_at: string
+          created_by: string | null
+          electrician_email: string
+          electrician_name: string
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          password_hash: string | null
+          project_id: string
+          registration_number: string | null
+          schedule_id: string
+          token: string
+        }
+        Insert: {
+          access_count?: number | null
+          accessed_at?: string | null
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          electrician_email: string
+          electrician_name: string
+          expires_at: string
+          id?: string
+          is_active?: boolean | null
+          password_hash?: string | null
+          project_id: string
+          registration_number?: string | null
+          schedule_id: string
+          token?: string
+        }
+        Update: {
+          access_count?: number | null
+          accessed_at?: string | null
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          electrician_email?: string
+          electrician_name?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          password_hash?: string | null
+          project_id?: string
+          registration_number?: string | null
+          schedule_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cable_schedule_verification_tokens_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cable_schedule_verification_tokens_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "cable_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cable_schedule_verifications: {
+        Row: {
+          authorization_confirmed: boolean | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          overall_notes: string | null
+          schedule_id: string
+          signature_image_url: string | null
+          signoff_company: string | null
+          signoff_date: string | null
+          signoff_name: string | null
+          signoff_position: string | null
+          signoff_registration: string | null
+          started_at: string | null
+          status: string
+          token_id: string
+          updated_at: string
+        }
+        Insert: {
+          authorization_confirmed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          overall_notes?: string | null
+          schedule_id: string
+          signature_image_url?: string | null
+          signoff_company?: string | null
+          signoff_date?: string | null
+          signoff_name?: string | null
+          signoff_position?: string | null
+          signoff_registration?: string | null
+          started_at?: string | null
+          status?: string
+          token_id: string
+          updated_at?: string
+        }
+        Update: {
+          authorization_confirmed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          overall_notes?: string | null
+          schedule_id?: string
+          signature_image_url?: string | null
+          signoff_company?: string | null
+          signoff_date?: string | null
+          signoff_name?: string | null
+          signoff_position?: string | null
+          signoff_registration?: string | null
+          started_at?: string | null
+          status?: string
+          token_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cable_schedule_verifications_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "cable_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cable_schedule_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "cable_schedule_verification_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cable_schedules: {
         Row: {
           created_at: string
@@ -2139,6 +2283,60 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      cable_verification_items: {
+        Row: {
+          cable_entry_id: string
+          created_at: string
+          id: string
+          measured_length_actual: number | null
+          notes: string | null
+          photo_urls: string[] | null
+          status: string
+          updated_at: string
+          verification_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          cable_entry_id: string
+          created_at?: string
+          id?: string
+          measured_length_actual?: number | null
+          notes?: string | null
+          photo_urls?: string[] | null
+          status?: string
+          updated_at?: string
+          verification_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          cable_entry_id?: string
+          created_at?: string
+          id?: string
+          measured_length_actual?: number | null
+          notes?: string | null
+          photo_urls?: string[] | null
+          status?: string
+          updated_at?: string
+          verification_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cable_verification_items_cable_entry_id_fkey"
+            columns: ["cable_entry_id"]
+            isOneToOne: false
+            referencedRelation: "cable_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cable_verification_items_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "cable_schedule_verifications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       circuit_material_template_items: {
         Row: {
@@ -15549,6 +15747,10 @@ export type Database = {
       user_has_project_access: {
         Args: { _project_id: string }
         Returns: boolean
+      }
+      validate_cable_verification_token: {
+        Args: { p_token: string }
+        Returns: Json
       }
       validate_client_portal_token: {
         Args: { p_ip_address?: string; p_token: string; p_user_agent?: string }
