@@ -42,7 +42,9 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -83,6 +85,7 @@ interface CableScheduleVerificationHistoryProps {
 
 export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVerificationHistoryProps) {
   const [deleteTokenId, setDeleteTokenId] = useState<string | null>(null);
+  const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -191,6 +194,51 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
   const openLink = (token: string) => {
     const url = `${window.location.origin}/cable-verification?token=${token}`;
     window.open(url, '_blank');
+  };
+
+  const downloadCertificate = async (verificationId: string) => {
+    setDownloadingCertificateId(verificationId);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-verification-certificate-pdf', {
+        body: { verification_id: verificationId },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Failed to generate certificate');
+
+      if (data.pdfBase64) {
+        // Convert base64 to blob and download
+        const byteCharacters = atob(data.pdfBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename || 'Verification_Certificate.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast({ title: "Certificate downloaded" });
+      } else if (data.storageUrl) {
+        window.open(data.storageUrl, '_blank');
+      }
+    } catch (err) {
+      console.error('Failed to download certificate:', err);
+      toast({
+        title: "Failed to generate certificate",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingCertificateId(null);
+    }
   };
 
   if (isLoading) {
@@ -303,10 +351,25 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
                           Open Portal
                         </DropdownMenuItem>
                         {token.verification && (
-                          <DropdownMenuItem>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Results
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Results
+                            </DropdownMenuItem>
+                            {(token.verification.status === 'verified' || token.verification.status === 'issues_found') && (
+                              <DropdownMenuItem 
+                                onClick={() => downloadCertificate(token.verification!.id)}
+                                disabled={downloadingCertificateId === token.verification.id}
+                              >
+                                {downloadingCertificateId === token.verification.id ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <FileText className="mr-2 h-4 w-4" />
+                                )}
+                                Download Certificate
+                              </DropdownMenuItem>
+                            )}
+                          </>
                         )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
