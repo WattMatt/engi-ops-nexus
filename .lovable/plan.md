@@ -1,230 +1,332 @@
 
-# Plan: Review, Test, and Improve the AI Application Review Process
+# Cable Schedule Verification Portal for Site Electricians
 
 ## Overview
-Comprehensive enhancement of the AI Application Review system to provide more actionable, context-aware, and measurable insights with improved testing capabilities and a streamlined implementation workflow.
 
----
+This plan outlines a complete system for sharing cable schedule reports with site electricians for verification and sign-off. The feature will allow project teams to generate secure access links, enabling electricians to review the cable schedule, verify each cable entry on-site, and provide formal sign-off with their credentials - creating an auditable trail of installation verification.
 
-## Current State Analysis
+## User Journey
 
-### Existing Components
-| Component | Status | Issues Identified |
-|-----------|--------|-------------------|
-| `ai-review-application` Edge Function | Working | Limited context (only table names), no code analysis |
-| `send-review-findings` Edge Function | Partial | Response format mismatch (`sections` vs `categories`) |
-| `ApplicationReviewDialog` | Working | Good UI but missing real-time streaming feedback |
-| `ReviewHistoryDashboard` | Working | No category-level trend charts |
-| `ProgressTrackingView` | Working | No automatic linking between reviews |
-| `ReviewComparisonView` | Working | No resolved/new issue highlighting |
-| Database Schema | Adequate | Missing `reviewer_notes`, `implementation_prs` columns |
-
-### Key Issues Found
-1. **Response Format Mismatch**: `send-review-findings` expects `sections[].findings` but `ai-review-application` returns `categories[].issues`
-2. **Limited Context**: AI only receives table names, not actual codebase structure or patterns
-3. **No Streaming**: 30-60 second wait with no progress indication
-4. **No Scheduled Reviews**: Manual trigger only
-5. **Generic Recommendations**: Not tailored to specific project context
-
----
-
-## Implementation Plan
-
-### Phase 1: Fix Response Format Mismatch
-
-Update `send-review-findings` to correctly parse the AI review response:
-
-| Current Code | Issue | Fix |
-|--------------|-------|-----|
-| `reviewData.sections[].findings` | Field doesn't exist | Use `reviewData.categories[].issues` |
-| `finding.severity` | May be undefined | Default to "medium" |
-| Email summary counts | Uses wrong structure | Iterate over categories |
-
-### Phase 2: Enhanced AI Context
-
-Provide richer context to the AI for more specific recommendations:
-
-**New Context Sources:**
-- File structure summary (component directories, page count)
-- Recent git-like activity (recently modified areas)
-- Database schema with relationships
-- Edge function inventory
-- Storage bucket configurations
-- RLS policy status summary
-- Previous review findings for comparison
-
-**Updated Prompt Structure:**
 ```text
-CODEBASE STRUCTURE:
-├── src/components/ (147 components)
-├── src/pages/ (23 pages)
-├── supabase/functions/ (68 edge functions)
-└── src/hooks/ (34 custom hooks)
-
-RECENT FOCUS AREAS:
-- Report automation (last 7 days)
-- Cable schedule improvements (last 14 days)
-
-DATABASE TABLES (with RLS status):
-- projects (RLS: enabled, 4 policies)
-- tenants (RLS: enabled, 3 policies)
-- cable_schedules (RLS: enabled, 2 policies)
-
-PREVIOUS REVIEW (score: 78):
-- High: RLS complexity in multi-tenancy (unresolved)
-- Medium: Large dataset rendering (in progress)
++------------------+     +-------------------+     +--------------------+
+|  PROJECT TEAM    |     |  SITE ELECTRICIAN |     |   PROJECT TEAM     |
++------------------+     +-------------------+     +--------------------+
+        |                         |                         |
+        v                         |                         |
+  Generate Access Link            |                         |
+  (Email + Credentials)           |                         |
+        |                         |                         |
+        +-------> Email Sent ---->|                         |
+                                  v                         |
+                           Access Portal                    |
+                           View Cable Schedule              |
+                                  |                         |
+                                  v                         |
+                           Verify Each Cable                |
+                           (Check, Comment, Flag)           |
+                                  |                         |
+                                  v                         |
+                           Submit Sign-off                  |
+                           (Credentials + Signature)        |
+                                  |                         |
+                                  +-------> Notification -->|
+                                                            v
+                                                     Review Results
+                                                     Download Certificate
 ```
 
-### Phase 3: Streaming Review Progress
+## Core Components
 
-Implement real-time streaming to show review progress:
+### 1. Database Schema
 
-**Backend Changes:**
-- Add streaming response mode to edge function
-- Send progress updates as SSE events
-- Categories analyzed in sequence with status updates
+**New Tables:**
 
-**Frontend Changes:**
+1. `cable_schedule_verification_tokens` - Access tokens for electricians
+   - `id` (uuid, PK)
+   - `schedule_id` (uuid, FK to cable_schedules)
+   - `project_id` (uuid, FK to projects)
+   - `token` (text, unique, auto-generated)
+   - `electrician_name` (text)
+   - `electrician_email` (text)
+   - `company_name` (text, nullable)
+   - `registration_number` (text, nullable) - ECSA/SAIEE registration
+   - `expires_at` (timestamptz)
+   - `accessed_at` (timestamptz, nullable)
+   - `access_count` (int, default 0)
+   - `is_active` (boolean, default true)
+   - `created_by` (uuid, FK to auth.users)
+   - `created_at` (timestamptz)
+
+2. `cable_schedule_verifications` - Main verification record
+   - `id` (uuid, PK)
+   - `token_id` (uuid, FK to verification_tokens)
+   - `schedule_id` (uuid, FK to cable_schedules)
+   - `status` (text: 'pending', 'in_progress', 'verified', 'issues_found', 'rejected')
+   - `started_at` (timestamptz)
+   - `completed_at` (timestamptz, nullable)
+   - `overall_notes` (text, nullable)
+   - Electrician sign-off credentials:
+     - `signoff_name` (text)
+     - `signoff_position` (text)
+     - `signoff_company` (text)
+     - `signoff_registration` (text, nullable)
+     - `signoff_date` (date)
+     - `authorization_confirmed` (boolean)
+   - `signature_image_url` (text, nullable) - Digital signature
+   - `created_at` (timestamptz)
+
+3. `cable_verification_items` - Per-cable verification status
+   - `id` (uuid, PK)
+   - `verification_id` (uuid, FK to cable_schedule_verifications)
+   - `cable_entry_id` (uuid, FK to cable_entries)
+   - `status` (text: 'pending', 'verified', 'issue', 'not_installed')
+   - `notes` (text, nullable)
+   - `photo_urls` (text[], nullable) - Evidence photos
+   - `verified_at` (timestamptz, nullable)
+   - `measured_length_actual` (numeric, nullable) - Site-measured length
+   - `created_at` (timestamptz)
+   - `updated_at` (timestamptz)
+
+### 2. New Pages
+
+**`/cable-verification/:token`** - Public verification portal page
+- Token validation and electrician identification
+- Password-optional protection (configurable per project)
+- Mobile-optimized responsive design for tablet/phone use on-site
+
+### 3. UI Components
+
+**Admin/Dashboard Side:**
+
+1. `CableScheduleVerificationSettings.tsx`
+   - Generate verification access links
+   - Set expiry duration (7/30/90 days)
+   - Enter electrician details
+   - Optional password protection
+   - Copy link / Send email buttons
+
+2. `CableScheduleVerificationHistory.tsx`
+   - List all verification requests
+   - Show status badges (Pending, In Progress, Verified, Issues Found)
+   - View detailed verification results
+   - Download verification certificate PDF
+
+3. `CableVerificationStatusBadge.tsx`
+   - Reusable status badge component
+   - Visual indicators for verification progress
+
+**Portal Side (Site Electrician View):**
+
+4. `CableVerificationPortal.tsx` - Main portal page
+   - Header with project/schedule branding
+   - Progress tracker (verified/total cables)
+   - Tab navigation: Overview | Cable List | Sign-off
+
+5. `CableVerificationList.tsx`
+   - Virtualized list of all cables
+   - Filter: All / Pending / Verified / Issues
+   - Search by cable tag
+   - Batch verification actions
+
+6. `CableVerificationItem.tsx`
+   - Individual cable card for verification
+   - Display: Cable Tag, From/To, Size, Length, Voltage
+   - Status selector (Verified / Issue / Not Installed)
+   - Notes field
+   - Photo upload (multiple)
+   - Optional: Actual measured length input
+
+7. `ElectricianCredentialsForm.tsx`
+   - Full name, Position, Company
+   - ECSA/SAIEE Registration number (optional)
+   - Authorization checkbox
+   - Digital signature capture (canvas-based)
+
+8. `VerificationCertificatePDF.tsx`
+   - Professional PDF certificate generation
+   - Lists verified cables with notes
+   - Includes electrician credentials and signature
+   - Branded cover page
+
+### 4. Edge Functions
+
+1. `validate-cable-verification-token` - RPC function
+   - Validates token, checks expiry
+   - Increments access count
+   - Returns schedule + project data
+
+2. `send-cable-verification-email` - Send invitation email
+   - HTML email template with access link
+   - Schedule summary details
+   - Electrician name personalization
+
+3. `send-cable-verification-notification` - Notify team on completion
+   - Email to project team when verification submitted
+   - Include status summary (X verified, Y issues)
+   - Link to view results
+
+4. `generate-verification-certificate-pdf` - Generate PDF certificate
+   - Professional branded document
+   - All cables with verification status
+   - Electrician sign-off details
+   - Digital signature embedded
+
+### 5. Storage
+
+- Existing bucket: `cable-schedule-reports` (private)
+- New bucket: `cable-verification-photos` (private, authenticated access)
+  - For storing on-site evidence photos
+
+### 6. RLS Policies
+
+**cable_schedule_verification_tokens:**
+- SELECT/INSERT/UPDATE/DELETE: Authenticated users for their projects
+- Public SELECT: Via RPC function with token validation
+
+**cable_schedule_verifications:**
+- Authenticated users: Full access for their projects
+- Anonymous: Insert/Update via verified token (RPC)
+
+**cable_verification_items:**
+- Same pattern as verifications
+
+## Technical Implementation Details
+
+### Token Generation
+
+Following the existing pattern from `contractor_portal_tokens`:
+```typescript
+const token = crypto.randomUUID(); // Or use generate_review_access_token RPC
+const expiresAt = addDays(new Date(), parseInt(expiryDays));
+```
+
+### Portal Access Flow
+
+1. Electrician clicks link: `/cable-verification?token=xxx`
+2. Token validated via RPC (checks expiry, increments access)
+3. Load schedule data + cable entries
+4. Progressive verification saves (auto-save on each item)
+5. Final sign-off with credentials form
+6. Notification sent to project team
+
+### Mobile Optimization
+
+The portal will be optimized for tablet/phone use on construction sites:
+- Large touch targets for status buttons
+- Swipe gestures for next/previous cable
+- Camera integration for photo evidence
+- Offline capability consideration (future enhancement)
+
+### Signature Capture
+
+Using HTML5 Canvas for digital signature:
+- Draw signature with finger/stylus
+- Save as base64 PNG
+- Store in storage bucket
+- Embed in certificate PDF
+
+## Integration Points
+
+### With Existing Systems
+
+1. **Cable Schedule System** - Read cable entries from `cable_entries` table
+2. **Contractor Portal Pattern** - Follow same token/validation architecture  
+3. **PDF Generation** - Use PDFShift API (consistent with cable schedule reports)
+4. **Email System** - Use Resend API via shared email utilities
+5. **Notification System** - Follow send-review-status-notification pattern
+
+### Dashboard Integration
+
+Add verification tab to `CableScheduleReports.tsx`:
 ```text
-[Analyzing UI/UX...] ████████░░ 40%
-✓ UI/UX: Score 82
-✓ Performance: Score 74
-→ Security: Analyzing...
+[Generate Report] [Report History] [Verification] (NEW)
 ```
 
-### Phase 4: Review Scheduling
+## File Structure
 
-Add automated scheduled reviews:
-
-| Schedule Option | Description |
-|-----------------|-------------|
-| Weekly | Every Monday 6:00 AM |
-| Bi-weekly | Every other Monday |
-| Monthly | First of month |
-| Manual only | Current behavior |
-
-**Database Addition:**
-```sql
-CREATE TABLE review_schedules (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  schedule_type TEXT NOT NULL, -- weekly, biweekly, monthly
-  last_run TIMESTAMPTZ,
-  next_run TIMESTAMPTZ,
-  notification_email TEXT,
-  enabled BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-### Phase 5: Actionable Implementation Prompts
-
-Enhance the implementation prompt generation:
-
-**Current:** Generic markdown prompts
-**Improved:** 
-- Context-aware prompts with file paths
-- Dependency order for related changes
-- Test suggestions per fix
-- Rollback guidance
-
-**Example Enhanced Prompt:**
 ```text
-## Fix: Large Dataset Rendering in Cable Schedules
-
-### Affected Files:
-- src/components/cable-schedules/CableTagSchedule.tsx
-- src/components/cable-schedules/CableScheduleTable.tsx
-
-### Implementation Steps:
-1. Install @tanstack/react-virtual if not present
-2. Wrap table body with Virtualizer
-3. Update row height calculations
-
-### Test Criteria:
-- [ ] Load schedule with 1000+ cables
-- [ ] Scroll performance < 16ms frame time
-- [ ] Filter/sort maintains virtualization
-
-### Rollback:
-If issues occur, revert virtualization wrapper only
+src/
+├── pages/
+│   └── CableVerificationPortal.tsx (NEW)
+├── components/
+│   └── cable-schedules/
+│       ├── verification/
+│       │   ├── CableScheduleVerificationSettings.tsx
+│       │   ├── CableScheduleVerificationHistory.tsx
+│       │   ├── CableVerificationStatusBadge.tsx
+│       │   └── index.ts
+│       └── CableScheduleReports.tsx (UPDATED - add tab)
+│   └── cable-verification/
+│       ├── CableVerificationPortal.tsx
+│       ├── CableVerificationList.tsx
+│       ├── CableVerificationItem.tsx
+│       ├── ElectricianCredentialsForm.tsx
+│       ├── VerificationProgressBar.tsx
+│       ├── SignatureCanvas.tsx
+│       └── index.ts
+supabase/
+├── migrations/
+│   └── YYYYMMDD_cable_verification_tables.sql
+├── functions/
+│   ├── validate-cable-verification-token/
+│   ├── send-cable-verification-email/
+│   ├── send-cable-verification-notification/
+│   └── generate-verification-certificate-pdf/
 ```
 
-### Phase 6: Review Comparison Improvements
+## Implementation Phases
 
-Enhance the comparison view with:
+### Phase 1: Core Infrastructure
+- Database tables and RLS policies
+- Token generation and validation RPC
+- Basic verification portal page
+- Storage bucket setup
 
-1. **Resolved Issues Highlight**: Show issues from previous review that no longer appear
-2. **New Issues Alert**: Highlight issues that are new since last review
-3. **Score Delta Visualization**: Category-by-category change indicators
-4. **Recommendation Diff**: Side-by-side recommendation comparison
+### Phase 2: Verification Workflow
+- Cable verification list component
+- Individual verification item with status/notes
+- Photo upload functionality
+- Progress tracking
 
----
+### Phase 3: Sign-off System
+- Electrician credentials form
+- Digital signature capture
+- Verification submission
+- Email notifications
 
-## File Changes Summary
+### Phase 4: Reporting & Certificates
+- Verification certificate PDF generation
+- History/results view for project team
+- Dashboard integration
 
-### Modified Edge Functions
-| File | Changes |
-|------|---------|
-| `supabase/functions/ai-review-application/index.ts` | Add richer context, streaming mode |
-| `supabase/functions/send-review-findings/index.ts` | Fix response parsing, use `categories.issues` |
+## Security Considerations
 
-### Modified UI Components
-| File | Changes |
-|------|---------|
-| `src/components/admin/ApplicationReviewDialog.tsx` | Add streaming progress UI, enhanced prompts |
-| `src/components/admin/ReviewHistoryDashboard.tsx` | Add category trend charts |
-| `src/components/admin/ProgressTrackingView.tsx` | Auto-link between reviews |
-| `src/components/admin/ReviewComparisonView.tsx` | Add resolved/new issue highlighting |
+1. **Token Security**
+   - UUID-based tokens (non-guessable)
+   - Configurable expiration
+   - Access logging with timestamps/IP
 
-### New Components
-| File | Purpose |
-|------|---------|
-| `src/components/admin/ReviewScheduleSettings.tsx` | Schedule configuration UI |
-| `src/components/admin/ReviewStreamingProgress.tsx` | Real-time progress display |
+2. **Data Access**
+   - RLS policies restrict to verified tokens
+   - No modification of cable schedule data (read-only)
+   - Photo uploads scoped to verification session
 
-### Database Migrations
-- Add `review_schedules` table
-- Add `previous_review_id` column to `application_reviews`
-- Add `resolved_from_review_id` column to track fixed issues
+3. **Sign-off Integrity**
+   - Credentials cannot be modified after submission
+   - Timestamp and IP logged
+   - Certificate includes verification hash
 
----
+## Success Metrics
 
-## Improvement Priority Order
+- Verification completion rate
+- Average time to complete verification
+- Issues flagged vs. verified ratio
+- Photo evidence attachment rate
 
-| Priority | Enhancement | Impact | Effort |
-|----------|-------------|--------|--------|
-| 1 | Fix response format mismatch | Critical | Low |
-| 2 | Enhanced AI context | High | Medium |
-| 3 | Resolved/new issue highlighting | High | Low |
-| 4 | Streaming progress UI | Medium | Medium |
-| 5 | Actionable prompts with file paths | Medium | Medium |
-| 6 | Review scheduling | Medium | High |
-| 7 | Category trend charts | Low | Medium |
+## Future Enhancements
 
----
-
-## Testing Plan
-
-### Manual Testing
-1. Run a new review and verify all categories are populated
-2. Trigger email notification and verify findings are correctly extracted
-3. Compare two reviews and verify issue diff detection
-4. Test progress tracking status updates
-
-### Edge Cases
-- Empty categories (no issues found)
-- AI rate limiting (429 errors)
-- Very long recommendations (truncation)
-- Reviews with different focus areas
-
----
-
-## Additional Improvement Suggestions
-
-After core implementation:
-
-1. **AI-Suggested Code Fixes**: Generate actual code snippets for common issues
-2. **Integration with Roadmap**: Auto-create roadmap items from high-priority findings
-3. **Team Review Assignment**: Assign issues to team members
-4. **Export to PDF**: Generate professional review report document
-5. **Benchmark Comparison**: Compare scores against industry standards
+1. **Offline Mode** - PWA support for areas with poor connectivity
+2. **Barcode/QR Scanning** - Scan cable labels for quick lookup
+3. **GPS Location** - Log verification location coordinates
+4. **Bulk Import** - Import verification data from Excel
+5. **API Integration** - Connect with field inspection apps
