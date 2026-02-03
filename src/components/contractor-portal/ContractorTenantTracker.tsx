@@ -40,8 +40,10 @@ interface Tenant {
   layout_received: boolean | null;
   db_ordered: boolean | null;
   db_order_date: string | null;
+  db_cost: number | null;
   lighting_ordered: boolean | null;
   lighting_order_date: string | null;
+  lighting_cost: number | null;
   status: string | null;
 }
 
@@ -53,7 +55,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, lighting_ordered, lighting_order_date')
+        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, db_cost, lighting_ordered, lighting_order_date, lighting_cost')
         .eq('project_id', projectId);
       
       if (error) throw error;
@@ -241,10 +243,10 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                         <StatusIcon checked={tenant.layout_received} />
                       </TableCell>
                       <TableCell className="text-center">
-                        <StatusWithDate checked={tenant.db_ordered} date={tenant.db_order_date} />
+                        <StatusWithDate checked={tenant.db_ordered} date={tenant.db_order_date} cost={tenant.db_cost} />
                       </TableCell>
                       <TableCell className="text-center">
-                        <StatusWithDate checked={tenant.lighting_ordered} date={tenant.lighting_order_date} />
+                        <StatusWithDate checked={tenant.lighting_ordered} date={tenant.lighting_order_date} cost={tenant.lighting_cost} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -272,18 +274,29 @@ function StatusIcon({ checked }: { checked: boolean | null }) {
   return <XCircle className="h-5 w-5 text-muted-foreground/40 mx-auto" />;
 }
 
-function StatusWithDate({ checked, date }: { checked: boolean | null; date: string | null }) {
+function StatusWithDate({ checked, date, cost }: { checked: boolean | null; date: string | null; cost?: number | null }) {
   if (checked) {
     return (
       <div className="flex flex-col items-center gap-0.5">
-        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+        <Badge variant="default" className="bg-emerald-500 text-white text-xs">
+          Ordered
+        </Badge>
         {date && (
           <span className="text-xs text-muted-foreground">
             {new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           </span>
         )}
+        {cost != null && cost > 0 && (
+          <span className="text-xs font-mono text-muted-foreground">
+            R{cost.toLocaleString()}
+          </span>
+        )}
       </div>
     );
   }
-  return <XCircle className="h-5 w-5 text-muted-foreground/40 mx-auto" />;
+  return (
+    <Badge variant="outline" className="text-muted-foreground text-xs">
+      Pending
+    </Badge>
+  );
 }
