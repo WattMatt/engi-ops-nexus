@@ -17,6 +17,7 @@ import { RoadmapPhaseFilter } from "./RoadmapPhaseFilter";
 import { BulkSyncTasksDialog } from "./BulkSyncTasksDialog";
 import { RoadmapItemSelector } from "./RoadmapItemSelector";
 import { TaskExportPDFButton } from "./TaskExportPDFButton";
+import { useMilestoneNotifications } from "@/hooks/useMilestoneNotifications";
 
 interface EnhancedTasksManagerProps {
   projectId: string;
@@ -30,6 +31,9 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
   const [view, setView] = useState<"board" | "table" | "calendar">("board");
   const [searchQuery, setSearchQuery] = useState("");
   const [phaseFilter, setPhaseFilter] = useState<string | null>(null);
+  
+  // Real-time milestone progress notifications
+  useMilestoneNotifications({ projectId, enabled: true });
   
   // Form state
   const [title, setTitle] = useState("");

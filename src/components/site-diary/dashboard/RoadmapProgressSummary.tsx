@@ -125,7 +125,7 @@ export const RoadmapProgressSummary = ({ projectId }: RoadmapProgressSummaryProp
   };
 
   return (
-    <Card>
+    <Card id="roadmap-progress-summary">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
