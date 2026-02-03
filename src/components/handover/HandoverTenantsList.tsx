@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import {
 import { Store, Loader2, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TenantDocumentUpload } from "./TenantDocumentUpload";
+import { TenantProgressIndicator } from "./TenantProgressIndicator";
+import { useTenantHandoverProgress } from "@/hooks/useTenantHandoverProgress";
 import {
   Collapsible,
   CollapsibleContent,
@@ -43,6 +45,12 @@ export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => 
       return data ? sortTenantsByShopNumber(data) : [];
     },
   });
+
+  // Get tenant IDs for progress calculation
+  const tenantIds = useMemo(() => tenants?.map((t) => t.id) || [], [tenants]);
+  
+  // Fetch progress for all tenants in one query
+  const { data: progressMap = {} } = useTenantHandoverProgress(projectId, tenantIds);
 
   // Set up real-time subscription for live tracking
   useEffect(() => {
@@ -158,11 +166,13 @@ export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => 
                 <TableHead className="w-12"></TableHead>
                 <TableHead>Shop Number</TableHead>
                 <TableHead>Shop Name</TableHead>
+                <TableHead className="w-[140px]">Progress</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tenants.map((tenant) => {
                 const isExpanded = expandedTenants.has(tenant.id);
+                const progress = progressMap[tenant.id];
                 return (
                   <Collapsible
                     key={tenant.id}
@@ -190,10 +200,22 @@ export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => 
                           </div>
                         </TableCell>
                         <TableCell>{tenant.shop_name}</TableCell>
+                        <TableCell>
+                          {progress ? (
+                            <TenantProgressIndicator
+                              completedCount={progress.completedCount}
+                              totalCount={progress.totalCount}
+                              percentage={progress.percentage}
+                              compact
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                       <CollapsibleContent asChild>
                         <TableRow>
-                          <TableCell colSpan={3} className="p-4 bg-muted/50">
+                          <TableCell colSpan={4} className="p-4 bg-muted/50">
                             <TenantDocumentUpload
                               tenantId={tenant.id}
                               projectId={projectId}
