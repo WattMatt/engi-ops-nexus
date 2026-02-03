@@ -11906,6 +11906,7 @@ export type Database = {
           display_order: number | null
           expected_delivery: string | null
           id: string
+          location_group: string | null
           name: string
           notes: string | null
           po_number: string | null
@@ -11919,6 +11920,7 @@ export type Database = {
           supplier_email: string | null
           supplier_name: string | null
           supplier_phone: string | null
+          tenant_id: string | null
           tracking_number: string | null
           updated_at: string
         }
@@ -11933,6 +11935,7 @@ export type Database = {
           display_order?: number | null
           expected_delivery?: string | null
           id?: string
+          location_group?: string | null
           name: string
           notes?: string | null
           po_number?: string | null
@@ -11946,6 +11949,7 @@ export type Database = {
           supplier_email?: string | null
           supplier_name?: string | null
           supplier_phone?: string | null
+          tenant_id?: string | null
           tracking_number?: string | null
           updated_at?: string
         }
@@ -11960,6 +11964,7 @@ export type Database = {
           display_order?: number | null
           expected_delivery?: string | null
           id?: string
+          location_group?: string | null
           name?: string
           notes?: string | null
           po_number?: string | null
@@ -11973,6 +11978,7 @@ export type Database = {
           supplier_email?: string | null
           supplier_name?: string | null
           supplier_phone?: string | null
+          tenant_id?: string | null
           tracking_number?: string | null
           updated_at?: string
         }
@@ -11989,6 +11995,13 @@ export type Database = {
             columns: ["source_item_id"]
             isOneToOne: false
             referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_procurement_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]

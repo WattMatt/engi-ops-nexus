@@ -34,6 +34,7 @@ interface ProcurementTrackingSettingsProps {
 
 interface ProcurementItem {
   id: string;
+  project_id: string;
   name: string;
   description: string | null;
   source_type: string;
@@ -54,7 +55,16 @@ interface ProcurementItem {
   assigned_to: string | null;
   notes: string | null;
   display_order: number;
+  tenant_id: string | null;
+  location_group: string | null;
 }
+
+const locationGroupLabels: Record<string, string> = {
+  general: 'General',
+  tenant: 'Tenant',
+  back_of_house: 'Back of House',
+  front_of_house: 'Front of House',
+};
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   not_started: { label: 'Not Started', variant: 'outline' },
@@ -147,7 +157,7 @@ export function ProcurementTrackingSettings({ projectId }: ProcurementTrackingSe
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
                   <TableHead>Item Name</TableHead>
-                  <TableHead>Source</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Supplier</TableHead>
                   <TableHead>Expected Delivery</TableHead>
                   <TableHead>Status</TableHead>
@@ -176,7 +186,7 @@ export function ProcurementTrackingSettings({ projectId }: ProcurementTrackingSe
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {item.source_type === 'final_account' ? 'PC Item' : 'Manual'}
+                          {locationGroupLabels[item.location_group || 'general'] || 'General'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
