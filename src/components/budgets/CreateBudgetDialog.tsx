@@ -11,6 +11,8 @@ import { useQuery } from "@tanstack/react-query";
 import { LogoUpload } from "@/components/LogoUpload";
 import { Switch } from "@/components/ui/switch";
 import { ContactCombobox } from "@/components/shared/ContactCombobox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Copy, Plus } from "lucide-react";
 
 interface CreateBudgetDialogProps {
   open: boolean;
@@ -18,6 +20,21 @@ interface CreateBudgetDialogProps {
   projectId: string;
   onSuccess: () => void;
 }
+
+// Helper to increment revision string (Rev 0 -> Rev 1, Rev A -> Rev B, etc.)
+const incrementRevision = (revision: string): string => {
+  const match = revision.match(/^(Rev\s*)(\d+)$/i);
+  if (match) {
+    return `${match[1]}${parseInt(match[2]) + 1}`;
+  }
+  const letterMatch = revision.match(/^(Rev\s*)([A-Z])$/i);
+  if (letterMatch) {
+    const nextChar = String.fromCharCode(letterMatch[2].charCodeAt(0) + 1);
+    return `${letterMatch[1]}${nextChar}`;
+  }
+  // Default: append " (New)"
+  return `${revision} (New)`;
+};
 
 export const CreateBudgetDialog = ({
   open,
@@ -30,6 +47,7 @@ export const CreateBudgetDialog = ({
   const [loading, setLoading] = useState(false);
   const [useCustomConsultantLogo, setUseCustomConsultantLogo] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>("");
+  const [duplicateFromId, setDuplicateFromId] = useState<string>("new");
   const [formData, setFormData] = useState({
     budget_number: "",
     revision: "Rev 0",
@@ -40,6 +58,23 @@ export const CreateBudgetDialog = ({
     notes: "",
     consultant_logo_url: "",
     client_logo_url: "",
+    baseline_allowances: "",
+    exclusions: "",
+  });
+
+  // Fetch existing budgets for this project to allow duplication
+  const { data: existingBudgets = [] } = useQuery({
+    queryKey: ["electrical-budgets-for-duplication", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("electrical_budgets")
+        .select("id, budget_number, revision, budget_date")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!projectId,
   });
 
   // Fetch company settings for default consultant logo
@@ -71,6 +106,26 @@ export const CreateBudgetDialog = ({
     enabled: open && !!projectId,
   });
 
+  // Handle selection of budget to duplicate from
+  useEffect(() => {
+    if (duplicateFromId && duplicateFromId !== "new") {
+      const sourceBudget = existingBudgets.find(b => b.id === duplicateFromId);
+      if (sourceBudget) {
+        setFormData(prev => ({
+          ...prev,
+          budget_number: sourceBudget.budget_number,
+          revision: incrementRevision(sourceBudget.revision),
+        }));
+      }
+    } else if (duplicateFromId === "new") {
+      setFormData(prev => ({
+        ...prev,
+        budget_number: "",
+        revision: "Rev 0",
+      }));
+    }
+  }, [duplicateFromId, existingBudgets]);
+
   // Auto-populate consultant logo from company settings
   useEffect(() => {
     if (companySettings?.company_logo_url && !useCustomConsultantLogo) {
@@ -95,7 +150,6 @@ export const CreateBudgetDialog = ({
         client_logo_url: contact.logo_url || "",
       }));
     } else {
-      // Clear client fields when custom or cleared
       setFormData(prev => ({
         ...prev,
         prepared_for_company: "",
@@ -104,6 +158,96 @@ export const CreateBudgetDialog = ({
         client_logo_url: "",
       }));
     }
+  };
+
+  const duplicateBudgetData = async (sourceBudgetId: string, newBudgetId: string) => {
+    // Fetch source budget details for additional fields
+    const { data: sourceBudget } = await supabase
+      .from("electrical_budgets")
+      .select("baseline_allowances, exclusions, prepared_for_company, prepared_for_contact, prepared_for_tel, consultant_logo_url, client_logo_url")
+      .eq("id", sourceBudgetId)
+      .single();
+
+    // Update new budget with source budget's additional fields if not already set
+    if (sourceBudget) {
+      await supabase
+        .from("electrical_budgets")
+        .update({
+          baseline_allowances: formData.baseline_allowances || sourceBudget.baseline_allowances,
+          exclusions: formData.exclusions || sourceBudget.exclusions,
+          prepared_for_company: formData.prepared_for_company || sourceBudget.prepared_for_company,
+          prepared_for_contact: formData.prepared_for_contact || sourceBudget.prepared_for_contact,
+          prepared_for_tel: formData.prepared_for_tel || sourceBudget.prepared_for_tel,
+        })
+        .eq("id", newBudgetId);
+    }
+
+    // Fetch sections from source budget
+    const { data: sections, error: sectionsError } = await supabase
+      .from("budget_sections")
+      .select("*")
+      .eq("budget_id", sourceBudgetId)
+      .order("display_order");
+
+    if (sectionsError) throw sectionsError;
+    if (!sections || sections.length === 0) return;
+
+    // Create mapping of old section IDs to new section IDs
+    const sectionIdMap: Record<string, string> = {};
+
+    // Insert new sections
+    for (const section of sections) {
+      const { data: newSection, error: insertError } = await supabase
+        .from("budget_sections")
+        .insert({
+          budget_id: newBudgetId,
+          section_code: section.section_code,
+          section_name: section.section_name,
+          display_order: section.display_order,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      sectionIdMap[section.id] = newSection.id;
+    }
+
+    // Fetch line items from all source sections
+    const sectionIds = sections.map(s => s.id);
+    const { data: lineItems, error: lineItemsError } = await supabase
+      .from("budget_line_items")
+      .select("*")
+      .in("section_id", sectionIds)
+      .order("display_order");
+
+    if (lineItemsError) throw lineItemsError;
+    if (!lineItems || lineItems.length === 0) return;
+
+    // Insert line items with new section IDs
+    const newLineItems = lineItems.map(item => ({
+      section_id: sectionIdMap[item.section_id],
+      item_number: item.item_number,
+      description: item.description,
+      area: item.area,
+      area_unit: item.area_unit,
+      base_rate: item.base_rate,
+      ti_rate: item.ti_rate,
+      total: item.total,
+      display_order: item.display_order,
+      master_rate_id: item.master_rate_id,
+      master_material_id: item.master_material_id,
+      rate_overridden: item.rate_overridden,
+      override_reason: item.override_reason,
+      tenant_id: item.tenant_id,
+      is_tenant_item: item.is_tenant_item,
+      shop_number: item.shop_number,
+    }));
+
+    const { error: insertLineItemsError } = await supabase
+      .from("budget_line_items")
+      .insert(newLineItems);
+
+    if (insertLineItemsError) throw insertLineItemsError;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,9 +278,16 @@ export const CreateBudgetDialog = ({
 
       if (error) throw error;
 
+      // If duplicating from existing budget, copy sections and line items
+      if (duplicateFromId && duplicateFromId !== "new") {
+        await duplicateBudgetData(duplicateFromId, budget.id);
+      }
+
       toast({
         title: "Success",
-        description: "Budget created successfully",
+        description: duplicateFromId !== "new" 
+          ? "Budget revision created with duplicated data" 
+          : "Budget created successfully",
       });
 
       onSuccess();
@@ -152,13 +303,69 @@ export const CreateBudgetDialog = ({
     }
   };
 
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setDuplicateFromId("new");
+      setSelectedContactId("");
+      setFormData({
+        budget_number: "",
+        revision: "Rev 0",
+        budget_date: new Date().toISOString().split("T")[0],
+        prepared_for_company: "",
+        prepared_for_contact: "",
+        prepared_for_tel: "",
+        notes: "",
+        consultant_logo_url: "",
+        client_logo_url: "",
+        baseline_allowances: "",
+        exclusions: "",
+      });
+    }
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Electrical Budget</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Budget Source Selection */}
+          {existingBudgets.length > 0 && (
+            <div className="space-y-2 p-4 bg-muted/50 rounded-lg border">
+              <Label>Create From</Label>
+              <Select value={duplicateFromId} onValueChange={setDuplicateFromId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select source..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">
+                    <div className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      <span>Start Fresh (Empty Budget)</span>
+                    </div>
+                  </SelectItem>
+                  {existingBudgets.map((budget) => (
+                    <SelectItem key={budget.id} value={budget.id}>
+                      <div className="flex items-center gap-2">
+                        <Copy className="h-4 w-4" />
+                        <span>
+                          {budget.budget_number} - {budget.revision} ({new Date(budget.budget_date).toLocaleDateString()})
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {duplicateFromId !== "new" && (
+                <p className="text-sm text-muted-foreground">
+                  All sections and line items will be copied to the new revision.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="budget_number">Budget Number *</Label>
@@ -357,7 +564,10 @@ export const CreateBudgetDialog = ({
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create Budget"}
+              {loading 
+                ? (duplicateFromId !== "new" ? "Creating Revision..." : "Creating...") 
+                : (duplicateFromId !== "new" ? "Create Revision" : "Create Budget")
+              }
             </Button>
           </div>
         </form>
