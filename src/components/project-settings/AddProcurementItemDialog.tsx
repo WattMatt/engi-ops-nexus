@@ -300,14 +300,14 @@ export function AddProcurementItemDialog({
               <div className="space-y-2">
                 <Label htmlFor="tenant">Tenant (Optional)</Label>
                 <Select
-                  value={manualForm.tenant_id}
-                  onValueChange={handleTenantChange}
+                  value={manualForm.tenant_id || "none"}
+                  onValueChange={(v) => handleTenantChange(v === "none" ? "" : v)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select tenant" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {tenants?.map(tenant => (
                       <SelectItem key={tenant.id} value={tenant.id}>
                         {tenant.shop_number ? `${tenant.shop_number} - ` : ''}{tenant.shop_name || 'Unnamed'}
