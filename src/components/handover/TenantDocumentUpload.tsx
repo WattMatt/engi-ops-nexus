@@ -59,6 +59,14 @@ const TENANT_DOCUMENT_TYPES = [
   { value: "qc_inspection_report", label: "QC Inspection Report" },
   { value: "lighting_guarantee", label: "Lighting Guarantee" },
   { value: "db_guarantee", label: "DB Guarantee" },
+  // Phase 1: New electrical document types
+  { value: "cable_certificate", label: "Cable Test Certificate" },
+  { value: "metering_certificate", label: "Metering Certificate" },
+  { value: "earth_continuity_test", label: "Earth Continuity Test" },
+  { value: "insulation_resistance_test", label: "Insulation Resistance (IR) Test" },
+  { value: "loop_impedance_test", label: "Loop Impedance Test" },
+  { value: "rcd_test_certificate", label: "RCD Test Certificate" },
+  { value: "tenant_load_schedule", label: "Tenant Load Schedule" },
 ];
 
 export const TenantDocumentUpload = ({

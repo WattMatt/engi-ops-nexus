@@ -39,6 +39,16 @@ const DOCUMENT_TYPES = [
   { value: "as_built_drawings", label: "As-Built Drawings" },
   { value: "commissioning_docs", label: "Commissioning Documents" },
   { value: "compliance_certs", label: "Compliance Certificates" },
+  // Phase 1: New equipment categories
+  { value: "switchgear", label: "Switchgear" },
+  { value: "earthing_bonding", label: "Earthing & Bonding" },
+  { value: "surge_protection", label: "Surge Protection" },
+  { value: "metering", label: "Metering" },
+  { value: "cable_installation", label: "Cable Installation" },
+  { value: "emergency_systems", label: "Emergency Systems" },
+  { value: "protection_settings", label: "Protection Settings" },
+  { value: "arc_flash_studies", label: "Arc Flash Studies" },
+  { value: "energy_management", label: "Energy Management" },
   { value: "other", label: "Other" },
 ];
 
