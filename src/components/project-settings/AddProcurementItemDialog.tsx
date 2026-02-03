@@ -15,6 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Package } from "lucide-react";
 
@@ -32,6 +39,19 @@ interface PCItem {
   section_id: string;
 }
 
+interface Tenant {
+  id: string;
+  shop_number: string | null;
+  shop_name: string | null;
+}
+
+const LOCATION_GROUPS = [
+  { value: 'general', label: 'General' },
+  { value: 'tenant', label: 'Tenant' },
+  { value: 'back_of_house', label: 'Back of House' },
+  { value: 'front_of_house', label: 'Front of House' },
+];
+
 export function AddProcurementItemDialog({
   open,
   onOpenChange,
@@ -42,8 +62,26 @@ export function AddProcurementItemDialog({
   const [manualForm, setManualForm] = useState({
     name: '',
     description: '',
+    tenant_id: '',
+    location_group: 'general',
   });
   const [selectedPCItems, setSelectedPCItems] = useState<string[]>([]);
+
+  // Fetch tenants for this project
+  const { data: tenants } = useQuery({
+    queryKey: ['project-tenants', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, shop_number, shop_name')
+        .eq('project_id', projectId)
+        .order('shop_number', { ascending: true });
+      
+      if (error) throw error;
+      return data as Tenant[];
+    },
+    enabled: open
+  });
 
   // Fetch available PC items from Final Accounts
   const { data: pcItems, isLoading: loadingPCItems } = useQuery({
@@ -126,6 +164,8 @@ export function AddProcurementItemDialog({
           source_type: 'manual',
           name: manualForm.name,
           description: manualForm.description || null,
+          tenant_id: manualForm.tenant_id || null,
+          location_group: manualForm.location_group,
           status: 'not_started',
           created_by: user.user?.id,
         });
@@ -134,7 +174,7 @@ export function AddProcurementItemDialog({
     },
     onSuccess: () => {
       toast.success('Procurement item added');
-      setManualForm({ name: '', description: '' });
+      setManualForm({ name: '', description: '', tenant_id: '', location_group: 'general' });
       onSuccess();
     },
     onError: (error: Error) => {
@@ -153,6 +193,7 @@ export function AddProcurementItemDialog({
           source_type: 'final_account',
           source_item_id: pcItemId,
           name: pcItem?.description || 'PC Item',
+          location_group: 'general',
           status: 'not_started',
           created_by: user.user?.id,
         };
@@ -200,9 +241,18 @@ export function AddProcurementItemDialog({
 
   const isSubmitting = addManualMutation.isPending || addPCItemsMutation.isPending;
 
+  // When tenant is selected, auto-set location group to 'tenant'
+  const handleTenantChange = (tenantId: string) => {
+    setManualForm(prev => ({
+      ...prev,
+      tenant_id: tenantId,
+      location_group: tenantId ? 'tenant' : prev.location_group,
+    }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle>Add Procurement Item</DialogTitle>
           <DialogDescription>
@@ -226,6 +276,48 @@ export function AddProcurementItemDialog({
                 placeholder="e.g., Generator Panels"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="location_group">Location Group</Label>
+                <Select
+                  value={manualForm.location_group}
+                  onValueChange={(v) => setManualForm(prev => ({ ...prev, location_group: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOCATION_GROUPS.map(group => (
+                      <SelectItem key={group.value} value={group.value}>
+                        {group.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tenant">Tenant (Optional)</Label>
+                <Select
+                  value={manualForm.tenant_id}
+                  onValueChange={handleTenantChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select tenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {tenants?.map(tenant => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        {tenant.shop_number ? `${tenant.shop_number} - ` : ''}{tenant.shop_name || 'Unnamed'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
