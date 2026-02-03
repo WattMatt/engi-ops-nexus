@@ -61,7 +61,6 @@ interface ProcurementItem {
 
 const locationGroupLabels: Record<string, string> = {
   general: 'General',
-  tenant: 'Tenant',
   back_of_house: 'Back of House',
   front_of_house: 'Front of House',
 };

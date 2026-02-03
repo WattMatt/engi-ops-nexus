@@ -48,12 +48,6 @@ interface ProcurementItem {
   location_group?: string | null;
 }
 
-interface Tenant {
-  id: string;
-  shop_number: string | null;
-  shop_name: string | null;
-}
-
 interface EditProcurementItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -97,7 +91,6 @@ const categoryOptions = [
 
 const LOCATION_GROUPS = [
   { value: 'general', label: 'General' },
-  { value: 'tenant', label: 'Tenant' },
   { value: 'back_of_house', label: 'Back of House' },
   { value: 'front_of_house', label: 'Front of House' },
 ];
@@ -126,25 +119,7 @@ export function EditProcurementItemDialog({
     priority: 'normal',
     assigned_to: '',
     notes: '',
-    tenant_id: '',
     location_group: 'general',
-  });
-
-  // Fetch tenants for dropdown
-  const { data: tenants } = useQuery({
-    queryKey: ['project-tenants', item.project_id],
-    queryFn: async () => {
-      if (!item.project_id) return [];
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('id, shop_number, shop_name')
-        .eq('project_id', item.project_id)
-        .order('shop_number', { ascending: true });
-      
-      if (error) throw error;
-      return data as Tenant[];
-    },
-    enabled: open && !!item.project_id
   });
 
   useEffect(() => {
@@ -167,7 +142,6 @@ export function EditProcurementItemDialog({
         priority: item.priority || 'normal',
         assigned_to: item.assigned_to || '',
         notes: item.notes || '',
-        tenant_id: item.tenant_id || '',
         location_group: item.location_group || 'general',
       });
     }
@@ -195,7 +169,6 @@ export function EditProcurementItemDialog({
           priority: formData.priority || 'normal',
           assigned_to: formData.assigned_to || null,
           notes: formData.notes || null,
-          tenant_id: formData.tenant_id || null,
           location_group: formData.location_group || 'general',
         })
         .eq('id', item.id);
@@ -218,15 +191,6 @@ export function EditProcurementItemDialog({
       return;
     }
     updateMutation.mutate();
-  };
-
-  // When tenant is selected, auto-set location group to 'tenant'
-  const handleTenantChange = (tenantId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      tenant_id: tenantId,
-      location_group: tenantId ? 'tenant' : prev.location_group,
-    }));
   };
 
   return (
@@ -259,7 +223,7 @@ export function EditProcurementItemDialog({
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="col-span-2 space-y-2">
                   <Label htmlFor="edit-location-group">Location Group</Label>
                   <Select
                     value={formData.location_group}
@@ -272,26 +236,6 @@ export function EditProcurementItemDialog({
                       {LOCATION_GROUPS.map(group => (
                         <SelectItem key={group.value} value={group.value}>
                           {group.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-tenant">Tenant</Label>
-                <Select
-                    value={formData.tenant_id || "none"}
-                    onValueChange={(v) => handleTenantChange(v === "none" ? "" : v)}
-                  >
-                    <SelectTrigger id="edit-tenant">
-                      <SelectValue placeholder="Select tenant" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {tenants?.map(tenant => (
-                        <SelectItem key={tenant.id} value={tenant.id}>
-                          {tenant.shop_number ? `${tenant.shop_number} - ` : ''}{tenant.shop_name || 'Unnamed'}
                         </SelectItem>
                       ))}
                     </SelectContent>
