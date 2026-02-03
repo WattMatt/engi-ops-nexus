@@ -39,7 +39,9 @@ interface Tenant {
   sow_received: boolean | null;
   layout_received: boolean | null;
   db_ordered: boolean | null;
+  db_order_date: string | null;
   lighting_ordered: boolean | null;
+  lighting_order_date: string | null;
   status: string | null;
 }
 
@@ -51,7 +53,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, lighting_ordered')
+        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, lighting_ordered, lighting_order_date')
         .eq('project_id', projectId);
       
       if (error) throw error;
@@ -239,10 +241,10 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                         <StatusIcon checked={tenant.layout_received} />
                       </TableCell>
                       <TableCell className="text-center">
-                        <StatusIcon checked={tenant.db_ordered} />
+                        <StatusWithDate checked={tenant.db_ordered} date={tenant.db_order_date} />
                       </TableCell>
                       <TableCell className="text-center">
-                        <StatusIcon checked={tenant.lighting_ordered} />
+                        <StatusWithDate checked={tenant.lighting_ordered} date={tenant.lighting_order_date} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -266,6 +268,22 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
 function StatusIcon({ checked }: { checked: boolean | null }) {
   if (checked) {
     return <CheckCircle2 className="h-5 w-5 text-emerald-500 mx-auto" />;
+  }
+  return <XCircle className="h-5 w-5 text-muted-foreground/40 mx-auto" />;
+}
+
+function StatusWithDate({ checked, date }: { checked: boolean | null; date: string | null }) {
+  if (checked) {
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+        {date && (
+          <span className="text-xs text-muted-foreground">
+            {new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+          </span>
+        )}
+      </div>
+    );
   }
   return <XCircle className="h-5 w-5 text-muted-foreground/40 mx-auto" />;
 }

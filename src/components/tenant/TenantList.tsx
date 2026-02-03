@@ -31,9 +31,11 @@ interface Tenant {
   sow_received: boolean;
   layout_received: boolean;
   db_ordered: boolean;
+  db_order_date: string | null;
   db_cost: number | null;
   db_by_tenant: boolean;
   lighting_ordered: boolean;
+  lighting_order_date: string | null;
   lighting_cost: number | null;
   lighting_by_tenant: boolean;
   cost_reported: boolean;

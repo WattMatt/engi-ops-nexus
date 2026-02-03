@@ -20,9 +20,11 @@ interface Tenant {
   sow_received: boolean;
   layout_received: boolean;
   db_ordered: boolean;
+  db_order_date: string | null;
   db_cost: number | null;
   db_by_tenant: boolean;
   lighting_ordered: boolean;
+  lighting_order_date: string | null;
   lighting_cost: number | null;
   lighting_by_tenant: boolean;
   shop_category: string;
@@ -53,9 +55,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     sow_received: tenant?.sow_received || false,
     layout_received: tenant?.layout_received || false,
     db_ordered: tenant?.db_ordered || false,
+    db_order_date: tenant?.db_order_date || "",
     db_cost: tenant?.db_cost?.toString() || "",
     db_by_tenant: tenant?.db_by_tenant || false,
     lighting_ordered: tenant?.lighting_ordered || false,
+    lighting_order_date: tenant?.lighting_order_date || "",
     lighting_cost: tenant?.lighting_cost?.toString() || "",
     lighting_by_tenant: tenant?.lighting_by_tenant || false,
     cost_reported: tenant?.cost_reported || false,
@@ -80,9 +84,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
           sow_received: false,
           layout_received: false,
           db_ordered: false,
+          db_order_date: "",
           db_cost: "",
           db_by_tenant: false,
           lighting_ordered: false,
+          lighting_order_date: "",
           lighting_cost: "",
           lighting_by_tenant: false,
           cost_reported: false,
@@ -102,9 +108,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
           sow_received: tenant.sow_received || false,
           layout_received: tenant.layout_received || false,
           db_ordered: tenant.db_ordered || false,
+          db_order_date: tenant.db_order_date || "",
           db_cost: tenant.db_cost?.toString() || "",
           db_by_tenant: tenant.db_by_tenant || false,
           lighting_ordered: tenant.lighting_ordered || false,
+          lighting_order_date: tenant.lighting_order_date || "",
           lighting_cost: tenant.lighting_cost?.toString() || "",
           lighting_by_tenant: tenant.lighting_by_tenant || false,
           cost_reported: tenant.cost_reported || false,
@@ -229,9 +237,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
         sow_received: formData.sow_received,
         layout_received: formData.layout_received,
         db_ordered: formData.db_ordered,
+        db_order_date: formData.db_order_date || null,
         db_cost: formData.db_cost ? parseFloat(formData.db_cost) : null,
         db_by_tenant: formData.db_by_tenant,
         lighting_ordered: formData.lighting_ordered,
+        lighting_order_date: formData.lighting_order_date || null,
         lighting_cost: formData.lighting_cost ? parseFloat(formData.lighting_cost) : null,
         lighting_by_tenant: formData.lighting_by_tenant,
         cost_reported: formData.cost_reported,
@@ -419,6 +429,15 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
               />
             </div>
             <div>
+              <Label htmlFor="db_order_date">DB Order Date</Label>
+              <Input
+                id="db_order_date"
+                type="date"
+                value={formData.db_order_date}
+                onChange={(e) => setFormData({ ...formData, db_order_date: e.target.value })}
+              />
+            </div>
+            <div>
               <Label htmlFor="lighting_cost">Lighting Cost</Label>
               <InputWithSuffix
                 id="lighting_cost"
@@ -427,6 +446,15 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                 suffix="R"
                 value={formData.lighting_cost}
                 onChange={(e) => setFormData({ ...formData, lighting_cost: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="lighting_order_date">Lighting Order Date</Label>
+              <Input
+                id="lighting_order_date"
+                type="date"
+                value={formData.lighting_order_date}
+                onChange={(e) => setFormData({ ...formData, lighting_order_date: e.target.value })}
               />
             </div>
             <div>
