@@ -82,6 +82,7 @@
     "docx": "^9.5.1",
     "embla-carousel-react": "^8.6.0",
     "fabric": "^6.7.1",
+    "fake-indexeddb": "^6.2.5",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
     "jsdom": "^27.4.0",

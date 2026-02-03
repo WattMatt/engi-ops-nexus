@@ -36,6 +36,20 @@ const STORE_TABLE_MAP: Record<string, SyncConfig> = {
   [STORES.HANDOVER_FOLDERS]: {
     tableName: 'handover_folders',
   },
+  // Cable schedule stores
+  [STORES.CABLE_ENTRIES]: {
+    tableName: 'cable_entries',
+  },
+  [STORES.CABLE_SCHEDULES]: {
+    tableName: 'cable_schedules',
+  },
+  // Budget stores
+  [STORES.BUDGET_SECTIONS]: {
+    tableName: 'budget_sections',
+  },
+  [STORES.BUDGET_LINE_ITEMS]: {
+    tableName: 'budget_line_items',
+  },
 };
 
 interface UseOfflineSyncOptions {
