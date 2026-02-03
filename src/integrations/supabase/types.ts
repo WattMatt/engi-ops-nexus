@@ -7293,6 +7293,71 @@ export type Database = {
           },
         ]
       }
+      inspection_requests: {
+        Row: {
+          company_name: string | null
+          completed_by: string | null
+          completed_date: string | null
+          created_at: string
+          description: string | null
+          id: string
+          inspection_type: string
+          location: string
+          project_id: string
+          requested_by_email: string
+          requested_by_name: string
+          requested_date: string
+          response_notes: string | null
+          scheduled_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          completed_by?: string | null
+          completed_date?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          inspection_type: string
+          location: string
+          project_id: string
+          requested_by_email: string
+          requested_by_name: string
+          requested_date: string
+          response_notes?: string | null
+          scheduled_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          completed_by?: string | null
+          completed_date?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          inspection_type?: string
+          location?: string
+          project_id?: string
+          requested_by_email?: string
+          requested_by_name?: string
+          requested_date?: string
+          response_notes?: string | null
+          scheduled_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_history: {
         Row: {
           amount_excl_vat: number | null
@@ -11466,6 +11531,41 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_metadata: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          project_id: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          project_id: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          project_id?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_metadata_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

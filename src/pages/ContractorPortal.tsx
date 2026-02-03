@@ -4,11 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck } from "lucide-react";
 import { ContractorDocumentStatus } from "@/components/contractor-portal/ContractorDocumentStatus";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
 import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
 import { ContractorTenantTracker } from "@/components/contractor-portal/ContractorTenantTracker";
+import { ContractorCableStatus } from "@/components/contractor-portal/ContractorCableStatus";
+import { ContractorInspectionRequests } from "@/components/contractor-portal/ContractorInspectionRequests";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { PortalCableSchedule } from "@/components/portal/PortalCableSchedule";
 
@@ -143,7 +145,7 @@ export default function ContractorPortal() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
         <Tabs defaultValue="documents" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="documents" className="gap-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Documentation</span>
@@ -155,6 +157,14 @@ export default function ContractorPortal() {
             <TabsTrigger value="cables" className="gap-2">
               <Cable className="h-4 w-4" />
               <span className="hidden sm:inline">Cable Schedule</span>
+            </TabsTrigger>
+            <TabsTrigger value="cable-status" className="gap-2">
+              <Cable className="h-4 w-4" />
+              <span className="hidden sm:inline">Cable Status</span>
+            </TabsTrigger>
+            <TabsTrigger value="inspections" className="gap-2">
+              <ClipboardCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Inspections</span>
             </TabsTrigger>
             <TabsTrigger value="procurement" className="gap-2">
               <Package className="h-4 w-4" />
@@ -179,6 +189,20 @@ export default function ContractorPortal() {
 
           <TabsContent value="cables">
             <PortalCableSchedule projectId={project.id} />
+          </TabsContent>
+
+          <TabsContent value="cable-status">
+            <ContractorCableStatus projectId={project.id} />
+          </TabsContent>
+
+          <TabsContent value="inspections">
+            <ContractorInspectionRequests
+              projectId={project.id}
+              contractorName={tokenData.contractor_name}
+              contractorEmail={tokenData.contractor_email}
+              companyName={tokenData.company_name}
+              token={token || ''}
+            />
           </TabsContent>
 
           <TabsContent value="procurement">

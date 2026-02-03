@@ -4,4 +4,7 @@ export { DraggableDocumentItem } from "./DraggableDocumentItem";
 export { DroppableFolderItem } from "./DroppableFolderItem";
 export { DroppableRootZone } from "./DroppableRootZone";
 export { DragOverlay } from "./DragOverlay";
+export { InitializeFoldersDialog } from "./InitializeFoldersDialog";
+export { CATEGORY_FOLDER_TEMPLATES, getTemplatesForCategory, hasTemplatesForCategory } from "./FolderTemplates";
 export type { HandoverFolder, HandoverDocument, FolderTreeNode } from "./types";
+export type { FolderTemplate, CategoryFolderTemplates } from "./FolderTemplates";
