@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,17 +14,19 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Download, FileText, Map } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Download, FileText, Map, BarChart3, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
-import type { TDocumentDefinitions } from "pdfmake/interfaces";
+import type { TDocumentDefinitions, Content } from "pdfmake/interfaces";
 import { format } from "date-fns";
 import { 
   TaskForExport, 
   buildTasksWithRoadmapContent, 
   buildRoadmapTasksSummary 
 } from "@/utils/pdfmake/taskExportHelpers";
+import { captureElementById } from "@/utils/pdfmake/imageUtils";
 
 // @ts-ignore
 pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts.vfs;
@@ -36,8 +38,10 @@ interface TaskExportPDFButtonProps {
 export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => {
   const [open, setOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [groupByRoadmap, setGroupByRoadmap] = useState(true);
   const [includeSummary, setIncludeSummary] = useState(true);
+  const [includeCharts, setIncludeCharts] = useState(true);
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "completed">("all");
 
   const { data: project } = useQuery({
@@ -107,6 +111,16 @@ export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => 
     enabled: open,
   });
 
+  const captureChart = async (elementId: string): Promise<string | null> => {
+    try {
+      const result = await captureElementById(elementId, { quality: 0.85, scale: 2 });
+      return result?.dataUrl || null;
+    } catch (error) {
+      console.warn(`Failed to capture chart ${elementId}:`, error);
+      return null;
+    }
+  };
+
   const handleExport = async () => {
     if (!tasks || tasks.length === 0) {
       toast.error("No tasks to export");
@@ -114,6 +128,7 @@ export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => 
     }
 
     setIsExporting(true);
+    setExportProgress(10);
 
     try {
       // Filter tasks based on status
@@ -130,8 +145,10 @@ export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => 
         return;
       }
 
+      setExportProgress(20);
+
       // Build content array
-      const content: any[] = [
+      const content: Content[] = [
         // Title
         {
           text: "Site Diary Tasks Report",
@@ -167,10 +184,57 @@ export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => 
         margin: [0, 0, 0, 15],
       });
 
+      setExportProgress(30);
+
       // Summary section
       if (includeSummary) {
         content.push(...buildRoadmapTasksSummary(filteredTasks));
       }
+
+      setExportProgress(40);
+
+      // Chart visualizations
+      if (includeCharts) {
+        const chartContent: Content[] = [];
+        
+        // Try to capture the Gantt chart
+        const ganttChart = await captureChart("gantt-chart-container");
+        setExportProgress(50);
+        
+        // Try to capture roadmap progress summary
+        const progressChart = await captureChart("roadmap-progress-summary");
+        setExportProgress(60);
+
+        if (ganttChart || progressChart) {
+          chartContent.push({
+            text: "Visual Overview",
+            style: "sectionHeader",
+            margin: [0, 15, 0, 10],
+          });
+
+          if (progressChart) {
+            chartContent.push({
+              image: progressChart,
+              width: 500,
+              alignment: "center" as const,
+              margin: [0, 0, 0, 15],
+            });
+          }
+
+          if (ganttChart) {
+            chartContent.push({
+              image: ganttChart,
+              width: 500,
+              alignment: "center" as const,
+              margin: [0, 0, 0, 15],
+            });
+          }
+
+          content.push(...chartContent);
+        }
+      }
+
+      setExportProgress(70);
 
       // Tasks section
       content.push({
@@ -182,6 +246,8 @@ export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => 
       content.push(...buildTasksWithRoadmapContent(filteredTasks, { 
         includeRoadmapGrouping: groupByRoadmap 
       }));
+
+      setExportProgress(80);
 
       const docDefinition: TDocumentDefinitions = {
         pageSize: "A4",
@@ -250,17 +316,22 @@ export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => 
         },
       };
 
+      setExportProgress(90);
+
       const pdfDoc = pdfMake.createPdf(docDefinition);
       const fileName = `Tasks-${project?.name || "Export"}-${format(new Date(), "yyyy-MM-dd")}.pdf`;
       
       pdfDoc.download(fileName);
-      toast.success("Tasks exported to PDF");
+      setExportProgress(100);
+      
+      toast.success("Tasks exported to PDF with charts");
       setOpen(false);
     } catch (error) {
       console.error("Error exporting tasks:", error);
       toast.error("Failed to export tasks");
     } finally {
       setIsExporting(false);
+      setExportProgress(0);
     }
   };
 
@@ -282,7 +353,7 @@ export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => 
             Export Tasks to PDF
           </DialogTitle>
           <DialogDescription>
-            Export tasks with roadmap context and progress tracking
+            Export tasks with roadmap context, charts, and progress tracking
           </DialogDescription>
         </DialogHeader>
 
@@ -342,11 +413,33 @@ export const TaskExportPDFButton = ({ projectId }: TaskExportPDFButtonProps) => 
                 Include summary statistics
               </Label>
             </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="includeCharts"
+                checked={includeCharts}
+                onCheckedChange={(checked) => setIncludeCharts(!!checked)}
+              />
+              <Label htmlFor="includeCharts" className="font-normal flex items-center gap-1">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Include chart visualizations
+              </Label>
+            </div>
           </div>
+
+          {/* Export progress */}
+          {isExporting && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Generating PDF...</span>
+              </div>
+              <Progress value={exportProgress} className="h-2" />
+            </div>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isExporting}>
             Cancel
           </Button>
           <Button onClick={handleExport} disabled={isExporting || !tasks?.length}>
