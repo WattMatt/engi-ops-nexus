@@ -50,6 +50,10 @@ const STORE_TABLE_MAP: Record<string, SyncConfig> = {
   [STORES.BUDGET_LINE_ITEMS]: {
     tableName: 'budget_line_items',
   },
+  // Drawing register
+  [STORES.PROJECT_DRAWINGS]: {
+    tableName: 'project_drawings',
+  },
 };
 
 interface UseOfflineSyncOptions {

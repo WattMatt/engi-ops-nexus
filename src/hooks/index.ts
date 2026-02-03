@@ -21,6 +21,8 @@ export { useCableOfflineSync } from './useCableOfflineSync';
 export type { OfflineCableEntry } from './useCableOfflineSync';
 export { useBudgetOfflineSync } from './useBudgetOfflineSync';
 export type { OfflineBudgetLineItem } from './useBudgetOfflineSync';
+export { useDrawingOfflineSync } from './useDrawingOfflineSync';
+export type { OfflineDrawing } from './useDrawingOfflineSync';
 
 // Image loading
 export { useImageLoader, preloadImages, supportsWebP, supportsAvif } from './useImageLoader';

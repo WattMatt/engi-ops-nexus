@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'wm-consulting-offline';
-const DB_VERSION = 2; // Incremented for new stores
+const DB_VERSION = 3; // Incremented for drawing stores
 
 // Store names
 export const STORES = {
@@ -15,11 +15,14 @@ export const STORES = {
   PENDING_UPLOADS: 'pending_uploads',
   SYNC_QUEUE: 'sync_queue',
   CACHED_DATA: 'cached_data',
-  // New stores for cable schedules and budgets
+  // Cable schedules and budgets
   CABLE_ENTRIES: 'cable_entries',
   CABLE_SCHEDULES: 'cable_schedules',
   BUDGET_SECTIONS: 'budget_sections',
   BUDGET_LINE_ITEMS: 'budget_line_items',
+  // Drawing register
+  PROJECT_DRAWINGS: 'project_drawings',
+  PENDING_DRAWING_UPLOADS: 'pending_drawing_uploads',
 } as const;
 
 export type StoreName = typeof STORES[keyof typeof STORES];
@@ -148,6 +151,22 @@ export async function getDatabase(): Promise<IDBDatabase> {
         const budgetLineStore = db.createObjectStore(STORES.BUDGET_LINE_ITEMS, { keyPath: 'id' });
         budgetLineStore.createIndex('section_id', 'section_id', { unique: false });
         budgetLineStore.createIndex('synced', 'synced', { unique: false });
+      }
+
+      // Project Drawings store
+      if (!db.objectStoreNames.contains(STORES.PROJECT_DRAWINGS)) {
+        const drawingStore = db.createObjectStore(STORES.PROJECT_DRAWINGS, { keyPath: 'id' });
+        drawingStore.createIndex('project_id', 'project_id', { unique: false });
+        drawingStore.createIndex('category', 'category', { unique: false });
+        drawingStore.createIndex('status', 'status', { unique: false });
+        drawingStore.createIndex('synced', 'synced', { unique: false });
+      }
+
+      // Pending drawing file uploads (for offline file queueing)
+      if (!db.objectStoreNames.contains(STORES.PENDING_DRAWING_UPLOADS)) {
+        const pendingStore = db.createObjectStore(STORES.PENDING_DRAWING_UPLOADS, { keyPath: 'id' });
+        pendingStore.createIndex('drawing_id', 'drawing_id', { unique: false });
+        pendingStore.createIndex('created_at', 'created_at', { unique: false });
       }
     };
   });
