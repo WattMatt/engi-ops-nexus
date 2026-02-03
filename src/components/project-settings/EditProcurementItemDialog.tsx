@@ -280,15 +280,15 @@ export function EditProcurementItemDialog({
 
                 <div className="space-y-2">
                   <Label htmlFor="edit-tenant">Tenant</Label>
-                  <Select
-                    value={formData.tenant_id}
-                    onValueChange={handleTenantChange}
+                <Select
+                    value={formData.tenant_id || "none"}
+                    onValueChange={(v) => handleTenantChange(v === "none" ? "" : v)}
                   >
                     <SelectTrigger id="edit-tenant">
                       <SelectValue placeholder="Select tenant" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {tenants?.map(tenant => (
                         <SelectItem key={tenant.id} value={tenant.id}>
                           {tenant.shop_number ? `${tenant.shop_number} - ` : ''}{tenant.shop_name || 'Unnamed'}
