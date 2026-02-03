@@ -206,7 +206,12 @@ export default function ContractorPortal() {
           </TabsContent>
 
           <TabsContent value="procurement">
-            <ContractorProcurementStatus projectId={project.id} />
+            <ContractorProcurementStatus 
+              projectId={project.id}
+              contractorName={tokenData.contractor_name}
+              contractorEmail={tokenData.contractor_email}
+              companyName={tokenData.company_name}
+            />
           </TabsContent>
 
           <TabsContent value="rfi">

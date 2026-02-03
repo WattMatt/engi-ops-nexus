@@ -39,8 +39,19 @@ interface ProcurementItem {
   source_type: string;
   source_item_id: string | null;
   supplier_name: string | null;
+  supplier_email: string | null;
+  supplier_phone: string | null;
   expected_delivery: string | null;
+  actual_delivery: string | null;
   status: string;
+  category: string | null;
+  po_number: string | null;
+  tracking_number: string | null;
+  quoted_amount: number | null;
+  actual_amount: number | null;
+  quote_valid_until: string | null;
+  priority: string | null;
+  assigned_to: string | null;
   notes: string | null;
   display_order: number;
 }

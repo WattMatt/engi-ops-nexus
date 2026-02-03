@@ -10837,6 +10837,100 @@ export type Database = {
           },
         ]
       }
+      procurement_delivery_confirmations: {
+        Row: {
+          condition_notes: string | null
+          condition_status: string | null
+          confirmation_date: string
+          confirmed_by_company: string | null
+          confirmed_by_email: string | null
+          confirmed_by_name: string
+          created_at: string
+          id: string
+          photo_urls: string[] | null
+          procurement_item_id: string
+        }
+        Insert: {
+          condition_notes?: string | null
+          condition_status?: string | null
+          confirmation_date?: string
+          confirmed_by_company?: string | null
+          confirmed_by_email?: string | null
+          confirmed_by_name: string
+          created_at?: string
+          id?: string
+          photo_urls?: string[] | null
+          procurement_item_id: string
+        }
+        Update: {
+          condition_notes?: string | null
+          condition_status?: string | null
+          confirmation_date?: string
+          confirmed_by_company?: string | null
+          confirmed_by_email?: string | null
+          confirmed_by_name?: string
+          created_at?: string
+          id?: string
+          photo_urls?: string[] | null
+          procurement_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_delivery_confirmations_procurement_item_id_fkey"
+            columns: ["procurement_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_procurement_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          file_name: string
+          file_path: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          procurement_item_id: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          file_name: string
+          file_path?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          procurement_item_id: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          file_name?: string
+          file_path?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          procurement_item_id?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_documents_procurement_item_id_fkey"
+            columns: ["procurement_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_procurement_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       procurement_quotes: {
         Row: {
           created_at: string
@@ -10886,6 +10980,47 @@ export type Database = {
             columns: ["final_account_item_id"]
             isOneToOne: false
             referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_status_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_name: string | null
+          created_at: string
+          id: string
+          new_status: string
+          notes: string | null
+          previous_status: string | null
+          procurement_item_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          id?: string
+          new_status: string
+          notes?: string | null
+          previous_status?: string | null
+          procurement_item_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          id?: string
+          new_status?: string
+          notes?: string | null
+          previous_status?: string | null
+          procurement_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_status_history_procurement_item_id_fkey"
+            columns: ["procurement_item_id"]
+            isOneToOne: false
+            referencedRelation: "project_procurement_items"
             referencedColumns: ["id"]
           },
         ]
@@ -11761,6 +11896,10 @@ export type Database = {
       }
       project_procurement_items: {
         Row: {
+          actual_amount: number | null
+          actual_delivery: string | null
+          assigned_to: string | null
+          category: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -11769,14 +11908,25 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          po_number: string | null
+          priority: string | null
           project_id: string
+          quote_valid_until: string | null
+          quoted_amount: number | null
           source_item_id: string | null
           source_type: string
           status: string
+          supplier_email: string | null
           supplier_name: string | null
+          supplier_phone: string | null
+          tracking_number: string | null
           updated_at: string
         }
         Insert: {
+          actual_amount?: number | null
+          actual_delivery?: string | null
+          assigned_to?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -11785,14 +11935,25 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          po_number?: string | null
+          priority?: string | null
           project_id: string
+          quote_valid_until?: string | null
+          quoted_amount?: number | null
           source_item_id?: string | null
           source_type?: string
           status?: string
+          supplier_email?: string | null
           supplier_name?: string | null
+          supplier_phone?: string | null
+          tracking_number?: string | null
           updated_at?: string
         }
         Update: {
+          actual_amount?: number | null
+          actual_delivery?: string | null
+          assigned_to?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -11801,11 +11962,18 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          po_number?: string | null
+          priority?: string | null
           project_id?: string
+          quote_valid_until?: string | null
+          quoted_amount?: number | null
           source_item_id?: string | null
           source_type?: string
           status?: string
+          supplier_email?: string | null
           supplier_name?: string | null
+          supplier_phone?: string | null
+          tracking_number?: string | null
           updated_at?: string
         }
         Relationships: [

@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -28,8 +29,19 @@ interface ProcurementItem {
   description: string | null;
   source_type: string;
   supplier_name: string | null;
+  supplier_email: string | null;
+  supplier_phone: string | null;
   expected_delivery: string | null;
+  actual_delivery: string | null;
   status: string;
+  category: string | null;
+  po_number: string | null;
+  tracking_number: string | null;
+  quoted_amount: number | null;
+  actual_amount: number | null;
+  quote_valid_until: string | null;
+  priority: string | null;
+  assigned_to: string | null;
   notes: string | null;
 }
 
@@ -52,6 +64,28 @@ const statusOptions = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
+const priorityOptions = [
+  { value: 'low', label: 'Low' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'high', label: 'High' },
+  { value: 'critical', label: 'Critical' },
+];
+
+const categoryOptions = [
+  'Switchgear',
+  'Transformers',
+  'Distribution Boards',
+  'Cables & Accessories',
+  'Lighting',
+  'Emergency Systems',
+  'Metering',
+  'Earthing & Lightning Protection',
+  'Fire Detection',
+  'Access Control',
+  'CCTV',
+  'Other',
+];
+
 export function EditProcurementItemDialog({
   open,
   onOpenChange,
@@ -61,9 +95,20 @@ export function EditProcurementItemDialog({
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    category: '',
     supplier_name: '',
+    supplier_email: '',
+    supplier_phone: '',
     expected_delivery: '',
+    actual_delivery: '',
     status: 'not_started',
+    po_number: '',
+    tracking_number: '',
+    quoted_amount: '',
+    actual_amount: '',
+    quote_valid_until: '',
+    priority: 'normal',
+    assigned_to: '',
     notes: '',
   });
 
@@ -72,9 +117,20 @@ export function EditProcurementItemDialog({
       setFormData({
         name: item.name || '',
         description: item.description || '',
+        category: item.category || '',
         supplier_name: item.supplier_name || '',
+        supplier_email: item.supplier_email || '',
+        supplier_phone: item.supplier_phone || '',
         expected_delivery: item.expected_delivery || '',
+        actual_delivery: item.actual_delivery || '',
         status: item.status || 'not_started',
+        po_number: item.po_number || '',
+        tracking_number: item.tracking_number || '',
+        quoted_amount: item.quoted_amount?.toString() || '',
+        actual_amount: item.actual_amount?.toString() || '',
+        quote_valid_until: item.quote_valid_until || '',
+        priority: item.priority || 'normal',
+        assigned_to: item.assigned_to || '',
         notes: item.notes || '',
       });
     }
@@ -87,9 +143,20 @@ export function EditProcurementItemDialog({
         .update({
           name: formData.name,
           description: formData.description || null,
+          category: formData.category || null,
           supplier_name: formData.supplier_name || null,
+          supplier_email: formData.supplier_email || null,
+          supplier_phone: formData.supplier_phone || null,
           expected_delivery: formData.expected_delivery || null,
+          actual_delivery: formData.actual_delivery || null,
           status: formData.status,
+          po_number: formData.po_number || null,
+          tracking_number: formData.tracking_number || null,
+          quoted_amount: formData.quoted_amount ? parseFloat(formData.quoted_amount) : null,
+          actual_amount: formData.actual_amount ? parseFloat(formData.actual_amount) : null,
+          quote_valid_until: formData.quote_valid_until || null,
+          priority: formData.priority || 'normal',
+          assigned_to: formData.assigned_to || null,
           notes: formData.notes || null,
         })
         .eq('id', item.id);
@@ -116,87 +183,246 @@ export function EditProcurementItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Procurement Item</DialogTitle>
           <DialogDescription>
-            Update item details and tracking status
+            Update item details, tracking, and supplier information
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="edit-name">Item Name *</Label>
-            <Input
-              id="edit-name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-            />
-          </div>
+        <form onSubmit={handleSubmit}>
+          <Tabs defaultValue="details" className="mt-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="supplier">Supplier</TabsTrigger>
+              <TabsTrigger value="tracking">Tracking</TabsTrigger>
+            </TabsList>
 
-          <div className="space-y-2">
-            <Label htmlFor="edit-description">Description</Label>
-            <Textarea
-              id="edit-description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              rows={2}
-            />
-          </div>
+            {/* Details Tab */}
+            <TabsContent value="details" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="edit-name">Item Name *</Label>
+                  <Input
+                    id="edit-name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-supplier">Supplier Name</Label>
-              <Input
-                id="edit-supplier"
-                value={formData.supplier_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, supplier_name: e.target.value }))}
-                placeholder="Enter supplier..."
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">Category</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                  >
+                    <SelectTrigger id="edit-category">
+                      <SelectValue placeholder="Select category..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categoryOptions.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-delivery">Expected Delivery</Label>
-              <Input
-                id="edit-delivery"
-                type="date"
-                value={formData.expected_delivery}
-                onChange={(e) => setFormData(prev => ({ ...prev, expected_delivery: e.target.value }))}
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-priority">Priority</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}
+                  >
+                    <SelectTrigger id="edit-priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {priorityOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="edit-status">Status</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
-            >
-              <SelectTrigger id="edit-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={2}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="edit-notes">Notes</Label>
-            <Textarea
-              id="edit-notes"
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Additional notes..."
-              rows={3}
-            />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+                  >
+                    <SelectTrigger id="edit-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-assigned">Assigned To</Label>
+                  <Input
+                    id="edit-assigned"
+                    value={formData.assigned_to}
+                    onChange={(e) => setFormData(prev => ({ ...prev, assigned_to: e.target.value }))}
+                    placeholder="Person responsible..."
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea
+                  id="edit-notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Additional notes..."
+                  rows={3}
+                />
+              </div>
+            </TabsContent>
+
+            {/* Supplier Tab */}
+            <TabsContent value="supplier" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-supplier">Supplier Name</Label>
+                <Input
+                  id="edit-supplier"
+                  value={formData.supplier_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, supplier_name: e.target.value }))}
+                  placeholder="Enter supplier name..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-supplier-email">Supplier Email</Label>
+                  <Input
+                    id="edit-supplier-email"
+                    type="email"
+                    value={formData.supplier_email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, supplier_email: e.target.value }))}
+                    placeholder="supplier@example.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-supplier-phone">Supplier Phone</Label>
+                  <Input
+                    id="edit-supplier-phone"
+                    type="tel"
+                    value={formData.supplier_phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, supplier_phone: e.target.value }))}
+                    placeholder="+27..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-quoted">Quoted Amount (R)</Label>
+                  <Input
+                    id="edit-quoted"
+                    type="number"
+                    step="0.01"
+                    value={formData.quoted_amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, quoted_amount: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-actual">Actual Amount (R)</Label>
+                  <Input
+                    id="edit-actual"
+                    type="number"
+                    step="0.01"
+                    value={formData.actual_amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, actual_amount: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-quote-valid">Quote Valid Until</Label>
+                <Input
+                  id="edit-quote-valid"
+                  type="date"
+                  value={formData.quote_valid_until}
+                  onChange={(e) => setFormData(prev => ({ ...prev, quote_valid_until: e.target.value }))}
+                />
+              </div>
+            </TabsContent>
+
+            {/* Tracking Tab */}
+            <TabsContent value="tracking" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-po">PO Number</Label>
+                  <Input
+                    id="edit-po"
+                    value={formData.po_number}
+                    onChange={(e) => setFormData(prev => ({ ...prev, po_number: e.target.value }))}
+                    placeholder="PO-2024-001"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-tracking">Tracking Number</Label>
+                  <Input
+                    id="edit-tracking"
+                    value={formData.tracking_number}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tracking_number: e.target.value }))}
+                    placeholder="Shipment tracking..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-expected">Expected Delivery</Label>
+                  <Input
+                    id="edit-expected"
+                    type="date"
+                    value={formData.expected_delivery}
+                    onChange={(e) => setFormData(prev => ({ ...prev, expected_delivery: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-actual-delivery">Actual Delivery</Label>
+                  <Input
+                    id="edit-actual-delivery"
+                    type="date"
+                    value={formData.actual_delivery}
+                    onChange={(e) => setFormData(prev => ({ ...prev, actual_delivery: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end gap-2 pt-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
