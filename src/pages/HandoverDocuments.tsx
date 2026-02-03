@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck } from "lucide-react";
+import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck, ToggleRight, Unplug, Gauge, Cable, Siren } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
@@ -187,6 +187,31 @@ const HandoverDocuments = () => {
             <Shield className="h-4 w-4 mr-2" />
             Lightning
           </TabsTrigger>
+          {/* Phase 1: New electrical equipment tabs */}
+          <TabsTrigger value="switchgear">
+            <ToggleRight className="h-4 w-4 mr-2" />
+            Switchgear
+          </TabsTrigger>
+          <TabsTrigger value="earthing">
+            <Unplug className="h-4 w-4 mr-2" />
+            Earthing
+          </TabsTrigger>
+          <TabsTrigger value="surge">
+            <Shield className="h-4 w-4 mr-2" />
+            Surge
+          </TabsTrigger>
+          <TabsTrigger value="metering">
+            <Gauge className="h-4 w-4 mr-2" />
+            Metering
+          </TabsTrigger>
+          <TabsTrigger value="cables">
+            <Cable className="h-4 w-4 mr-2" />
+            Cables
+          </TabsTrigger>
+          <TabsTrigger value="emergency">
+            <Siren className="h-4 w-4 mr-2" />
+            Emergency
+          </TabsTrigger>
           <TabsTrigger value="specifications">
             <ClipboardCheck className="h-4 w-4 mr-2" />
             Specifications
@@ -283,6 +308,61 @@ const HandoverDocuments = () => {
             documentCategory="lightning_protection"
             categoryLabel="Lightning Protection"
             icon={<Shield className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        {/* Phase 1: New electrical equipment tabs content */}
+        <TabsContent value="switchgear">
+          <FolderBrowser 
+            projectId={projectId}
+            documentCategory="switchgear"
+            categoryLabel="Switchgear"
+            icon={<ToggleRight className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="earthing">
+          <FolderBrowser 
+            projectId={projectId}
+            documentCategory="earthing_bonding"
+            categoryLabel="Earthing & Bonding"
+            icon={<Unplug className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="surge">
+          <FolderBrowser 
+            projectId={projectId}
+            documentCategory="surge_protection"
+            categoryLabel="Surge Protection"
+            icon={<Shield className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="metering">
+          <FolderBrowser 
+            projectId={projectId}
+            documentCategory="metering"
+            categoryLabel="Metering"
+            icon={<Gauge className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="cables">
+          <FolderBrowser 
+            projectId={projectId}
+            documentCategory="cable_installation"
+            categoryLabel="Cable Installation"
+            icon={<Cable className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="emergency">
+          <FolderBrowser 
+            projectId={projectId}
+            documentCategory="emergency_systems"
+            categoryLabel="Emergency Systems"
+            icon={<Siren className="h-5 w-5" />}
           />
         </TabsContent>
 

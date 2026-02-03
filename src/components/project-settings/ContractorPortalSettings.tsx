@@ -28,7 +28,17 @@ const DOCUMENT_CATEGORIES = [
   { id: 'generators', label: 'Generators' },
   { id: 'transformers', label: 'Transformers' },
   { id: 'manuals', label: 'Manuals' },
-  { id: 'certificates', label: 'Certificates' }
+  { id: 'certificates', label: 'Certificates' },
+  // Phase 1: New electrical categories
+  { id: 'switchgear', label: 'Switchgear' },
+  { id: 'earthing_bonding', label: 'Earthing & Bonding' },
+  { id: 'surge_protection', label: 'Surge Protection' },
+  { id: 'metering', label: 'Metering' },
+  { id: 'cable_installation', label: 'Cable Installation' },
+  { id: 'emergency_systems', label: 'Emergency Systems' },
+  { id: 'protection_settings', label: 'Protection Settings' },
+  { id: 'arc_flash_studies', label: 'Arc Flash Studies' },
+  { id: 'energy_management', label: 'Energy Management' },
 ];
 
 export function ContractorPortalSettings({ projectId }: ContractorPortalSettingsProps) {

@@ -35,12 +35,23 @@ const DOCUMENT_CATEGORIES = [
   { key: 'lighting', label: 'Lighting', icon: Lightbulb, color: 'text-yellow-500', bgColor: 'bg-yellow-500/10', sourceType: 'tenant' },
   { key: 'cctv_access_control', label: 'CCTV & Access', icon: Camera, color: 'text-cyan-500', bgColor: 'bg-cyan-500/10', sourceType: 'tenant' },
   { key: 'lightning_protection', label: 'Lightning Protection', icon: Shield, color: 'text-indigo-500', bgColor: 'bg-indigo-500/10', sourceType: 'tenant' },
+  // Phase 1: New electrical equipment categories
+  { key: 'switchgear', label: 'Switchgear', icon: Server, color: 'text-gray-600', bgColor: 'bg-gray-500/10', sourceType: 'tenant' },
+  { key: 'earthing_bonding', label: 'Earthing & Bonding', icon: Shield, color: 'text-lime-600', bgColor: 'bg-lime-500/10', sourceType: 'tenant' },
+  { key: 'surge_protection', label: 'Surge Protection', icon: Shield, color: 'text-sky-600', bgColor: 'bg-sky-500/10', sourceType: 'tenant' },
+  { key: 'metering', label: 'Metering', icon: BarChart3, color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-500/10', sourceType: 'tenant' },
+  { key: 'cable_installation', label: 'Cable Installation', icon: Server, color: 'text-stone-600', bgColor: 'bg-stone-500/10', sourceType: 'tenant' },
+  { key: 'emergency_systems', label: 'Emergency Systems', icon: Zap, color: 'text-red-600', bgColor: 'bg-red-500/10', sourceType: 'tenant' },
   { key: 'specifications', label: 'Specifications', icon: ClipboardCheck, color: 'text-green-500', bgColor: 'bg-green-500/10', sourceType: 'general' },
   { key: 'test_certificates', label: 'Test Certificates', icon: FileCheck, color: 'text-teal-500', bgColor: 'bg-teal-500/10', sourceType: 'general' },
   { key: 'warranties', label: 'Warranties', icon: Award, color: 'text-orange-500', bgColor: 'bg-orange-500/10', sourceType: 'general' },
   { key: 'manuals', label: 'Manuals', icon: BookOpen, color: 'text-rose-500', bgColor: 'bg-rose-500/10', sourceType: 'general' },
   { key: 'commissioning_docs', label: 'Commissioning', icon: BadgeCheck, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', sourceType: 'general' },
   { key: 'compliance_certs', label: 'Compliance', icon: FileCheck, color: 'text-violet-500', bgColor: 'bg-violet-500/10', sourceType: 'general' },
+  // Phase 1: Additional portal categories
+  { key: 'protection_settings', label: 'Protection Settings', icon: ClipboardCheck, color: 'text-pink-600', bgColor: 'bg-pink-500/10', sourceType: 'general' },
+  { key: 'arc_flash_studies', label: 'Arc Flash Studies', icon: Zap, color: 'text-amber-700', bgColor: 'bg-amber-600/10', sourceType: 'general' },
+  { key: 'energy_management', label: 'Energy Management', icon: BarChart3, color: 'text-green-700', bgColor: 'bg-green-600/10', sourceType: 'general' },
 ];
 
 const CHART_COLORS = [

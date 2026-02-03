@@ -31,6 +31,14 @@ const TENANT_DOCUMENT_TYPES = [
   "qc_inspection_report",
   "lighting_guarantee",
   "db_guarantee",
+  // Phase 1: New electrical document types
+  "cable_certificate",
+  "metering_certificate",
+  "earth_continuity_test",
+  "insulation_resistance_test",
+  "loop_impedance_test",
+  "rcd_test_certificate",
+  "tenant_load_schedule",
 ];
 
 export const HandoverDashboard = ({ projectId, projectName }: HandoverDashboardProps) => {
