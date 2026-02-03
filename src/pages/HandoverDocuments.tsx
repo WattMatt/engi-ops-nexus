@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck, ToggleRight, Unplug, Gauge, Cable, Siren } from "lucide-react";
+import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck, ToggleRight, Unplug, Gauge, Cable, Siren, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
@@ -16,6 +16,7 @@ import { AsBuiltDrawingsView } from "@/components/handover/AsBuiltDrawingsView";
 import { EquipmentDocumentsView } from "@/components/handover/EquipmentDocumentsView";
 import { GeneralDocumentsView } from "@/components/handover/GeneralDocumentsView";
 import { FolderBrowser } from "@/components/handover/folders";
+import { SANS10142ComplianceChecklist } from "@/components/handover/SANS10142ComplianceChecklist";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -236,6 +237,10 @@ const HandoverDocuments = () => {
             <FileCheck className="h-4 w-4 mr-2" />
             Compliance
           </TabsTrigger>
+          <TabsTrigger value="sans10142">
+            <ShieldCheck className="h-4 w-4 mr-2" />
+            SANS 10142
+          </TabsTrigger>
           <TabsTrigger value="tenants">
             <Users className="h-4 w-4 mr-2" />
             Tenants
@@ -418,6 +423,10 @@ const HandoverDocuments = () => {
             categoryLabel="Compliance Certificates"
             icon={<FileCheck className="h-5 w-5" />}
           />
+        </TabsContent>
+
+        <TabsContent value="sans10142">
+          <SANS10142ComplianceChecklist projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="tenants">

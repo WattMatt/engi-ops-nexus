@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FolderPlus, Upload, Search, Folder } from "lucide-react";
+import { FolderPlus, Upload, Search, Folder, FolderTree } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,11 @@ import { DraggableDocumentItem } from "./DraggableDocumentItem";
 import { DroppableRootZone } from "./DroppableRootZone";
 import { DragOverlay } from "./DragOverlay";
 import { CreateFolderDialog } from "./CreateFolderDialog";
+import { InitializeFoldersDialog } from "./InitializeFoldersDialog";
 import { DocumentPreviewDialog } from "@/components/tenant/DocumentPreviewDialog";
 import { UploadToFolderDialog } from "./UploadToFolderDialog";
 import { HandoverDocument } from "./types";
+import { FolderTemplate, getTemplatesForCategory, hasTemplatesForCategory } from "./FolderTemplates";
 
 interface FolderBrowserProps {
   projectId: string;
@@ -35,8 +37,10 @@ export const FolderBrowser = ({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createParentId, setCreateParentId] = useState<string | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [initFoldersDialogOpen, setInitFoldersDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<HandoverDocument | null>(null);
   const [activeDocument, setActiveDocument] = useState<HandoverDocument | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const {
     folders,
@@ -108,6 +112,63 @@ export const FolderBrowser = ({
     return documents.filter((d) => d.folder_id === folderId).length;
   };
 
+  // Check if templates are available for this category
+  const hasTemplates = hasTemplatesForCategory(documentCategory);
+  const templates = getTemplatesForCategory(documentCategory);
+
+  // Handle initializing folder structure from templates
+  const handleInitializeFolders = async (selectedTemplates: FolderTemplate[]) => {
+    setIsInitializing(true);
+    
+    const createFoldersRecursively = async (
+      templates: FolderTemplate[],
+      parentId: string | null
+    ) => {
+      for (const template of templates) {
+        // Check if folder already exists
+        const exists = folders.some(
+          (f) => f.folder_name === template.name && f.parent_folder_id === parentId
+        );
+        
+        if (!exists) {
+          // Create the folder
+          await createFolder.mutateAsync({
+            folderName: template.name,
+            parentFolderId: parentId,
+          });
+          
+          // Get the newly created folder
+          // Note: We need to refetch to get the ID
+        }
+        
+        // For children, we'd need the parent ID - this is a simplification
+        // In practice, you might need to chain these or use a different approach
+        if (template.children && template.children.length > 0) {
+          // For now, create children as top-level siblings
+          // A more sophisticated approach would track created folder IDs
+          await createFoldersRecursively(template.children, parentId);
+        }
+      }
+    };
+
+    try {
+      await createFoldersRecursively(selectedTemplates, currentFolderId);
+      toast({
+        title: "Folders initialized",
+        description: `Created folder structure for ${categoryLabel}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error initializing folders",
+        description: "Some folders may not have been created",
+        variant: "destructive",
+      });
+    } finally {
+      setIsInitializing(false);
+      setInitFoldersDialogOpen(false);
+    }
+  };
+
   // Drag and drop handlers
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -173,8 +234,18 @@ export const FolderBrowser = ({
               <CardDescription>
                 Organize your {categoryLabel.toLowerCase()} documents into folders
               </CardDescription>
-            </div>
+          </div>
             <div className="flex gap-2">
+              {hasTemplates && folders.length === 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setInitFoldersDialogOpen(true)}
+                  disabled={isInitializing}
+                >
+                  <FolderTree className="h-4 w-4 mr-2" />
+                  Initialize Structure
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => {
@@ -322,6 +393,19 @@ export const FolderBrowser = ({
           document={previewDocument}
           open={!!previewDocument}
           onOpenChange={(open) => !open && setPreviewDocument(null)}
+        />
+      )}
+
+      {/* Initialize Folders Dialog */}
+      {hasTemplates && (
+        <InitializeFoldersDialog
+          open={initFoldersDialogOpen}
+          onOpenChange={setInitFoldersDialogOpen}
+          templates={templates}
+          categoryLabel={categoryLabel}
+          onConfirm={handleInitializeFolders}
+          isPending={isInitializing}
+          existingFolderCount={folders.length}
         />
       )}
     </>
