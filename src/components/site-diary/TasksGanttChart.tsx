@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval } from "date-fns";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { format, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ChevronDown, ChevronRight, Map } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Task {
   id: string;
@@ -12,14 +18,25 @@ interface Task {
   priority: string;
   start_date: string | null;
   due_date: string | null;
+  roadmap_item_id: string | null;
   profiles?: { full_name: string | null };
+  roadmap_item?: { title: string; phase: string | null } | null;
 }
 
 interface TasksGanttChartProps {
   projectId: string;
 }
 
+interface PhaseGroup {
+  phase: string;
+  tasks: Task[];
+  isExpanded: boolean;
+}
+
 export const TasksGanttChart = ({ projectId }: TasksGanttChartProps) => {
+  const [groupByPhase, setGroupByPhase] = useState(true);
+  const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({});
+
   const { data: tasks, isLoading } = useQuery({
     queryKey: ["gantt-tasks", projectId],
     queryFn: async () => {
@@ -32,7 +49,8 @@ export const TasksGanttChart = ({ projectId }: TasksGanttChartProps) => {
           priority,
           start_date,
           due_date,
-          assigned_to
+          assigned_to,
+          roadmap_item_id
         `)
         .eq("project_id", projectId)
         .not("start_date", "is", null)
@@ -41,19 +59,31 @@ export const TasksGanttChart = ({ projectId }: TasksGanttChartProps) => {
 
       if (error) throw error;
 
-      // Fetch user names separately
+      // Fetch user names and roadmap items separately
       const tasksWithProfiles = await Promise.all(
         (data || []).map(async (task) => {
+          let profiles = null;
+          let roadmap_item = null;
+          
           if (task.assigned_to) {
             const { data: profile } = await supabase
               .from("profiles")
               .select("full_name")
               .eq("id", task.assigned_to)
               .single();
-            
-            return { ...task, profiles: profile };
+            profiles = profile;
           }
-          return { ...task, profiles: null };
+          
+          if (task.roadmap_item_id) {
+            const { data: roadmapItem } = await supabase
+              .from("project_roadmap_items")
+              .select("title, phase")
+              .eq("id", task.roadmap_item_id)
+              .single();
+            roadmap_item = roadmapItem;
+          }
+          
+          return { ...task, profiles, roadmap_item };
         })
       );
 
@@ -76,6 +106,36 @@ export const TasksGanttChart = ({ projectId }: TasksGanttChartProps) => {
       </Card>
     );
   }
+
+  // Group tasks by roadmap phase
+  const groupedTasks = (): PhaseGroup[] => {
+    if (!groupByPhase) {
+      return [{ phase: "All Tasks", tasks: tasks, isExpanded: true }];
+    }
+
+    const groups: Record<string, Task[]> = {};
+    
+    tasks.forEach((task) => {
+      const phase = task.roadmap_item?.phase || "Unlinked";
+      if (!groups[phase]) {
+        groups[phase] = [];
+      }
+      groups[phase].push(task);
+    });
+
+    // Sort phases (put Unlinked last)
+    const sortedPhases = Object.keys(groups).sort((a, b) => {
+      if (a === "Unlinked") return 1;
+      if (b === "Unlinked") return -1;
+      return a.localeCompare(b);
+    });
+
+    return sortedPhases.map((phase) => ({
+      phase,
+      tasks: groups[phase],
+      isExpanded: expandedPhases[phase] !== false, // Default to expanded
+    }));
+  };
 
   // Find the date range
   const allDates = tasks.flatMap((t) => [
@@ -114,10 +174,95 @@ export const TasksGanttChart = ({ projectId }: TasksGanttChartProps) => {
     }
   };
 
+  const getPhaseColor = (phase: string) => {
+    const colors: Record<string, string> = {
+      "Planning": "bg-blue-100 text-blue-800 border-blue-300",
+      "Design": "bg-purple-100 text-purple-800 border-purple-300",
+      "Construction": "bg-orange-100 text-orange-800 border-orange-300",
+      "Commissioning": "bg-green-100 text-green-800 border-green-300",
+      "Drawings": "bg-pink-100 text-pink-800 border-pink-300",
+      "Handover": "bg-teal-100 text-teal-800 border-teal-300",
+      "Unlinked": "bg-gray-100 text-gray-600 border-gray-300",
+    };
+    return colors[phase] || "bg-slate-100 text-slate-800 border-slate-300";
+  };
+
+  const togglePhase = (phase: string) => {
+    setExpandedPhases((prev) => ({
+      ...prev,
+      [phase]: prev[phase] === false ? true : false,
+    }));
+  };
+
+  const phaseGroups = groupedTasks();
+
+  const renderTaskRow = (task: Task) => {
+    const startDate = task.start_date ? new Date(task.start_date) : null;
+    const dueDate = task.due_date ? new Date(task.due_date) : null;
+
+    if (!startDate || !dueDate) return null;
+
+    const startOffset = differenceInDays(startDate, minDate);
+    const duration = differenceInDays(dueDate, startDate) + 1;
+    const startPercent = (startOffset / totalDays) * 100;
+    const widthPercent = (duration / totalDays) * 100;
+
+    return (
+      <div key={task.id} className="flex items-center gap-4">
+        <div className="w-60 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{task.title}</p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs text-muted-foreground truncate">
+                  {task.profiles?.full_name || "Unassigned"}
+                </p>
+                {task.roadmap_item && (
+                  <Badge variant="outline" className="h-4 text-[10px] gap-1 bg-primary/5">
+                    <Map className="h-2.5 w-2.5" />
+                    {task.roadmap_item.title.slice(0, 15)}...
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <Badge variant={getPriorityColor(task.priority)} className="ml-2 flex-shrink-0">
+              {task.priority}
+            </Badge>
+          </div>
+        </div>
+        <div className="flex-1 relative h-8 border-l border-border">
+          <div
+            className={`absolute h-6 top-1 rounded ${getStatusColor(task.status)} flex items-center justify-center`}
+            style={{
+              left: `${startPercent}%`,
+              width: `${Math.max(widthPercent, 2)}%`,
+            }}
+          >
+            <span className="text-xs text-white font-medium px-2 truncate">
+              {format(startDate, "MMM d")} - {format(dueDate, "MMM d")}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Project Timeline (Gantt View)</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Project Timeline (Gantt View)</CardTitle>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="group-by-phase"
+              checked={groupByPhase}
+              onCheckedChange={setGroupByPhase}
+            />
+            <Label htmlFor="group-by-phase" className="text-sm cursor-pointer">
+              Group by Roadmap Phase
+            </Label>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -141,50 +286,45 @@ export const TasksGanttChart = ({ projectId }: TasksGanttChartProps) => {
               </div>
             </div>
 
-            {/* Tasks */}
-            <div className="space-y-2">
-              {tasks.map((task) => {
-                const startDate = task.start_date ? new Date(task.start_date) : null;
-                const dueDate = task.due_date ? new Date(task.due_date) : null;
-
-                if (!startDate || !dueDate) return null;
-
-                const startOffset = differenceInDays(startDate, minDate);
-                const duration = differenceInDays(dueDate, startDate) + 1;
-                const startPercent = (startOffset / totalDays) * 100;
-                const widthPercent = (duration / totalDays) * 100;
-
-                return (
-                  <div key={task.id} className="flex items-center gap-4">
-                    <div className="w-60 flex-shrink-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{task.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {task.profiles?.full_name || "Unassigned"}
-                          </p>
+            {/* Task Groups or Flat List */}
+            <div className="space-y-4">
+              {phaseGroups.map((group) => (
+                <div key={group.phase}>
+                  {groupByPhase && (
+                    <Collapsible
+                      open={expandedPhases[group.phase] !== false}
+                      onOpenChange={() => togglePhase(group.phase)}
+                    >
+                      <CollapsibleTrigger className="w-full">
+                        <div className={cn(
+                          "flex items-center gap-2 p-2 rounded-md border mb-2 cursor-pointer hover:bg-muted/50 transition-colors",
+                          getPhaseColor(group.phase)
+                        )}>
+                          {expandedPhases[group.phase] !== false ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          <span className="font-medium">{group.phase}</span>
+                          <Badge variant="secondary" className="ml-auto">
+                            {group.tasks.length} task{group.tasks.length !== 1 ? "s" : ""}
+                          </Badge>
                         </div>
-                        <Badge variant={getPriorityColor(task.priority)} className="ml-2 flex-shrink-0">
-                          {task.priority}
-                        </Badge>
-                      </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="space-y-2 pl-4">
+                          {group.tasks.map(renderTaskRow)}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+                  {!groupByPhase && (
+                    <div className="space-y-2">
+                      {group.tasks.map(renderTaskRow)}
                     </div>
-                    <div className="flex-1 relative h-8 border-l border-border">
-                      <div
-                        className={`absolute h-6 top-1 rounded ${getStatusColor(task.status)} flex items-center justify-center`}
-                        style={{
-                          left: `${startPercent}%`,
-                          width: `${Math.max(widthPercent, 2)}%`,
-                        }}
-                      >
-                        <span className="text-xs text-white font-medium px-2 truncate">
-                          {format(startDate, "MMM d")} - {format(dueDate, "MMM d")}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  )}
+                </div>
+              ))}
             </div>
 
             {/* Legend */}

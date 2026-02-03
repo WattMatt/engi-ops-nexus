@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { format, subDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { RoadmapProgressSummary } from "./RoadmapProgressSummary";
 
 interface TeamDashboardProps {
   projectId: string;
@@ -162,6 +163,9 @@ export const TeamDashboard = ({ projectId }: TeamDashboardProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Roadmap Progress Summary */}
+      <RoadmapProgressSummary projectId={projectId} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Priority Distribution */}
