@@ -1,137 +1,260 @@
 
-# Roadmap ↔ Site Diary Integration Plan
+# Electrical Handover Documentation Improvements
 
-## Overview
-Create a bi-directional connection between the Project Roadmap and Site Diary Tasks, enabling teams to link operational field tasks to strategic roadmap milestones.
-
-## Current State
-- **Roadmap**: High-level project milestones organized by phases (Planning, Design, Construction, etc.)
-- **Site Diary Tasks**: Day-to-day operational tasks with Kanban boards, calendars, and progress tracking
-- **No connection exists** between these two systems
-
-## Proposed Integration Features
-
-### 1. Database Schema Changes
-Add a foreign key relationship to link tasks to roadmap items:
-
-```text
-site_diary_tasks table
-├── roadmap_item_id (NEW) → references project_roadmap_items(id)
-```
-
-### 2. Task Creation/Edit Enhancement
-When creating or editing a site diary task, users can optionally:
-- **Link to Roadmap Item**: Select from a searchable dropdown of roadmap items
-- View the linked roadmap item's phase, due date, and priority for context
-
-### 3. Roadmap Item View Enhancement
-On the roadmap side, add ability to:
-- **View Linked Tasks**: See all site diary tasks linked to a specific roadmap item
-- **Quick Task Stats**: Display task completion metrics (e.g., "4/7 tasks completed")
-- **Create Task from Roadmap**: Quick action to create a new site diary task pre-linked to that milestone
-
-### 4. Sync Task Completion to Roadmap
-Optional automated behavior:
-- When **all linked tasks** for a roadmap item are completed, prompt to mark the roadmap item as complete
-- Show visual progress indicator on roadmap items based on linked task completion
-
-### 5. New "Sync to Roadmap" Action for Tasks
-Similar to how drawings sync works:
-- Bulk select multiple site diary tasks
-- Sync them as child items under a selected roadmap milestone
-- Creates tracking visibility at the roadmap level
+## Executive Summary
+This plan proposes enhancements to the handover documentation module from an electrical engineering perspective, adding missing critical document types, improving organization, and enhancing the client/contractor sharing portal for electrical project handovers.
 
 ---
 
-## Technical Details
+## Current State Analysis
 
-### Database Migration
-```sql
--- Add roadmap_item_id to site_diary_tasks
-ALTER TABLE site_diary_tasks
-ADD COLUMN roadmap_item_id UUID REFERENCES project_roadmap_items(id) ON DELETE SET NULL;
+### Existing Tenant Document Types (6 types)
+| Type | Description |
+|------|-------------|
+| Electrical COC | Certificate of Compliance |
+| As Built Drawing | Final installation drawings |
+| Line Diagram | Single-line diagrams |
+| QC Inspection Report | Quality control reports |
+| Lighting Guarantee | Lighting warranty docs |
+| DB Guarantee | Distribution board warranty |
 
--- Index for performance on linked task queries
-CREATE INDEX idx_site_diary_tasks_roadmap_item 
-ON site_diary_tasks(roadmap_item_id) WHERE roadmap_item_id IS NOT NULL;
-```
+### Existing Equipment Categories (8 tabs)
+- Generators, Transformers, Main Boards, Lighting, CCTV & Access, Lightning Protection, Specifications, Test Certificates, Warranties, Manuals, Commissioning, Compliance
 
-### New Components
+### Gaps Identified
+1. **Missing critical electrical document types** for comprehensive handovers
+2. **No cable certification tracking** despite having cable schedule features
+3. **Limited SANS compliance documentation** structure
+4. **No metering documentation** category
+5. **Missing surge protection/earthing** dedicated sections
 
-| Component | Purpose |
-|-----------|---------|
-| `RoadmapItemSelector.tsx` | Searchable dropdown for selecting roadmap items in task dialogs |
-| `LinkedTasksBadge.tsx` | Badge showing linked task count on roadmap items |
-| `LinkedTasksPanel.tsx` | Expandable panel showing all tasks linked to a roadmap item |
-| `SyncTasksToRoadmapDialog.tsx` | Bulk sync multiple tasks to a roadmap milestone |
+---
 
-### Modified Components
+## Proposed Improvements
 
-| Component | Changes |
-|-----------|---------|
-| `EnhancedTasksManager.tsx` | Add roadmap item selector to task creation form |
-| `TaskDetailsModal.tsx` | Show linked roadmap item info, allow editing the link |
-| `RoadmapItem.tsx` | Display linked task count and progress indicator |
-| `TableView.tsx` / `KanbanBoard.tsx` | Show roadmap link indicator on task cards |
+### 1. Expand Tenant Document Types
 
-### Data Flow
+Add essential electrical documents to the tenant handover checklist:
 
 ```text
-                    ┌─────────────────────────┐
-                    │   Project Roadmap       │
-                    │   (Strategic View)      │
-                    └───────────┬─────────────┘
-                                │
-              ┌─────────────────┼─────────────────┐
-              │                 │                 │
-              ▼                 ▼                 ▼
-     ┌────────────┐    ┌────────────┐    ┌────────────┐
-     │ Phase 1    │    │ Phase 2    │    │ Phase 3    │
-     │ Milestone  │    │ Milestone  │    │ Milestone  │
-     └─────┬──────┘    └─────┬──────┘    └────────────┘
-           │                 │
-     ┌─────┼─────┐     ┌─────┼─────┐
-     ▼           ▼     ▼           ▼
-  ┌──────┐   ┌──────┐ ┌──────┐   ┌──────┐
-  │Task 1│   │Task 2│ │Task 3│   │Task 4│
-  │ ✓    │   │ ○    │ │ ○    │   │ ✓    │
-  └──────┘   └──────┘ └──────┘   └──────┘
-        Site Diary Tasks (Operational)
+NEW TENANT DOCUMENT TYPES
+├── electrical_coc (existing)
+├── as_built_drawing (existing)
+├── line_diagram (existing)
+├── qc_inspection_report (existing)
+├── lighting_guarantee (existing)
+├── db_guarantee (existing)
+├── cable_certificate (NEW) - Cable test certificates
+├── metering_certificate (NEW) - Metering installation sign-off
+├── earth_continuity_test (NEW) - Earthing test results
+├── insulation_resistance_test (NEW) - IR test certificates
+├── loop_impedance_test (NEW) - Loop impedance results
+├── rcd_test_certificate (NEW) - RCD trip time tests
+└── tenant_load_schedule (NEW) - Final load calculations
 ```
+
+**Technical Implementation:**
+- Update `TENANT_DOCUMENT_TYPES` constant across:
+  - `useTenantHandoverProgress.ts`
+  - `TenantDocumentUpload.tsx`
+  - `HandoverDashboard.tsx`
+
+---
+
+### 2. Add New Equipment Categories
+
+Add dedicated tabs for critical electrical systems:
+
+| New Category | Icon | Key Documents |
+|--------------|------|---------------|
+| **Switchgear** | `ToggleRight` | MV/LV switchgear drawings, type tests, FAT reports |
+| **Earthing & Bonding** | `Unplug` | Earth electrode tests, equipotential bonding certs |
+| **Surge Protection** | `Shield` | SPD installation certs, coordination studies |
+| **Metering** | `Gauge` | Meter certificates, CTs/VTs calibration |
+| **Cable Installation** | `Cable` | Cable schedules, test certificates, route drawings |
+| **Emergency Systems** | `Siren` | Emergency lighting tests, exit sign locations |
+
+---
+
+### 3. Structured Sub-Folders per Category
+
+Enhance the FolderBrowser with recommended sub-folder templates:
+
+```text
+Generators/
+├── Drawings/
+│   ├── Layout Drawings/
+│   └── Schematic Diagrams/
+├── Test Certificates/
+│   ├── Factory Acceptance Tests (FAT)/
+│   └── Site Acceptance Tests (SAT)/
+├── Commissioning/
+│   ├── Commissioning Procedures/
+│   └── Commissioning Reports/
+├── O&M Manuals/
+├── Spares Lists/
+└── Warranty Documents/
+
+Transformers/
+├── Drawings/
+├── Type Test Certificates/
+├── Routine Test Certificates/
+├── Oil Analysis Reports/
+├── Commissioning Reports/
+└── Protection Settings/
+
+Main Boards/
+├── GA Drawings/
+├── Single Line Diagrams/
+├── Protection Settings/
+├── Type Test Certificates/
+├── Thermal Imaging Reports/
+└── Arc Flash Studies/
+```
+
+---
+
+### 4. SANS 10142 Compliance Checklist
+
+Add a compliance checklist component for South African electrical standards:
+
+**Key Sections:**
+1. **Part 1: LV Installations**
+   - Installation certificates
+   - Inspection checklists
+   - Test records
+
+2. **Part 2: MV Installations**
+   - Health and safety file
+   - Protection coordination studies
+   - MV switching procedures
+
+3. **Occupational Certificate Requirements**
+   - Certificate of Occupancy supporting docs
+   - Municipal inspection records
+
+---
+
+### 5. Enhanced Client Portal Document Permissions
+
+Expand the document category permissions in portal settings:
+
+```text
+Current Categories:
+├── as_built, generators, transformers, main_boards, lighting
+├── cctv_access_control, lightning_protection
+├── specifications, test_certificates, warranties, manuals
+├── commissioning_docs, compliance_certs
+
+New Categories to Add:
+├── switchgear
+├── earthing_bonding  
+├── surge_protection
+├── metering
+├── cable_installation
+├── emergency_systems
+├── protection_settings
+├── arc_flash_studies
+└── energy_management
+```
+
+---
+
+### 6. Document Validation Enhancements
+
+Add smart validation and metadata for electrical documents:
+
+**PDF Metadata Extraction:**
+- COC Certificate numbers
+- Expiry dates for certificates
+- ECSA registration numbers
+- Test equipment calibration status
+
+**Document Status Workflow:**
+- Draft → Under Review → Approved → Superseded
+- Version control with revision tracking
+- Automatic expiry notifications for time-limited certs
+
+---
+
+### 7. Bulk Import from Cable Schedule
+
+Create integration with existing cable schedule data:
+
+**Auto-Generate:**
+- Cable test certificate placeholders per cable
+- Link verification portal results to handover docs
+- Import cable route drawings from schedule
+
+---
+
+### 8. Contractor Portal Enhancements
+
+Extend contractor portal with electrical-specific features:
+
+**New Tabs:**
+1. **Cable Installation Status** - Real-time cable schedule visibility
+2. **Inspection Requests** - Request QC inspections
+3. **Document Submissions** - Upload test certificates directly
+4. **Punch List** - Electrical snag tracking
+
+**RFI Categories for Electrical:**
+- Clarification on drawings
+- Material substitution requests
+- Installation method queries
+- Protection settings confirmation
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Database & Basic Linking
-1. Create migration for `roadmap_item_id` column
-2. Build `RoadmapItemSelector` component
-3. Update task creation/edit forms to include roadmap linking
+### Phase 1: Core Document Types (Priority: High)
+1. Add 7 new tenant document types
+2. Update progress calculations
+3. Add new equipment category tabs
 
-### Phase 2: Roadmap View Integration
-1. Add linked tasks count to roadmap items
-2. Create `LinkedTasksPanel` for viewing associated tasks
-3. Add "Create Task" action from roadmap items
+### Phase 2: Folder Templates (Priority: Medium)
+1. Create recommended folder structures
+2. Add "Initialize Folders" button per category
+3. Implement folder templates for common setups
 
-### Phase 3: Bulk Sync & Progress Tracking
-1. Build `SyncTasksToRoadmapDialog` for bulk operations
-2. Implement progress indicator on roadmap items
-3. Optional: Auto-complete suggestion when all tasks done
+### Phase 3: Compliance & Validation (Priority: Medium)
+1. SANS 10142 compliance checklist component
+2. Document metadata extraction
+3. Certificate expiry tracking
 
----
-
-## User Experience Benefits
-
-1. **Strategic Alignment**: Field teams see how their daily work connects to project milestones
-2. **Progress Visibility**: Project managers view task-level progress from the roadmap
-3. **Traceability**: Clear audit trail from high-level planning to ground-level execution
-4. **Reduced Duplication**: No need to manually track the same work in two places
+### Phase 4: Portal Enhancements (Priority: Lower)
+1. Contractor portal electrical tabs
+2. Client portal additional categories
+3. Direct contractor document uploads
 
 ---
 
-## Additional Improvement Prompts
-After implementation, consider:
-- Add filters to site diary views to show "Tasks by Roadmap Phase"
-- Create a combined timeline view showing both roadmap milestones and linked tasks
-- Export linked tasks with their roadmap context in reports
-- Add roadmap-based task grouping to the Gantt chart view
+## File Changes Summary
+
+| File | Changes |
+|------|---------|
+| `useTenantHandoverProgress.ts` | Add 7 new document types |
+| `TenantDocumentUpload.tsx` | Expand TENANT_DOCUMENT_TYPES |
+| `HandoverDashboard.tsx` | Update document type constants |
+| `HandoverDocuments.tsx` | Add 6 new equipment tabs |
+| `ClientDocumentsPage.tsx` | Add matching categories |
+| `ContractorPortalSettings.tsx` | Add category permissions |
+| `UploadHandoverDocumentDialog.tsx` | Expand document types |
+| `NEW: ComplianceChecklist.tsx` | SANS 10142 tracking |
+| `NEW: FolderTemplates.ts` | Pre-defined folder structures |
+| `NEW: DocumentMetadata.tsx` | Certificate metadata capture |
+
+---
+
+## Additional Recommendations
+
+1. **QR Code Integration**: Generate QR codes linking to handover documents for physical equipment labels
+
+2. **Mobile Upload App**: Capacitor integration for site electricians to upload test certificates directly from mobile
+
+3. **Integration with Cable Verification Portal**: Auto-link verified cables to handover documentation
+
+4. **PDF Report Enhancements**: Include document index in generated handover reports with hyperlinks
+
+5. **Document Expiry Dashboard**: Alert panel for certificates nearing expiry (annual COCs, calibration certs)
