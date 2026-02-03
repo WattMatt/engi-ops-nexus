@@ -17,6 +17,10 @@ export { useAsyncAction, useMutationAction, useFormSubmit } from './useAsyncActi
 // Offline support
 export { useOfflineSync } from './useOfflineSync';
 export { useNetworkStatus } from './useNetworkStatus';
+export { useCableOfflineSync } from './useCableOfflineSync';
+export type { OfflineCableEntry } from './useCableOfflineSync';
+export { useBudgetOfflineSync } from './useBudgetOfflineSync';
+export type { OfflineBudgetLineItem } from './useBudgetOfflineSync';
 
 // Image loading
 export { useImageLoader, preloadImages, supportsWebP, supportsAvif } from './useImageLoader';

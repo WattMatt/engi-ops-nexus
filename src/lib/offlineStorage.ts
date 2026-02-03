@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'wm-consulting-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for new stores
 
 // Store names
 export const STORES = {
@@ -15,6 +15,11 @@ export const STORES = {
   PENDING_UPLOADS: 'pending_uploads',
   SYNC_QUEUE: 'sync_queue',
   CACHED_DATA: 'cached_data',
+  // New stores for cable schedules and budgets
+  CABLE_ENTRIES: 'cable_entries',
+  CABLE_SCHEDULES: 'cable_schedules',
+  BUDGET_SECTIONS: 'budget_sections',
+  BUDGET_LINE_ITEMS: 'budget_line_items',
 } as const;
 
 export type StoreName = typeof STORES[keyof typeof STORES];
@@ -115,6 +120,34 @@ export async function getDatabase(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORES.CACHED_DATA)) {
         const cacheStore = db.createObjectStore(STORES.CACHED_DATA, { keyPath: 'key' });
         cacheStore.createIndex('expiresAt', 'expiresAt', { unique: false });
+      }
+
+      // Cable Schedule stores
+      if (!db.objectStoreNames.contains(STORES.CABLE_ENTRIES)) {
+        const cableEntryStore = db.createObjectStore(STORES.CABLE_ENTRIES, { keyPath: 'id' });
+        // Index matches the schedule_id field (used as 'cable_schedule_id' locally for clarity)
+        cableEntryStore.createIndex('cable_schedule_id', 'schedule_id', { unique: false });
+        cableEntryStore.createIndex('floor_plan_id', 'floor_plan_id', { unique: false });
+        cableEntryStore.createIndex('synced', 'synced', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(STORES.CABLE_SCHEDULES)) {
+        const cableScheduleStore = db.createObjectStore(STORES.CABLE_SCHEDULES, { keyPath: 'id' });
+        cableScheduleStore.createIndex('project_id', 'project_id', { unique: false });
+        cableScheduleStore.createIndex('synced', 'synced', { unique: false });
+      }
+
+      // Budget stores
+      if (!db.objectStoreNames.contains(STORES.BUDGET_SECTIONS)) {
+        const budgetSectionStore = db.createObjectStore(STORES.BUDGET_SECTIONS, { keyPath: 'id' });
+        budgetSectionStore.createIndex('budget_id', 'budget_id', { unique: false });
+        budgetSectionStore.createIndex('synced', 'synced', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(STORES.BUDGET_LINE_ITEMS)) {
+        const budgetLineStore = db.createObjectStore(STORES.BUDGET_LINE_ITEMS, { keyPath: 'id' });
+        budgetLineStore.createIndex('section_id', 'section_id', { unique: false });
+        budgetLineStore.createIndex('synced', 'synced', { unique: false });
       }
     };
   });
