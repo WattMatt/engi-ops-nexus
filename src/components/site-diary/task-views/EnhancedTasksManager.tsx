@@ -16,6 +16,7 @@ import { CalendarView } from "./CalendarView";
 import { RoadmapPhaseFilter } from "./RoadmapPhaseFilter";
 import { BulkSyncTasksDialog } from "./BulkSyncTasksDialog";
 import { RoadmapItemSelector } from "./RoadmapItemSelector";
+import { TaskExportPDFButton } from "./TaskExportPDFButton";
 
 interface EnhancedTasksManagerProps {
   projectId: string;
@@ -134,6 +135,8 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
             <Link2 className="h-4 w-4 mr-2" />
             Bulk Link
           </Button>
+
+          <TaskExportPDFButton projectId={projectId} />
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
