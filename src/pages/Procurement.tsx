@@ -13,7 +13,8 @@ import {
   Calendar,
   Activity,
   List,
-  LayoutGrid
+  LayoutGrid,
+  ClipboardCheck
 } from "lucide-react";
 import { 
   ProcurementStatusPipeline,
@@ -24,6 +25,7 @@ import {
 import { ProcurementItemsTable } from "@/components/procurement/ProcurementItemsTable";
 import { AddProcurementItemDialog } from "@/components/project-settings/AddProcurementItemDialog";
 import { EditProcurementItemDialog } from "@/components/project-settings/EditProcurementItemDialog";
+import { ProjectInspectionItems } from "@/components/procurement/inspections/ProjectInspectionItems";
 import { useProject } from "@/hooks/useProject";
 import { useState } from "react";
 import { Search } from "lucide-react";
@@ -189,10 +191,14 @@ export default function Procurement() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="items" className="gap-2">
             <List className="h-4 w-4" />
             <span className="hidden sm:inline">All Items</span>
+          </TabsTrigger>
+          <TabsTrigger value="inspections" className="gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            <span className="hidden sm:inline">Inspections</span>
           </TabsTrigger>
           <TabsTrigger value="overview" className="gap-2">
             <LayoutGrid className="h-4 w-4" />
@@ -239,6 +245,11 @@ export default function Procurement() {
             onEdit={(item) => setEditingItem(item)}
             onRefresh={refetch}
           />
+        </TabsContent>
+
+        {/* Inspections Tab */}
+        <TabsContent value="inspections" className="mt-6">
+          <ProjectInspectionItems projectId={projectId} />
         </TabsContent>
 
         {/* Overview Tab */}

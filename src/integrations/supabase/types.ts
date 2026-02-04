@@ -11447,6 +11447,71 @@ export type Database = {
         }
         Relationships: []
       }
+      project_inspection_items: {
+        Row: {
+          contractor_notes: string | null
+          contractor_ready_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          expected_date: string | null
+          id: string
+          inspection_date: string | null
+          inspection_type: string
+          inspector_name: string | null
+          inspector_notes: string | null
+          location: string
+          project_id: string
+          sort_order: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contractor_notes?: string | null
+          contractor_ready_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expected_date?: string | null
+          id?: string
+          inspection_date?: string | null
+          inspection_type: string
+          inspector_name?: string | null
+          inspector_notes?: string | null
+          location: string
+          project_id: string
+          sort_order?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contractor_notes?: string | null
+          contractor_ready_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expected_date?: string | null
+          id?: string
+          inspection_date?: string | null
+          inspection_type?: string
+          inspector_name?: string | null
+          inspector_notes?: string | null
+          location?: string
+          project_id?: string
+          sort_order?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_inspection_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_lighting_schedules: {
         Row: {
           approval_status: string | null
