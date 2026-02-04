@@ -20,7 +20,8 @@ import {
   Activity,
   List,
   LayoutGrid,
-  FileCheck
+  FileCheck,
+  Pencil
 } from "lucide-react";
 import { 
   ProcurementStatusPipeline,
@@ -28,7 +29,8 @@ import {
   ProcurementActivityFeed,
   ProcurementDeliveryCalendar,
   UpcomingDeliveries,
-  ConfirmDeliveryDialog
+  ConfirmDeliveryDialog,
+  ContractorEditItemDialog
 } from "./procurement";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +55,8 @@ interface ProcurementItem {
   po_number: string | null;
   tracking_number: string | null;
   priority: string | null;
+  notes: string | null;
+  location_group: string | null;
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -96,9 +100,10 @@ export function ContractorProcurementStatus({
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [confirmDeliveryItem, setConfirmDeliveryItem] = useState<ProcurementItem | null>(null);
+  const [editingItem, setEditingItem] = useState<ProcurementItem | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
-  const { data: procurementItems, isLoading } = useQuery({
+  const { data: procurementItems, isLoading, refetch } = useQuery({
     queryKey: ['contractor-procurement', projectId],
     queryFn: () => fetchProcurementItems(projectId)
   });
@@ -329,6 +334,16 @@ export function ContractorProcurementStatus({
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingItem(item);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
                               {canConfirm && (
                                 <Button
                                   size="sm"
@@ -426,6 +441,17 @@ export function ContractorProcurementStatus({
           contractorName={contractorName}
           contractorEmail={contractorEmail}
           companyName={companyName}
+        />
+      )}
+
+      {/* Edit Item Dialog */}
+      {editingItem && (
+        <ContractorEditItemDialog
+          open={!!editingItem}
+          onOpenChange={(open) => !open && setEditingItem(null)}
+          item={editingItem}
+          contractorName={contractorName}
+          onSuccess={() => refetch()}
         />
       )}
     </div>
