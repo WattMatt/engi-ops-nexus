@@ -1858,6 +1858,15 @@ export type Database = {
           cable_type: string | null
           calculation_method: string | null
           circuit_type: string | null
+          contractor_confirmed: boolean | null
+          contractor_confirmed_at: string | null
+          contractor_confirmed_by: string | null
+          contractor_installed: boolean | null
+          contractor_installed_at: string | null
+          contractor_installed_by: string | null
+          contractor_measured_length: number | null
+          contractor_notes: string | null
+          contractor_submitted_at: string | null
           core_configuration: string | null
           created_at: string
           created_from: string | null
@@ -1905,6 +1914,15 @@ export type Database = {
           cable_type?: string | null
           calculation_method?: string | null
           circuit_type?: string | null
+          contractor_confirmed?: boolean | null
+          contractor_confirmed_at?: string | null
+          contractor_confirmed_by?: string | null
+          contractor_installed?: boolean | null
+          contractor_installed_at?: string | null
+          contractor_installed_by?: string | null
+          contractor_measured_length?: number | null
+          contractor_notes?: string | null
+          contractor_submitted_at?: string | null
           core_configuration?: string | null
           created_at?: string
           created_from?: string | null
@@ -1952,6 +1970,15 @@ export type Database = {
           cable_type?: string | null
           calculation_method?: string | null
           circuit_type?: string | null
+          contractor_confirmed?: boolean | null
+          contractor_confirmed_at?: string | null
+          contractor_confirmed_by?: string | null
+          contractor_installed?: boolean | null
+          contractor_installed_at?: string | null
+          contractor_installed_by?: string | null
+          contractor_measured_length?: number | null
+          contractor_notes?: string | null
+          contractor_submitted_at?: string | null
           core_configuration?: string | null
           created_at?: string
           created_from?: string | null
