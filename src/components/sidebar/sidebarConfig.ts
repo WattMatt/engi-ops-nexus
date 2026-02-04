@@ -20,6 +20,7 @@ import {
   User,
   Settings,
   Package,
+  ClipboardCheck,
   LucideIcon,
 } from "lucide-react";
 
@@ -61,6 +62,7 @@ export const fieldOperationsItems: NavItem[] = [
   { title: "BOQ", url: "/dashboard/boqs", icon: FileSpreadsheet },
   { title: "Final Accounts", url: "/dashboard/final-accounts", icon: FileCheck },
   { title: "Procurement", url: "/dashboard/procurement", icon: Package },
+  { title: "Inspections", url: "/dashboard/inspections", icon: ClipboardCheck },
 ];
 
 // AI & Reports Workspace - AI tools and reporting
