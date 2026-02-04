@@ -213,15 +213,16 @@ export function useCreateDrawing() {
         filePath = `${projectId}/drawings/${data.category}/${safeName}-${data.current_revision || 'A'}.${ext}`;
         
         const { error: uploadError } = await supabase.storage
-          .from('handover-documents')
+          .from('project-drawings')
           .upload(filePath, file, { upsert: true });
         
         if (uploadError) throw uploadError;
         
-        // For private buckets, store the authenticated URL pattern
-        // The preview component will generate signed URLs for access
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/handover-documents/${filePath}`;
+        // project-drawings is a public bucket, use getPublicUrl
+        const { data: urlData } = supabase.storage
+          .from('project-drawings')
+          .getPublicUrl(filePath);
+        fileUrl = urlData.publicUrl;
         fileName = file.name;
         fileSize = file.size;
         fileType = ext;
@@ -301,15 +302,16 @@ export function useUpdateDrawing() {
         filePath = `${projectId}/drawings/${data.category || 'other'}/${safeName}-${data.current_revision || 'A'}.${ext}`;
         
         const { error: uploadError } = await supabase.storage
-          .from('handover-documents')
+          .from('project-drawings')
           .upload(filePath, file, { upsert: true });
         
         if (uploadError) throw uploadError;
         
-        // For private buckets, store the authenticated URL pattern
-        // The preview component will generate signed URLs for access
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/handover-documents/${filePath}`;
+        // project-drawings is a public bucket, use getPublicUrl
+        const { data: urlData } = supabase.storage
+          .from('project-drawings')
+          .getPublicUrl(filePath);
+        fileUrl = urlData.publicUrl;
         fileName = file.name;
         fileSize = file.size;
         fileType = ext;
