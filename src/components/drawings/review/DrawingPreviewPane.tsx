@@ -115,6 +115,16 @@ export function DrawingPreviewPane({
       if (bucket && PRIVATE_BUCKETS.includes(bucket)) {
         setIsLoadingUrl(true);
         try {
+          // Check if user is authenticated before creating signed URL
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (!session) {
+            console.warn('No active session for signed URL creation');
+            setResolvedUrl(null);
+            setIsLoadingUrl(false);
+            return;
+          }
+          
           // Use the provided filePath if available, otherwise extract from URL
           let pathToSign = filePath;
           
@@ -132,19 +142,19 @@ export function DrawingPreviewPane({
             
             if (error) {
               console.error('Signed URL error:', error);
-              setResolvedUrl(fileUrl); // Fallback to original
+              setResolvedUrl(null); // Don't fallback to unauthenticated URL
             } else if (data?.signedUrl) {
               setResolvedUrl(data.signedUrl);
             } else {
-              setResolvedUrl(fileUrl); // Fallback to original
+              setResolvedUrl(null);
             }
           } else {
             console.warn('Could not extract path for signed URL');
-            setResolvedUrl(fileUrl);
+            setResolvedUrl(null);
           }
         } catch (error) {
           console.error('Failed to create signed URL:', error);
-          setResolvedUrl(fileUrl);
+          setResolvedUrl(null);
         } finally {
           setIsLoadingUrl(false);
         }
