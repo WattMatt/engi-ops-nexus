@@ -11,10 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   CheckCircle2, Clock, AlertCircle, FileText, Download, Eye, Search,
   File, FileImage, Folder, ExternalLink, LayoutDashboard, Users,
-  ChevronDown, ChevronRight, History, Calendar, ArrowUpDown
+  ChevronDown, ChevronRight, History, Calendar, ArrowUpDown, ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -296,18 +297,22 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
-            Dashboard
+            <span className="hidden sm:inline">Dashboard</span>
+          </TabsTrigger>
+          <TabsTrigger value="register" className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden sm:inline">Register</span>
           </TabsTrigger>
           <TabsTrigger value="tenants" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Tenants
+            <span className="hidden sm:inline">Tenants</span>
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-2">
             <Folder className="h-4 w-4" />
-            Drawings
+            <span className="hidden sm:inline">Drawings</span>
           </TabsTrigger>
         </TabsList>
 
@@ -422,6 +427,178 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Drawing Register Tab - Full Register View */}
+        <TabsContent value="register" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Drawing Register
+              </CardTitle>
+              <CardDescription>
+                Complete electrical drawing register grouped by discipline
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Search */}
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search drawings..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              {/* Stats Summary */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg border bg-card">
+                  <p className="text-2xl font-bold">{drawings?.length || 0}</p>
+                  <p className="text-xs text-muted-foreground">Total Drawings</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-card">
+                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {drawings?.filter(d => d.status === 'as_built').length || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">As Built</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-card">
+                  <p className="text-2xl font-bold text-primary">
+                    {drawings?.filter(d => d.status === 'for_construction' || d.status === 'ifc').length || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">For Construction</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-card">
+                  <p className="text-2xl font-bold">{availableCategories.length}</p>
+                  <p className="text-xs text-muted-foreground">Disciplines</p>
+                </div>
+              </div>
+
+              {/* Grouped by Category */}
+              <ScrollArea className="h-[500px]">
+                <div className="space-y-4 pr-4">
+                  {availableCategories.map(category => {
+                    const categoryConfig = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other;
+                    const categoryDrawings = (drawingsByCategory.get(category) || [])
+                      .filter(d => {
+                        if (!searchTerm) return true;
+                        const query = searchTerm.toLowerCase();
+                        return d.drawing_number?.toLowerCase().includes(query) ||
+                               d.drawing_title?.toLowerCase().includes(query);
+                      })
+                      .sort((a, b) => a.drawing_number.localeCompare(b.drawing_number, undefined, { numeric: true }));
+                    
+                    if (categoryDrawings.length === 0) return null;
+
+                    return (
+                      <Collapsible key={category} defaultOpen>
+                        <Card>
+                          <CollapsibleTrigger asChild>
+                            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                  <div className={`w-3 h-3 rounded-full ${categoryConfig.color}`} />
+                                  {categoryConfig.label}
+                                  <Badge variant="secondary" className="ml-2">
+                                    {categoryDrawings.length}
+                                  </Badge>
+                                </CardTitle>
+                                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform" />
+                              </div>
+                            </CardHeader>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <CardContent className="pt-0">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="w-[140px]">Drawing No.</TableHead>
+                                    <TableHead>Title</TableHead>
+                                    <TableHead className="w-[70px]">Rev</TableHead>
+                                    <TableHead className="w-[90px]">Date</TableHead>
+                                    <TableHead className="w-[100px]">Status</TableHead>
+                                    <TableHead className="w-[80px]"></TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {categoryDrawings.map(drawing => {
+                                    const statusConfig = STATUS_CONFIG[drawing.status || 'draft'] || STATUS_CONFIG.draft;
+                                    return (
+                                      <TableRow key={drawing.id}>
+                                        <TableCell className="font-mono text-sm">
+                                          {drawing.drawing_number}
+                                        </TableCell>
+                                        <TableCell>
+                                          <div>
+                                            <p className="truncate max-w-[200px]">{drawing.drawing_title}</p>
+                                            {drawing.shop_number && (
+                                              <p className="text-xs text-muted-foreground">{drawing.shop_number}</p>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className="font-mono">
+                                            {drawing.current_revision || '-'}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
+                                          {drawing.revision_date 
+                                            ? format(new Date(drawing.revision_date), 'dd MMM yy')
+                                            : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge className={`text-white text-xs ${statusConfig.color}`}>
+                                            {statusConfig.label}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          <div className="flex items-center gap-1">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7"
+                                              onClick={() => setPreviewDoc(drawing)}
+                                              disabled={!drawing.file_url}
+                                            >
+                                              <Eye className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7"
+                                              onClick={() => handleDownload(drawing.file_url, drawing.drawing_number)}
+                                              disabled={!drawing.file_url}
+                                            >
+                                              <Download className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+                    );
+                  })}
+
+                  {drawings?.length === 0 && (
+                    <div className="py-12 text-center text-muted-foreground border rounded-lg">
+                      <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                      <p className="font-medium">No drawings in register</p>
+                      <p className="text-sm">Drawings will appear here when made visible to contractors</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
