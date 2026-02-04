@@ -40,10 +40,8 @@ interface Tenant {
   layout_received: boolean | null;
   db_ordered: boolean | null;
   db_order_date: string | null;
-  db_cost: number | null;
   lighting_ordered: boolean | null;
   lighting_order_date: string | null;
-  lighting_cost: number | null;
   status: string | null;
 }
 
@@ -55,7 +53,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, db_cost, lighting_ordered, lighting_order_date, lighting_cost')
+        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, lighting_ordered, lighting_order_date')
         .eq('project_id', projectId);
       
       if (error) throw error;
