@@ -11464,6 +11464,7 @@ export type Database = {
           project_id: string
           sort_order: number | null
           status: string
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -11482,6 +11483,7 @@ export type Database = {
           project_id: string
           sort_order?: number | null
           status?: string
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -11500,6 +11502,7 @@ export type Database = {
           project_id?: string
           sort_order?: number | null
           status?: string
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -11508,6 +11511,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_inspection_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
