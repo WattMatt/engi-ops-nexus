@@ -144,7 +144,6 @@ export function AddProcurementItemDialog({
           description: manualForm.description || null,
           location_group: manualForm.location_group,
           instruction_date: manualForm.instruction_date || null,
-          status: 'instructed',
           created_by: user.user?.id,
         });
       
@@ -173,7 +172,6 @@ export function AddProcurementItemDialog({
           name: pcItem?.description || 'PC Item',
           location_group: 'general',
           instruction_date: pcInstructionDate || null,
-          status: 'instructed',
           created_by: user.user?.id,
         };
       });
