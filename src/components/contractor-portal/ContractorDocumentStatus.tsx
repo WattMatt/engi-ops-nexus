@@ -18,6 +18,7 @@ import {
   ChevronDown, ChevronRight, History, Calendar, ArrowUpDown, ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
+import { ContractorHandoverDocuments } from "./ContractorHandoverDocuments";
 import { format } from "date-fns";
 
 interface ContractorDocumentStatusProps {
@@ -303,8 +304,8 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
             <span className="hidden sm:inline">Dashboard</span>
           </TabsTrigger>
           <TabsTrigger value="register" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden sm:inline">Register</span>
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Drawing Register</span>
           </TabsTrigger>
           <TabsTrigger value="tenants" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -312,7 +313,7 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-2">
             <Folder className="h-4 w-4" />
-            <span className="hidden sm:inline">Drawings</span>
+            <span className="hidden sm:inline">Documents</span>
           </TabsTrigger>
         </TabsList>
 
@@ -648,276 +649,9 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
           </Card>
         </TabsContent>
 
-        {/* Documents/Drawings Tab */}
+        {/* Documents Tab - Handover/Project Documents */}
         <TabsContent value="documents" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Folder className="h-5 w-5" />
-                Electrical Drawing Register
-              </CardTitle>
-              <CardDescription>
-                Browse and download project drawings with revision history
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Search and Filters */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by drawing number, title, or shop..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              {/* Category Filter */}
-              <div className="flex flex-wrap gap-2">
-                <Badge 
-                  variant={selectedCategory === "all" ? "default" : "outline"} 
-                  className="cursor-pointer"
-                  onClick={() => setSelectedCategory("all")}
-                >
-                  All ({drawings?.length || 0})
-                </Badge>
-                {availableCategories.map(cat => {
-                  const config = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.other;
-                  const count = drawingsByCategory.get(cat)?.length || 0;
-                  return (
-                    <Badge 
-                      key={cat}
-                      variant={selectedCategory === cat ? "default" : "outline"} 
-                      className="cursor-pointer"
-                      onClick={() => setSelectedCategory(cat)}
-                    >
-                      {config.label} ({count})
-                    </Badge>
-                  );
-                })}
-              </div>
-
-              {/* Drawings Table */}
-              {filteredDrawings.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground border rounded-lg">
-                  <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="font-medium">No drawings found</p>
-                  <p className="text-sm">Try adjusting your search or filter criteria</p>
-                </div>
-              ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[40px]"></TableHead>
-                        <TableHead 
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => toggleSort('drawing_number')}
-                        >
-                          <div className="flex items-center gap-1">
-                            Drawing No.
-                            <ArrowUpDown className="h-3 w-3" />
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => toggleSort('drawing_title')}
-                        >
-                          <div className="flex items-center gap-1">
-                            Title
-                            <ArrowUpDown className="h-3 w-3" />
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          className="cursor-pointer hover:bg-muted/50 w-[80px]"
-                          onClick={() => toggleSort('current_revision')}
-                        >
-                          <div className="flex items-center gap-1">
-                            Rev
-                            <ArrowUpDown className="h-3 w-3" />
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          className="cursor-pointer hover:bg-muted/50 w-[100px]"
-                          onClick={() => toggleSort('revision_date')}
-                        >
-                          <div className="flex items-center gap-1">
-                            Date
-                            <ArrowUpDown className="h-3 w-3" />
-                          </div>
-                        </TableHead>
-                        <TableHead className="w-[100px]">Status</TableHead>
-                        <TableHead className="w-[120px] text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredDrawings.map((drawing) => {
-                        const isExpanded = expandedDrawings.has(drawing.id);
-                        const drawingRevisions = revisionsByDrawing.get(drawing.id) || [];
-                        const hasRevisions = drawingRevisions.length > 0;
-                        const statusConfig = STATUS_CONFIG[drawing.status || 'draft'] || STATUS_CONFIG.draft;
-
-                        return (
-                          <Collapsible key={drawing.id} open={isExpanded} onOpenChange={() => toggleExpanded(drawing.id)} asChild>
-                            <>
-                              <TableRow className="group">
-                                <TableCell>
-                                  {hasRevisions ? (
-                                    <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                                        {isExpanded ? (
-                                          <ChevronDown className="h-4 w-4" />
-                                        ) : (
-                                          <ChevronRight className="h-4 w-4" />
-                                        )}
-                                      </Button>
-                                    </CollapsibleTrigger>
-                                  ) : (
-                                    <div className="w-6" />
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    {getFileIcon(drawing.file_url)}
-                                    <span className="font-mono text-sm">{drawing.drawing_number}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div>
-                                    <p className="font-medium truncate max-w-[250px]">{drawing.drawing_title}</p>
-                                    {drawing.shop_number && (
-                                      <p className="text-xs text-muted-foreground">{drawing.shop_number}</p>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant="secondary" className="font-mono">
-                                    {drawing.current_revision || '-'}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                  {drawing.revision_date 
-                                    ? format(new Date(drawing.revision_date), 'dd MMM yy')
-                                    : '-'}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge className={`text-white text-xs ${statusConfig.color}`}>
-                                    {statusConfig.label}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => setPreviewDoc(drawing)}
-                                      disabled={!drawing.file_url}
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleDownload(drawing.file_url, drawing.drawing_number)}
-                                      disabled={!drawing.file_url}
-                                    >
-                                      <Download className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                              
-                              {/* Revision History */}
-                              <CollapsibleContent asChild>
-                                <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                  <TableCell colSpan={7} className="p-0">
-                                    <div className="px-6 py-3 border-l-4 border-primary/30">
-                                      <div className="flex items-center gap-2 mb-2 text-sm font-medium text-muted-foreground">
-                                        <History className="h-4 w-4" />
-                                        Revision History
-                                      </div>
-                                      <div className="space-y-2">
-                                        {/* Current revision */}
-                                        <div className="flex items-center gap-4 p-2 rounded bg-background border text-sm">
-                                          <Badge variant="default" className="font-mono">
-                                            Rev {drawing.current_revision || '0'}
-                                          </Badge>
-                                          <span className="text-muted-foreground">
-                                            {drawing.revision_date 
-                                              ? format(new Date(drawing.revision_date), 'dd MMM yyyy')
-                                              : 'No date'}
-                                          </span>
-                                          <span className="flex-1 truncate">
-                                            {drawing.revision_notes || 'Current revision'}
-                                          </span>
-                                          <Badge variant="outline" className="text-xs">Current</Badge>
-                                        </div>
-                                        
-                                        {/* Previous revisions */}
-                                        {drawingRevisions.map((rev) => (
-                                          <div 
-                                            key={rev.id} 
-                                            className="flex items-center gap-4 p-2 rounded bg-muted/50 text-sm"
-                                          >
-                                            <Badge variant="secondary" className="font-mono">
-                                              Rev {rev.revision}
-                                            </Badge>
-                                            <span className="text-muted-foreground">
-                                              {rev.revision_date 
-                                                ? format(new Date(rev.revision_date), 'dd MMM yyyy')
-                                                : 'No date'}
-                                            </span>
-                                            <span className="flex-1 truncate text-muted-foreground">
-                                              {rev.revision_notes || '-'}
-                                            </span>
-                                            {rev.file_url && (
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7"
-                                                onClick={() => handleDownload(rev.file_url, `${drawing.drawing_number}_Rev${rev.revision}`)}
-                                              >
-                                                <Download className="h-3 w-3 mr-1" />
-                                                Download
-                                              </Button>
-                                            )}
-                                          </div>
-                                        ))}
-                                        
-                                        {drawingRevisions.length === 0 && (
-                                          <p className="text-sm text-muted-foreground py-2">
-                                            No previous revisions recorded
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              </CollapsibleContent>
-                            </>
-                          </Collapsible>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-              
-              {/* Summary footer */}
-              <div className="flex justify-between items-center text-sm text-muted-foreground pt-2">
-                <span>
-                  Showing {filteredDrawings.length} of {drawings?.length || 0} drawings
-                </span>
-                <span>
-                  {revisions?.length || 0} revision records
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <ContractorHandoverDocuments projectId={projectId} />
         </TabsContent>
       </Tabs>
 
