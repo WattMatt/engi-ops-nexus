@@ -225,10 +225,9 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('handover-documents')
-        .getPublicUrl(filePath);
+      // For private buckets, store the authenticated URL pattern
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/handover-documents/${filePath}`;
 
       // Get user
       const { data: userData } = await supabase.auth.getUser();
@@ -241,7 +240,7 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
           document_name: fileName,
           document_type: documentType,
           source_type: 'general',
-          file_url: urlData.publicUrl,
+          file_url: fileUrl,
           file_size: blob.size,
           added_by: userData.user?.id,
           notes: `Generated lighting ${documentType === 'lighting' ? 'schedule' : 'warranty schedule'} - ${format(new Date(), 'dd MMM yyyy')}`,

@@ -218,11 +218,10 @@ export function useCreateDrawing() {
         
         if (uploadError) throw uploadError;
         
-        const { data: urlData } = supabase.storage
-          .from('handover-documents')
-          .getPublicUrl(filePath);
-        
-        fileUrl = urlData.publicUrl;
+        // For private buckets, store the authenticated URL pattern
+        // The preview component will generate signed URLs for access
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/handover-documents/${filePath}`;
         fileName = file.name;
         fileSize = file.size;
         fileType = ext;
@@ -307,11 +306,10 @@ export function useUpdateDrawing() {
         
         if (uploadError) throw uploadError;
         
-        const { data: urlData } = supabase.storage
-          .from('handover-documents')
-          .getPublicUrl(filePath);
-        
-        fileUrl = urlData.publicUrl;
+        // For private buckets, store the authenticated URL pattern
+        // The preview component will generate signed URLs for access
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/handover-documents/${filePath}`;
         fileName = file.name;
         fileSize = file.size;
         fileType = ext;
