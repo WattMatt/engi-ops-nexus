@@ -21,19 +21,28 @@ interface ContractorDocumentStatusProps {
   documentCategories: string[];
 }
 
-interface HandoverDocument {
+interface UnifiedDocument {
   id: string;
   document_name: string;
   document_type: string;
   file_url: string | null;
   file_size: number | null;
   created_at: string;
-  source_type: string | null;
-  source_id: string | null;
-  tenants?: { shop_number: string; name: string | null } | null;
+  source: 'handover' | 'drawing';
+  shop_number?: string | null;
+  revision?: string | null;
+  status?: string | null;
 }
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
+  // Drawing categories
+  architectural: { label: 'Architectural', color: 'bg-slate-500' },
+  electrical: { label: 'Electrical', color: 'bg-amber-500' },
+  mechanical: { label: 'Mechanical', color: 'bg-cyan-500' },
+  plumbing: { label: 'Plumbing', color: 'bg-blue-500' },
+  structural: { label: 'Structural', color: 'bg-purple-500' },
+  fire: { label: 'Fire', color: 'bg-red-500' },
+  // Handover categories
   as_built: { label: 'As Built', color: 'bg-blue-500' },
   generators: { label: 'Generators', color: 'bg-amber-500' },
   transformers: { label: 'Transformers', color: 'bg-purple-500' },
@@ -49,9 +58,9 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 export function ContractorDocumentStatus({ projectId, documentCategories }: ContractorDocumentStatusProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [previewDoc, setPreviewDoc] = useState<HandoverDocument | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<UnifiedDocument | null>(null);
 
-  // Fetch tenants for document status
+  // Fetch all data in parallel for faster loading
   const { data: tenants, isLoading: tenantsLoading } = useQuery({
     queryKey: ['contractor-tenants', projectId],
     queryFn: async () => {
@@ -63,56 +72,97 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
       
       if (error) throw error;
       return data || [];
-    }
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 min
   });
 
-  // Fetch handover documents with full details
+  // Fetch project drawings (drawing register) - visible_to_contractor=true
+  const { data: projectDrawings, isLoading: drawingsLoading } = useQuery({
+    queryKey: ['contractor-project-drawings', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('project_drawings')
+        .select('id, drawing_number, drawing_title, category, file_url, file_size, current_revision, status, created_at, shop_number')
+        .eq('project_id', projectId)
+        .eq('visible_to_contractor', true)
+        .order('category')
+        .order('drawing_number');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch handover documents
   const { data: handoverDocs, isLoading: handoverLoading } = useQuery({
-    queryKey: ['contractor-handover-full', projectId],
+    queryKey: ['contractor-handover-docs', projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('handover_documents')
-        .select(`
-          id, 
-          document_name, 
-          document_type, 
-          file_url, 
-          file_size,
-          created_at,
-          source_type,
-          source_id
-        `)
+        .select('id, document_name, document_type, file_url, file_size, created_at, source_type, source_id')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return (data || []) as HandoverDocument[];
-    }
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
-  const isLoading = tenantsLoading || handoverLoading;
+  // Unified document list combining drawings and handover docs
+  const unifiedDocs: UnifiedDocument[] = [
+    // Project drawings
+    ...(projectDrawings?.map(d => ({
+      id: d.id,
+      document_name: `${d.drawing_number} - ${d.drawing_title}`,
+      document_type: d.category || 'other',
+      file_url: d.file_url,
+      file_size: d.file_size,
+      created_at: d.created_at,
+      source: 'drawing' as const,
+      shop_number: d.shop_number,
+      revision: d.current_revision,
+      status: d.status,
+    })) || []),
+    // Handover documents
+    ...(handoverDocs?.map(d => ({
+      id: d.id,
+      document_name: d.document_name,
+      document_type: d.document_type || 'other',
+      file_url: d.file_url,
+      file_size: d.file_size,
+      created_at: d.created_at,
+      source: 'handover' as const,
+      shop_number: null,
+      revision: null,
+      status: null,
+    })) || []),
+  ];
+
+  const isLoading = tenantsLoading || handoverLoading || drawingsLoading;
 
   // Filter documents by category and search
-  const filteredDocs = handoverDocs?.filter(doc => {
+  const filteredDocs = unifiedDocs.filter(doc => {
     const matchesCategory = selectedCategory === 'all' || doc.document_type === selectedCategory;
     const matchesSearch = !searchTerm || 
       doc.document_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.tenants?.shop_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      doc.shop_number?.toLowerCase().includes(searchTerm.toLowerCase());
     
     // Also filter by allowed categories if specified
     const allowedByPortal = documentCategories.length === 0 || 
       documentCategories.includes(doc.document_type || 'other');
     
     return matchesCategory && matchesSearch && allowedByPortal;
-  }) || [];
+  });
 
   // Get unique categories from documents
   const availableCategories = [...new Set(
-    handoverDocs?.map(d => d.document_type || 'other')
+    unifiedDocs.map(d => d.document_type || 'other')
       .filter(cat => documentCategories.length === 0 || documentCategories.includes(cat))
   )];
 
-  const handleDownload = async (doc: HandoverDocument) => {
+  const handleDownload = async (doc: UnifiedDocument) => {
     if (!doc.file_url) {
       toast.error("No file available for download");
       return;
@@ -132,11 +182,11 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
     }
   };
 
-  const handlePreview = (doc: HandoverDocument) => {
+  const handlePreview = (doc: UnifiedDocument) => {
     setPreviewDoc(doc);
   };
 
-  const getPreviewUrl = (doc: HandoverDocument) => {
+  const getPreviewUrl = (doc: UnifiedDocument) => {
     return doc.file_url || null;
   };
 
@@ -150,10 +200,10 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
   const getFileIcon = (fileName: string) => {
     const ext = fileName?.split('.').pop()?.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
-      return <FileImage className="h-5 w-5 text-blue-500" />;
+      return <FileImage className="h-5 w-5 text-primary" />;
     }
     if (ext === 'pdf') {
-      return <FileText className="h-5 w-5 text-red-500" />;
+      return <FileText className="h-5 w-5 text-destructive" />;
     }
     return <File className="h-5 w-5 text-muted-foreground" />;
   };
@@ -211,7 +261,7 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
                 <p className="text-xs text-muted-foreground">Fully Documented</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted">
-                <p className="text-2xl font-bold">{handoverDocs?.length || 0}</p>
+                <p className="text-2xl font-bold">{unifiedDocs.length}</p>
                 <p className="text-xs text-muted-foreground">Total Documents</p>
               </div>
             </div>
@@ -245,10 +295,10 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
           {/* Category Tabs */}
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
             <TabsList className="flex-wrap h-auto gap-1">
-              <TabsTrigger value="all">All ({handoverDocs?.length || 0})</TabsTrigger>
+              <TabsTrigger value="all">All ({unifiedDocs.length})</TabsTrigger>
               {availableCategories.map(cat => {
                 const config = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.other;
-                const count = handoverDocs?.filter(d => d.document_type === cat).length || 0;
+                const count = unifiedDocs.filter(d => d.document_type === cat).length;
                 return (
                   <TabsTrigger key={cat} value={cat}>
                     {config.label} ({count})
@@ -280,13 +330,18 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
 
                         {/* Document Info */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{doc.document_name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{doc.document_name}</p>
+                            {doc.revision && (
+                              <Badge variant="secondary" className="text-xs shrink-0">Rev {doc.revision}</Badge>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                             <Badge variant="outline" className="text-xs">
                               {catConfig.label}
                             </Badge>
-                            {doc.tenants?.shop_number && (
-                              <span>• {doc.tenants.shop_number}</span>
+                            {doc.shop_number && (
+                              <span>• {doc.shop_number}</span>
                             )}
                             <span>• {formatFileSize(doc.file_size)}</span>
                             <span>• {new Date(doc.created_at).toLocaleDateString()}</span>
