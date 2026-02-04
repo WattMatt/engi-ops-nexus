@@ -10,46 +10,16 @@ interface ProcurementStatusPipelineProps {
 
 const pipelineStages = [
   { 
-    key: 'not_started', 
-    label: 'Not Started', 
+    key: 'instructed', 
+    label: 'Instructed', 
     icon: Clock,
-    color: 'bg-muted text-muted-foreground'
-  },
-  { 
-    key: 'pending_quote', 
-    label: 'Quoting', 
-    icon: FileCheck,
     color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-  },
-  { 
-    key: 'quote_received', 
-    label: 'Quoted', 
-    icon: FileCheck,
-    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-  },
-  { 
-    key: 'pending_approval', 
-    label: 'Approval', 
-    icon: Clock,
-    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-  },
-  { 
-    key: 'approved', 
-    label: 'Approved', 
-    icon: CheckCircle2,
-    color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
   },
   { 
     key: 'ordered', 
     label: 'Ordered', 
     icon: ShoppingCart,
     color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-  },
-  { 
-    key: 'in_transit', 
-    label: 'In Transit', 
-    icon: Truck,
-    color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400'
   },
   { 
     key: 'delivered', 

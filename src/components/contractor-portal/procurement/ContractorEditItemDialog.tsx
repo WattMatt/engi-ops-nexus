@@ -58,14 +58,19 @@ export function ContractorEditItemDialog({
 
   const updateMutation = useMutation({
     mutationFn: async () => {
+      // Determine status based on dates
+      let newStatus = 'instructed';
+      if (orderDate) {
+        newStatus = 'ordered';
+      }
+      
       const { error } = await supabase
         .from('project_procurement_items')
         .update({
           order_date: orderDate || null,
           expected_delivery: expectedDelivery || null,
           notes: notes || null,
-          // Auto-update status based on order date
-          status: orderDate ? 'ordered' : item.status,
+          status: newStatus,
           updated_at: new Date().toISOString()
         })
         .eq('id', item.id);
