@@ -243,10 +243,10 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                         <StatusIcon checked={tenant.layout_received} />
                       </TableCell>
                       <TableCell className="text-center">
-                        <StatusWithDate checked={tenant.db_ordered} date={tenant.db_order_date} cost={tenant.db_cost} />
+                        <StatusWithDate checked={tenant.db_ordered} date={tenant.db_order_date} />
                       </TableCell>
                       <TableCell className="text-center">
-                        <StatusWithDate checked={tenant.lighting_ordered} date={tenant.lighting_order_date} cost={tenant.lighting_cost} />
+                        <StatusWithDate checked={tenant.lighting_ordered} date={tenant.lighting_order_date} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -274,7 +274,7 @@ function StatusIcon({ checked }: { checked: boolean | null }) {
   return <XCircle className="h-5 w-5 text-muted-foreground/40 mx-auto" />;
 }
 
-function StatusWithDate({ checked, date, cost }: { checked: boolean | null; date: string | null; cost?: number | null }) {
+function StatusWithDate({ checked, date }: { checked: boolean | null; date: string | null }) {
   if (checked) {
     return (
       <div className="flex flex-col items-center gap-0.5">
@@ -284,11 +284,6 @@ function StatusWithDate({ checked, date, cost }: { checked: boolean | null; date
         {date && (
           <span className="text-xs text-muted-foreground">
             {new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-          </span>
-        )}
-        {cost != null && cost > 0 && (
-          <span className="text-xs font-mono text-muted-foreground">
-            R{cost.toLocaleString()}
           </span>
         )}
       </div>

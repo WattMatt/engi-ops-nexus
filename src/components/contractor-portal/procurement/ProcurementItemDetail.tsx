@@ -21,7 +21,6 @@ import {
   FileText, 
   Clock,
   Truck,
-  DollarSign,
   User,
   AlertTriangle
 } from "lucide-react";
@@ -244,44 +243,6 @@ export function ProcurementItemDetail({
                   </div>
                 </div>
 
-                {/* Pricing */}
-                {(item.quoted_amount || item.actual_amount) && (
-                  <>
-                    <Separator />
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
-                        Pricing
-                      </h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Quoted Amount:</span>
-                          <p className="font-medium">
-                            {item.quoted_amount 
-                              ? `R ${item.quoted_amount.toLocaleString()}`
-                              : '—'}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Actual Amount:</span>
-                          <p className="font-medium">
-                            {item.actual_amount 
-                              ? `R ${item.actual_amount.toLocaleString()}`
-                              : '—'}
-                          </p>
-                        </div>
-                      </div>
-                      {item.quote_valid_until && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            Quote valid until: {format(new Date(item.quote_valid_until), 'PPP')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
 
                 {/* Assigned To */}
                 {item.assigned_to && (
