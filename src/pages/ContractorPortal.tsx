@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck } from "lucide-react";
-import { ContractorDocumentStatus } from "@/components/contractor-portal/ContractorDocumentStatus";
+import { ContractorDrawingRegister } from "@/components/contractor-portal/ContractorDrawingRegister";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
 import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
 import { ContractorTenantTracker } from "@/components/contractor-portal/ContractorTenantTracker";
@@ -143,11 +143,11 @@ export default function ContractorPortal() {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
-        <Tabs defaultValue="documents" className="space-y-6">
+        <Tabs defaultValue="drawings" className="space-y-6">
           <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="documents" className="gap-2">
+            <TabsTrigger value="drawings" className="gap-2">
               <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Documentation</span>
+              <span className="hidden sm:inline">Drawing Register</span>
             </TabsTrigger>
             <TabsTrigger value="tenants" className="gap-2">
               <Users className="h-4 w-4" />
@@ -171,11 +171,8 @@ export default function ContractorPortal() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="documents">
-            <ContractorDocumentStatus 
-              projectId={project.id}
-              documentCategories={tokenData.document_categories}
-            />
+          <TabsContent value="drawings">
+            <ContractorDrawingRegister projectId={project.id} />
           </TabsContent>
 
           <TabsContent value="tenants">
