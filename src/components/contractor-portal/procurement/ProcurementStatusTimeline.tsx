@@ -19,13 +19,8 @@ interface ProcurementStatusTimelineProps {
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  not_started: { label: 'Not Started', icon: <Clock className="h-4 w-4" />, color: 'text-muted-foreground' },
-  pending_quote: { label: 'Pending Quote', icon: <FileCheck className="h-4 w-4" />, color: 'text-amber-600' },
-  quote_received: { label: 'Quote Received', icon: <FileCheck className="h-4 w-4" />, color: 'text-blue-600' },
-  pending_approval: { label: 'Pending Approval', icon: <Clock className="h-4 w-4" />, color: 'text-orange-600' },
-  approved: { label: 'Approved', icon: <CheckCircle2 className="h-4 w-4" />, color: 'text-emerald-600' },
+  instructed: { label: 'Instructed', icon: <Clock className="h-4 w-4" />, color: 'text-amber-600' },
   ordered: { label: 'Ordered', icon: <ShoppingCart className="h-4 w-4" />, color: 'text-purple-600' },
-  in_transit: { label: 'In Transit', icon: <Truck className="h-4 w-4" />, color: 'text-cyan-600' },
   delivered: { label: 'Delivered', icon: <Package className="h-4 w-4" />, color: 'text-green-600' },
   cancelled: { label: 'Cancelled', icon: <AlertCircle className="h-4 w-4" />, color: 'text-destructive' },
 };
@@ -73,7 +68,7 @@ export function ProcurementStatusTimeline({ procurementItemId }: ProcurementStat
   return (
     <div className="space-y-1">
       {history.map((entry, index) => {
-        const config = statusConfig[entry.new_status] || statusConfig.not_started;
+        const config = statusConfig[entry.new_status] || statusConfig.instructed;
         const isLast = index === history.length - 1;
         
         return (

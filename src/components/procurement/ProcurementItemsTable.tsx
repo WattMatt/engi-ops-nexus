@@ -83,25 +83,15 @@ interface ProcurementItemsTableProps {
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  not_started: { label: 'Not Started', icon: <Clock className="h-3 w-3" />, color: 'bg-muted' },
-  pending_quote: { label: 'Quoting', icon: <FileCheck className="h-3 w-3" />, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
-  quote_received: { label: 'Quoted', icon: <FileCheck className="h-3 w-3" />, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
-  pending_approval: { label: 'Approval', icon: <Clock className="h-3 w-3" />, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
-  approved: { label: 'Approved', icon: <CheckCircle2 className="h-3 w-3" />, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+  instructed: { label: 'Instructed', icon: <Clock className="h-3 w-3" />, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
   ordered: { label: 'Ordered', icon: <ShoppingCart className="h-3 w-3" />, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' },
-  in_transit: { label: 'In Transit', icon: <Truck className="h-3 w-3" />, color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400' },
   delivered: { label: 'Delivered', icon: <Package className="h-3 w-3" />, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' },
   cancelled: { label: 'Cancelled', icon: <XCircle className="h-3 w-3" />, color: 'bg-destructive/10 text-destructive' },
 };
 
 const statusOptions = [
-  { value: 'not_started', label: 'Not Started' },
-  { value: 'pending_quote', label: 'Quoting' },
-  { value: 'quote_received', label: 'Quoted' },
-  { value: 'pending_approval', label: 'Approval' },
-  { value: 'approved', label: 'Approved' },
+  { value: 'instructed', label: 'Instructed' },
   { value: 'ordered', label: 'Ordered' },
-  { value: 'in_transit', label: 'In Transit' },
   { value: 'delivered', label: 'Delivered' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
@@ -201,8 +191,8 @@ export function ProcurementItemsTable({ items, onEdit, onRefresh }: ProcurementI
                     </TableCell>
                   </TableRow>
                   {locationItems.map((item) => {
-                    const status = item.status || 'not_started';
-                    const config = statusConfig[status] || statusConfig.not_started;
+                        const status = item.status || 'instructed';
+                        const config = statusConfig[status] || statusConfig.instructed;
                     const priorityBorder = priorityColors[item.priority || 'normal'];
                     
                     return (
