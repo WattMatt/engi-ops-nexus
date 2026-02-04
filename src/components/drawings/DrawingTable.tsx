@@ -3,7 +3,7 @@
  * Displays drawings in a table format with actions
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { 
   MoreHorizontal, 
   Eye, 
@@ -53,6 +53,24 @@ import { REVIEW_STATUS_OPTIONS } from '@/types/drawingChecklists';
 import { EditDrawingDialog } from './EditDrawingDialog';
 import { DrawingReviewDialog } from './review';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+// Private buckets that need signed URLs
+const PRIVATE_BUCKETS = ['handover-documents', 'budget-reports', 'invoice-pdfs', 'floor-plan-reports', 'cost-report-pdfs', 'tenant-evaluation-reports', 'final-account-reviews'];
+
+// Extract bucket name from URL
+const extractBucketFromUrl = (url: string): string | null => {
+  const match = url.match(/\/storage\/v1\/object\/(?:public|authenticated)\/([^/]+)/);
+  return match?.[1] || null;
+};
+
+// Extract file path from URL
+const extractPathFromUrl = (url: string, bucket: string): string | null => {
+  const regex = new RegExp(`/storage/v1/object/(?:public|authenticated)/${bucket}/(.+)$`);
+  const match = url.match(regex);
+  return match?.[1] || null;
+};
 
 interface DrawingTableProps {
   drawings: ProjectDrawing[];
@@ -66,6 +84,7 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
   const [deletingDrawing, setDeletingDrawing] = useState<ProjectDrawing | null>(null);
   const [reviewingDrawing, setReviewingDrawing] = useState<ProjectDrawing | null>(null);
   
+  const { toast } = useToast();
   const deleteDrawing = useDeleteDrawing();
   const updateVisibility = useUpdateDrawingVisibility();
   
@@ -75,6 +94,39 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
   const reviewStatusMap = new Map(reviewStatuses.map(s => [s.drawing_id, s]));
   
   const sortedDrawings = [...drawings].sort(naturalSortDrawings);
+  
+  // Handle opening files (generate signed URL for private buckets)
+  const handleOpenFile = useCallback(async (fileUrl: string) => {
+    const bucket = extractBucketFromUrl(fileUrl);
+    
+    // If it's a private bucket, create a signed URL
+    if (bucket && PRIVATE_BUCKETS.includes(bucket)) {
+      const path = extractPathFromUrl(fileUrl, bucket);
+      if (path) {
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(decodeURIComponent(path), 3600);
+        
+        if (error) {
+          console.error('Signed URL error:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to access file. Please try again.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        if (data?.signedUrl) {
+          window.open(data.signedUrl, '_blank');
+          return;
+        }
+      }
+    }
+    
+    // For public buckets or if extraction failed, open directly
+    window.open(fileUrl, '_blank');
+  }, [toast]);
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -276,11 +328,9 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
                     <Button
                       variant="ghost"
                       size="sm"
-                      asChild
+                      onClick={() => handleOpenFile(drawing.file_url!)}
                     >
-                      <a href={drawing.file_url} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-4 w-4" />
-                      </a>
+                      <Download className="h-4 w-4" />
                     </Button>
                   ) : (
                     <span className="text-xs text-muted-foreground">No file</span>
@@ -314,11 +364,9 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {drawing.file_url && (
-                        <DropdownMenuItem asChild>
-                          <a href={drawing.file_url} target="_blank" rel="noopener noreferrer">
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
-                          </a>
+                        <DropdownMenuItem onClick={() => handleOpenFile(drawing.file_url!)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => setEditingDrawing(drawing)}>
