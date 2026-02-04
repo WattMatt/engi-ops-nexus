@@ -24,13 +24,10 @@ import JSZip from "jszip";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import { ClientHandoverDocuments } from "@/components/client-portal/ClientHandoverDocuments";
-import { ClientGeneratorCostingSection } from "@/components/client-portal/ClientGeneratorCostingSection";
-import { ClientCapitalRecoverySection } from "@/components/client-portal/ClientCapitalRecoverySection";
-import { ClientRunningRecoverySection } from "@/components/client-portal/ClientRunningRecoverySection";
 import { PortalCableSchedule } from "@/components/portal/PortalCableSchedule";
 import { PortalBulkServices } from "@/components/portal/PortalBulkServices";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { DollarSign, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 interface TokenValidation {
   is_valid: boolean;
@@ -789,10 +786,6 @@ const ClientView = () => {
               <Zap className="h-4 w-4" />
               <span className="hidden sm:inline">Generator</span>
             </TabsTrigger>
-            <TabsTrigger value="costs" className="gap-2">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">Costs</span>
-            </TabsTrigger>
             <TabsTrigger value="documents" className="gap-2">
               <FolderOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Documents</span>
@@ -1393,32 +1386,6 @@ const ClientView = () => {
             </Card>
           </TabsContent>
 
-          {/* Costs Tab */}
-          <TabsContent value="costs" className="space-y-4">
-            <div className="space-y-4">
-              {projectId && <ClientGeneratorCostingSection projectId={projectId} />}
-              
-              <Collapsible defaultOpen>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-card rounded-lg border hover:bg-accent transition-colors">
-                  <h3 className="text-lg font-semibold">Capital Recovery</h3>
-                  <ChevronDown className="h-5 w-5 transition-transform duration-200" />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2">
-                  {projectId && <ClientCapitalRecoverySection projectId={projectId} />}
-                </CollapsibleContent>
-              </Collapsible>
-
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-card rounded-lg border hover:bg-accent transition-colors">
-                  <h3 className="text-lg font-semibold">Running Recovery</h3>
-                  <ChevronDown className="h-5 w-5 transition-transform duration-200" />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2">
-                  {projectId && <ClientRunningRecoverySection projectId={projectId} />}
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          </TabsContent>
 
           {/* Documents Tab */}
           <TabsContent value="documents" className="space-y-6">
