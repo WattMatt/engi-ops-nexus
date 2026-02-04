@@ -12,7 +12,6 @@ import { ContractorTenantTracker } from "@/components/contractor-portal/Contract
 import { ContractorCableStatus } from "@/components/contractor-portal/ContractorCableStatus";
 import { ContractorInspectionRequests } from "@/components/contractor-portal/ContractorInspectionRequests";
 import { PortalHeader } from "@/components/portal/PortalHeader";
-import { PortalCableSchedule } from "@/components/portal/PortalCableSchedule";
 
 interface TokenData {
   project_id: string;
@@ -145,7 +144,7 @@ export default function ContractorPortal() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
         <Tabs defaultValue="documents" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="documents" className="gap-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Documentation</span>
@@ -155,10 +154,6 @@ export default function ContractorPortal() {
               <span className="hidden sm:inline">Tenant Tracker</span>
             </TabsTrigger>
             <TabsTrigger value="cables" className="gap-2">
-              <Cable className="h-4 w-4" />
-              <span className="hidden sm:inline">Cable Schedule</span>
-            </TabsTrigger>
-            <TabsTrigger value="cable-status" className="gap-2">
               <Cable className="h-4 w-4" />
               <span className="hidden sm:inline">Cable Status</span>
             </TabsTrigger>
@@ -188,10 +183,6 @@ export default function ContractorPortal() {
           </TabsContent>
 
           <TabsContent value="cables">
-            <PortalCableSchedule projectId={project.id} />
-          </TabsContent>
-
-          <TabsContent value="cable-status">
             <ContractorCableStatus projectId={project.id} />
           </TabsContent>
 
