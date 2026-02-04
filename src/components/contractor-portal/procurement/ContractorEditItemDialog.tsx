@@ -13,17 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Loader2, Package, Truck, Calendar, FileText, MapPin } from "lucide-react";
+import { Loader2, Package, Calendar, FileText, MapPin, ClipboardList } from "lucide-react";
 
 interface ProcurementItem {
   id: string;
@@ -39,6 +32,8 @@ interface ProcurementItem {
   priority: string | null;
   notes: string | null;
   location_group: string | null;
+  instruction_date?: string | null;
+  order_date?: string | null;
 }
 
 interface ContractorEditItemDialogProps {
@@ -49,17 +44,6 @@ interface ContractorEditItemDialogProps {
   onSuccess: () => void;
 }
 
-const statusOptions = [
-  { value: 'not_started', label: 'Not Started' },
-  { value: 'pending_quote', label: 'Pending Quote' },
-  { value: 'quote_received', label: 'Quote Received' },
-  { value: 'pending_approval', label: 'Pending Approval' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'ordered', label: 'Ordered' },
-  { value: 'in_transit', label: 'In Transit' },
-  { value: 'delivered', label: 'Delivered' },
-];
-
 export function ContractorEditItemDialog({
   open,
   onOpenChange,
@@ -68,10 +52,8 @@ export function ContractorEditItemDialog({
   onSuccess
 }: ContractorEditItemDialogProps) {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState(item.status || 'not_started');
-  const [trackingNumber, setTrackingNumber] = useState(item.tracking_number || '');
+  const [orderDate, setOrderDate] = useState(item.order_date || '');
   const [expectedDelivery, setExpectedDelivery] = useState(item.expected_delivery || '');
-  const [actualDelivery, setActualDelivery] = useState(item.actual_delivery || '');
   const [notes, setNotes] = useState(item.notes || '');
 
   const updateMutation = useMutation({
@@ -79,11 +61,11 @@ export function ContractorEditItemDialog({
       const { error } = await supabase
         .from('project_procurement_items')
         .update({
-          status,
-          tracking_number: trackingNumber || null,
+          order_date: orderDate || null,
           expected_delivery: expectedDelivery || null,
-          actual_delivery: actualDelivery || null,
           notes: notes || null,
+          // Auto-update status based on order date
+          status: orderDate ? 'ordered' : item.status,
           updated_at: new Date().toISOString()
         })
         .eq('id', item.id);
@@ -102,6 +84,11 @@ export function ContractorEditItemDialog({
     }
   });
 
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return 'Not set';
+    return new Date(dateStr).toLocaleDateString();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -111,7 +98,7 @@ export function ContractorEditItemDialog({
             Update Procurement Item
           </DialogTitle>
           <DialogDescription>
-            Update status, tracking info, and notes for this item
+            Enter order date and expected delivery information
           </DialogDescription>
         </DialogHeader>
 
@@ -144,70 +131,50 @@ export function ContractorEditItemDialog({
                   {item.location_group}
                 </span>
               )}
-              {item.supplier_name && (
-                <span>Supplier: {item.supplier_name}</span>
-              )}
-              {item.po_number && (
-                <span>PO: {item.po_number}</span>
-              )}
+            </div>
+          </div>
+
+          {/* Instruction Date (Read-only) */}
+          <div className="rounded-lg border p-3 bg-primary/5">
+            <div className="flex items-center gap-2 text-sm">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              <span className="font-medium">Instruction Tabled:</span>
+              <span>{formatDate(item.instruction_date)}</span>
             </div>
           </div>
 
           <Separator />
 
-          {/* Editable Fields */}
+          {/* Editable Fields - Contractor populates these */}
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Order Given Date
+              </Label>
+              <Input
+                type="date"
+                value={orderDate}
+                onChange={(e) => setOrderDate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Date the order was placed with the supplier
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
-                <Truck className="h-4 w-4" />
-                Tracking Number
+                <Calendar className="h-4 w-4" />
+                Expected Delivery Date
               </Label>
               <Input
-                value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
-                placeholder="Enter tracking number"
+                type="date"
+                value={expectedDelivery}
+                onChange={(e) => setExpectedDelivery(e.target.value)}
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Expected Delivery
-                </Label>
-                <Input
-                  type="date"
-                  value={expectedDelivery}
-                  onChange={(e) => setExpectedDelivery(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Actual Delivery
-                </Label>
-                <Input
-                  type="date"
-                  value={actualDelivery}
-                  onChange={(e) => setActualDelivery(e.target.value)}
-                />
-              </div>
+              <p className="text-xs text-muted-foreground">
+                When the item is expected to arrive on site
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -215,7 +182,7 @@ export function ContractorEditItemDialog({
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add notes about this item (delivery instructions, issues, etc.)"
+                placeholder="Add notes about this item (supplier info, delivery instructions, etc.)"
                 rows={3}
               />
             </div>

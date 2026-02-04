@@ -50,6 +50,8 @@ interface ProcurementItem {
   quote_valid_until: string | null;
   assigned_to: string | null;
   notes: string | null;
+  instruction_date: string | null;
+  order_date: string | null;
 }
 
 async function fetchProcurementItems(projectId: string): Promise<ProcurementItem[]> {

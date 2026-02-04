@@ -56,8 +56,10 @@ export function AddProcurementItemDialog({
     name: '',
     description: '',
     location_group: 'general',
+    instruction_date: new Date().toISOString().split('T')[0], // Default to today
   });
   const [selectedPCItems, setSelectedPCItems] = useState<string[]>([]);
+  const [pcInstructionDate, setPcInstructionDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Fetch available PC items from Final Accounts
   const { data: pcItems, isLoading: loadingPCItems } = useQuery({
@@ -141,6 +143,7 @@ export function AddProcurementItemDialog({
           name: manualForm.name,
           description: manualForm.description || null,
           location_group: manualForm.location_group,
+          instruction_date: manualForm.instruction_date || null,
           status: 'not_started',
           created_by: user.user?.id,
         });
@@ -149,7 +152,7 @@ export function AddProcurementItemDialog({
     },
     onSuccess: () => {
       toast.success('Procurement item added');
-      setManualForm({ name: '', description: '', location_group: 'general' });
+      setManualForm({ name: '', description: '', location_group: 'general', instruction_date: new Date().toISOString().split('T')[0] });
       onSuccess();
     },
     onError: (error: Error) => {
@@ -169,6 +172,7 @@ export function AddProcurementItemDialog({
           source_item_id: pcItemId,
           name: pcItem?.description || 'PC Item',
           location_group: 'general',
+          instruction_date: pcInstructionDate || null,
           status: 'not_started',
           created_by: user.user?.id,
         };
@@ -243,23 +247,36 @@ export function AddProcurementItemDialog({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="location_group">Location Group</Label>
-              <Select
-                value={manualForm.location_group}
-                onValueChange={(v) => setManualForm(prev => ({ ...prev, location_group: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LOCATION_GROUPS.map(group => (
-                    <SelectItem key={group.value} value={group.value}>
-                      {group.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="instruction_date">Instruction Date *</Label>
+                <Input
+                  id="instruction_date"
+                  type="date"
+                  value={manualForm.instruction_date}
+                  onChange={(e) => setManualForm(prev => ({ ...prev, instruction_date: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">Date instruction was tabled</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="location_group">Location Group</Label>
+                <Select
+                  value={manualForm.location_group}
+                  onValueChange={(v) => setManualForm(prev => ({ ...prev, location_group: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOCATION_GROUPS.map(group => (
+                      <SelectItem key={group.value} value={group.value}>
+                        {group.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -274,13 +291,24 @@ export function AddProcurementItemDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="pc_items" className="mt-4">
+          <TabsContent value="pc_items" className="mt-4 space-y-4">
+            {/* Instruction Date for PC Items */}
+            <div className="space-y-2">
+              <Label>Instruction Date *</Label>
+              <Input
+                type="date"
+                value={pcInstructionDate}
+                onChange={(e) => setPcInstructionDate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Date instruction was tabled for selected items</p>
+            </div>
+
             {loadingPCItems ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : pcItems && pcItems.length > 0 ? (
-              <ScrollArea className="h-[300px] rounded-md border p-2">
+              <ScrollArea className="h-[250px] rounded-md border p-2">
                 <div className="space-y-2">
                   {pcItems.map((item) => (
                     <div

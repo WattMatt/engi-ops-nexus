@@ -72,6 +72,8 @@ interface ProcurementItem {
   quote_valid_until: string | null;
   assigned_to: string | null;
   notes: string | null;
+  instruction_date: string | null;
+  order_date: string | null;
 }
 
 interface ProcurementItemsTableProps {
@@ -181,12 +183,11 @@ export function ProcurementItemsTable({ items, onEdit, onRefresh }: ProcurementI
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[250px]">Item</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>PO #</TableHead>
+                <TableHead className="w-[220px]">Item</TableHead>
+                <TableHead>Instructed</TableHead>
+                <TableHead>Ordered</TableHead>
                 <TableHead>Expected</TableHead>
-                <TableHead className="w-[150px]">Status</TableHead>
+                <TableHead className="w-[130px]">Status</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -194,7 +195,7 @@ export function ProcurementItemsTable({ items, onEdit, onRefresh }: ProcurementI
               {Object.entries(itemsByLocation).map(([location, locationItems]) => (
                 <>
                   <TableRow key={`header-${location}`} className="bg-muted/50">
-                    <TableCell colSpan={7} className="py-2">
+                    <TableCell colSpan={6} className="py-2">
                       <span className="font-medium text-sm">{location}</span>
                       <Badge variant="secondary" className="ml-2">{locationItems.length}</Badge>
                     </TableCell>
@@ -217,7 +218,7 @@ export function ProcurementItemsTable({ items, onEdit, onRefresh }: ProcurementI
                                 <Badge variant="destructive" className="text-xs">Critical</Badge>
                               )}
                               {item.priority === 'high' && (
-                                <Badge className="bg-orange-500 text-xs">High</Badge>
+                                <Badge variant="secondary" className="text-xs">High</Badge>
                               )}
                             </div>
                             {item.description && (
@@ -228,13 +229,28 @@ export function ProcurementItemsTable({ items, onEdit, onRefresh }: ProcurementI
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm">{item.category || '-'}</span>
+                          {item.instruction_date ? (
+                            <span className="text-sm">
+                              {new Date(item.instruction_date).toLocaleDateString('en-GB', {
+                                day: 'numeric',
+                                month: 'short'
+                              })}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm">{item.supplier_name || '-'}</span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm font-mono">{item.po_number || '-'}</span>
+                          {item.order_date ? (
+                            <span className="text-sm text-primary font-medium">
+                              {new Date(item.order_date).toLocaleDateString('en-GB', {
+                                day: 'numeric',
+                                month: 'short'
+                              })}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground italic text-xs">Pending</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {item.expected_delivery ? (

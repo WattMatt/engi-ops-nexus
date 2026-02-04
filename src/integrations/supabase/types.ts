@@ -11906,9 +11906,11 @@ export type Database = {
           display_order: number | null
           expected_delivery: string | null
           id: string
+          instruction_date: string | null
           location_group: string | null
           name: string
           notes: string | null
+          order_date: string | null
           po_number: string | null
           priority: string | null
           project_id: string
@@ -11935,9 +11937,11 @@ export type Database = {
           display_order?: number | null
           expected_delivery?: string | null
           id?: string
+          instruction_date?: string | null
           location_group?: string | null
           name: string
           notes?: string | null
+          order_date?: string | null
           po_number?: string | null
           priority?: string | null
           project_id: string
@@ -11964,9 +11968,11 @@ export type Database = {
           display_order?: number | null
           expected_delivery?: string | null
           id?: string
+          instruction_date?: string | null
           location_group?: string | null
           name?: string
           notes?: string | null
+          order_date?: string | null
           po_number?: string | null
           priority?: string | null
           project_id?: string
