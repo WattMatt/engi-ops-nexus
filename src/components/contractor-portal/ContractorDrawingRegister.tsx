@@ -209,53 +209,41 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
     return null;
   };
 
-  // Private buckets that need signed URLs
-  const PRIVATE_BUCKETS = [
-    'project-drawings',
-    'handover-documents', 
-    'cost-report-pdfs',
-    'tenant-evaluation-reports',
-    'budget-reports',
-    'final-account-reviews'
-  ];
+  // Public buckets that don't need signed URLs (contractor portal uses these without auth)
+  const PUBLIC_BUCKETS = ['project-drawings'];
 
-  const getSignedUrl = async (fileUrl: string | null, filePath: string | null): Promise<string | null> => {
+  const getAccessibleUrl = async (fileUrl: string | null, filePath: string | null): Promise<string | null> => {
     // Always prefer extracting bucket from file_url since file_path doesn't include bucket info
     if (fileUrl) {
       const bucket = extractBucketFromUrl(fileUrl);
       const path = filePath || extractPathFromUrl(fileUrl);
       
       if (bucket && path) {
-        // For private buckets, create signed URL
-        if (PRIVATE_BUCKETS.includes(bucket)) {
-          const { data, error } = await supabase.storage
+        // For public buckets, use getPublicUrl (no auth required)
+        if (PUBLIC_BUCKETS.includes(bucket)) {
+          const { data } = supabase.storage
             .from(bucket)
-            .createSignedUrl(path, 3600);
-          
-          if (error) {
-            console.error('Signed URL error:', error, { bucket, path });
-            return null;
-          }
-          return data?.signedUrl || null;
+            .getPublicUrl(path);
+          return data?.publicUrl || null;
         }
-        // For public buckets, return URL as-is
+        // For private buckets, return the URL as-is (will need auth context)
         return fileUrl;
       }
     }
     
-    // Last resort: try file_path with project-drawings bucket
+    // Last resort: try file_path with project-drawings bucket (public)
     if (filePath && !fileUrl) {
-      const { data } = await supabase.storage
+      const { data } = supabase.storage
         .from('project-drawings')
-        .createSignedUrl(filePath, 3600);
-      return data?.signedUrl || null;
+        .getPublicUrl(filePath);
+      return data?.publicUrl || null;
     }
     
     return null;
   };
 
   const handlePreview = async (fileUrl: string | null, filePath: string | null, title: string) => {
-    const url = await getSignedUrl(fileUrl, filePath);
+    const url = await getAccessibleUrl(fileUrl, filePath);
     if (url) {
       setPreviewUrl(url);
       setPreviewTitle(title);
@@ -263,7 +251,7 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
   };
 
   const handleDownload = async (fileUrl: string | null, filePath: string | null, fileName: string) => {
-    const url = await getSignedUrl(fileUrl, filePath);
+    const url = await getAccessibleUrl(fileUrl, filePath);
     if (url) {
       const link = document.createElement('a');
       link.href = url;
