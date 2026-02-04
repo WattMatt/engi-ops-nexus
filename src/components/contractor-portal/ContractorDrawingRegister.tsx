@@ -182,54 +182,87 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
     return revisions.filter(r => r.drawing_id === drawingId);
   };
 
-  // Extract bucket name from file URL (e.g., "handover-documents" or "project-drawings")
-  const getBucketFromUrl = (fileUrl: string): string => {
-    const match = fileUrl.match(/\/storage\/v1\/object\/public\/([^/]+)/);
-    return match?.[1] || 'project-drawings';
+  // Extract bucket name from file URL (handles both public and authenticated patterns)
+  const extractBucketFromUrl = (fileUrl: string): string | null => {
+    // Match /storage/v1/object/public/BUCKET_NAME/...
+    const publicMatch = fileUrl.match(/\/storage\/v1\/object\/public\/([^/]+)/);
+    if (publicMatch) return publicMatch[1];
+    
+    // Match /storage/v1/object/authenticated/BUCKET_NAME/...
+    const authMatch = fileUrl.match(/\/storage\/v1\/object\/authenticated\/([^/]+)/);
+    if (authMatch) return authMatch[1];
+    
+    // Match /storage/v1/object/sign/BUCKET_NAME/...
+    const signMatch = fileUrl.match(/\/storage\/v1\/object\/sign\/([^/]+)/);
+    if (signMatch) return signMatch[1];
+    
+    return null;
   };
 
-  const handlePreview = async (fileUrl: string | null, filePath: string | null, title: string) => {
-    // Use file_url directly if available (it's a public URL)
-    if (fileUrl) {
-      setPreviewUrl(fileUrl);
-      setPreviewTitle(title);
-      return;
+  // Extract file path from URL
+  const extractPathFromUrl = (fileUrl: string): string | null => {
+    // Match after bucket name in storage URL
+    const match = fileUrl.match(/\/storage\/v1\/object\/(?:public|authenticated|sign)\/[^/]+\/(.+?)(?:\?|$)/);
+    if (match) {
+      return decodeURIComponent(match[1]);
     }
-    
-    // Fall back to creating a signed URL from file_path
+    return null;
+  };
+
+  // Private buckets that need signed URLs
+  const PRIVATE_BUCKETS = [
+    'project-drawings',
+    'handover-documents', 
+    'cost-report-pdfs',
+    'tenant-evaluation-reports',
+    'budget-reports',
+    'final-account-reviews'
+  ];
+
+  const getSignedUrl = async (fileUrl: string | null, filePath: string | null): Promise<string | null> => {
+    // If we have a direct file path, use it
     if (filePath) {
       const { data } = await supabase.storage
         .from('project-drawings')
         .createSignedUrl(filePath, 3600);
-      if (data?.signedUrl) {
-        setPreviewUrl(data.signedUrl);
-        setPreviewTitle(title);
+      return data?.signedUrl || null;
+    }
+    
+    // If we have a file URL, extract bucket and path to create signed URL
+    if (fileUrl) {
+      const bucket = extractBucketFromUrl(fileUrl);
+      const path = extractPathFromUrl(fileUrl);
+      
+      if (bucket && path && PRIVATE_BUCKETS.includes(bucket)) {
+        const { data } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(path, 3600);
+        return data?.signedUrl || null;
       }
+      
+      // For public buckets, return URL as-is
+      return fileUrl;
+    }
+    
+    return null;
+  };
+
+  const handlePreview = async (fileUrl: string | null, filePath: string | null, title: string) => {
+    const url = await getSignedUrl(fileUrl, filePath);
+    if (url) {
+      setPreviewUrl(url);
+      setPreviewTitle(title);
     }
   };
 
   const handleDownload = async (fileUrl: string | null, filePath: string | null, fileName: string) => {
-    // Use file_url directly if available
-    if (fileUrl) {
+    const url = await getSignedUrl(fileUrl, filePath);
+    if (url) {
       const link = document.createElement('a');
-      link.href = fileUrl;
+      link.href = url;
       link.download = fileName;
       link.target = '_blank';
       link.click();
-      return;
-    }
-    
-    // Fall back to creating a signed URL from file_path
-    if (filePath) {
-      const { data } = await supabase.storage
-        .from('project-drawings')
-        .createSignedUrl(filePath, 3600);
-      if (data?.signedUrl) {
-        const link = document.createElement('a');
-        link.href = data.signedUrl;
-        link.download = fileName;
-        link.click();
-      }
     }
   };
 
