@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { ContractorTenantTracker } from "@/components/contractor-portal/Contract
 import { ContractorCableStatus } from "@/components/contractor-portal/ContractorCableStatus";
 import { ContractorInspectionRequests } from "@/components/contractor-portal/ContractorInspectionRequests";
 import { PortalHeader } from "@/components/portal/PortalHeader";
+import { PortalUserIdentityDialog, PortalUserIdentity } from "@/components/contractor-portal/PortalUserIdentityDialog";
 
 interface TokenData {
   project_id: string;
@@ -40,6 +41,12 @@ export default function ContractorPortal() {
   const [tokenData, setTokenData] = useState<TokenData | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [portalUser, setPortalUser] = useState<PortalUserIdentity | null>(null);
+
+  // Handler for when user identity is confirmed - must be before early returns
+  const handleIdentityConfirmed = useCallback((identity: PortalUserIdentity) => {
+    setPortalUser(identity);
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -127,8 +134,21 @@ export default function ContractorPortal() {
 
   const contractorTypeLabel = tokenData.contractor_type === 'main_contractor' ? 'Main Contractor' : 'Subcontractor';
 
+  // Use portal user's name/email if available, otherwise fall back to token data
+  const activeUserName = portalUser?.name || tokenData.contractor_name;
+  const activeUserEmail = portalUser?.email || tokenData.contractor_email;
+
   return (
     <div className="min-h-screen bg-background">
+      {/* User identity dialog - shown on first visit */}
+      {token && project && (
+        <PortalUserIdentityDialog
+          projectId={project.id}
+          token={token}
+          onIdentityConfirmed={handleIdentityConfirmed}
+        />
+      )}
+
       <PortalHeader
         projectName={project.name}
         projectNumber={project.project_number}
@@ -136,7 +156,7 @@ export default function ContractorPortal() {
         clientLogoUrl={project.client_logo_url}
         consultantLogoUrl={project.consultant_logo_url}
         portalType="contractor"
-        userName={tokenData.contractor_name}
+        userName={activeUserName}
         userBadge={contractorTypeLabel}
         showLogout={false}
       />
@@ -186,8 +206,8 @@ export default function ContractorPortal() {
           <TabsContent value="inspections">
             <ContractorInspectionRequests
               projectId={project.id}
-              contractorName={tokenData.contractor_name}
-              contractorEmail={tokenData.contractor_email}
+              contractorName={activeUserName}
+              contractorEmail={activeUserEmail}
               companyName={tokenData.company_name}
               token={token || ''}
             />
@@ -196,8 +216,8 @@ export default function ContractorPortal() {
           <TabsContent value="procurement">
             <ContractorProcurementStatus 
               projectId={project.id}
-              contractorName={tokenData.contractor_name}
-              contractorEmail={tokenData.contractor_email}
+              contractorName={activeUserName}
+              contractorEmail={activeUserEmail}
               companyName={tokenData.company_name}
             />
           </TabsContent>
@@ -205,8 +225,8 @@ export default function ContractorPortal() {
           <TabsContent value="rfi">
             <ContractorRFISection 
               projectId={project.id}
-              contractorName={tokenData.contractor_name}
-              contractorEmail={tokenData.contractor_email}
+              contractorName={activeUserName}
+              contractorEmail={activeUserEmail}
               companyName={tokenData.company_name}
               token={token || ''}
             />
