@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { format, addDays, differenceInDays } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,6 +44,8 @@ interface Tenant {
   lighting_ordered: boolean | null;
   lighting_order_date: string | null;
   status: string | null;
+  opening_date: string | null;
+  beneficial_occupation_days: number | null;
 }
 
 export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerProps) {
@@ -53,7 +56,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, lighting_ordered, lighting_order_date')
+        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, lighting_ordered, lighting_order_date, opening_date, beneficial_occupation_days')
         .eq('project_id', projectId);
       
       if (error) throw error;
@@ -207,7 +210,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                   <TableRow>
                     <TableHead>Shop</TableHead>
                     <TableHead>Tenant Name</TableHead>
-                    <TableHead>Category</TableHead>
+                    <TableHead>BO Date</TableHead>
                     <TableHead>Connection</TableHead>
                     <TableHead className="text-center">SOW</TableHead>
                     <TableHead className="text-center">Layout</TableHead>
@@ -216,16 +219,40 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTenants.map((tenant) => (
+                  {filteredTenants.map((tenant) => {
+                    // Calculate BO date
+                    const boDate = tenant.opening_date 
+                      ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
+                      : null;
+                    const daysUntilBO = boDate ? differenceInDays(boDate, new Date()) : null;
+                    
+                    return (
                     <TableRow key={tenant.id}>
                       <TableCell className="font-medium">{tenant.shop_number}</TableCell>
                       <TableCell>{tenant.shop_name || '—'}</TableCell>
                       <TableCell>
-                        {tenant.shop_category ? (
-                          <Badge variant="outline" className="text-xs">
-                            {tenant.shop_category}
-                          </Badge>
-                        ) : '—'}
+                        {boDate ? (
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">
+                              {format(boDate, 'dd MMM yyyy')}
+                            </span>
+                            {daysUntilBO !== null && (
+                              <span className={`text-xs ${
+                                daysUntilBO < 0 
+                                  ? 'text-destructive' 
+                                  : daysUntilBO <= 14 
+                                    ? 'text-amber-600' 
+                                    : 'text-muted-foreground'
+                              }`}>
+                                {daysUntilBO < 0 
+                                  ? `${Math.abs(daysUntilBO)}d overdue` 
+                                  : `${daysUntilBO}d remaining`}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {tenant.db_size_allowance ? (
@@ -247,7 +274,8 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                         <StatusWithDate checked={tenant.lighting_ordered} date={tenant.lighting_order_date} />
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
