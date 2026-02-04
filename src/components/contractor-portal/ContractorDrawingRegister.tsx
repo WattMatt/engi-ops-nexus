@@ -75,7 +75,7 @@ async function fetchDrawings(projectId: string): Promise<Drawing[]> {
     .from('project_drawings')
     .select('id, drawing_number, drawing_title, category, current_revision, status, revision_date, file_url, file_path, notes')
     .eq('project_id', projectId)
-    .eq('is_contractor_visible', true)
+    .eq('visible_to_contractor', true)
     .order('drawing_number');
   
   if (error) throw error;
