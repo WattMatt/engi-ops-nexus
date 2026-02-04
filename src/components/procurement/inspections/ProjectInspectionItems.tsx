@@ -61,6 +61,16 @@ const INSPECTION_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+// Standard QC inspections to create for each tenant
+const TENANT_QC_TEMPLATE = [
+  { inspection_type: "rough_in", label: "Rough-In Inspection" },
+  { inspection_type: "conduit", label: "Conduit Installation" },
+  { inspection_type: "db_installation", label: "DB Installation" },
+  { inspection_type: "lighting", label: "Lighting Installation" },
+  { inspection_type: "testing", label: "Testing & Commissioning" },
+  { inspection_type: "coc", label: "COC" },
+];
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending: { label: "Pending", color: "bg-slate-500", icon: <Clock className="h-3 w-3" /> },
   ready_for_inspection: { label: "Ready", color: "bg-amber-500", icon: <AlertCircle className="h-3 w-3" /> },
@@ -177,6 +187,69 @@ export function ProjectInspectionItems({ projectId }: ProjectInspectionItemsProp
     },
     onError: (error: Error) => {
       toast.error("Failed to delete item", { description: error.message });
+    },
+  });
+
+  // Sync from Tenant Tracker - creates standard QC inspections for all tenants
+  const syncFromTenantsMutation = useMutation({
+    mutationFn: async () => {
+      if (!tenants || tenants.length === 0) {
+        throw new Error("No tenants found to sync");
+      }
+
+      // Get existing tenant inspections to avoid duplicates
+      const existingTenantIds = new Set(
+        items?.filter(i => i.tenant_id).map(i => `${i.tenant_id}-${i.inspection_type}`) || []
+      );
+
+      // Create inspections for tenants that don't have them yet
+      const newInspections: Array<{
+        project_id: string;
+        tenant_id: string;
+        inspection_type: string;
+        location: string;
+        description: string;
+        sort_order: number;
+      }> = [];
+
+      let sortOrder = (items?.length || 0) + 1;
+
+      for (const tenant of tenants) {
+        for (const template of TENANT_QC_TEMPLATE) {
+          const key = `${tenant.id}-${template.inspection_type}`;
+          if (!existingTenantIds.has(key)) {
+            newInspections.push({
+              project_id: projectId,
+              tenant_id: tenant.id,
+              inspection_type: template.inspection_type,
+              location: tenant.shop_number,
+              description: `${template.label} for ${tenant.shop_number}${tenant.shop_name ? ` - ${tenant.shop_name}` : ''}`,
+              sort_order: sortOrder++,
+            });
+          }
+        }
+      }
+
+      if (newInspections.length === 0) {
+        throw new Error("All tenants already have QC inspections");
+      }
+
+      const { error } = await supabase
+        .from("project_inspection_items")
+        .insert(newInspections);
+
+      if (error) throw error;
+
+      return newInspections.length;
+    },
+    onSuccess: (count) => {
+      toast.success(`Created ${count} inspection items`, {
+        description: "Synced QC inspections from tenant tracker",
+      });
+      queryClient.invalidateQueries({ queryKey: ["project-inspection-items", projectId] });
+    },
+    onError: (error: Error) => {
+      toast.error("Sync failed", { description: error.message });
     },
   });
 
@@ -511,13 +584,29 @@ export function ProjectInspectionItems({ projectId }: ProjectInspectionItemsProp
             {/* Tenant Progress Overview */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Store className="h-5 w-5" />
-                  Tenant QC Progress
-                </CardTitle>
-                <CardDescription>
-                  Quality control inspections by tenant
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Store className="h-5 w-5" />
+                      Tenant QC Progress
+                    </CardTitle>
+                    <CardDescription>
+                      Quality control inspections by tenant
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => syncFromTenantsMutation.mutate()}
+                    disabled={syncFromTenantsMutation.isPending || !tenants || tenants.length === 0}
+                  >
+                    {syncFromTenantsMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Store className="h-4 w-4 mr-2" />
+                    )}
+                    Sync from Tenant Tracker
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {tenantProgress.length === 0 ? (
