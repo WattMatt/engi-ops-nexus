@@ -132,7 +132,9 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
   });
 
   const copyLink = (token: string) => {
-    const url = `${window.location.origin}/contractor-portal?token=${token}`;
+    // Always use the current origin so the link matches where the user is working
+    const portalPath = `/contractor-portal?token=${token}`;
+    const url = `${window.location.origin}${portalPath}`;
     navigator.clipboard.writeText(url);
     toast.success('Link copied to clipboard');
   };
