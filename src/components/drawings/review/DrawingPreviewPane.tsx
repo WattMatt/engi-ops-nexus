@@ -25,6 +25,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { DropboxFileInput } from '@/components/storage/DropboxFileInput';
 import { useDrawingFileUpload } from '@/hooks/useDrawingFileUpload';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +53,15 @@ interface DrawingPreviewPaneProps {
   onFileUploaded?: () => void;
 }
 
+// Private buckets that need signed URLs
+const PRIVATE_BUCKETS = ['handover-documents', 'budget-reports', 'invoice-pdfs', 'floor-plan-reports'];
+
+// Extract bucket name from a public URL pattern
+const extractBucketFromUrl = (url: string): string | null => {
+  const match = url.match(/\/storage\/v1\/object\/public\/([^/]+)/);
+  return match?.[1] || null;
+};
+
 export function DrawingPreviewPane({ 
   fileUrl, 
   fileName, 
@@ -70,6 +80,8 @@ export function DrawingPreviewPane({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [pdfError, setPdfError] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -80,6 +92,52 @@ export function DrawingPreviewPane({
   const isImage = fileType?.startsWith('image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl || '');
   
   const canUpload = !!drawingId && !!projectId;
+  
+  // Resolve the file URL (create signed URL for private buckets)
+  useEffect(() => {
+    const resolveFileUrl = async () => {
+      if (!fileUrl) {
+        setResolvedUrl(null);
+        return;
+      }
+      
+      const bucket = extractBucketFromUrl(fileUrl);
+      
+      // If it's a private bucket, we need a signed URL
+      if (bucket && PRIVATE_BUCKETS.includes(bucket)) {
+        setIsLoadingUrl(true);
+        try {
+          // Extract the file path from the URL
+          const pathMatch = fileUrl.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)$/);
+          const extractedPath = pathMatch?.[1];
+          
+          if (extractedPath) {
+            const { data } = await supabase.storage
+              .from(bucket)
+              .createSignedUrl(extractedPath, 3600);
+            
+            if (data?.signedUrl) {
+              setResolvedUrl(data.signedUrl);
+            } else {
+              setResolvedUrl(fileUrl); // Fallback to original
+            }
+          } else {
+            setResolvedUrl(fileUrl);
+          }
+        } catch (error) {
+          console.error('Failed to create signed URL:', error);
+          setResolvedUrl(fileUrl);
+        } finally {
+          setIsLoadingUrl(false);
+        }
+      } else {
+        // Public bucket, use URL directly
+        setResolvedUrl(fileUrl);
+      }
+    };
+    
+    resolveFileUrl();
+  }, [fileUrl]);
   
   // Reset view when file changes
   useEffect(() => {
@@ -315,7 +373,7 @@ export function DrawingPreviewPane({
             size="sm"
             asChild
           >
-            <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+            <a href={resolvedUrl || fileUrl} target="_blank" rel="noopener noreferrer">
               <Maximize2 className="h-4 w-4 mr-1" />
               Open
             </a>
@@ -356,9 +414,13 @@ export function DrawingPreviewPane({
             transition: isDragging ? 'none' : 'transform 0.1s ease-out',
           }}
         >
-          {isPdf && !pdfError ? (
+          {isLoadingUrl ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : isPdf && !pdfError && resolvedUrl ? (
             <Document
-              file={fileUrl}
+              file={resolvedUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               onLoadError={onDocumentLoadError}
               loading={
@@ -374,9 +436,9 @@ export function DrawingPreviewPane({
                 className="shadow-lg"
               />
             </Document>
-          ) : isImage ? (
+          ) : isImage && resolvedUrl ? (
             <img
-              src={fileUrl}
+              src={resolvedUrl}
               alt={fileName || 'Drawing preview'}
               className="max-w-full max-h-full object-contain shadow-lg"
               draggable={false}
@@ -386,7 +448,7 @@ export function DrawingPreviewPane({
               <FileX className="h-12 w-12 mb-4 opacity-50" />
               <p className="text-sm">Failed to load PDF</p>
               <Button variant="link" size="sm" asChild className="mt-2">
-                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                <a href={resolvedUrl || fileUrl} target="_blank" rel="noopener noreferrer">
                   Open in new tab
                 </a>
               </Button>
@@ -396,7 +458,7 @@ export function DrawingPreviewPane({
               <FileX className="h-12 w-12 mb-4 opacity-50" />
               <p className="text-sm">Preview not available for this file type</p>
               <Button variant="link" size="sm" asChild className="mt-2">
-                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                <a href={resolvedUrl || fileUrl} target="_blank" rel="noopener noreferrer">
                   Download file
                 </a>
               </Button>
