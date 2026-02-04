@@ -73,10 +73,9 @@ export const LinkToHandoverDialog = ({
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from("handover-documents")
-          .getPublicUrl(handoverPath);
+        // For private buckets, store the authenticated URL pattern
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/handover-documents/${handoverPath}`;
 
         // Insert into handover documents
         const { error: insertError } = await supabase
@@ -85,7 +84,7 @@ export const LinkToHandoverDialog = ({
             project_id: projectId,
             document_name: newFileName,
             document_type: "equipment_document", // or map to appropriate type
-            file_url: publicUrl,
+            file_url: fileUrl,
             source_type: "tenant_link",
             file_size: blob.size,
             added_by: user.user?.id,
