@@ -54,11 +54,19 @@ interface DrawingPreviewPaneProps {
 }
 
 // Private buckets that need signed URLs
-const PRIVATE_BUCKETS = ['handover-documents', 'budget-reports', 'invoice-pdfs', 'floor-plan-reports'];
+const PRIVATE_BUCKETS = ['handover-documents', 'budget-reports', 'invoice-pdfs', 'floor-plan-reports', 'cost-report-pdfs', 'tenant-evaluation-reports', 'final-account-reviews'];
 
-// Extract bucket name from a public URL pattern
+// Extract bucket name from a URL pattern (supports both public and authenticated paths)
 const extractBucketFromUrl = (url: string): string | null => {
-  const match = url.match(/\/storage\/v1\/object\/public\/([^/]+)/);
+  // Match both /object/public/ and /object/authenticated/ patterns
+  const match = url.match(/\/storage\/v1\/object\/(?:public|authenticated)\/([^/]+)/);
+  return match?.[1] || null;
+};
+
+// Extract file path from a storage URL
+const extractPathFromUrl = (url: string, bucket: string): string | null => {
+  const regex = new RegExp(`/storage/v1/object/(?:public|authenticated)/${bucket}/(.+)$`);
+  const match = url.match(regex);
   return match?.[1] || null;
 };
 
@@ -107,21 +115,31 @@ export function DrawingPreviewPane({
       if (bucket && PRIVATE_BUCKETS.includes(bucket)) {
         setIsLoadingUrl(true);
         try {
-          // Extract the file path from the URL
-          const pathMatch = fileUrl.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)$/);
-          const extractedPath = pathMatch?.[1];
+          // Use the provided filePath if available, otherwise extract from URL
+          let pathToSign = filePath;
           
-          if (extractedPath) {
-            const { data } = await supabase.storage
-              .from(bucket)
-              .createSignedUrl(extractedPath, 3600);
+          if (!pathToSign) {
+            pathToSign = extractPathFromUrl(fileUrl, bucket);
+          }
+          
+          if (pathToSign) {
+            // Decode the path in case it has URL-encoded characters
+            const decodedPath = decodeURIComponent(pathToSign);
             
-            if (data?.signedUrl) {
+            const { data, error } = await supabase.storage
+              .from(bucket)
+              .createSignedUrl(decodedPath, 3600);
+            
+            if (error) {
+              console.error('Signed URL error:', error);
+              setResolvedUrl(fileUrl); // Fallback to original
+            } else if (data?.signedUrl) {
               setResolvedUrl(data.signedUrl);
             } else {
               setResolvedUrl(fileUrl); // Fallback to original
             }
           } else {
+            console.warn('Could not extract path for signed URL');
             setResolvedUrl(fileUrl);
           }
         } catch (error) {
@@ -137,7 +155,7 @@ export function DrawingPreviewPane({
     };
     
     resolveFileUrl();
-  }, [fileUrl]);
+  }, [fileUrl, filePath]);
   
   // Reset view when file changes
   useEffect(() => {
