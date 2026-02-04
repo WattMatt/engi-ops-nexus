@@ -9,10 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   CheckCircle2, Clock, AlertCircle, FileText, Download, Eye, Search,
-  File, FileImage, Folder, ExternalLink
+  File, FileImage, Folder, ExternalLink, LayoutDashboard, Users
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,6 +55,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 export function ContractorDocumentStatus({ projectId, documentCategories }: ContractorDocumentStatusProps) {
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [previewDoc, setPreviewDoc] = useState<UnifiedDocument | null>(null);
@@ -73,7 +73,7 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 min
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch project drawings (drawing register) - visible_to_contractor=true
@@ -112,7 +112,6 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
 
   // Unified document list combining drawings and handover docs
   const unifiedDocs: UnifiedDocument[] = [
-    // Project drawings
     ...(projectDrawings?.map(d => ({
       id: d.id,
       document_name: `${d.drawing_number} - ${d.drawing_title}`,
@@ -125,7 +124,6 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
       revision: d.current_revision,
       status: d.status,
     })) || []),
-    // Handover documents
     ...(handoverDocs?.map(d => ({
       id: d.id,
       document_name: d.document_name,
@@ -149,7 +147,6 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
       doc.document_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.shop_number?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Also filter by allowed categories if specified
     const allowedByPortal = documentCategories.length === 0 || 
       documentCategories.includes(doc.document_type || 'other');
     
@@ -211,6 +208,7 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
   if (isLoading) {
     return (
       <div className="space-y-4">
+        <Skeleton className="h-12 w-full" />
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -233,81 +231,226 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
 
   return (
     <div className="space-y-6">
-      {/* Overview Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Documentation Overview
-          </CardTitle>
-          <CardDescription>Current status of project documentation</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>Overall Completion</span>
-                <span className="font-medium">{overallProgress}%</span>
-              </div>
-              <Progress value={overallProgress} className="h-2" />
-            </div>
-            <div className="grid grid-cols-3 gap-4 pt-4">
-              <div className="text-center p-3 rounded-lg bg-muted">
-                <p className="text-2xl font-bold">{tenants?.length || 0}</p>
-                <p className="text-xs text-muted-foreground">Total Tenants</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-muted">
-                <p className="text-2xl font-bold text-primary">{tenantStats.fullComplete}</p>
-                <p className="text-xs text-muted-foreground">Fully Documented</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-muted">
-                <p className="text-2xl font-bold">{unifiedDocs.length}</p>
-                <p className="text-xs text-muted-foreground">Total Documents</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Main Navigation Tabs - Dashboard first, Documents last */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="tenants" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Tenants
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <Folder className="h-4 w-4" />
+            Documents
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Documents Browser */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Folder className="h-5 w-5" />
-            Project Drawings & Documents
-          </CardTitle>
-          <CardDescription>Browse, view, and download project documentation</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search and Filter */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search documents..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
+        {/* Dashboard Tab - Landing page */}
+        <TabsContent value="dashboard" className="space-y-6 mt-6">
+          {/* Overview Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Documentation Overview
+              </CardTitle>
+              <CardDescription>Current status of project documentation</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>Overall Completion</span>
+                    <span className="font-medium">{overallProgress}%</span>
+                  </div>
+                  <Progress value={overallProgress} className="h-2" />
+                </div>
+                <div className="grid grid-cols-3 gap-4 pt-4">
+                  <div className="text-center p-3 rounded-lg bg-muted">
+                    <p className="text-2xl font-bold">{tenants?.length || 0}</p>
+                    <p className="text-xs text-muted-foreground">Total Tenants</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted">
+                    <p className="text-2xl font-bold text-primary">{tenantStats.fullComplete}</p>
+                    <p className="text-xs text-muted-foreground">Fully Documented</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted">
+                    <p className="text-2xl font-bold">{unifiedDocs.length}</p>
+                    <p className="text-xs text-muted-foreground">Total Documents</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Category Tabs */}
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-            <TabsList className="flex-wrap h-auto gap-1">
-              <TabsTrigger value="all">All ({unifiedDocs.length})</TabsTrigger>
-              {availableCategories.map(cat => {
-                const config = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.other;
-                const count = unifiedDocs.filter(d => d.document_type === cat).length;
-                return (
-                  <TabsTrigger key={cat} value={cat}>
-                    {config.label} ({count})
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+          {/* Quick Stats by Category */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents by Category</CardTitle>
+              <CardDescription>Quick overview of available documentation</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {availableCategories.slice(0, 8).map(cat => {
+                  const config = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.other;
+                  const count = unifiedDocs.filter(d => d.document_type === cat).length;
+                  return (
+                    <Button
+                      key={cat}
+                      variant="outline"
+                      className="h-auto py-3 flex flex-col items-center justify-center"
+                      onClick={() => {
+                        setActiveTab("documents");
+                        setSelectedCategory(cat);
+                      }}
+                    >
+                      <span className="text-lg font-bold">{count}</span>
+                      <span className="text-xs text-muted-foreground">{config.label}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
 
-            <TabsContent value={selectedCategory} className="mt-4">
+          {/* Recent Documents */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Documents</CardTitle>
+              <CardDescription>Latest uploaded documents</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y rounded-lg border">
+                {unifiedDocs.slice(0, 5).map((doc) => {
+                  const catConfig = CATEGORY_CONFIG[doc.document_type || 'other'] || CATEGORY_CONFIG.other;
+                  return (
+                    <div 
+                      key={doc.id} 
+                      className="p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        setActiveTab("documents");
+                        setPreviewDoc(doc);
+                      }}
+                    >
+                      {getFileIcon(doc.document_name || '')}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-sm">{doc.document_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {catConfig.label} • {new Date(doc.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {unifiedDocs.length === 0 && (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No documents available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tenants Tab */}
+        <TabsContent value="tenants" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tenant Documentation Status</CardTitle>
+              <CardDescription>Track documentation progress by tenant</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y">
+                {tenants?.map((tenant: any) => {
+                  const docStatus = [
+                    { label: 'SOW', done: tenant.sow_received },
+                    { label: 'Layout', done: tenant.layout_received },
+                    { label: 'Lighting', done: tenant.lighting_ordered },
+                    { label: 'DB', done: tenant.db_ordered }
+                  ];
+                  
+                  return (
+                    <div key={tenant.id} className="py-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{tenant.shop_number}</p>
+                        <p className="text-sm text-muted-foreground">{tenant.name || 'Unassigned'}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {docStatus.map((doc, i) => (
+                          <Badge key={i} variant={doc.done ? "default" : "secondary"}>
+                            {doc.done ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                            {doc.label}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                {(!tenants || tenants.length === 0) && (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No tenant data available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Documents Tab - Last position */}
+        <TabsContent value="documents" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Folder className="h-5 w-5" />
+                Project Drawings & Documents
+              </CardTitle>
+              <CardDescription>Browse, view, and download project documentation</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Search and Filter */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search documents..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex flex-wrap gap-2">
+                <Badge 
+                  variant={selectedCategory === "all" ? "default" : "outline"} 
+                  className="cursor-pointer"
+                  onClick={() => setSelectedCategory("all")}
+                >
+                  All ({unifiedDocs.length})
+                </Badge>
+                {availableCategories.map(cat => {
+                  const config = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.other;
+                  const count = unifiedDocs.filter(d => d.document_type === cat).length;
+                  return (
+                    <Badge 
+                      key={cat}
+                      variant={selectedCategory === cat ? "default" : "outline"} 
+                      className="cursor-pointer"
+                      onClick={() => setSelectedCategory(cat)}
+                    >
+                      {config.label} ({count})
+                    </Badge>
+                  );
+                })}
+              </div>
+
+              {/* Documents List */}
               {filteredDocs.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground">
                   <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
@@ -323,12 +466,10 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
                         key={doc.id} 
                         className="p-4 flex items-center gap-4 hover:bg-muted/50 transition-colors"
                       >
-                        {/* File Icon */}
                         <div className="flex-shrink-0">
                           {getFileIcon(doc.document_name || '')}
                         </div>
 
-                        {/* Document Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-medium truncate">{doc.document_name}</p>
@@ -348,7 +489,6 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
                           </div>
                         </div>
 
-                        {/* Actions */}
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Button
                             variant="outline"
@@ -372,53 +512,10 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
                   })}
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      {/* Tenant Documentation Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tenant Documentation Status</CardTitle>
-          <CardDescription>Track documentation progress by tenant</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="divide-y">
-            {tenants?.map((tenant: any) => {
-              const docStatus = [
-                { label: 'SOW', done: tenant.sow_received },
-                { label: 'Layout', done: tenant.layout_received },
-                { label: 'Lighting', done: tenant.lighting_ordered },
-                { label: 'DB', done: tenant.db_ordered }
-              ];
-              
-              return (
-                <div key={tenant.id} className="py-3 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{tenant.shop_number}</p>
-                    <p className="text-sm text-muted-foreground">{tenant.name || 'Unassigned'}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {docStatus.map((doc, i) => (
-                      <Badge key={i} variant={doc.done ? "default" : "secondary"}>
-                        {doc.done ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
-                        {doc.label}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            {(!tenants || tenants.length === 0) && (
-              <div className="py-8 text-center text-muted-foreground">
-                <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No tenant data available</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Document Preview Dialog */}
       <Dialog open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)}>
@@ -432,7 +529,6 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
           <div className="flex-1 overflow-hidden">
             {previewDoc && (
               <>
-                {/* PDF or Image Preview */}
                 {(() => {
                   const url = getPreviewUrl(previewDoc);
                   const ext = previewDoc.document_name?.split('.').pop()?.toLowerCase();
