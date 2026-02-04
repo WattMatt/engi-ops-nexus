@@ -77,6 +77,7 @@ const RoadmapItemRedirect = lazy(() => import("./pages/RoadmapItemRedirect"));
 const DrawingRegister = lazy(() => import("./pages/DrawingRegister"));
 const HandoverDocuments = lazy(() => import("./pages/HandoverDocuments"));
 const Procurement = lazy(() => import("./pages/Procurement"));
+const Inspections = lazy(() => import("./pages/Inspections"));
 
 // External/client portals
 const HandoverClient = lazy(() => import("./pages/HandoverClient"));
@@ -209,6 +210,7 @@ const App = () => (
                     <Route path="roadmap-review" element={<RoadmapReviewMode />} />
                     <Route path="drawings" element={<DrawingRegister />} />
                     <Route path="procurement" element={<Procurement />} />
+                    <Route path="inspections" element={<Inspections />} />
                   </Route>
                   
                   {/* External review */}
