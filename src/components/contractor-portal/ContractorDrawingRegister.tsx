@@ -220,28 +220,35 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
   ];
 
   const getSignedUrl = async (fileUrl: string | null, filePath: string | null): Promise<string | null> => {
-    // If we have a direct file path, use it
-    if (filePath) {
+    // Always prefer extracting bucket from file_url since file_path doesn't include bucket info
+    if (fileUrl) {
+      const bucket = extractBucketFromUrl(fileUrl);
+      const path = filePath || extractPathFromUrl(fileUrl);
+      
+      if (bucket && path) {
+        // For private buckets, create signed URL
+        if (PRIVATE_BUCKETS.includes(bucket)) {
+          const { data, error } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(path, 3600);
+          
+          if (error) {
+            console.error('Signed URL error:', error, { bucket, path });
+            return null;
+          }
+          return data?.signedUrl || null;
+        }
+        // For public buckets, return URL as-is
+        return fileUrl;
+      }
+    }
+    
+    // Last resort: try file_path with project-drawings bucket
+    if (filePath && !fileUrl) {
       const { data } = await supabase.storage
         .from('project-drawings')
         .createSignedUrl(filePath, 3600);
       return data?.signedUrl || null;
-    }
-    
-    // If we have a file URL, extract bucket and path to create signed URL
-    if (fileUrl) {
-      const bucket = extractBucketFromUrl(fileUrl);
-      const path = extractPathFromUrl(fileUrl);
-      
-      if (bucket && path && PRIVATE_BUCKETS.includes(bucket)) {
-        const { data } = await supabase.storage
-          .from(bucket)
-          .createSignedUrl(path, 3600);
-        return data?.signedUrl || null;
-      }
-      
-      // For public buckets, return URL as-is
-      return fileUrl;
     }
     
     return null;
