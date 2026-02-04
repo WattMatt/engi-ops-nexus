@@ -3,13 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
 import { 
   Clock, 
-  CheckCircle2, 
-  Truck, 
   Package, 
   ShoppingCart, 
-  FileCheck,
-  Plus,
-  Edit,
   AlertCircle
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,13 +28,8 @@ interface ProcurementActivityFeedProps {
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  not_started: { label: 'Not Started', icon: <Clock className="h-3 w-3" />, color: 'text-muted-foreground' },
-  pending_quote: { label: 'Pending Quote', icon: <FileCheck className="h-3 w-3" />, color: 'text-amber-600' },
-  quote_received: { label: 'Quote Received', icon: <FileCheck className="h-3 w-3" />, color: 'text-blue-600' },
-  pending_approval: { label: 'Pending Approval', icon: <Clock className="h-3 w-3" />, color: 'text-orange-600' },
-  approved: { label: 'Approved', icon: <CheckCircle2 className="h-3 w-3" />, color: 'text-emerald-600' },
+  instructed: { label: 'Instructed', icon: <Clock className="h-3 w-3" />, color: 'text-amber-600' },
   ordered: { label: 'Ordered', icon: <ShoppingCart className="h-3 w-3" />, color: 'text-purple-600' },
-  in_transit: { label: 'In Transit', icon: <Truck className="h-3 w-3" />, color: 'text-cyan-600' },
   delivered: { label: 'Delivered', icon: <Package className="h-3 w-3" />, color: 'text-green-600' },
   cancelled: { label: 'Cancelled', icon: <AlertCircle className="h-3 w-3" />, color: 'text-destructive' },
 };
