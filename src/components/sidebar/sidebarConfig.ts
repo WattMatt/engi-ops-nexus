@@ -19,6 +19,7 @@ import {
   FolderOpen,
   User,
   Settings,
+  Package,
   LucideIcon,
 } from "lucide-react";
 
@@ -59,6 +60,7 @@ export const fieldOperationsItems: NavItem[] = [
   { title: "Floor Plan Markup", url: "/dashboard/floor-plan", icon: Map },
   { title: "BOQ", url: "/dashboard/boqs", icon: FileSpreadsheet },
   { title: "Final Accounts", url: "/dashboard/final-accounts", icon: FileCheck },
+  { title: "Procurement", url: "/dashboard/procurement", icon: Package },
 ];
 
 // AI & Reports Workspace - AI tools and reporting

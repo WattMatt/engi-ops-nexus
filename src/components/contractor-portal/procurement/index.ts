@@ -6,3 +6,4 @@ export { ProcurementActivityFeed } from "./ProcurementActivityFeed";
 export { ProcurementDeliveryCalendar } from "./ProcurementDeliveryCalendar";
 export { ConfirmDeliveryDialog } from "./ConfirmDeliveryDialog";
 export { UpcomingDeliveries } from "./UpcomingDeliveries";
+export { ContractorEditItemDialog } from "./ContractorEditItemDialog";
