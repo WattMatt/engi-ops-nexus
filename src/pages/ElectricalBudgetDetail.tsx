@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,9 @@ import { BudgetBaselineAllowances } from "@/components/budgets/BudgetBaselineAll
 import { BudgetExclusions } from "@/components/budgets/BudgetExclusions";
 import { ElectricalBudgetExportPDFButton } from "@/components/budgets/ElectricalBudgetExportPDFButton";
 import { ElectricalBudgetReportHistory } from "@/components/budgets/ElectricalBudgetReportHistory";
+import { OfflineSyncStatusBar } from "@/components/pwa/OfflineSyncStatusBar";
+import { useBudgetOfflineSync } from "@/hooks/useBudgetOfflineSync";
+
 interface ExtractedData {
   budget_number: string;
   revision: string;
@@ -56,6 +59,8 @@ const ElectricalBudgetDetail = () => {
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [showReview, setShowReview] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
 
   const { data: budget, isLoading, refetch } = useQuery({
     queryKey: ["electrical-budget", budgetId],
@@ -71,6 +76,23 @@ const ElectricalBudgetDetail = () => {
     },
     enabled: !!budgetId,
   });
+  
+  // Offline sync hook
+  const {
+    unsyncedCount,
+    isOnline,
+    syncNow,
+  } = useBudgetOfflineSync({ budgetId: budgetId || '', enabled: !!budgetId });
+  
+  const handleSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      await syncNow();
+      setLastSyncAt(Date.now());
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [syncNow]);
 
   const handleExtractionComplete = (data: ExtractedData) => {
     setExtractedData(data);
@@ -124,6 +146,14 @@ const ElectricalBudgetDetail = () => {
         </div>
         <ElectricalBudgetExportPDFButton budgetId={budgetId!} />
       </div>
+      
+      {/* Offline Sync Status */}
+      <OfflineSyncStatusBar
+        pendingCount={unsyncedCount}
+        isSyncing={isSyncing}
+        onSync={handleSync}
+        lastSyncAt={lastSyncAt}
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

@@ -3,7 +3,7 @@
  * Main page for managing project drawings
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FileText, 
@@ -34,6 +34,8 @@ import { DrawingStatsCards } from './DrawingStatsCards';
 import { SyncToRoadmapDialog } from './SyncToRoadmapDialog';
 import { TickSheetList } from './admin';
 import { DrawingFilters } from '@/types/drawings';
+import { OfflineSyncStatusBar } from '@/components/pwa/OfflineSyncStatusBar';
+import { useDrawingOfflineSync } from '@/hooks/useDrawingOfflineSync';
 
 export function DrawingRegisterPage() {
   const navigate = useNavigate();
@@ -47,6 +49,26 @@ export function DrawingRegisterPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  
+  // Offline sync hook
+  const {
+    unsyncedCount,
+    pendingUploadsCount,
+    isOnline,
+    syncNow,
+  } = useDrawingOfflineSync({ projectId: projectId || '', enabled: !!projectId });
+  
+  const handleSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      await syncNow();
+      setLastSyncAt(Date.now());
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [syncNow]);
 
   // Listen for project changes
   useEffect(() => {
@@ -130,6 +152,15 @@ export function DrawingRegisterPage() {
           </div>
         )}
       </div>
+      
+      {/* Main Tabs */}
+      {/* Offline Sync Status */}
+      <OfflineSyncStatusBar
+        pendingCount={unsyncedCount + pendingUploadsCount}
+        isSyncing={isSyncing}
+        onSync={handleSync}
+        lastSyncAt={lastSyncAt}
+      />
       
       {/* Main Tabs */}
       <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'drawings' | 'ticksheets')}>

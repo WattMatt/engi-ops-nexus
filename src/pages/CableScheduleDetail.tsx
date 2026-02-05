@@ -22,19 +22,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { OfflineSyncStatusBar } from "@/components/pwa/OfflineSyncStatusBar";
+import { useCableOfflineSync } from "@/hooks/useCableOfflineSync";
 
 const CableScheduleDetail = () => {
   const { scheduleId } = useParams();
   const navigate = useNavigate();
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [settingsView, setSettingsView] = useState<"calculations" | "settings" | "tables">("settings");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
 
   const { data: schedule, isLoading } = useQuery({
     queryKey: ["cable-schedule", scheduleId],
@@ -52,6 +56,23 @@ const CableScheduleDetail = () => {
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
+  
+  // Offline sync hook
+  const {
+    unsyncedCount,
+    isOnline,
+    syncNow,
+  } = useCableOfflineSync({ scheduleId: scheduleId || '', enabled: !!scheduleId });
+  
+  const handleSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      await syncNow();
+      setLastSyncAt(Date.now());
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [syncNow]);
 
   if (isLoading) {
     return (
@@ -96,6 +117,14 @@ const CableScheduleDetail = () => {
           Settings
         </Button>
       </div>
+
+      {/* Offline Sync Status */}
+      <OfflineSyncStatusBar
+        pendingCount={unsyncedCount}
+        isSyncing={isSyncing}
+        onSync={handleSync}
+        lastSyncAt={lastSyncAt}
+      />
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
