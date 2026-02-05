@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DrawingPreviewDialog } from "@/components/drawings/DrawingPreviewDialog";
 import { 
   Search, 
   FileText, 
@@ -121,8 +121,7 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['E', 'P', 'L']));
   const [expandedDrawings, setExpandedDrawings] = useState<Set<string>>(new Set());
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewTitle, setPreviewTitle] = useState("");
+  const [previewDrawing, setPreviewDrawing] = useState<{ url: string; title: string; fileName: string } | null>(null);
 
   // Fetch drawings
   const { data: drawings = [], isLoading: loadingDrawings } = useQuery<Drawing[]>({
@@ -242,11 +241,14 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
     return null;
   };
 
-  const handlePreview = async (fileUrl: string | null, filePath: string | null, title: string) => {
+  const handlePreview = async (fileUrl: string | null, filePath: string | null, title: string, fileName?: string) => {
     const url = await getAccessibleUrl(fileUrl, filePath);
     if (url) {
-      setPreviewUrl(url);
-      setPreviewTitle(title);
+      setPreviewDrawing({
+        url,
+        title,
+        fileName: fileName || `${title}.pdf`
+      });
     }
   };
 
@@ -428,7 +430,8 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
                                             onClick={() => handlePreview(
                                               drawing.file_url,
                                               drawing.file_path,
-                                              `${drawing.drawing_number} - ${drawing.drawing_title}`
+                                            `${drawing.drawing_number} - ${drawing.drawing_title}`,
+                                            `${drawing.drawing_number}.pdf`
                                             )}
                                           >
                                             <Eye className="h-4 w-4" />
@@ -518,20 +521,13 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
       )}
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
-        <DialogContent className="max-w-4xl h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>{previewTitle}</DialogTitle>
-          </DialogHeader>
-          {previewUrl && (
-            <iframe
-              src={previewUrl}
-              className="w-full h-full rounded-md"
-              title="Drawing Preview"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <DrawingPreviewDialog
+        open={!!previewDrawing}
+        onOpenChange={(open) => !open && setPreviewDrawing(null)}
+        fileUrl={previewDrawing?.url || null}
+        fileName={previewDrawing?.fileName}
+        title={previewDrawing?.title}
+      />
     </div>
   );
 }
