@@ -4,12 +4,14 @@
   */
  
  import { useState, useEffect } from 'react';
- import { Cloud, CloudOff, RefreshCw, Loader2, Check, AlertTriangle } from 'lucide-react';
+ import { Cloud, CloudOff, RefreshCw, Loader2, Check, AlertTriangle, HardDrive } from 'lucide-react';
  import { Button } from '@/components/ui/button';
  import { Badge } from '@/components/ui/badge';
  import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
  import { useNetworkStatus } from '@/hooks/useNetworkStatus';
  import { useConflictContext } from '@/contexts/ConflictContext';
+ import { useStorageQuota } from '@/hooks/useStorageQuota';
+ import { getStorageLevelColor } from '@/lib/storageQuota';
  import { cn } from '@/lib/utils';
 
 interface OfflineSyncStatusBarProps {
@@ -25,6 +27,8 @@ interface OfflineSyncStatusBarProps {
   className?: string;
   /** Compact mode for toolbar integration */
   compact?: boolean;
+   /** Show storage indicator */
+   showStorageIndicator?: boolean;
 }
 
 export function OfflineSyncStatusBar({
@@ -34,9 +38,14 @@ export function OfflineSyncStatusBar({
   lastSyncAt,
   className,
   compact = false,
+   showStorageIndicator = false,
 }: OfflineSyncStatusBarProps) {
   const { isConnected, connectionType } = useNetworkStatus();
    const { conflictCount, openNextConflict } = useConflictContext();
+   const { level: storageLevel, percentage: storagePercentage } = useStorageQuota({
+     showWarnings: false,
+     autoStart: showStorageIndicator,
+   });
   const [showSynced, setShowSynced] = useState(false);
 
   // Show "synced" message briefly after sync completes
@@ -81,6 +90,16 @@ export function OfflineSyncStatusBar({
                  <Badge variant="destructive" className="h-4 px-1 text-[10px]">
                    {conflictCount} conflict{conflictCount > 1 ? 's' : ''}
                  </Badge>
+               )}
+               {showStorageIndicator && storageLevel !== 'healthy' && (
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <HardDrive className={cn('h-3.5 w-3.5', getStorageLevelColor(storageLevel))} />
+                   </TooltipTrigger>
+                   <TooltipContent>
+                     Storage {Math.round(storagePercentage)}% full
+                   </TooltipContent>
+                 </Tooltip>
                )}
             </div>
           </TooltipTrigger>

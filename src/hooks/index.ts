@@ -26,3 +26,6 @@ export type { OfflineDrawing } from './useDrawingOfflineSync';
 
 // Image loading
 export { useImageLoader, preloadImages, supportsWebP, supportsAvif } from './useImageLoader';
+ 
+ // Storage monitoring
+ export { useStorageQuota } from './useStorageQuota';
