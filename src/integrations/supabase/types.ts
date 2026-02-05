@@ -3837,6 +3837,44 @@ export type Database = {
         }
         Relationships: []
       }
+      deadline_notification_log: {
+        Row: {
+          created_at: string
+          deadline_date: string
+          id: string
+          notification_type: string
+          recipient_email: string
+          sent_at: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          deadline_date: string
+          id?: string
+          notification_type: string
+          recipient_email: string
+          sent_at?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          deadline_date?: string
+          id?: string
+          notification_type?: string
+          recipient_email?: string
+          sent_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deadline_notification_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           code: string
@@ -10576,6 +10614,60 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: true
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_user_sessions: {
+        Row: {
+          access_count: number
+          created_at: string
+          first_accessed_at: string
+          id: string
+          last_accessed_at: string
+          project_id: string
+          token_id: string | null
+          updated_at: string
+          user_email: string
+          user_name: string
+        }
+        Insert: {
+          access_count?: number
+          created_at?: string
+          first_accessed_at?: string
+          id?: string
+          last_accessed_at?: string
+          project_id: string
+          token_id?: string | null
+          updated_at?: string
+          user_email: string
+          user_name: string
+        }
+        Update: {
+          access_count?: number
+          created_at?: string
+          first_accessed_at?: string
+          id?: string
+          last_accessed_at?: string
+          project_id?: string
+          token_id?: string | null
+          updated_at?: string
+          user_email?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_user_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_user_sessions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_portal_tokens"
             referencedColumns: ["id"]
           },
         ]
