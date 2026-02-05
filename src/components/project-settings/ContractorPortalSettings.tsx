@@ -81,6 +81,29 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
     }
   });
 
+  // Fetch registered portal users for all tokens
+  const { data: portalUsers } = useQuery({
+    queryKey: ['portal-users', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('portal_user_sessions')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('last_accessed_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Group portal users by token_id
+  const usersByToken = portalUsers?.reduce((acc, user) => {
+    const key = user.token_id || 'unknown';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(user);
+    return acc;
+  }, {} as Record<string, typeof portalUsers>) || {};
+
   // Create token mutation
   const createTokenMutation = useMutation({
     mutationFn: async () => {
@@ -92,8 +115,8 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
         .insert({
           project_id: projectId,
           contractor_type: formData.contractorType,
-          contractor_name: formData.contractorName,
-          contractor_email: formData.contractorEmail,
+          contractor_name: formData.contractorName || 'Open Access',
+          contractor_email: formData.contractorEmail || 'portal@open.access',
           company_name: formData.companyName || null,
           document_categories: formData.documentCategories,
           expires_at: expiresAt.toISOString()
@@ -243,22 +266,27 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Contact Name *</Label>
+                    <Label>Primary Contact Name</Label>
                     <Input
-                      placeholder="John Smith"
+                      placeholder="John Smith (optional)"
                       value={formData.contractorName}
                       onChange={(e) => setFormData(prev => ({ ...prev, contractorName: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email *</Label>
+                    <Label>Primary Contact Email</Label>
                     <Input
                       type="email"
-                      placeholder="john@company.com"
+                      placeholder="john@company.com (optional)"
                       value={formData.contractorEmail}
                       onChange={(e) => setFormData(prev => ({ ...prev, contractorEmail: e.target.value }))}
                     />
                   </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground mb-1">Open Access Link</p>
+                  <p>Anyone with this link can access the portal. Each user will be prompted to enter their own name and email on first visit, which will be logged for tracking and notifications.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -315,7 +343,7 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
                 <Button 
                   onClick={() => createTokenMutation.mutate()}
-                  disabled={!formData.contractorName || !formData.contractorEmail || createTokenMutation.isPending}
+                  disabled={createTokenMutation.isPending}
                 >
                   {createTokenMutation.isPending ? 'Generating...' : 'Generate Link'}
                 </Button>
@@ -329,10 +357,10 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Contractor</TableHead>
+                <TableHead>Access Link</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Access Count</TableHead>
+                <TableHead>Registered Users</TableHead>
                 <TableHead>Expires</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -343,13 +371,21 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                 const isExpired = new Date(token.expires_at) < new Date();
                 const isActive = token.is_active && !isExpired;
                 const StatusIcon = health.icon;
+                const registeredUsers = usersByToken[token.id] || [];
+                const isOpenAccess = token.contractor_email === 'portal@open.access';
                 
                 return (
                   <TableRow key={token.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{token.contractor_name}</p>
-                        <p className="text-sm text-muted-foreground">{token.contractor_email}</p>
+                        {isOpenAccess ? (
+                          <p className="font-medium text-primary">Open Access Link</p>
+                        ) : (
+                          <>
+                            <p className="font-medium">{token.contractor_name}</p>
+                            <p className="text-sm text-muted-foreground">{token.contractor_email}</p>
+                          </>
+                        )}
                         {token.company_name && (
                           <p className="text-xs text-muted-foreground">{token.company_name}</p>
                         )}
@@ -370,12 +406,21 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium">{token.access_count}</span>
-                      {token.accessed_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Last: {formatDistanceToNow(new Date(token.accessed_at), { addSuffix: true })}
-                        </p>
-                      )}
+                      <div>
+                        <span className="font-medium">{registeredUsers.length} user{registeredUsers.length !== 1 ? 's' : ''}</span>
+                        {registeredUsers.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {registeredUsers.slice(0, 3).map((user, idx) => (
+                              <p key={idx} className="text-xs text-muted-foreground truncate max-w-[180px]" title={user.user_email}>
+                                {user.user_name}
+                              </p>
+                            ))}
+                            {registeredUsers.length > 3 && (
+                              <p className="text-xs text-muted-foreground">+{registeredUsers.length - 3} more</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className={isExpired ? 'text-destructive' : ''}>
