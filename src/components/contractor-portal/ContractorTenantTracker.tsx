@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
  import { getDeadlineStatus, getDaysUntilDeadline, formatDeadlineText, type DeadlineStatus } from "@/utils/dateCalculations";
+ import { DeadlineExportButton } from "./DeadlineExportButton";
 
 interface ContractorTenantTrackerProps {
   projectId: string;
@@ -58,6 +59,19 @@ interface Tenant {
 export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
+   const { data: project } = useQuery({
+     queryKey: ['contractor-project-name', projectId],
+     queryFn: async () => {
+       const { data, error } = await supabase
+         .from('projects')
+         .select('name')
+         .eq('id', projectId)
+         .single();
+       if (error) throw error;
+       return data;
+     }
+   });
+ 
   const { data: tenants, isLoading } = useQuery({
     queryKey: ['contractor-tenant-tracker', projectId],
     queryFn: async () => {
@@ -198,7 +212,12 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
               <CardTitle>Tenant Status</CardTitle>
               <CardDescription>{metrics.total} tenants in project</CardDescription>
             </div>
-            <div className="relative w-full sm:w-64">
+             <div className="flex items-center gap-2">
+               <DeadlineExportButton 
+                 tenants={filteredTenants} 
+                 projectName={project?.name || "Project"} 
+               />
+               <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search tenants..."
@@ -206,6 +225,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
               />
+               </div>
             </div>
           </div>
         </CardHeader>
