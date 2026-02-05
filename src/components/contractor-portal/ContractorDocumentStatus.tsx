@@ -8,14 +8,14 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DrawingPreviewDialog } from "@/components/drawings/DrawingPreviewDialog";
 import { 
   CheckCircle2, Clock, AlertCircle, FileText, Download, Eye, Search,
-  File, FileImage, Folder, ExternalLink, LayoutDashboard, Users,
-  ChevronDown, ChevronRight, History, Calendar, ArrowUpDown, ClipboardList
+  File, FileImage, Folder, LayoutDashboard, Users,
+  ChevronDown, ChevronRight, History, ArrowUpDown, ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
 import { ContractorHandoverDocuments } from "./ContractorHandoverDocuments";
@@ -82,12 +82,23 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [previewDoc, setPreviewDoc] = useState<Drawing | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string; fileName: string } | null>(null);
   const [expandedDrawings, setExpandedDrawings] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField>('drawing_number');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Fetch tenant data
+
+  const handlePreviewDrawing = (drawing: Drawing) => {
+    if (drawing.file_url) {
+      setPreviewDoc({
+        url: drawing.file_url,
+        title: `${drawing.drawing_number} — ${drawing.drawing_title}`,
+        fileName: `${drawing.drawing_number}.pdf`
+      });
+    }
+  };
+
   const { data: tenants, isLoading: tenantsLoading } = useQuery({
     queryKey: ['contractor-tenants', projectId],
     queryFn: async () => {
@@ -400,7 +411,7 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
                       className="p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer"
                       onClick={() => {
                         setActiveTab("documents");
-                        setPreviewDoc(drawing);
+                        handlePreviewDrawing(drawing);
                       }}
                     >
                       {getFileIcon(drawing.file_url)}
@@ -563,7 +574,7 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
                                               variant="ghost"
                                               size="icon"
                                               className="h-7 w-7"
-                                              onClick={() => setPreviewDoc(drawing)}
+                                            onClick={() => handlePreviewDrawing(drawing)}
                                               disabled={!drawing.file_url}
                                             >
                                               <Eye className="h-3.5 w-3.5" />
@@ -656,105 +667,13 @@ export function ContractorDocumentStatus({ projectId, documentCategories }: Cont
       </Tabs>
 
       {/* Document Preview Dialog */}
-      <Dialog open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)}>
-        <DialogContent className="max-w-4xl h-[80vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {previewDoc && getFileIcon(previewDoc.file_url)}
-              <span className="font-mono">{previewDoc?.drawing_number}</span>
-              <span className="font-normal text-muted-foreground">—</span>
-              <span className="font-normal">{previewDoc?.drawing_title}</span>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            {previewDoc && (
-              <>
-                {(() => {
-                  const url = previewDoc.file_url;
-                  const ext = url?.split('.').pop()?.toLowerCase();
-                  
-                  if (!url) {
-                    return (
-                      <div className="h-full flex items-center justify-center text-muted-foreground">
-                        <AlertCircle className="h-8 w-8 mr-2" />
-                        No preview available
-                      </div>
-                    );
-                  }
-
-                  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
-                    return (
-                      <div className="h-full flex items-center justify-center p-4">
-                        <img 
-                          src={url} 
-                          alt={previewDoc.drawing_title || 'Drawing'} 
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      </div>
-                    );
-                  }
-
-                  if (ext === 'pdf') {
-                    return (
-                      <iframe 
-                        src={url}
-                        className="w-full h-full border-0"
-                        title={previewDoc.drawing_title || 'Drawing Preview'}
-                      />
-                    );
-                  }
-
-                  return (
-                    <div className="h-full flex flex-col items-center justify-center gap-4 text-muted-foreground">
-                      <File className="h-16 w-16" />
-                      <p>Preview not available for this file type</p>
-                      <Button onClick={() => handleDownload(previewDoc.file_url, previewDoc.drawing_number)}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download to View
-                      </Button>
-                    </div>
-                  );
-                })()}
-              </>
-            )}
-          </div>
-          <div className="flex justify-between items-center pt-4 border-t">
-            <div className="text-sm text-muted-foreground flex items-center gap-3">
-              {previewDoc && (
-                <>
-                  <Badge className={`${CATEGORY_CONFIG[previewDoc.category || 'other']?.color || 'bg-muted'} text-white`}>
-                    {CATEGORY_CONFIG[previewDoc.category || 'other']?.label || 'Other'}
-                  </Badge>
-                  {previewDoc.current_revision && (
-                    <Badge variant="outline">Rev {previewDoc.current_revision}</Badge>
-                  )}
-                  <span>{formatFileSize(previewDoc.file_size)}</span>
-                  {previewDoc.revision_date && (
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {format(new Date(previewDoc.revision_date), 'dd MMM yyyy')}
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="flex gap-2">
-              {previewDoc && (
-                <>
-                  <Button variant="outline" onClick={() => window.open(previewDoc.file_url || '', '_blank')}>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open in New Tab
-                  </Button>
-                  <Button onClick={() => handleDownload(previewDoc.file_url, previewDoc.drawing_number)}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DrawingPreviewDialog
+        open={!!previewDoc}
+        onOpenChange={(open) => !open && setPreviewDoc(null)}
+        fileUrl={previewDoc?.url || null}
+        fileName={previewDoc?.fileName}
+        title={previewDoc?.title}
+      />
     </div>
   );
 }
