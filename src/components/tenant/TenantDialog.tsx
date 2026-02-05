@@ -11,6 +11,7 @@ import { Plus, Edit, Sparkles, PencilLine } from "lucide-react";
 import { InputWithSuffix } from "@/components/ui/input-with-suffix";
  import { calculateOrderDeadlines } from "@/utils/dateCalculations";
  import { addDays, format } from "date-fns";
+ import { DeadlineOverrideFields } from "./DeadlineOverrideFields";
 
 interface Tenant {
   id: string;
@@ -71,6 +72,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     cost_reported: tenant?.cost_reported || false,
     opening_date: tenant?.opening_date || "",
     beneficial_occupation_days: tenant?.beneficial_occupation_days?.toString() || "90",
+     db_last_order_date: tenant?.db_last_order_date || "",
+     db_delivery_date: tenant?.db_delivery_date || "",
+     lighting_last_order_date: tenant?.lighting_last_order_date || "",
+     lighting_delivery_date: tenant?.lighting_delivery_date || "",
+     useManualOverride: false,
   });
 
   const [formData, setFormData] = useState(getInitialFormData());
@@ -100,6 +106,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
           cost_reported: false,
           opening_date: "",
           beneficial_occupation_days: "90",
+           db_last_order_date: "",
+           db_delivery_date: "",
+           lighting_last_order_date: "",
+           lighting_delivery_date: "",
+           useManualOverride: false,
         });
         setIsDbSizeAutoCalculated(false);
       } else {
@@ -124,6 +135,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
           cost_reported: tenant.cost_reported || false,
           opening_date: tenant.opening_date || "",
           beneficial_occupation_days: tenant.beneficial_occupation_days?.toString() || "90",
+           db_last_order_date: tenant.db_last_order_date || "",
+           db_delivery_date: tenant.db_delivery_date || "",
+           lighting_last_order_date: tenant.lighting_last_order_date || "",
+           lighting_delivery_date: tenant.lighting_delivery_date || "",
+           useManualOverride: !!(tenant.db_last_order_date || tenant.lighting_last_order_date),
         });
       }
     }
@@ -232,20 +248,21 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     setLoading(true);
 
     try {
-       // Calculate deadline dates if opening_date is set
-       let deadlineDates: {
+        // Calculate deadline dates - use manual overrides if set, otherwise auto-calculate
+        let deadlineDates: {
          db_last_order_date: string | null;
          db_delivery_date: string | null;
          lighting_last_order_date: string | null;
          lighting_delivery_date: string | null;
        } = {
-         db_last_order_date: null,
-         db_delivery_date: null,
-         lighting_last_order_date: null,
-         lighting_delivery_date: null,
+          db_last_order_date: formData.db_last_order_date || null,
+          db_delivery_date: formData.db_delivery_date || null,
+          lighting_last_order_date: formData.lighting_last_order_date || null,
+          lighting_delivery_date: formData.lighting_delivery_date || null,
        };
  
-       if (formData.opening_date) {
+        // Only auto-calculate if not using manual override
+        if (formData.opening_date && !formData.useManualOverride) {
          const openingDate = new Date(formData.opening_date);
          const beneficialDays = parseInt(formData.beneficial_occupation_days) || 90;
          const boDate = addDays(openingDate, -beneficialDays);
@@ -526,22 +543,67 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                     {new Date(new Date(formData.opening_date).getTime() - parseInt(formData.beneficial_occupation_days) * 24 * 60 * 60 * 1000).toLocaleDateString()}
                   </span>
                 </div>
-                <div>
-                   <span className="text-muted-foreground">DB/Lighting Last Order:</span>
-                  <span className="ml-2 font-medium">
-                     {(() => {
-                       const openingDate = new Date(formData.opening_date);
-                       const beneficialDays = parseInt(formData.beneficial_occupation_days) || 90;
-                       const boDate = addDays(openingDate, -beneficialDays);
-                       const deadlines = calculateOrderDeadlines(boDate);
-                       return format(deadlines.dbLastOrderDate, 'dd MMM yyyy');
-                     })()}
-                  </span>
-                   <span className="text-xs text-muted-foreground ml-1">(40 business days before BO)</span>
-                </div>
               </div>
             </div>
           )}
+ 
+           <DeadlineOverrideFields
+             dbLastOrderDate={formData.db_last_order_date}
+             dbDeliveryDate={formData.db_delivery_date}
+             lightingLastOrderDate={formData.lighting_last_order_date}
+             lightingDeliveryDate={formData.lighting_delivery_date}
+             useManualOverride={formData.useManualOverride}
+             calculatedDates={formData.opening_date ? (() => {
+               const openingDate = new Date(formData.opening_date);
+               const beneficialDays = parseInt(formData.beneficial_occupation_days) || 90;
+               const boDate = addDays(openingDate, -beneficialDays);
+               const deadlines = calculateOrderDeadlines(boDate);
+               return {
+                 dbLastOrderDate: format(deadlines.dbLastOrderDate, 'yyyy-MM-dd'),
+                 dbDeliveryDate: format(deadlines.dbDeliveryDate, 'yyyy-MM-dd'),
+                 lightingLastOrderDate: format(deadlines.lightingLastOrderDate, 'yyyy-MM-dd'),
+                 lightingDeliveryDate: format(deadlines.lightingDeliveryDate, 'yyyy-MM-dd'),
+               };
+             })() : null}
+             onChange={(field, value) => {
+               if (field === 'useManualOverride') {
+                 // When disabling manual override, reset to calculated dates
+                 if (!value && formData.opening_date) {
+                   const openingDate = new Date(formData.opening_date);
+                   const beneficialDays = parseInt(formData.beneficial_occupation_days) || 90;
+                   const boDate = addDays(openingDate, -beneficialDays);
+                   const deadlines = calculateOrderDeadlines(boDate);
+                   setFormData(prev => ({
+                     ...prev,
+                     useManualOverride: false,
+                     db_last_order_date: format(deadlines.dbLastOrderDate, 'yyyy-MM-dd'),
+                     db_delivery_date: format(deadlines.dbDeliveryDate, 'yyyy-MM-dd'),
+                     lighting_last_order_date: format(deadlines.lightingLastOrderDate, 'yyyy-MM-dd'),
+                     lighting_delivery_date: format(deadlines.lightingDeliveryDate, 'yyyy-MM-dd'),
+                   }));
+                 } else {
+                   setFormData(prev => ({ ...prev, useManualOverride: !!value }));
+                 }
+               } else {
+                 setFormData(prev => ({ ...prev, [field]: value }));
+               }
+             }}
+             onResetToCalculated={() => {
+               if (formData.opening_date) {
+                 const openingDate = new Date(formData.opening_date);
+                 const beneficialDays = parseInt(formData.beneficial_occupation_days) || 90;
+                 const boDate = addDays(openingDate, -beneficialDays);
+                 const deadlines = calculateOrderDeadlines(boDate);
+                 setFormData(prev => ({
+                   ...prev,
+                   db_last_order_date: format(deadlines.dbLastOrderDate, 'yyyy-MM-dd'),
+                   db_delivery_date: format(deadlines.dbDeliveryDate, 'yyyy-MM-dd'),
+                   lighting_last_order_date: format(deadlines.lightingLastOrderDate, 'yyyy-MM-dd'),
+                   lighting_delivery_date: format(deadlines.lightingDeliveryDate, 'yyyy-MM-dd'),
+                 }));
+               }
+             }}
+           />
 
           <div className="space-y-2">
             <Label>Status Checkboxes</Label>
