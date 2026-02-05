@@ -36,7 +36,8 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  XCircle
+  XCircle,
+  CircleDashed
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -83,6 +84,7 @@ interface ProcurementItemsTableProps {
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  pending: { label: 'No Status', icon: <CircleDashed className="h-3 w-3" />, color: 'bg-muted text-muted-foreground' },
   instructed: { label: 'Instructed', icon: <Clock className="h-3 w-3" />, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
   ordered: { label: 'Ordered', icon: <ShoppingCart className="h-3 w-3" />, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' },
   delivered: { label: 'Delivered', icon: <Package className="h-3 w-3" />, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' },
@@ -90,6 +92,7 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; color
 };
 
 const statusOptions = [
+  { value: 'pending', label: 'No Status' },
   { value: 'instructed', label: 'Instructed' },
   { value: 'ordered', label: 'Ordered' },
   { value: 'delivered', label: 'Delivered' },
@@ -191,8 +194,8 @@ export function ProcurementItemsTable({ items, onEdit, onRefresh }: ProcurementI
                     </TableCell>
                   </TableRow>
                   {locationItems.map((item) => {
-                        const status = item.status || 'instructed';
-                        const config = statusConfig[status] || statusConfig.instructed;
+                        const status = item.status || 'pending';
+                        const config = statusConfig[status] || statusConfig.pending;
                     const priorityBorder = priorityColors[item.priority || 'normal'];
                     
                     return (
