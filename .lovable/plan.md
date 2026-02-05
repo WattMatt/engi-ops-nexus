@@ -1,168 +1,137 @@
 
+# Contractor Portal Cleanup and Access Resolution Plan
 
-# Contractor Portal: Automatic Order Deadlines for Boards and Lights
+## Summary of Issues Found
 
-## Overview
-This plan adds automatic calculation of **Last Order Dates** and **Delivery Dates** for Distribution Boards (DBs) and Lighting based on the tenant's Beneficial Occupation (BO) Date. When a user inputs/updates the BO Date, these dates will be auto-calculated as **8 business weeks (40 weekdays)** prior to the BO Date.
+### 1. Access Denied Errors
+**Root Cause Analysis:**
+- All tokens in the database are currently valid and active
+- The only non-test user is **Niel Terblanche** (niel@moolmangroup.co.za) with a valid token expiring Feb 22, 2026
+- No failed access attempts are logged in `contractor_portal_access_log` for any users other than test accounts
+- The validation function (`validate_contractor_portal_token`) requires both `expires_at > now()` AND `is_active = true`
 
-## Current Behavior
-- The Contractor Portal Tenant Tracker displays BO Date (calculated from `opening_date - beneficial_occupation_days`)
-- The main TenantList already uses a 56-day (8 week) equipment deadline: `equipmentDeadline = addDays(beneficialDate, -56)`
-- Existing DB/Lighting order dates are manual entries only
-- No delivery date fields currently exist in the database
+**Likely Causes:**
+- Users are accessing old/bookmarked links with expired or deactivated tokens
+- Token was manually deactivated or the link was corrupted
+- Browser cache issues causing token to not be passed correctly
 
-## Proposed Changes
+### 2. Outdated Landing Pages/Tabs
+**Root Cause:**
+- Users are seeing the **old UI** with tabs: "Documentation, Cable Schedule" instead of the current "Drawing Register"
+- This is caused by **browser caching** of the older JavaScript bundle
+- Legacy components still exist in codebase but are no longer used
 
-### 1. Database Schema Updates
-Add 4 new columns to the `tenants` table:
+### 3. Code Cleanup Needed
+**Dead Code Identified:**
+- `ContractorDocumentStatus.tsx` (679 lines) - old dashboard component
+- `ContractorHandoverDocuments.tsx` (342 lines) - old documents browser
+- Total: ~1,000 lines of unused code
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `db_last_order_date` | date | Auto-calculated: 40 business days before BO |
-| `db_delivery_date` | date | Auto-calculated: 40 business days before BO |
-| `lighting_last_order_date` | date | Auto-calculated: 40 business days before BO |
-| `lighting_delivery_date` | date | Auto-calculated: 40 business days before BO |
+---
 
-### 2. Date Calculation Logic
-Create a utility function using date-fns `subBusinessDays`:
+## Implementation Plan
 
-```text
-subBusinessDays(boDate, 40)  // 8 weeks x 5 weekdays = 40 business days
+### Phase 1: Add Better Error Diagnostics (High Priority)
+Add detailed error messages to help identify specific access issues:
+
+**File: `src/pages/ContractorPortal.tsx`**
+- Enhance error handling to distinguish between:
+  - Missing token parameter
+  - Expired token
+  - Deactivated token
+  - Invalid/corrupted token
+- Add a "Request New Link" button with project contact info
+- Log failed attempts to help diagnose issues
+
+### Phase 2: Force Cache Refresh (High Priority)
+Ensure users get the latest version of the portal:
+
+**File: `src/pages/ContractorPortal.tsx`**
+- Add a version check that forces reload if outdated
+- Add meta tags to prevent aggressive caching on portal pages
+
+### Phase 3: Remove Legacy Code (Medium Priority)
+Clean up unused components:
+
+**Files to Delete:**
+- `src/components/contractor-portal/ContractorDocumentStatus.tsx`
+- `src/components/contractor-portal/ContractorHandoverDocuments.tsx`
+
+### Phase 4: Add Admin Token Diagnostics (Medium Priority)
+Add a diagnostic view in Project Settings to help admins:
+
+**File: `src/components/project-settings/ContractorPortalSettings.tsx`**
+- Show token health status (expired, active, access count)
+- Add "Reactivate" and "Resend Link" quick actions
+- Display recent failed access attempts
+
+### Phase 5: Add Failed Access Logging (Low Priority)
+Track when users fail to access the portal:
+
+**Database Migration:**
+- Add `failed_access_log` table or update existing logging
+- Record failed token validation attempts with timestamp and reason
+
+---
+
+## Technical Details
+
+### Enhanced Token Validation Response
+```typescript
+// Current: Returns generic "Invalid or expired access link"
+// Proposed: Return specific reasons
+
+interface ValidationResult {
+  is_valid: boolean;
+  error_code?: 'MISSING' | 'EXPIRED' | 'INACTIVE' | 'NOT_FOUND';
+  error_message?: string;
+  expires_at?: string;
+  project_contact?: string;
+}
 ```
 
-This will skip weekends (Saturday/Sunday) automatically.
+### Version-Based Cache Busting
+```typescript
+// Add to ContractorPortal.tsx
+const PORTAL_VERSION = '2.1.0';
+const storedVersion = localStorage.getItem('contractor_portal_version');
 
-### 3. UI Updates - ContractorTenantTracker.tsx
-
-Modify the table to display new date columns with visual styling:
-
-| DB | Lighting |
-|----|----------|
-| Last Order: 15 Feb 2026 | Last Order: 15 Feb 2026 |
-| Delivery: 15 Feb 2026 | Delivery: 15 Feb 2026 |
-
-Color coding:
-- **Red**: Date has passed (overdue)
-- **Amber**: Within 14 days
-- **Gray**: Future date (on track)
-
-### 4. Auto-Population Trigger
-
-When BO Date is set/updated (in admin TenantDialog or via bulk operations):
-1. Calculate the 4 deadline dates using `subBusinessDays`
-2. Persist to database alongside the BO Date
-3. Real-time subscription will update Contractor Portal automatically
-
----
-
-## Technical Implementation
-
-### Files to Create
-
-#### `src/utils/dateCalculations.ts`
-Centralized utility for business day calculations:
-- `calculateOrderDeadlines(boDate: Date)` - Returns all 4 calculated dates
-- `getDeadlineStatus(date: Date)` - Returns 'overdue' | 'approaching' | 'normal'
-
-### Files to Modify
-
-#### `src/components/contractor-portal/ContractorTenantTracker.tsx`
-- Add new table columns for Last Order and Delivery dates (DB and Lighting)
-- Fetch new date fields from database
-- Apply conditional styling based on deadline status
-- Update TypeScript `Tenant` interface
-
-#### `src/components/tenant/TenantDialog.tsx`
-- Add auto-calculation of deadline dates when `opening_date` or `beneficial_occupation_days` changes
-- Persist calculated dates to database on save
-
-#### `src/components/tenant/TenantList.tsx`
-- Update bulk opening date handler to also calculate and save deadline dates
-- Display new deadline columns if desired
-
-### Database Migration
-```sql
-ALTER TABLE public.tenants
-ADD COLUMN db_last_order_date date,
-ADD COLUMN db_delivery_date date,
-ADD COLUMN lighting_last_order_date date,
-ADD COLUMN lighting_delivery_date date;
+if (storedVersion !== PORTAL_VERSION) {
+  localStorage.setItem('contractor_portal_version', PORTAL_VERSION);
+  if (storedVersion) {
+    window.location.reload();
+  }
+}
 ```
 
----
-
-## Visual Design
-
-### Contractor Portal Table Layout
-
-```text
-+------------+-------------+------------+------------------+------------------+
-| Shop       | Tenant Name | BO Date    | DB Deadlines     | Lighting Deadlines|
-+------------+-------------+------------+------------------+------------------+
-| S001       | ABC Store   | 15 Apr 26  | Order: 04 Feb 26 | Order: 04 Feb 26 |
-|            |             | 30d left   | Deliv: 04 Feb 26 | Deliv: 04 Feb 26 |
-+------------+-------------+------------+------------------+------------------+
-```
-
-Each deadline cell will show:
-- Date in "dd MMM yy" format
-- Status indicator (color-coded dot or badge)
-- Days remaining/overdue as subtext
+### Files Modified
+| File | Action | Lines Changed |
+|------|--------|---------------|
+| `src/pages/ContractorPortal.tsx` | Enhance error handling, add version check | ~50 lines |
+| `src/components/contractor-portal/ContractorDocumentStatus.tsx` | DELETE | -679 lines |
+| `src/components/contractor-portal/ContractorHandoverDocuments.tsx` | DELETE | -342 lines |
+| `src/components/project-settings/ContractorPortalSettings.tsx` | Add diagnostics panel | ~80 lines |
 
 ---
 
-## Edge Cases
+## Identifying the Denied User
 
-1. **No BO Date Set**: Deadline columns display "—" (dash)
-2. **Past BO Date**: Show in red with "Overdue" status
-3. **Weekends Properly Skipped**: Using `subBusinessDays` from date-fns v3.6.0+
-4. **Real-time Updates**: Contractor Portal auto-refreshes via existing subscription
+Based on database analysis:
+- **No failed access attempts are currently logged** for any users
+- The only external contractor token belongs to **Niel Terblanche** (niel@moolmangroup.co.za)
+- His token is **VALID** until Feb 22, 2026
+
+**To identify who was denied access:**
+1. After implementing failed access logging, we can track future denials
+2. Ask the affected user to share their portal URL so we can check the token
+3. Check if they are using an old/different link than the one generated
 
 ---
 
-## Post-Implementation Improvements
+## Next Steps After Approval
 
-After implementing this feature, consider:
-1. **Add email notifications** when deadlines are approaching (7 days warning)
-2. **Export deadline report** to PDF/Excel for procurement planning
-3. **Allow manual override** of calculated dates for special cases
-4. **Add holiday calendar** integration for more accurate business day calculations
- 
- ---
- 
- ## Implementation Status: ✅ COMPLETED
- 
- The feature has been implemented with:
- 
- 1. ✅ Database migration adding 4 new columns to `tenants` table
- 2. ✅ `src/utils/dateCalculations.ts` - Utility functions using `subBusinessDays(boDate, 40)`
- 3. ✅ `ContractorTenantTracker.tsx` - New deadline columns with color-coded status indicators
- 4. ✅ `TenantDialog.tsx` - Auto-calculation when saving tenant with opening date
- 5. ✅ `TenantList.tsx` - Bulk opening date handler now also calculates all deadline dates
- 
- ---
- 
- ## Phase 2: Advanced Features ✅ COMPLETED
- 
- ### Email Notifications for Approaching Deadlines
- - ✅ Created `portal_user_sessions` table to track contractor portal visitors (name/email)
- - ✅ Created `deadline_notification_log` table to prevent duplicate emails
- - ✅ Updated `PortalUserIdentityDialog` to persist user sessions to database
- - ✅ Created `send-deadline-notification` edge function that:
-   - Checks for deadlines within 2 weeks
-   - Sends HTML email reminders to all portal users for that project
-   - Logs sent notifications to prevent re-sending
-   - Supports test mode for verification
- 
- ### SA Public Holidays Integration
- - ✅ Added `getSAPublicHolidays(year)` function with all SA public holidays
- - ✅ Added Easter calculation for Good Friday and Family Day
- - ✅ Created `subBusinessDaysWithHolidays()` that skips weekends AND holidays
- - ✅ Updated `calculateOrderDeadlines()` to use holiday-aware calculation
- 
- ### Remaining Tasks
- - ⏳ Set up daily cron job to trigger `send-deadline-notification`
- - ⏳ Verify wmeng.co.za domain in Resend for production emails
- - ⏳ Add PDF/Excel export for deadline reports
- - ⏳ Add manual date override UI in admin tenant dialog
-
+1. Implement enhanced error handling with specific error messages
+2. Add version-based cache refresh mechanism
+3. Delete legacy components (ContractorDocumentStatus, ContractorHandoverDocuments)
+4. Add admin diagnostics panel to ContractorPortalSettings
+5. Optionally: Add database migration for failed access logging
