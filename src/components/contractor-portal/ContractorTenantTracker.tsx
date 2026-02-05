@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
- import { format, addDays, differenceInDays, parseISO } from "date-fns";
+import { format, addDays, differenceInDays, parseISO } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,13 +22,19 @@ import {
   Lightbulb,
   CheckCircle2,
   XCircle,
-   Search,
-   Calendar,
-   AlertCircle
+  Search,
+  Calendar,
+  AlertCircle
 } from "lucide-react";
 import { useState, useMemo } from "react";
- import { getDeadlineStatus, getDaysUntilDeadline, formatDeadlineText, type DeadlineStatus } from "@/utils/dateCalculations";
- import { DeadlineExportButton } from "./DeadlineExportButton";
+import { 
+  getDeadlineStatus, 
+  getDaysUntilDeadline, 
+  formatDeadlineText, 
+  calculateOrderDeadlines,
+  type DeadlineStatus 
+} from "@/utils/dateCalculations";
+import { DeadlineExportButton } from "./DeadlineExportButton";
 
 interface ContractorTenantTrackerProps {
   projectId: string;
@@ -255,6 +261,35 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                       : null;
                     const daysUntilBO = boDate ? differenceInDays(boDate, new Date()) : null;
                     
+                    // Calculate deadlines - use stored values or calculate from BO date
+                    const calculatedDeadlines = boDate 
+                      ? calculateOrderDeadlines(boDate)
+                      : null;
+                    
+                    const dbLastOrder = tenant.db_last_order_date 
+                      ? tenant.db_last_order_date 
+                      : calculatedDeadlines?.dbLastOrderDate 
+                        ? format(calculatedDeadlines.dbLastOrderDate, 'yyyy-MM-dd')
+                        : null;
+                    
+                    const dbDelivery = tenant.db_delivery_date 
+                      ? tenant.db_delivery_date 
+                      : calculatedDeadlines?.dbDeliveryDate 
+                        ? format(calculatedDeadlines.dbDeliveryDate, 'yyyy-MM-dd')
+                        : null;
+                    
+                    const lightingLastOrder = tenant.lighting_last_order_date 
+                      ? tenant.lighting_last_order_date 
+                      : calculatedDeadlines?.lightingLastOrderDate 
+                        ? format(calculatedDeadlines.lightingLastOrderDate, 'yyyy-MM-dd')
+                        : null;
+                    
+                    const lightingDelivery = tenant.lighting_delivery_date 
+                      ? tenant.lighting_delivery_date 
+                      : calculatedDeadlines?.lightingDeliveryDate 
+                        ? format(calculatedDeadlines.lightingDeliveryDate, 'yyyy-MM-dd')
+                        : null;
+                    
                     return (
                     <TableRow key={tenant.id}>
                       <TableCell className="font-medium">{tenant.shop_number}</TableCell>
@@ -285,15 +320,15 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                       </TableCell>
                        <TableCell>
                          <DeadlineDateCell 
-                           lastOrderDate={tenant.db_last_order_date} 
-                           deliveryDate={tenant.db_delivery_date}
+                           lastOrderDate={dbLastOrder} 
+                           deliveryDate={dbDelivery}
                            label="DB"
                          />
                        </TableCell>
                        <TableCell>
                          <DeadlineDateCell 
-                           lastOrderDate={tenant.lighting_last_order_date} 
-                           deliveryDate={tenant.lighting_delivery_date}
+                           lastOrderDate={lightingLastOrder} 
+                           deliveryDate={lightingDelivery}
                            label="Lighting"
                          />
                        </TableCell>
