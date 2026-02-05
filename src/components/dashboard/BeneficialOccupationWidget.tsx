@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Clock, Package } from "lucide-react";
 import { differenceInDays, addDays } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { calculateOrderDeadlines } from "@/utils/dateCalculations";
 
 interface BeneficialOccupationWidgetProps {
   projectId: string;
@@ -38,7 +39,10 @@ export const BeneficialOccupationWidget = ({ projectId }: BeneficialOccupationWi
       const openingDate = new Date(tenant.opening_date!);
       const beneficialDays = tenant.beneficial_occupation_days || 90;
       const beneficialDate = addDays(openingDate, -beneficialDays);
-      const equipmentDeadline = addDays(beneficialDate, -56);
+      
+      // Use centralized 40 business days calculation for equipment deadline
+      const deadlines = calculateOrderDeadlines(beneficialDate);
+      const equipmentDeadline = deadlines.dbLastOrderDate;
       
       const daysUntilBeneficial = differenceInDays(beneficialDate, today);
       const daysUntilEquipmentDeadline = differenceInDays(equipmentDeadline, today);
