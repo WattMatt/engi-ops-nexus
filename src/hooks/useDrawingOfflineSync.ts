@@ -15,6 +15,8 @@ import {
 } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { useNetworkStatus } from './useNetworkStatus';
+ import { useConflictDetection } from './useConflictDetection';
+ import { ConflictResolution } from '@/lib/conflictResolution';
 
 export interface OfflineDrawing {
   id: string;
@@ -98,6 +100,10 @@ export function useDrawingOfflineSync({
 }: UseDrawingOfflineSyncOptions): UseDrawingOfflineSyncReturn {
   const { isConnected } = useNetworkStatus();
   const queryClient = useQueryClient();
+   const { syncWithConflictDetection } = useConflictDetection({
+     storeName: STORES.PROJECT_DRAWINGS,
+     tableName: 'project_drawings',
+   });
   
   const [localDrawings, setLocalDrawings] = useState<OfflineDrawing[]>([]);
   const [isLoadingLocal, setIsLoadingLocal] = useState(true);
@@ -303,20 +309,43 @@ export function useDrawingOfflineSync({
 
     let successCount = 0;
     let failCount = 0;
+     let conflictCount = 0;
 
     // Sync drawing metadata
     for (const drawing of unsynced) {
       try {
-        const { synced, localUpdatedAt, syncedAt, pendingFileUpload, ...cleanData } = drawing;
-        
-        const { error } = await supabase
-          .from('project_drawings')
-          .upsert(cleanData as never);
-
-        if (error) throw error;
-
-        await putRecord(STORES.PROJECT_DRAWINGS, { ...drawing, synced: true }, false);
-        successCount++;
+         // Check for conflicts before syncing
+         const result = await syncWithConflictDetection(
+           drawing as unknown as { id: string; [key: string]: unknown },
+           async (resolution, mergedRecord) => {
+             const recordToUpsert = mergedRecord || drawing;
+             const { synced, localUpdatedAt, syncedAt, pendingFileUpload, ...cleanData } = recordToUpsert as OfflineDrawing;
+             
+             const { error } = await supabase
+               .from('project_drawings')
+               .upsert(cleanData as never);
+ 
+             if (error) throw error;
+ 
+             await putRecord(STORES.PROJECT_DRAWINGS, { ...drawing, synced: true }, false);
+           }
+         );
+ 
+         if (result.hadConflict) {
+           conflictCount++;
+         } else if (result.success) {
+           // No conflict, proceed with normal sync
+           const { synced, localUpdatedAt, syncedAt, pendingFileUpload, ...cleanData } = drawing;
+           
+           const { error } = await supabase
+             .from('project_drawings')
+             .upsert(cleanData as never);
+ 
+           if (error) throw error;
+ 
+           await putRecord(STORES.PROJECT_DRAWINGS, { ...drawing, synced: true }, false);
+           successCount++;
+         }
       } catch (error) {
         console.error('Failed to sync drawing:', drawing.id, error);
         failCount++;
@@ -380,7 +409,10 @@ export function useDrawingOfflineSync({
     if (failCount > 0) {
       toast.error(`Failed to sync ${failCount} item${failCount === 1 ? '' : 's'}`);
     }
-  }, [isConnected, localDrawings, pendingUploadsCount, projectId, loadLocalDrawings, queryClient]);
+     if (conflictCount > 0) {
+       toast.warning(`${conflictCount} conflict${conflictCount === 1 ? '' : 's'} detected - review required`);
+     }
+   }, [isConnected, localDrawings, pendingUploadsCount, projectId, loadLocalDrawings, queryClient, syncWithConflictDetection]);
 
   // Initial load
   useEffect(() => {

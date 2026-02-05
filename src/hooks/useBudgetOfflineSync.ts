@@ -15,6 +15,8 @@ import {
 } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { useNetworkStatus } from './useNetworkStatus';
+ import { useConflictDetection } from './useConflictDetection';
+ import { ConflictResolution } from '@/lib/conflictResolution';
 
 export interface OfflineBudgetLineItem {
   id: string;
@@ -69,6 +71,10 @@ export function useBudgetOfflineSync({
 }: UseBudgetOfflineSyncOptions): UseBudgetOfflineSyncReturn {
   const { isConnected } = useNetworkStatus();
   const queryClient = useQueryClient();
+   const { syncWithConflictDetection } = useConflictDetection({
+     storeName: STORES.BUDGET_LINE_ITEMS,
+     tableName: 'budget_line_items',
+   });
   
   const [localItems, setLocalItems] = useState<OfflineBudgetLineItem[]>([]);
   const [isLoadingLocal, setIsLoadingLocal] = useState(true);
@@ -238,19 +244,42 @@ export function useBudgetOfflineSync({
 
     let successCount = 0;
     let failCount = 0;
+     let conflictCount = 0;
 
     for (const item of unsynced) {
       try {
-        const { synced, localUpdatedAt, syncedAt, ...cleanData } = item;
-        
-        const { error } = await supabase
-          .from('budget_line_items')
-          .upsert(cleanData);
-
-        if (error) throw error;
-
-        await putRecord(STORES.BUDGET_LINE_ITEMS, { ...item, synced: true }, false);
-        successCount++;
+         // Check for conflicts before syncing
+         const result = await syncWithConflictDetection(
+           item as unknown as { id: string; [key: string]: unknown },
+           async (resolution, mergedRecord) => {
+             const recordToUpsert = mergedRecord || item;
+             const { synced, localUpdatedAt, syncedAt, ...cleanData } = recordToUpsert as OfflineBudgetLineItem;
+             
+             const { error } = await supabase
+               .from('budget_line_items')
+               .upsert(cleanData);
+ 
+             if (error) throw error;
+ 
+             await putRecord(STORES.BUDGET_LINE_ITEMS, { ...item, synced: true }, false);
+           }
+         );
+ 
+         if (result.hadConflict) {
+           conflictCount++;
+         } else if (result.success) {
+           // No conflict, proceed with normal sync
+           const { synced, localUpdatedAt, syncedAt, ...cleanData } = item;
+           
+           const { error } = await supabase
+             .from('budget_line_items')
+             .upsert(cleanData);
+ 
+           if (error) throw error;
+ 
+           await putRecord(STORES.BUDGET_LINE_ITEMS, { ...item, synced: true }, false);
+           successCount++;
+         }
       } catch (error) {
         console.error('Failed to sync item:', item.id, error);
         failCount++;
@@ -266,7 +295,10 @@ export function useBudgetOfflineSync({
     if (failCount > 0) {
       toast.error(`Failed to sync ${failCount} item${failCount === 1 ? '' : 's'}`);
     }
-  }, [isConnected, localItems, loadLocalItems, queryClient]);
+     if (conflictCount > 0) {
+       toast.warning(`${conflictCount} conflict${conflictCount === 1 ? '' : 's'} detected - review required`);
+     }
+   }, [isConnected, localItems, loadLocalItems, queryClient, syncWithConflictDetection]);
 
   // Initial load
   useEffect(() => {

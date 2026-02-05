@@ -1,15 +1,16 @@
-/**
- * Offline Sync Status Bar Component
- * Shows offline indicator and pending sync count for cable/budget data
- */
-
-import { useState, useEffect } from 'react';
-import { Cloud, CloudOff, RefreshCw, Loader2, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { cn } from '@/lib/utils';
+ /**
+  * Offline Sync Status Bar Component
+  * Shows offline indicator and pending sync count for cable/budget data
+  */
+ 
+ import { useState, useEffect } from 'react';
+ import { Cloud, CloudOff, RefreshCw, Loader2, Check, AlertTriangle } from 'lucide-react';
+ import { Button } from '@/components/ui/button';
+ import { Badge } from '@/components/ui/badge';
+ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+ import { useConflictContext } from '@/contexts/ConflictContext';
+ import { cn } from '@/lib/utils';
 
 interface OfflineSyncStatusBarProps {
   /** Number of pending items to sync */
@@ -35,6 +36,7 @@ export function OfflineSyncStatusBar({
   compact = false,
 }: OfflineSyncStatusBarProps) {
   const { isConnected, connectionType } = useNetworkStatus();
+   const { conflictCount, openNextConflict } = useConflictContext();
   const [showSynced, setShowSynced] = useState(false);
 
   // Show "synced" message briefly after sync completes
@@ -75,16 +77,34 @@ export function OfflineSyncStatusBar({
                   {pendingCount}
                 </Badge>
               )}
+               {conflictCount > 0 && (
+                 <Badge variant="destructive" className="h-4 px-1 text-[10px]">
+                   {conflictCount} conflict{conflictCount > 1 ? 's' : ''}
+                 </Badge>
+               )}
             </div>
           </TooltipTrigger>
           <TooltipContent>
             <p>
               {isConnected ? 'Online' : 'Offline'}
               {pendingCount > 0 && ` - ${pendingCount} pending`}
+               {conflictCount > 0 && ` - ${conflictCount} conflict${conflictCount > 1 ? 's' : ''}`}
             </p>
           </TooltipContent>
         </Tooltip>
 
+         {conflictCount > 0 && (
+           <Button
+             variant="destructive"
+             size="sm"
+             className="h-6 px-2"
+             onClick={openNextConflict}
+           >
+             <AlertTriangle className="h-3 w-3 mr-1" />
+             Resolve
+           </Button>
+         )}
+ 
         {pendingCount > 0 && isConnected && onSync && (
           <Button
             variant="ghost"
@@ -108,7 +128,9 @@ export function OfflineSyncStatusBar({
     <div
       className={cn(
         'flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm',
-        isConnected 
+         conflictCount > 0
+           ? 'bg-destructive/10 text-destructive border border-destructive/20'
+           : isConnected 
           ? pendingCount > 0 
             ? 'bg-warning/10 text-warning border border-warning/20'
             : 'bg-muted/50 text-muted-foreground'
@@ -117,7 +139,14 @@ export function OfflineSyncStatusBar({
       )}
     >
       <div className="flex items-center gap-2">
-        {isConnected ? (
+         {conflictCount > 0 ? (
+           <>
+             <AlertTriangle className="h-4 w-4" />
+             <span>
+               {conflictCount} sync conflict{conflictCount > 1 ? 's' : ''} detected
+             </span>
+           </>
+         ) : isConnected ? (
           showSynced ? (
             <>
               <Check className="h-4 w-4 text-primary" />
@@ -151,6 +180,18 @@ export function OfflineSyncStatusBar({
           </span>
         )}
 
+         {conflictCount > 0 && (
+           <Button
+             variant="destructive"
+             size="sm"
+             className="h-7"
+             onClick={openNextConflict}
+           >
+             <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+             Resolve Conflicts
+           </Button>
+         )}
+ 
         {pendingCount > 0 && isConnected && onSync && (
           <Button
             variant="outline"
