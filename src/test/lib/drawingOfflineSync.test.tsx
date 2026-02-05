@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDrawingOfflineSync, OfflineDrawing } from '@/hooks/useDrawingOfflineSync';
+import { ConflictProvider } from '@/contexts/ConflictContext';
 import 'fake-indexeddb/auto';
 
 // Mock network status
@@ -22,12 +23,14 @@ const mockSupabaseDelete = vi.fn();
 const mockSupabaseUpdate = vi.fn();
 const mockStorageUpload = vi.fn();
 const mockStorageGetPublicUrl = vi.fn();
+const mockSupabaseSingle = vi.fn();
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: (table: string) => ({
       select: () => ({
         eq: () => ({
+          single: () => mockSupabaseSingle(),
           order: () => ({
             order: () => mockSupabaseSelect(),
           }),
@@ -107,7 +110,9 @@ const createWrapper = () => {
     },
   });
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <ConflictProvider>{children}</ConflictProvider>
+    </QueryClientProvider>
   );
 };
 
@@ -122,6 +127,8 @@ describe('useDrawingOfflineSync', () => {
     mockSupabaseUpdate.mockResolvedValue({ error: null });
     mockStorageUpload.mockResolvedValue({ error: null });
     mockStorageGetPublicUrl.mockReturnValue({ data: { publicUrl: 'https://example.com/file.pdf' } });
+    // Mock single() for conflict detection - returns null for non-existent records
+    mockSupabaseSingle.mockResolvedValue({ data: null, error: { code: 'PGRST116' } });
   });
 
   afterEach(() => {
