@@ -176,12 +176,12 @@
  
        const emailHtml = generateEmailHtml('Test User', 'Sample Project', sampleDeadlines);
        
-       const { error: emailError } = await resend.emails.send({
-         from: "WMENG Notifications <onboarding@resend.dev>",
-         to: [testEmail],
-         subject: `⚠️ [TEST] Deadline Reminder: ${sampleDeadlines.length} items need attention`,
-         html: emailHtml,
-       });
+        const { error: emailError } = await resend.emails.send({
+          from: "WMENG Notifications <notifications@watsonmattheus.com>",
+          to: [testEmail],
+          subject: `⚠️ [TEST] Deadline Reminder: ${sampleDeadlines.length} items need attention`,
+          html: emailHtml,
+        });
  
        if (emailError) {
          console.error("Error sending test email:", emailError);
@@ -216,12 +216,12 @@
        const emailHtml = generateEmailHtml(user.user_name, projectData.project_name, newDeadlines);
  
        try {
-         const { error: emailError } = await resend.emails.send({
-           from: "WMENG Notifications <onboarding@resend.dev>",
-           to: [user.user_email],
-           subject: `⚠️ Deadline Reminder: ${newDeadlines.length} items need attention - ${projectData.project_name}`,
-           html: emailHtml,
-         });
+          const { error: emailError } = await resend.emails.send({
+            from: "WMENG Notifications <notifications@watsonmattheus.com>",
+            to: [user.user_email],
+            subject: `⚠️ Deadline Reminder: ${newDeadlines.length} items need attention - ${projectData.project_name}`,
+            html: emailHtml,
+          });
  
          if (emailError) {
            console.error(`Error sending to ${user.user_email}:`, emailError);
