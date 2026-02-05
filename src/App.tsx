@@ -126,12 +126,12 @@ const queryClient = new QueryClient({
                <Toaster />
                <Sonner />
                <OfflineIndicator />
-               <StorageWarningBanner />
                <PWAUpdatePrompt />
                <PWAInstallPrompt />
                <ConflictResolutionDialog />
                <HelpButton />
                <BrowserRouter>
+              <StorageWarningBanner />
               <WalkthroughController tours={allPageTours} />
               <Suspense fallback={<PageLoadingSpinner />}>
                 <Routes>
