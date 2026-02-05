@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Building2, Copy, Trash2, Plus, Link2, ExternalLink, Users, RefreshCw, Send, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Building2, Copy, Trash2, Plus, Link2, ExternalLink, Users, RefreshCw, Send, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Mail, User } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format, formatDistanceToNow } from "date-fns";
 
 interface ContractorPortalSettingsProps {
@@ -375,7 +376,8 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                 const isOpenAccess = token.contractor_email === 'portal@open.access';
                 
                 return (
-                  <TableRow key={token.id}>
+                  <React.Fragment key={token.id}>
+                  <TableRow>
                     <TableCell>
                       <div>
                         {isOpenAccess ? (
@@ -489,8 +491,51 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                       </div>
                     </TableCell>
                   </TableRow>
-                );
-              })}
+                  {/* Expandable user registry */}
+                  {registeredUsers.length > 0 && (
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableCell colSpan={6} className="p-0">
+                        <Collapsible>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 rounded-none h-8">
+                              <Users className="h-3.5 w-3.5" />
+                              <span className="text-xs">View {registeredUsers.length} registered user{registeredUsers.length !== 1 ? 's' : ''}</span>
+                              <ChevronDown className="h-3.5 w-3.5 ml-auto transition-transform group-data-[state=open]:rotate-180" />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="px-4 pb-3 pt-1">
+                              <div className="grid gap-2">
+                                {registeredUsers.map((user, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-sm bg-background rounded-md px-3 py-2 border">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                        <User className="h-4 w-4 text-primary" />
+                                      </div>
+                                      <div>
+                                        <p className="font-medium">{user.user_name}</p>
+                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                          <Mail className="h-3 w-3" />
+                                          {user.user_email}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="text-right text-xs text-muted-foreground">
+                                      <p>Last access</p>
+                                      <p>{formatDistanceToNow(new Date(user.last_accessed_at), { addSuffix: true })}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              );
+            })}
             </TableBody>
           </Table>
         ) : (
