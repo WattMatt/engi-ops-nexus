@@ -1,102 +1,142 @@
 
-# Plan: Fix "Bucket Not Found" Error for Drawing Previews
+# Add Offline Sync Status Bar to Drawing Register, Cable Schedules, and Budget Pages
 
-## Problem Summary
-Drawing files uploaded to the `handover-documents` bucket cannot be previewed because:
-- The bucket is **private** (`public: false`)
-- The upload code uses `getPublicUrl()` which generates URLs with `/object/public/` path
-- Private buckets reject public URL patterns with "Bucket not found" error
-- The `DrawingPreviewPane` component has signed URL logic, but it fails because the URL pattern doesn't match the expected format
+## Summary
+Integrate the existing `OfflineSyncStatusBar` component into three key modules to provide real-time visibility of offline sync status and pending changes. Each page will connect to its corresponding offline sync hook and display connection status, pending change counts, and manual sync controls.
 
-## Solution
-Fix the URL generation in upload functions to store the **authenticated URL pattern** instead of public URLs. The preview component already handles signed URL generation for private buckets.
+## Current State
+- `OfflineSyncStatusBar` component exists in `src/components/pwa/OfflineSyncStatusBar.tsx` with two display modes (compact and full)
+- Offline sync hooks exist for each module:
+  - `useDrawingOfflineSync` - returns `unsyncedCount`, `pendingUploadsCount`, `isOnline`, `syncNow`
+  - `useCableOfflineSync` - returns `unsyncedCount`, `isOnline`, `syncNow`
+  - `useBudgetOfflineSync` - returns `unsyncedCount`, `isOnline`, `syncNow`
+- None of these pages currently display offline sync status to users
 
----
+## Implementation Plan
 
-## Implementation Steps
+### 1. Drawing Register Page
+**File:** `src/components/drawings/DrawingRegisterPage.tsx`
 
-### Step 1: Fix `useProjectDrawings.ts` Upload Logic
-**File**: `src/hooks/useProjectDrawings.ts`
+- Import `OfflineSyncStatusBar` from `@/components/pwa/OfflineSyncStatusBar`
+- Import `useDrawingOfflineSync` from `@/hooks`
+- Initialize the hook with the current `projectId`
+- Add a state variable to track `lastSyncAt` timestamp
+- Place the status bar below the page header, before the main tabs
+- Use full-width mode for better visibility
+- Wire up `pendingCount` (sum of `unsyncedCount + pendingUploadsCount`) and `onSync` callback
 
-Replace `getPublicUrl()` calls with a helper that constructs the correct authenticated URL pattern for the private `handover-documents` bucket:
+### 2. Cable Schedule Detail Page
+**File:** `src/pages/CableScheduleDetail.tsx`
 
-**Changes (2 locations)**:
-- Line ~221-225: `useAddDrawing` mutation
-- Line ~310-314: `useUpdateDrawing` mutation
+- Import `OfflineSyncStatusBar` and `useCableOfflineSync`
+- Initialize the hook with the `scheduleId` from URL params
+- Add tracking for `isSyncing` state and `lastSyncAt`
+- Place the status bar in the header section, after the title and before the tabs
+- Use full-width mode
 
-**Before**:
-```typescript
-const { data: urlData } = supabase.storage
-  .from('handover-documents')
-  .getPublicUrl(filePath);
-fileUrl = urlData.publicUrl;
-```
+### 3. Electrical Budget Detail Page
+**File:** `src/pages/ElectricalBudgetDetail.tsx`
 
-**After**:
-```typescript
-// For private buckets, store the authenticated URL pattern
-// The preview component will generate signed URLs for access
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/handover-documents/${filePath}`;
-```
-
-### Step 2: Fix `LightingHandoverGenerator.tsx`
-**File**: `src/components/lighting/handover/LightingHandoverGenerator.tsx`
-
-Same fix - replace `getPublicUrl()` with authenticated URL construction.
-
-### Step 3: Fix `LinkToHandoverDialog.tsx`
-**File**: `src/components/tenant/LinkToHandoverDialog.tsx`
-
-Same fix for consistency.
-
-### Step 4: Update `DrawingPreviewPane.tsx` URL Extraction
-**File**: `src/components/drawings/review/DrawingPreviewPane.tsx`
-
-The existing `extractBucketFromUrl` function already handles both `/public/` and `/authenticated/` patterns (line 62), so no changes needed here. The signed URL logic will work correctly once the URLs are stored with the authenticated pattern.
-
-### Step 5: Fix Existing Data (Optional Migration Query)
-For drawings already stored with incorrect URLs, provide a SQL query to fix them:
-
-```sql
-UPDATE project_drawings 
-SET file_url = REPLACE(file_url, '/object/public/handover-documents/', '/object/authenticated/handover-documents/')
-WHERE file_url LIKE '%/object/public/handover-documents/%';
-```
+- Import `OfflineSyncStatusBar` and `useBudgetOfflineSync`
+- Initialize the hook with the `budgetId` from URL params
+- Add tracking for sync state
+- Place the status bar in the header section, after the back button and title
+- Use full-width mode
 
 ---
 
 ## Technical Details
 
-### Why This Works
-1. **Authenticated URL Pattern**: `/storage/v1/object/authenticated/bucket/path` is the correct pattern for private buckets
-2. **DrawingPreviewPane Logic**: Already checks if bucket is in `PRIVATE_BUCKETS` list and generates signed URLs (lines 115-131)
-3. **Signed URL Generation**: Uses `supabase.storage.from(bucket).createSignedUrl(path, 3600)` which works for authenticated users
+### Integration Pattern for Each Page
 
-### Files Modified
-| File | Change |
-|------|--------|
-| `src/hooks/useProjectDrawings.ts` | Replace `getPublicUrl()` with authenticated URL construction (2 places) |
-| `src/components/lighting/handover/LightingHandoverGenerator.tsx` | Replace `getPublicUrl()` with authenticated URL construction |
-| `src/components/tenant/LinkToHandoverDialog.tsx` | Replace `getPublicUrl()` with authenticated URL construction |
+```text
++------------------------------------------+
+|  Page Header (title, buttons)            |
++------------------------------------------+
+|  OfflineSyncStatusBar                    |  <-- NEW
+|  [Cloud icon] Online | 2 pending | Sync  |
++------------------------------------------+
+|  Main Content (Tabs, etc.)               |
++------------------------------------------+
+```
 
-### No Changes Needed
-- `DrawingPreviewPane.tsx` - Already handles signed URL generation correctly
-- `useDrawingFileUpload.ts` - Uses `project-drawings` bucket which IS public, so `getPublicUrl()` is correct there
+### Hook Integration Example
+
+```typescript
+// Import the offline sync hook
+const {
+  unsyncedCount,
+  pendingUploadsCount,  // Only for drawings
+  isOnline,
+  syncNow
+} = useDrawingOfflineSync({ projectId, enabled: !!projectId });
+
+// Track sync state
+const [isSyncing, setIsSyncing] = useState(false);
+const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+
+// Wrapper to track sync timing
+const handleSync = async () => {
+  setIsSyncing(true);
+  try {
+    await syncNow();
+    setLastSyncAt(Date.now());
+  } finally {
+    setIsSyncing(false);
+  }
+};
+```
+
+### OfflineSyncStatusBar Props
+
+| Prop | Source | Description |
+|------|--------|-------------|
+| `pendingCount` | Hook's `unsyncedCount` (+ `pendingUploadsCount` for drawings) | Number of items waiting to sync |
+| `isSyncing` | Local state | Whether sync is in progress |
+| `onSync` | Handler calling hook's `syncNow` | Triggers manual sync |
+| `lastSyncAt` | Local state | Timestamp of last successful sync |
+| `compact` | `false` | Use full-width mode for page integration |
+
+### Conditional Rendering
+The status bar will be shown when:
+- There are pending changes to sync (`pendingCount > 0`)
+- OR the device is offline (`!isOnline`)
+- OR to show "All synced" feedback briefly after sync completes
+
+This matches the existing behavior in `OfflineSyncStatusBar` which handles showing/hiding states internally.
 
 ---
 
-## Rollback Plan
-If issues occur, the URL pattern can be reverted by:
-1. Changing back to `getPublicUrl()` calls
-2. Making `handover-documents` bucket public (SQL: `UPDATE storage.buckets SET public = true WHERE id = 'handover-documents'`)
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/components/drawings/DrawingRegisterPage.tsx` | Add hook, state, and status bar component |
+| `src/pages/CableScheduleDetail.tsx` | Add hook, state, and status bar component |
+| `src/pages/ElectricalBudgetDetail.tsx` | Add hook, state, and status bar component |
 
 ---
 
-## Testing Checklist
-After implementation:
-1. Upload a new drawing file and verify preview works
-2. Check existing drawings with files - preview should work after data migration
-3. Verify download links function correctly
-4. Test in contractor portal to ensure visibility is maintained
+## User Experience
+
+After implementation, users will see:
+
+1. **Online with no pending changes**: Minimal indicator showing "Online" or hidden entirely
+2. **Online with pending changes**: Warning-styled bar showing count and "Sync Now" button
+3. **Offline**: Red-styled bar showing "Offline" with queued change count
+4. **During sync**: Loading spinner with "Syncing..." text
+5. **After sync**: Brief "All changes synced" success message
+
+This provides clear visibility into data synchronization status, especially important for field use where connectivity may be intermittent.
+
+---
+
+## Additional Improvement Suggestions
+
+After this implementation, consider these enhancements:
+1. **Conflict Resolution UI**: When the same record is edited both locally and on the server, show a resolution dialog
+2. **Storage Quota Monitoring**: Add warnings when approaching IndexedDB storage limits
+3. **Sync History Log**: Track and display recent sync operations for debugging
+4. **Auto-retry Backoff**: Implement exponential backoff for failed sync attempts
+5. **Selective Sync**: Allow users to choose which items to sync first when multiple pending
 
