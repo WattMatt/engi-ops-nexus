@@ -200,3 +200,6 @@ verify_jwt = false
 
 [functions.send-cable-verification-email]
 verify_jwt = false
+ 
+ [functions.send-deadline-notification]
+ verify_jwt = false

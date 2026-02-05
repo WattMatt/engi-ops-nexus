@@ -81,7 +81,7 @@ export default function ContractorPortal() {
         contractor_email: tokenInfo.contractor_email,
         company_name: tokenInfo.company_name,
         document_categories: tokenInfo.document_categories || [],
-        expires_at: tokenInfo.expires_at
+         expires_at: tokenInfo.expires_at
       });
 
       // Fetch project details with branding

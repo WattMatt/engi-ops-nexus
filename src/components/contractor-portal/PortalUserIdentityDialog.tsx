@@ -26,6 +26,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { User } from 'lucide-react';
+ import { supabase } from '@/integrations/supabase/client';
+ import { toast } from 'sonner';
 
 const STORAGE_KEY = 'contractor_portal_user';
 
@@ -90,7 +92,7 @@ export function PortalUserIdentityDialog({
     setHasChecked(true);
   }, [storageKey, onIdentityConfirmed]);
 
-  const onSubmit = (data: UserFormData) => {
+   const onSubmit = async (data: UserFormData) => {
     const identity: PortalUserIdentity = {
       name: data.name,
       email: data.email,
@@ -104,6 +106,43 @@ export function PortalUserIdentityDialog({
       console.error('Failed to store identity:', e);
     }
 
+     // Look up token_id from the token string
+     let tokenId: string | null = null;
+     try {
+       const { data: tokenData } = await supabase
+         .from('contractor_portal_tokens')
+         .select('id')
+         .eq('token', token)
+         .single();
+       tokenId = tokenData?.id || null;
+     } catch (e) {
+       console.error('Failed to look up token_id:', e);
+     }
+ 
+     // Persist to database for email notifications
+     try {
+       const { error } = await supabase
+         .from('portal_user_sessions')
+         .upsert({
+           token_id: tokenId,
+           project_id: projectId,
+           user_name: data.name,
+           user_email: data.email,
+           last_accessed_at: new Date().toISOString(),
+         }, {
+           onConflict: 'token_id,user_email',
+           ignoreDuplicates: false,
+         });
+ 
+       if (error) {
+         console.error('Failed to persist user session:', error);
+       } else {
+         console.log('Portal user session persisted:', data.email);
+       }
+     } catch (e) {
+       console.error('Failed to persist user session to database:', e);
+     }
+ 
     onIdentityConfirmed(identity);
     setOpen(false);
   };

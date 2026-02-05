@@ -139,4 +139,30 @@ After implementing this feature, consider:
  3. ✅ `ContractorTenantTracker.tsx` - New deadline columns with color-coded status indicators
  4. ✅ `TenantDialog.tsx` - Auto-calculation when saving tenant with opening date
  5. ✅ `TenantList.tsx` - Bulk opening date handler now also calculates all deadline dates
+ 
+ ---
+ 
+ ## Phase 2: Advanced Features ✅ COMPLETED
+ 
+ ### Email Notifications for Approaching Deadlines
+ - ✅ Created `portal_user_sessions` table to track contractor portal visitors (name/email)
+ - ✅ Created `deadline_notification_log` table to prevent duplicate emails
+ - ✅ Updated `PortalUserIdentityDialog` to persist user sessions to database
+ - ✅ Created `send-deadline-notification` edge function that:
+   - Checks for deadlines within 2 weeks
+   - Sends HTML email reminders to all portal users for that project
+   - Logs sent notifications to prevent re-sending
+   - Supports test mode for verification
+ 
+ ### SA Public Holidays Integration
+ - ✅ Added `getSAPublicHolidays(year)` function with all SA public holidays
+ - ✅ Added Easter calculation for Good Friday and Family Day
+ - ✅ Created `subBusinessDaysWithHolidays()` that skips weekends AND holidays
+ - ✅ Updated `calculateOrderDeadlines()` to use holiday-aware calculation
+ 
+ ### Remaining Tasks
+ - ⏳ Set up daily cron job to trigger `send-deadline-notification`
+ - ⏳ Verify wmeng.co.za domain in Resend for production emails
+ - ⏳ Add PDF/Excel export for deadline reports
+ - ⏳ Add manual date override UI in admin tenant dialog
 
