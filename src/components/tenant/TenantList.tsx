@@ -20,6 +20,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useTenantPresence } from "@/hooks/useTenantPresence";
 import { useHandoverLinkStatus } from "@/hooks/useHandoverLinkStatus";
 import { User, ArrowRight } from "lucide-react";
+ import { calculateOrderDeadlines } from "@/utils/dateCalculations";
+ import { format } from "date-fns";
 interface Tenant {
   id: string;
   shop_name: string;
@@ -42,6 +44,10 @@ interface Tenant {
   opening_date: string | null;
   beneficial_occupation_days: number | null;
   exclude_from_totals?: boolean;
+   db_last_order_date?: string | null;
+   db_delivery_date?: string | null;
+   lighting_last_order_date?: string | null;
+   lighting_delivery_date?: string | null;
 }
 interface TenantListProps {
   tenants: Tenant[];
@@ -212,14 +218,41 @@ export const TenantList = ({
     }
 
     try {
-      const { error } = await supabase
+       // Calculate deadline dates for all tenants
+       // First, fetch all tenants to get their beneficial_occupation_days
+       const { data: allTenants, error: fetchError } = await supabase
         .from("tenants")
-        .update({ opening_date: bulkOpeningDate })
+         .select("id, beneficial_occupation_days")
         .eq("project_id", projectId);
+ 
+       if (fetchError) throw fetchError;
+ 
+       // Update each tenant with calculated deadline dates
+       const updatePromises = (allTenants || []).map(async (tenant) => {
+         const openingDate = new Date(bulkOpeningDate);
+         const beneficialDays = tenant.beneficial_occupation_days || 90;
+         const boDate = addDays(openingDate, -beneficialDays);
+         
+         const deadlines = calculateOrderDeadlines(boDate);
+         
+         return supabase
+           .from("tenants")
+           .update({
+             opening_date: bulkOpeningDate,
+             db_last_order_date: format(deadlines.dbLastOrderDate, 'yyyy-MM-dd'),
+             db_delivery_date: format(deadlines.dbDeliveryDate, 'yyyy-MM-dd'),
+             lighting_last_order_date: format(deadlines.lightingLastOrderDate, 'yyyy-MM-dd'),
+             lighting_delivery_date: format(deadlines.lightingDeliveryDate, 'yyyy-MM-dd'),
+           })
+           .eq("id", tenant.id);
+       });
+ 
+       const results = await Promise.all(updatePromises);
+       const error = results.find(r => r.error)?.error;
 
       if (error) throw error;
       
-      toast.success(`Opening date set to ${new Date(bulkOpeningDate).toLocaleDateString()} for all tenants`);
+       toast.success(`Opening date and deadlines set for all ${allTenants?.length || 0} tenants`);
       setBulkOpeningDateDialog(false);
       setBulkOpeningDate("");
       onUpdate();

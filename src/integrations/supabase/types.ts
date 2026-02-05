@@ -15433,6 +15433,8 @@ export type Database = {
           custom_fields: Json | null
           db_by_tenant: boolean | null
           db_cost: number | null
+          db_delivery_date: string | null
+          db_last_order_date: string | null
           db_order_date: string | null
           db_ordered: boolean | null
           db_size_allowance: string | null
@@ -15448,6 +15450,8 @@ export type Database = {
           layout_received: boolean | null
           lighting_by_tenant: boolean | null
           lighting_cost: number | null
+          lighting_delivery_date: string | null
+          lighting_last_order_date: string | null
           lighting_order_date: string | null
           lighting_ordered: boolean | null
           manual_kw_override: number | null
@@ -15471,6 +15475,8 @@ export type Database = {
           custom_fields?: Json | null
           db_by_tenant?: boolean | null
           db_cost?: number | null
+          db_delivery_date?: string | null
+          db_last_order_date?: string | null
           db_order_date?: string | null
           db_ordered?: boolean | null
           db_size_allowance?: string | null
@@ -15486,6 +15492,8 @@ export type Database = {
           layout_received?: boolean | null
           lighting_by_tenant?: boolean | null
           lighting_cost?: number | null
+          lighting_delivery_date?: string | null
+          lighting_last_order_date?: string | null
           lighting_order_date?: string | null
           lighting_ordered?: boolean | null
           manual_kw_override?: number | null
@@ -15509,6 +15517,8 @@ export type Database = {
           custom_fields?: Json | null
           db_by_tenant?: boolean | null
           db_cost?: number | null
+          db_delivery_date?: string | null
+          db_last_order_date?: string | null
           db_order_date?: string | null
           db_ordered?: boolean | null
           db_size_allowance?: string | null
@@ -15524,6 +15534,8 @@ export type Database = {
           layout_received?: boolean | null
           lighting_by_tenant?: boolean | null
           lighting_cost?: number | null
+          lighting_delivery_date?: string | null
+          lighting_last_order_date?: string | null
           lighting_order_date?: string | null
           lighting_ordered?: boolean | null
           manual_kw_override?: number | null

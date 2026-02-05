@@ -127,4 +127,16 @@ After implementing this feature, consider:
 2. **Export deadline report** to PDF/Excel for procurement planning
 3. **Allow manual override** of calculated dates for special cases
 4. **Add holiday calendar** integration for more accurate business day calculations
+ 
+ ---
+ 
+ ## Implementation Status: ✅ COMPLETED
+ 
+ The feature has been implemented with:
+ 
+ 1. ✅ Database migration adding 4 new columns to `tenants` table
+ 2. ✅ `src/utils/dateCalculations.ts` - Utility functions using `subBusinessDays(boDate, 40)`
+ 3. ✅ `ContractorTenantTracker.tsx` - New deadline columns with color-coded status indicators
+ 4. ✅ `TenantDialog.tsx` - Auto-calculation when saving tenant with opening date
+ 5. ✅ `TenantList.tsx` - Bulk opening date handler now also calculates all deadline dates
 

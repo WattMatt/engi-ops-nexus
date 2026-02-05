@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { format, addDays, differenceInDays } from "date-fns";
+ import { format, addDays, differenceInDays, parseISO } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,9 +22,12 @@ import {
   Lightbulb,
   CheckCircle2,
   XCircle,
-  Search
+   Search,
+   Calendar,
+   AlertCircle
 } from "lucide-react";
 import { useState, useMemo } from "react";
+ import { getDeadlineStatus, getDaysUntilDeadline, formatDeadlineText, type DeadlineStatus } from "@/utils/dateCalculations";
 
 interface ContractorTenantTrackerProps {
   projectId: string;
@@ -46,6 +49,10 @@ interface Tenant {
   status: string | null;
   opening_date: string | null;
   beneficial_occupation_days: number | null;
+   db_last_order_date: string | null;
+   db_delivery_date: string | null;
+   lighting_last_order_date: string | null;
+   lighting_delivery_date: string | null;
 }
 
 export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerProps) {
@@ -56,7 +63,7 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, lighting_ordered, lighting_order_date, opening_date, beneficial_occupation_days')
+         .select('id, shop_number, shop_name, shop_category, area, db_size_allowance, sow_received, layout_received, db_ordered, db_order_date, lighting_ordered, lighting_order_date, opening_date, beneficial_occupation_days, db_last_order_date, db_delivery_date, lighting_last_order_date, lighting_delivery_date')
         .eq('project_id', projectId);
       
       if (error) throw error;
@@ -211,6 +218,8 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                     <TableHead>Shop</TableHead>
                     <TableHead>Tenant Name</TableHead>
                     <TableHead>BO Date</TableHead>
+                     <TableHead>DB Deadlines</TableHead>
+                     <TableHead>Lighting Deadlines</TableHead>
                     <TableHead>Connection</TableHead>
                     <TableHead className="text-center">SOW</TableHead>
                     <TableHead className="text-center">Layout</TableHead>
@@ -254,6 +263,20 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
+                       <TableCell>
+                         <DeadlineDateCell 
+                           lastOrderDate={tenant.db_last_order_date} 
+                           deliveryDate={tenant.db_delivery_date}
+                           label="DB"
+                         />
+                       </TableCell>
+                       <TableCell>
+                         <DeadlineDateCell 
+                           lastOrderDate={tenant.lighting_last_order_date} 
+                           deliveryDate={tenant.lighting_delivery_date}
+                           label="Lighting"
+                         />
+                       </TableCell>
                       <TableCell>
                         {tenant.db_size_allowance ? (
                           <Badge variant="secondary" className="text-xs font-mono">
@@ -321,3 +344,98 @@ function StatusWithDate({ checked, date }: { checked: boolean | null; date: stri
     </Badge>
   );
 }
+ 
+ function DeadlineDateCell({ 
+   lastOrderDate, 
+   deliveryDate,
+   label
+ }: { 
+   lastOrderDate: string | null; 
+   deliveryDate: string | null;
+   label: string;
+ }) {
+   if (!lastOrderDate && !deliveryDate) {
+     return <span className="text-muted-foreground text-sm">—</span>;
+   }
+ 
+   const orderDate = lastOrderDate ? parseISO(lastOrderDate) : null;
+   const delDate = deliveryDate ? parseISO(deliveryDate) : null;
+   
+   const orderStatus = getDeadlineStatus(orderDate);
+   const orderDays = getDaysUntilDeadline(orderDate);
+   
+   const deliveryStatus = getDeadlineStatus(delDate);
+   const deliveryDays = getDaysUntilDeadline(delDate);
+ 
+   return (
+     <div className="flex flex-col gap-1.5 min-w-[130px]">
+       {orderDate && (
+         <DeadlineLine 
+           label="Order" 
+           date={orderDate} 
+           status={orderStatus} 
+           daysText={formatDeadlineText(orderDays)}
+         />
+       )}
+       {delDate && (
+         <DeadlineLine 
+           label="Delivery" 
+           date={delDate} 
+           status={deliveryStatus} 
+           daysText={formatDeadlineText(deliveryDays)}
+         />
+       )}
+     </div>
+   );
+ }
+ 
+ function DeadlineLine({ 
+   label, 
+   date, 
+   status, 
+   daysText 
+ }: { 
+   label: string; 
+   date: Date; 
+   status: DeadlineStatus; 
+   daysText: string;
+ }) {
+   const statusStyles: Record<DeadlineStatus, { dot: string; text: string; bg: string }> = {
+     overdue: { 
+       dot: 'bg-destructive', 
+       text: 'text-destructive font-medium',
+       bg: 'bg-destructive/10'
+     },
+     approaching: { 
+       dot: 'bg-amber-500', 
+       text: 'text-amber-600 dark:text-amber-400',
+       bg: 'bg-amber-500/10'
+     },
+     normal: { 
+       dot: 'bg-muted-foreground/40', 
+       text: 'text-muted-foreground',
+       bg: 'bg-muted/50'
+     },
+   };
+ 
+   const style = statusStyles[status];
+ 
+   return (
+     <div className={`flex items-center gap-2 px-2 py-1 rounded-md ${style.bg}`}>
+       <span className={`h-2 w-2 rounded-full ${style.dot}`} />
+       <div className="flex flex-col">
+         <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
+         <div className="flex items-center gap-2">
+           <span className={`text-xs font-medium ${style.text}`}>
+             {format(date, 'dd MMM yy')}
+           </span>
+           {daysText && (
+             <span className={`text-[10px] ${style.text}`}>
+               {daysText}
+             </span>
+           )}
+         </div>
+       </div>
+     </div>
+   );
+ }
