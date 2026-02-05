@@ -54,6 +54,10 @@ const STORE_TABLE_MAP: Record<string, SyncConfig> = {
   [STORES.PROJECT_DRAWINGS]: {
     tableName: 'project_drawings',
   },
+  // Project contacts for offline client check
+  [STORES.PROJECT_CONTACTS]: {
+    tableName: 'project_contacts',
+  },
 };
 
 interface UseOfflineSyncOptions {

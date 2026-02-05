@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'wm-consulting-offline';
-const DB_VERSION = 3; // Incremented for drawing stores
+const DB_VERSION = 4; // Incremented for project contacts store
 
 // Store names
 export const STORES = {
@@ -23,6 +23,8 @@ export const STORES = {
   // Drawing register
   PROJECT_DRAWINGS: 'project_drawings',
   PENDING_DRAWING_UPLOADS: 'pending_drawing_uploads',
+  // Project contacts for offline access
+  PROJECT_CONTACTS: 'project_contacts',
 } as const;
 
 export type StoreName = typeof STORES[keyof typeof STORES];
@@ -167,6 +169,14 @@ export async function getDatabase(): Promise<IDBDatabase> {
         const pendingStore = db.createObjectStore(STORES.PENDING_DRAWING_UPLOADS, { keyPath: 'id' });
         pendingStore.createIndex('drawing_id', 'drawing_id', { unique: false });
         pendingStore.createIndex('created_at', 'created_at', { unique: false });
+      }
+
+      // Project contacts store for offline client check
+      if (!db.objectStoreNames.contains(STORES.PROJECT_CONTACTS)) {
+        const contactsStore = db.createObjectStore(STORES.PROJECT_CONTACTS, { keyPath: 'id' });
+        contactsStore.createIndex('project_id', 'project_id', { unique: false });
+        contactsStore.createIndex('contact_type', 'contact_type', { unique: false });
+        contactsStore.createIndex('synced', 'synced', { unique: false });
       }
     };
   });
