@@ -14,6 +14,8 @@ import {
 } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { useNetworkStatus } from './useNetworkStatus';
+ import { useConflictDetection } from './useConflictDetection';
+ import { ConflictResolution } from '@/lib/conflictResolution';
 
 export interface OfflineCableEntry {
   id: string;
@@ -72,6 +74,10 @@ export function useCableOfflineSync({
 }: UseCableOfflineSyncOptions): UseCableOfflineSyncReturn {
   const { isConnected } = useNetworkStatus();
   const queryClient = useQueryClient();
+   const { syncWithConflictDetection } = useConflictDetection({
+     storeName: STORES.CABLE_ENTRIES,
+     tableName: 'cable_entries',
+   });
   
   const [localEntries, setLocalEntries] = useState<OfflineCableEntry[]>([]);
   const [isLoadingLocal, setIsLoadingLocal] = useState(true);
@@ -246,19 +252,42 @@ export function useCableOfflineSync({
 
     let successCount = 0;
     let failCount = 0;
+     let conflictCount = 0;
 
     for (const entry of unsynced) {
       try {
-        const { synced, localUpdatedAt, syncedAt, ...cleanData } = entry;
-        
-        const { error } = await supabase
-          .from('cable_entries')
-          .upsert(cleanData as never);
-
-        if (error) throw error;
-
-        await putRecord(STORES.CABLE_ENTRIES, { ...entry, synced: true }, false);
-        successCount++;
+         // Check for conflicts before syncing
+         const result = await syncWithConflictDetection(
+           entry as unknown as { id: string; [key: string]: unknown },
+           async (resolution, mergedRecord) => {
+             const recordToUpsert = mergedRecord || entry;
+             const { synced, localUpdatedAt, syncedAt, ...cleanData } = recordToUpsert as OfflineCableEntry;
+             
+             const { error } = await supabase
+               .from('cable_entries')
+               .upsert(cleanData as never);
+ 
+             if (error) throw error;
+ 
+             await putRecord(STORES.CABLE_ENTRIES, { ...entry, synced: true }, false);
+           }
+         );
+ 
+         if (result.hadConflict) {
+           conflictCount++;
+         } else if (result.success) {
+           // No conflict, proceed with normal sync
+           const { synced, localUpdatedAt, syncedAt, ...cleanData } = entry;
+           
+           const { error } = await supabase
+             .from('cable_entries')
+             .upsert(cleanData as never);
+ 
+           if (error) throw error;
+ 
+           await putRecord(STORES.CABLE_ENTRIES, { ...entry, synced: true }, false);
+           successCount++;
+         }
       } catch (error) {
         console.error('Failed to sync entry:', entry.id, error);
         failCount++;
@@ -274,7 +303,10 @@ export function useCableOfflineSync({
     if (failCount > 0) {
       toast.error(`Failed to sync ${failCount} entr${failCount === 1 ? 'y' : 'ies'}`);
     }
-  }, [isConnected, localEntries, loadLocalEntries, queryClient]);
+     if (conflictCount > 0) {
+       toast.warning(`${conflictCount} conflict${conflictCount === 1 ? '' : 's'} detected - review required`);
+     }
+   }, [isConnected, localEntries, loadLocalEntries, queryClient, syncWithConflictDetection]);
 
   // Initial load
   useEffect(() => {

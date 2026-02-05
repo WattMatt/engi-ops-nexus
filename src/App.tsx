@@ -1,17 +1,18 @@
-import { lazy, Suspense } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "next-themes";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { WalkthroughProvider } from "@/components/walkthrough/WalkthroughContext";
-import { WalkthroughController } from "@/components/walkthrough/WalkthroughController";
-import { allPageTours } from "@/components/walkthrough/tours";
-import { PWAInstallPrompt, PWAUpdatePrompt, OfflineIndicator } from "@/components/pwa";
-import { PageLoadingSpinner } from "@/components/common/PageLoadingSpinner";
-import { HelpButton } from "./components/feedback/HelpButton";
+ import { lazy, Suspense } from "react";
+ import { Toaster } from "@/components/ui/toaster";
+ import { Toaster as Sonner } from "@/components/ui/sonner";
+ import { TooltipProvider } from "@/components/ui/tooltip";
+ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+ import { ThemeProvider } from "next-themes";
+ import { BrowserRouter, Routes, Route } from "react-router-dom";
+ import { ErrorBoundary } from "@/components/ErrorBoundary";
+ import { WalkthroughProvider } from "@/components/walkthrough/WalkthroughContext";
+ import { WalkthroughController } from "@/components/walkthrough/WalkthroughController";
+ import { allPageTours } from "@/components/walkthrough/tours";
+ import { PWAInstallPrompt, PWAUpdatePrompt, OfflineIndicator, ConflictResolutionDialog } from "@/components/pwa";
+ import { PageLoadingSpinner } from "@/components/common/PageLoadingSpinner";
+ import { HelpButton } from "./components/feedback/HelpButton";
+ import { ConflictProvider } from "@/contexts/ConflictContext";
 
 // Critical path - loaded immediately
 import Index from "./pages/Index";
@@ -114,19 +115,21 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <ErrorBoundary>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <WalkthroughProvider>
-            <Toaster />
-            <Sonner />
-            <OfflineIndicator />
-            <PWAUpdatePrompt />
-            <PWAInstallPrompt />
-            <HelpButton />
-            <BrowserRouter>
+ const App = () => (
+   <ErrorBoundary>
+     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+       <QueryClientProvider client={queryClient}>
+         <TooltipProvider>
+           <WalkthroughProvider>
+             <ConflictProvider>
+               <Toaster />
+               <Sonner />
+               <OfflineIndicator />
+               <PWAUpdatePrompt />
+               <PWAInstallPrompt />
+               <ConflictResolutionDialog />
+               <HelpButton />
+               <BrowserRouter>
               <WalkthroughController tours={allPageTours} />
               <Suspense fallback={<PageLoadingSpinner />}>
                 <Routes>
@@ -216,16 +219,18 @@ const App = () => (
                   {/* External review */}
                   <Route path="/roadmap-review/:token" element={<ExternalRoadmapReview />} />
                   
-                  {/* 404 */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </WalkthroughProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
-  </ErrorBoundary>
-);
+ 
+                   {/* 404 */}
+                   <Route path="*" element={<NotFound />} />
+                 </Routes>
+               </Suspense>
+             </BrowserRouter>
+             </ConflictProvider>
+           </WalkthroughProvider>
+         </TooltipProvider>
+       </QueryClientProvider>
+     </ThemeProvider>
+   </ErrorBoundary>
+ );
 
 export default App;
