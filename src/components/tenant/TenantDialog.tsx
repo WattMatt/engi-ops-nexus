@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Edit, Sparkles, PencilLine } from "lucide-react";
 import { InputWithSuffix } from "@/components/ui/input-with-suffix";
+ import { calculateOrderDeadlines } from "@/utils/dateCalculations";
+ import { addDays, format } from "date-fns";
 
 interface Tenant {
   id: string;
@@ -31,6 +33,10 @@ interface Tenant {
   cost_reported: boolean;
   opening_date: string | null;
   beneficial_occupation_days: number | null;
+   db_last_order_date?: string | null;
+   db_delivery_date?: string | null;
+   lighting_last_order_date?: string | null;
+   lighting_delivery_date?: string | null;
 }
 
 interface TenantDialogProps {
@@ -226,6 +232,33 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     setLoading(true);
 
     try {
+       // Calculate deadline dates if opening_date is set
+       let deadlineDates: {
+         db_last_order_date: string | null;
+         db_delivery_date: string | null;
+         lighting_last_order_date: string | null;
+         lighting_delivery_date: string | null;
+       } = {
+         db_last_order_date: null,
+         db_delivery_date: null,
+         lighting_last_order_date: null,
+         lighting_delivery_date: null,
+       };
+ 
+       if (formData.opening_date) {
+         const openingDate = new Date(formData.opening_date);
+         const beneficialDays = parseInt(formData.beneficial_occupation_days) || 90;
+         const boDate = addDays(openingDate, -beneficialDays);
+         
+         const deadlines = calculateOrderDeadlines(boDate);
+         deadlineDates = {
+           db_last_order_date: format(deadlines.dbLastOrderDate, 'yyyy-MM-dd'),
+           db_delivery_date: format(deadlines.dbDeliveryDate, 'yyyy-MM-dd'),
+           lighting_last_order_date: format(deadlines.lightingLastOrderDate, 'yyyy-MM-dd'),
+           lighting_delivery_date: format(deadlines.lightingDeliveryDate, 'yyyy-MM-dd'),
+         };
+       }
+ 
       const data = {
         project_id: projectId,
         shop_name: formData.shop_name,
@@ -247,6 +280,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
         cost_reported: formData.cost_reported,
         opening_date: formData.opening_date || null,
         beneficial_occupation_days: formData.beneficial_occupation_days ? parseInt(formData.beneficial_occupation_days) : 90,
+         ...deadlineDates,
       };
 
       if (tenant) {
@@ -485,7 +519,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
           {formData.opening_date && (
             <div className="p-4 bg-muted rounded-lg space-y-2">
               <p className="text-sm font-medium">Calculated Dates:</p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">Beneficial Occupation:</span>
                   <span className="ml-2 font-medium">
@@ -493,10 +527,17 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Equipment Order Deadline:</span>
+                   <span className="text-muted-foreground">DB/Lighting Last Order:</span>
                   <span className="ml-2 font-medium">
-                    {new Date(new Date(formData.opening_date).getTime() - (parseInt(formData.beneficial_occupation_days) + 56) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                     {(() => {
+                       const openingDate = new Date(formData.opening_date);
+                       const beneficialDays = parseInt(formData.beneficial_occupation_days) || 90;
+                       const boDate = addDays(openingDate, -beneficialDays);
+                       const deadlines = calculateOrderDeadlines(boDate);
+                       return format(deadlines.dbLastOrderDate, 'dd MMM yyyy');
+                     })()}
                   </span>
+                   <span className="text-xs text-muted-foreground ml-1">(40 business days before BO)</span>
                 </div>
               </div>
             </div>
