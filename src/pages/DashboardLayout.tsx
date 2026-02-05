@@ -24,7 +24,7 @@ const DashboardLayout = () => {
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
   // Check if project has a client contact assigned
-  const { hasClient, isLoading: isCheckingClient } = useProjectClientCheck(projectId);
+  const { hasClient, isLoading: isCheckingClient, error: clientCheckError } = useProjectClientCheck(projectId);
 
   // Check user's profile for password change requirements
   const { data: profile, refetch: refetchProfile } = useQuery({
@@ -104,7 +104,10 @@ const DashboardLayout = () => {
   const allowedWithoutClient = isOnContactLibrary || isOnProjectSettings;
 
   // Determine if we should block the content
-  const shouldBlockContent = !loading && !isCheckingClient && projectId && !hasClient && !allowedWithoutClient;
+  // ONLY block if query completed successfully AND confirmed no client exists
+  // Do NOT block during loading, errors, or network issues
+  const shouldBlockContent = !loading && !isCheckingClient && !clientCheckError && 
+    projectId && !hasClient && !allowedWithoutClient;
 
   // Redirect to contact library if no client and trying to access other pages
   useEffect(() => {
