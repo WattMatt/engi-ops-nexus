@@ -10,6 +10,7 @@
  import { WalkthroughController } from "@/components/walkthrough/WalkthroughController";
  import { allPageTours } from "@/components/walkthrough/tours";
  import { PWAInstallPrompt, PWAUpdatePrompt, OfflineIndicator, ConflictResolutionDialog } from "@/components/pwa";
+ import { StorageWarningBanner } from "@/components/pwa";
  import { PageLoadingSpinner } from "@/components/common/PageLoadingSpinner";
  import { HelpButton } from "./components/feedback/HelpButton";
  import { ConflictProvider } from "@/contexts/ConflictContext";
@@ -125,6 +126,7 @@ const queryClient = new QueryClient({
                <Toaster />
                <Sonner />
                <OfflineIndicator />
+               <StorageWarningBanner />
                <PWAUpdatePrompt />
                <PWAInstallPrompt />
                <ConflictResolutionDialog />

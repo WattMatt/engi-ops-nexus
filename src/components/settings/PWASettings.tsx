@@ -63,6 +63,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+ import { StorageStatusCard } from "@/components/pwa";
 
 interface StorageEstimate {
   usage: number;
@@ -632,6 +633,10 @@ export function PWASettings() {
       </Card>
 
       {/* Service Worker Controls */}
+       {/* Offline Storage - Detailed Breakdown */}
+       <StorageStatusCard />
+ 
+       {/* Service Worker Controls */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
