@@ -244,8 +244,8 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                     <TableHead>Shop</TableHead>
                     <TableHead>Tenant Name</TableHead>
                     <TableHead>BO Date</TableHead>
-                     <TableHead>DB Deadlines</TableHead>
-                     <TableHead>Lighting Deadlines</TableHead>
+                     <TableHead>DB Last Order</TableHead>
+                     <TableHead>Lighting Last Order</TableHead>
                     <TableHead>Connection</TableHead>
                     <TableHead className="text-center">SOW</TableHead>
                     <TableHead className="text-center">Layout</TableHead>
@@ -319,18 +319,10 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                         )}
                       </TableCell>
                        <TableCell>
-                         <DeadlineDateCell 
-                           lastOrderDate={dbLastOrder} 
-                           deliveryDate={dbDelivery}
-                           label="DB"
-                         />
+                         <LastOrderDateCell date={dbLastOrder} />
                        </TableCell>
                        <TableCell>
-                         <DeadlineDateCell 
-                           lastOrderDate={lightingLastOrder} 
-                           deliveryDate={lightingDelivery}
-                           label="Lighting"
-                         />
+                         <LastOrderDateCell date={lightingLastOrder} />
                        </TableCell>
                       <TableCell>
                         {tenant.db_size_allowance ? (
@@ -400,97 +392,49 @@ function StatusWithDate({ checked, date }: { checked: boolean | null; date: stri
   );
 }
  
- function DeadlineDateCell({ 
-   lastOrderDate, 
-   deliveryDate,
-   label
- }: { 
-   lastOrderDate: string | null; 
-   deliveryDate: string | null;
-   label: string;
- }) {
-   if (!lastOrderDate && !deliveryDate) {
-     return <span className="text-muted-foreground text-sm">—</span>;
-   }
- 
-   const orderDate = lastOrderDate ? parseISO(lastOrderDate) : null;
-   const delDate = deliveryDate ? parseISO(deliveryDate) : null;
-   
-   const orderStatus = getDeadlineStatus(orderDate);
-   const orderDays = getDaysUntilDeadline(orderDate);
-   
-   const deliveryStatus = getDeadlineStatus(delDate);
-   const deliveryDays = getDaysUntilDeadline(delDate);
- 
-   return (
-     <div className="flex flex-col gap-1.5 min-w-[130px]">
-       {orderDate && (
-         <DeadlineLine 
-           label="Order" 
-           date={orderDate} 
-           status={orderStatus} 
-           daysText={formatDeadlineText(orderDays)}
-         />
-       )}
-       {delDate && (
-         <DeadlineLine 
-           label="Delivery" 
-           date={delDate} 
-           status={deliveryStatus} 
-           daysText={formatDeadlineText(deliveryDays)}
-         />
-       )}
-     </div>
-   );
- }
- 
- function DeadlineLine({ 
-   label, 
-   date, 
-   status, 
-   daysText 
- }: { 
-   label: string; 
-   date: Date; 
-   status: DeadlineStatus; 
-   daysText: string;
- }) {
-   const statusStyles: Record<DeadlineStatus, { dot: string; text: string; bg: string }> = {
-     overdue: { 
-       dot: 'bg-destructive', 
-       text: 'text-destructive font-medium',
-       bg: 'bg-destructive/10'
-     },
-     approaching: { 
-       dot: 'bg-amber-500', 
-       text: 'text-amber-600 dark:text-amber-400',
-       bg: 'bg-amber-500/10'
-     },
-     normal: { 
-       dot: 'bg-muted-foreground/40', 
-       text: 'text-muted-foreground',
-       bg: 'bg-muted/50'
-     },
-   };
- 
-   const style = statusStyles[status];
- 
-   return (
-     <div className={`flex items-center gap-2 px-2 py-1 rounded-md ${style.bg}`}>
-       <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-       <div className="flex flex-col">
-         <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
-         <div className="flex items-center gap-2">
-           <span className={`text-xs font-medium ${style.text}`}>
-             {format(date, 'dd MMM yy')}
-           </span>
-           {daysText && (
-             <span className={`text-[10px] ${style.text}`}>
-               {daysText}
-             </span>
-           )}
-         </div>
-       </div>
-     </div>
-   );
- }
+function LastOrderDateCell({ date }: { date: string | null }) {
+  if (!date) {
+    return <span className="text-muted-foreground text-sm">—</span>;
+  }
+
+  const orderDate = parseISO(date);
+  const status = getDeadlineStatus(orderDate);
+  const days = getDaysUntilDeadline(orderDate);
+  const daysText = formatDeadlineText(days);
+
+  const statusStyles: Record<DeadlineStatus, { dot: string; text: string; bg: string }> = {
+    overdue: { 
+      dot: 'bg-destructive', 
+      text: 'text-destructive font-medium',
+      bg: 'bg-destructive/10'
+    },
+    approaching: { 
+      dot: 'bg-amber-500', 
+      text: 'text-amber-600 dark:text-amber-400',
+      bg: 'bg-amber-500/10'
+    },
+    normal: { 
+      dot: 'bg-muted-foreground/40', 
+      text: 'text-muted-foreground',
+      bg: 'bg-muted/50'
+    },
+  };
+
+  const style = statusStyles[status];
+
+  return (
+    <div className={`flex items-center gap-2 px-2 py-1.5 rounded-md ${style.bg} min-w-[100px]`}>
+      <span className={`h-2 w-2 rounded-full ${style.dot}`} />
+      <div className="flex flex-col">
+        <span className={`text-xs font-medium ${style.text}`}>
+          {format(orderDate, 'dd MMM yy')}
+        </span>
+        {daysText && (
+          <span className={`text-[10px] ${style.text}`}>
+            {daysText}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
