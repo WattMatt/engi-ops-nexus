@@ -52,9 +52,10 @@ import { ProjectDrawing, DRAWING_STATUS_OPTIONS, naturalSortDrawings } from '@/t
 import { REVIEW_STATUS_OPTIONS } from '@/types/drawingChecklists';
 import { EditDrawingDialog } from './EditDrawingDialog';
 import { DrawingReviewDialog } from './review';
+import { DrawingPreviewDialog } from './DrawingPreviewDialog';
 import { format } from 'date-fns';
  import { useToast } from '@/hooks/use-toast';
- import { openFile, downloadFile } from '@/lib/fileViewer';
+ import { downloadFile } from '@/lib/fileViewer';
 
 interface DrawingTableProps {
   drawings: ProjectDrawing[];
@@ -67,6 +68,7 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
   const [editingDrawing, setEditingDrawing] = useState<ProjectDrawing | null>(null);
   const [deletingDrawing, setDeletingDrawing] = useState<ProjectDrawing | null>(null);
   const [reviewingDrawing, setReviewingDrawing] = useState<ProjectDrawing | null>(null);
+  const [previewingDrawing, setPreviewingDrawing] = useState<ProjectDrawing | null>(null);
   
   const { toast } = useToast();
   const deleteDrawing = useDeleteDrawing();
@@ -78,23 +80,6 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
    const reviewStatusMap = new Map(reviewStatuses.map(s => [s.drawing_id, s]));
  
    const sortedDrawings = [...drawings].sort(naturalSortDrawings);
- 
-   // Handle opening files with bulletproof file viewer
-   const handleOpenFile = async (fileUrl: string) => {
-     const success = await openFile(fileUrl, {
-       onError: (error) => {
-         toast({
-           title: 'Error Opening File',
-           description: error,
-           variant: 'destructive',
-         });
-       },
-     });
- 
-     if (!success) {
-       console.error('Failed to open file:', fileUrl);
-     }
-   };
  
    // Handle downloading files
    const handleDownloadFile = async (fileUrl: string, fileName?: string) => {
@@ -315,9 +300,9 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleOpenFile(drawing.file_url!)}
+                      onClick={() => setPreviewingDrawing(drawing)}
                     >
-                      <Download className="h-4 w-4" />
+                      <Eye className="h-4 w-4" />
                     </Button>
                   ) : (
                     <span className="text-xs text-muted-foreground">No file</span>
@@ -351,7 +336,7 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {drawing.file_url && (
-                        <DropdownMenuItem onClick={() => handleOpenFile(drawing.file_url!)}>
+                        <DropdownMenuItem onClick={() => setPreviewingDrawing(drawing)}>
                           <Eye className="h-4 w-4 mr-2" />
                           View
                         </DropdownMenuItem>
@@ -390,6 +375,15 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
         open={!!reviewingDrawing}
         onOpenChange={() => setReviewingDrawing(null)}
         drawing={reviewingDrawing}
+      />
+      
+      {/* Preview Dialog */}
+      <DrawingPreviewDialog
+        open={!!previewingDrawing}
+        onOpenChange={() => setPreviewingDrawing(null)}
+        fileUrl={previewingDrawing?.file_url || null}
+        fileName={previewingDrawing?.file_name}
+        title={previewingDrawing ? `${previewingDrawing.drawing_number} - ${previewingDrawing.drawing_title}` : undefined}
       />
       
       {/* Delete Confirmation */}
