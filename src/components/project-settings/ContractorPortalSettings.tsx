@@ -12,11 +12,24 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Building2, Copy, Trash2, Plus, Link2, ExternalLink, Users } from "lucide-react";
-import { format } from "date-fns";
+import { Building2, Copy, Trash2, Plus, Link2, ExternalLink, Users, RefreshCw, Send, CheckCircle, XCircle, Clock } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 
 interface ContractorPortalSettingsProps {
   projectId: string;
+}
+
+// Token health status helper
+function getTokenHealthStatus(token: { is_active: boolean; expires_at: string; access_count: number }) {
+  const isExpired = new Date(token.expires_at) < new Date();
+  const isActive = token.is_active && !isExpired;
+  const expiresIn = new Date(token.expires_at).getTime() - Date.now();
+  const expiresSoon = expiresIn > 0 && expiresIn < 7 * 24 * 60 * 60 * 1000; // 7 days
+  
+  if (!token.is_active) return { status: 'revoked', color: 'text-muted-foreground', icon: XCircle };
+  if (isExpired) return { status: 'expired', color: 'text-destructive', icon: XCircle };
+  if (expiresSoon) return { status: 'expiring', color: 'text-amber-600', icon: Clock };
+  return { status: 'active', color: 'text-green-600', icon: CheckCircle };
 }
 
 const DOCUMENT_CATEGORIES = [
@@ -29,7 +42,6 @@ const DOCUMENT_CATEGORIES = [
   { id: 'transformers', label: 'Transformers' },
   { id: 'manuals', label: 'Manuals' },
   { id: 'certificates', label: 'Certificates' },
-  // Phase 1: New electrical categories
   { id: 'switchgear', label: 'Switchgear' },
   { id: 'earthing_bonding', label: 'Earthing & Bonding' },
   { id: 'surge_protection', label: 'Surge Protection' },
@@ -131,12 +143,45 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
     }
   });
 
+  // Reactivate token mutation (extend expiry by 30 days)
+  const reactivateTokenMutation = useMutation({
+    mutationFn: async (tokenId: string) => {
+      const newExpiry = new Date();
+      newExpiry.setDate(newExpiry.getDate() + 30);
+      
+      const { error } = await supabase
+        .from('contractor_portal_tokens')
+        .update({ 
+          is_active: true,
+          expires_at: newExpiry.toISOString()
+        })
+        .eq('id', tokenId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contractor-tokens', projectId] });
+      toast.success('Access link reactivated for 30 days');
+    },
+    onError: (error) => {
+      console.error('Failed to reactivate token:', error);
+      toast.error('Failed to reactivate access');
+    }
+  });
+
   const copyLink = (token: string) => {
-    // Always use the current origin so the link matches where the user is working
     const portalPath = `/contractor-portal?token=${token}`;
     const url = `${window.location.origin}${portalPath}`;
     navigator.clipboard.writeText(url);
     toast.success('Link copied to clipboard');
+  };
+
+  const sendLinkEmail = (email: string, token: string) => {
+    const portalPath = `/contractor-portal?token=${token}`;
+    const url = `${window.location.origin}${portalPath}`;
+    const subject = encodeURIComponent('Your Contractor Portal Access Link');
+    const body = encodeURIComponent(`Here is your access link to the Contractor Portal:\n\n${url}\n\nThis link is personal and should not be shared.`);
+    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
   };
 
   const toggleCategory = (categoryId: string) => {
@@ -294,8 +339,10 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
             </TableHeader>
             <TableBody>
               {tokens.map(token => {
+                const health = getTokenHealthStatus(token);
                 const isExpired = new Date(token.expires_at) < new Date();
                 const isActive = token.is_active && !isExpired;
+                const StatusIcon = health.icon;
                 
                 return (
                   <TableRow key={token.id}>
@@ -315,18 +362,46 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={isActive ? "default" : "secondary"}>
-                        {isActive ? 'Active' : isExpired ? 'Expired' : 'Revoked'}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <StatusIcon className={`h-4 w-4 ${health.color}`} />
+                        <span className={`text-sm capitalize ${health.color}`}>
+                          {health.status}
+                        </span>
+                      </div>
                     </TableCell>
-                    <TableCell>{token.access_count}</TableCell>
+                    <TableCell>
+                      <span className="font-medium">{token.access_count}</span>
+                      {token.accessed_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Last: {formatDistanceToNow(new Date(token.accessed_at), { addSuffix: true })}
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <span className={isExpired ? 'text-destructive' : ''}>
                         {format(new Date(token.expires_at), 'dd MMM yyyy')}
                       </span>
+                      {!isExpired && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(token.expires_at), { addSuffix: true })}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {/* Reactivate button for expired/revoked tokens */}
+                        {!isActive && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => reactivateTokenMutation.mutate(token.id)}
+                            title="Reactivate (extend 30 days)"
+                            disabled={reactivateTokenMutation.isPending}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {/* Copy and open for active tokens */}
                         {isActive && (
                           <>
                             <Button
@@ -347,12 +422,22 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                             </Button>
                           </>
                         )}
+                        {/* Resend link via email */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => sendLinkEmail(token.contractor_email, token.token)}
+                          title="Resend Link via Email"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                        {/* Delete */}
                         <Button
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive"
                           onClick={() => deleteTokenMutation.mutate(token.id)}
-                          title="Revoke Access"
+                          title="Delete Access"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
