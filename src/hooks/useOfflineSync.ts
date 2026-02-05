@@ -260,6 +260,41 @@ export function useOfflineSync({
     }
   }, [updatePendingCount, syncNow]);
 
+   // Integrate with background sync
+   useEffect(() => {
+     const handleMessage = (event: MessageEvent) => {
+       if (event.data?.type === 'BACKGROUND_SYNC_TRIGGERED') {
+         console.log('[OfflineSync] Background sync triggered');
+         syncNow();
+       }
+     };
+ 
+     navigator.serviceWorker?.addEventListener('message', handleMessage);
+     
+     return () => {
+       navigator.serviceWorker?.removeEventListener('message', handleMessage);
+     };
+   }, [syncNow]);
+ 
+   // Request background sync when queue has items
+   useEffect(() => {
+     const requestBackgroundSync = async () => {
+       if (pendingCount > 0 && 'serviceWorker' in navigator) {
+         try {
+           const registration = await navigator.serviceWorker.ready;
+           registration.active?.postMessage({
+             type: 'QUEUE_SYNC',
+             pendingCount,
+           });
+         } catch (error) {
+           console.log('[OfflineSync] Background sync request failed:', error);
+         }
+       }
+     };
+ 
+     requestBackgroundSync();
+   }, [pendingCount]);
+ 
   return {
     pendingCount,
     isSyncing,
