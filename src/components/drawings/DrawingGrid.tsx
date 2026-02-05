@@ -6,8 +6,8 @@
 import { useState } from 'react';
 import { 
   FileText, 
-  Download, 
-  Eye, 
+   Download,
+   Eye,
   Users, 
   Building2, 
   FileCheck,
@@ -33,6 +33,8 @@ import { ProjectDrawing, DRAWING_STATUS_OPTIONS, naturalSortDrawings } from '@/t
 import { REVIEW_STATUS_OPTIONS } from '@/types/drawingChecklists';
 import { useDrawingReviewStatuses } from '@/hooks/useDrawingChecklists';
 import { DrawingReviewDialog } from './review';
+ import { openFile, downloadFile } from '@/lib/fileViewer';
+ import { useToast } from '@/hooks/use-toast';
 
 interface DrawingGridProps {
   drawings: ProjectDrawing[];
@@ -42,14 +44,41 @@ interface DrawingGridProps {
 
 export function DrawingGrid({ drawings, isLoading, projectId }: DrawingGridProps) {
   const [reviewingDrawing, setReviewingDrawing] = useState<ProjectDrawing | null>(null);
-  
+   const { toast } = useToast();
+ 
   const sortedDrawings = [...drawings].sort(naturalSortDrawings);
-  
+
   // Fetch review statuses for all drawings
   const drawingIds = drawings.map(d => d.id);
   const { data: reviewStatuses = [] } = useDrawingReviewStatuses(drawingIds);
   const reviewStatusMap = new Map(reviewStatuses.map(s => [s.drawing_id, s]));
-  
+
+   // Handle opening files with bulletproof file viewer
+   const handleOpenFile = async (fileUrl: string) => {
+     await openFile(fileUrl, {
+       onError: (error) => {
+         toast({
+           title: 'Error Opening File',
+           description: error,
+           variant: 'destructive',
+         });
+       },
+     });
+   };
+
+   // Handle downloading files
+   const handleDownloadFile = async (fileUrl: string, fileName?: string) => {
+     await downloadFile(fileUrl, fileName, {
+       onError: (error) => {
+         toast({
+           title: 'Download Failed',
+           description: error,
+           variant: 'destructive',
+         });
+       },
+     });
+   };
+
   const getStatusBadge = (status: string) => {
     const option = DRAWING_STATUS_OPTIONS.find(o => o.value === status);
     return (
@@ -115,15 +144,19 @@ export function DrawingGrid({ drawings, isLoading, projectId }: DrawingGridProps
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 {drawing.file_url && (
                   <>
-                    <Button size="sm" variant="secondary" asChild>
-                      <a href={drawing.file_url} target="_blank" rel="noopener noreferrer">
-                        <Eye className="h-4 w-4" />
-                      </a>
+                     <Button 
+                       size="sm" 
+                       variant="secondary"
+                       onClick={() => handleOpenFile(drawing.file_url!)}
+                     >
+                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="secondary" asChild>
-                      <a href={drawing.file_url} download>
-                        <Download className="h-4 w-4" />
-                      </a>
+                     <Button 
+                       size="sm" 
+                       variant="secondary"
+                       onClick={() => handleDownloadFile(drawing.file_url!, `${drawing.drawing_number}.pdf`)}
+                     >
+                       <Download className="h-4 w-4" />
                     </Button>
                   </>
                 )}

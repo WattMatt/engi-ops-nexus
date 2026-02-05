@@ -5,6 +5,7 @@ import { Download, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+ import { getViewableUrl } from "@/lib/fileViewer";
 
 // Set up the worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -31,6 +32,7 @@ export const ClientDocumentPreview = ({
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState(1);
   const [fileType, setFileType] = useState<"pdf" | "image" | "other">("other");
+   const [viewableUrl, setViewableUrl] = useState<string | null>(null);
 
   const detectFileType = () => {
     if (!document?.file_url) return "other";
@@ -58,6 +60,14 @@ export const ClientDocumentPreview = ({
       setFileType(detectFileType());
       setLoading(true);
       setPageNumber(1);
+       // Get viewable URL for the file
+       if (document?.file_url) {
+         getViewableUrl(document.file_url).then(({ url }) => {
+           setViewableUrl(url);
+         });
+       }
+     } else {
+       setViewableUrl(null);
     }
     onOpenChange(isOpen);
   };
@@ -71,6 +81,9 @@ export const ClientDocumentPreview = ({
     console.error("Error loading PDF:", error);
     setLoading(false);
   };
+
+   // URL to use for rendering (viewable URL or fallback to original)
+   const renderUrl = viewableUrl || document?.file_url;
 
   if (!document) return null;
 
@@ -103,7 +116,7 @@ export const ClientDocumentPreview = ({
               )}
               <div className="flex flex-col items-center">
                 <Document
-                  file={document.file_url}
+                   file={renderUrl}
                   onLoadSuccess={onDocumentLoadSuccess}
                   onLoadError={onDocumentLoadError}
                   loading={
@@ -156,7 +169,7 @@ export const ClientDocumentPreview = ({
                 </div>
               )}
               <img
-                src={document.file_url}
+                 src={renderUrl || document.file_url}
                 alt={document.document_name}
                 className="max-w-full h-auto shadow-lg rounded-lg"
                 onLoad={() => setLoading(false)}

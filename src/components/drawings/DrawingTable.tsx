@@ -3,7 +3,7 @@
  * Displays drawings in a table format with actions
  */
 
-import { useState, useCallback } from 'react';
+ import { useState } from 'react';
 import { 
   MoreHorizontal, 
   Eye, 
@@ -53,24 +53,8 @@ import { REVIEW_STATUS_OPTIONS } from '@/types/drawingChecklists';
 import { EditDrawingDialog } from './EditDrawingDialog';
 import { DrawingReviewDialog } from './review';
 import { format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-
-// Private buckets that need signed URLs
-const PRIVATE_BUCKETS = ['handover-documents', 'budget-reports', 'invoice-pdfs', 'floor-plan-reports', 'cost-report-pdfs', 'tenant-evaluation-reports', 'final-account-reviews'];
-
-// Extract bucket name from URL
-const extractBucketFromUrl = (url: string): string | null => {
-  const match = url.match(/\/storage\/v1\/object\/(?:public|authenticated)\/([^/]+)/);
-  return match?.[1] || null;
-};
-
-// Extract file path from URL
-const extractPathFromUrl = (url: string, bucket: string): string | null => {
-  const regex = new RegExp(`/storage/v1/object/(?:public|authenticated)/${bucket}/(.+)$`);
-  const match = url.match(regex);
-  return match?.[1] || null;
-};
+ import { useToast } from '@/hooks/use-toast';
+ import { openFile, downloadFile } from '@/lib/fileViewer';
 
 interface DrawingTableProps {
   drawings: ProjectDrawing[];
@@ -87,46 +71,49 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
   const { toast } = useToast();
   const deleteDrawing = useDeleteDrawing();
   const updateVisibility = useUpdateDrawingVisibility();
-  
-  // Fetch review statuses for all drawings
-  const drawingIds = drawings.map(d => d.id);
-  const { data: reviewStatuses = [] } = useDrawingReviewStatuses(drawingIds);
-  const reviewStatusMap = new Map(reviewStatuses.map(s => [s.drawing_id, s]));
-  
-  const sortedDrawings = [...drawings].sort(naturalSortDrawings);
-  
-  // Handle opening files (generate signed URL for private buckets)
-  const handleOpenFile = useCallback(async (fileUrl: string) => {
-    const bucket = extractBucketFromUrl(fileUrl);
-    
-    // If it's a private bucket, create a signed URL
-    if (bucket && PRIVATE_BUCKETS.includes(bucket)) {
-      const path = extractPathFromUrl(fileUrl, bucket);
-      if (path) {
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .createSignedUrl(decodeURIComponent(path), 3600);
-        
-        if (error) {
-          console.error('Signed URL error:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to access file. Please try again.',
-            variant: 'destructive',
-          });
-          return;
-        }
-        
-        if (data?.signedUrl) {
-          window.open(data.signedUrl, '_blank');
-          return;
-        }
-      }
-    }
-    
-    // For public buckets or if extraction failed, open directly
-    window.open(fileUrl, '_blank');
-  }, [toast]);
+ 
+   // Fetch review statuses for all drawings
+   const drawingIds = drawings.map(d => d.id);
+   const { data: reviewStatuses = [] } = useDrawingReviewStatuses(drawingIds);
+   const reviewStatusMap = new Map(reviewStatuses.map(s => [s.drawing_id, s]));
+ 
+   const sortedDrawings = [...drawings].sort(naturalSortDrawings);
+ 
+   // Handle opening files with bulletproof file viewer
+   const handleOpenFile = async (fileUrl: string) => {
+     const success = await openFile(fileUrl, {
+       onError: (error) => {
+         toast({
+           title: 'Error Opening File',
+           description: error,
+           variant: 'destructive',
+         });
+       },
+     });
+ 
+     if (!success) {
+       console.error('Failed to open file:', fileUrl);
+     }
+   };
+ 
+   // Handle downloading files
+   const handleDownloadFile = async (fileUrl: string, fileName?: string) => {
+     await downloadFile(fileUrl, fileName, {
+       onError: (error) => {
+         toast({
+           title: 'Download Failed',
+           description: error,
+           variant: 'destructive',
+         });
+       },
+       onSuccess: () => {
+         toast({
+           title: 'Download Started',
+           description: 'Your file is downloading.',
+         });
+       },
+     });
+   };
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {

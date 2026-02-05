@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+ import { getViewableUrl, downloadFile } from "@/lib/fileViewer";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -32,12 +33,19 @@ export const DocumentPreviewDialog = ({
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [fileType, setFileType] = useState<'pdf' | 'image' | 'unknown'>('unknown');
+   const [viewableUrl, setViewableUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && document) {
       detectFileType();
       setPageNumber(1);
       setNumPages(0);
+       // Get viewable URL for the file
+       getViewableUrl(document.file_url).then(({ url }) => {
+         setViewableUrl(url);
+       });
+     } else {
+       setViewableUrl(null);
     }
   }, [open, document]);
 
@@ -69,39 +77,21 @@ export const DocumentPreviewDialog = ({
 
   const handleDownload = async () => {
     if (!document) return;
-    
+
     setDownloading(true);
-    try {
-      // Extract the file path from the public URL
-      const urlParts = document.file_url.split('/tenant-documents/');
-      if (urlParts.length < 2) {
-        throw new Error("Invalid file URL");
-      }
-      const filePath = urlParts[1];
-
-      const { data, error } = await supabase.storage
-        .from('tenant-documents')
-        .download(filePath);
-
-      if (error) throw error;
-
-      const url = window.URL.createObjectURL(data);
-      const link = window.document.createElement('a');
-      link.href = url;
-      link.download = document.document_name;
-      window.document.body.appendChild(link);
-      link.click();
-      window.document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success('Document downloaded successfully');
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download document');
-    } finally {
-      setDownloading(false);
-    }
+     await downloadFile(document.file_url, document.document_name, {
+       onSuccess: () => {
+         toast.success('Document downloaded successfully');
+       },
+       onError: (error) => {
+         toast.error(error || 'Failed to download document');
+       },
+     });
+     setDownloading(false);
   };
+
+   // URL to use for rendering (viewable URL or fallback to original)
+   const renderUrl = viewableUrl || document?.file_url;
 
   if (!document) return null;
 
@@ -140,7 +130,7 @@ export const DocumentPreviewDialog = ({
           {fileType === 'pdf' ? (
             <div className="w-full h-full flex flex-col">
               <Document
-                file={document.file_url}
+                 file={renderUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
                 loading={
@@ -187,8 +177,8 @@ export const DocumentPreviewDialog = ({
             </div>
           ) : fileType === 'image' ? (
             <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
-              <img 
-                src={document.file_url} 
+               <img
+                 src={renderUrl || document.file_url}
                 alt={document.document_name}
                 className="max-w-full max-h-full object-contain shadow-lg rounded-lg"
                 onError={() => {
