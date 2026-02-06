@@ -357,7 +357,11 @@ export default function ContractorPortal() {
           </TabsList>
 
           <TabsContent value="drawings">
-            <ContractorDrawingRegister projectId={project.id} />
+            <ContractorDrawingRegister 
+              projectId={project.id} 
+              token={token || undefined}
+              userEmail={activeUserEmail}
+            />
           </TabsContent>
 
           <TabsContent value="tenants">
