@@ -46,7 +46,8 @@ serve(async (req) => {
       throw new Error("Project not found");
     }
 
-    // Get project members to notify
+    // ONLY notify internal project members (NOT external notification contacts)
+    // External contacts should NEVER receive links to internal dashboard pages
     const { data: members, error: membersError } = await supabase
       .from("project_members")
       .select("user_id, profiles(email, full_name)")
@@ -57,7 +58,7 @@ serve(async (req) => {
       throw new Error("Failed to fetch project members");
     }
 
-    // Prepare email list
+    // Prepare email list - ONLY internal project members
     const recipientEmails: string[] = [];
     members?.forEach((member: any) => {
       if (member.profiles?.email) {
@@ -65,29 +66,13 @@ serve(async (req) => {
       }
     });
 
-    // If tokenId is provided, also fetch token notification contacts
-    if (payload.tokenId) {
-      console.log("Fetching token notification contacts for token:", payload.tokenId);
-      const { data: tokenContacts, error: contactsError } = await supabase
-        .from('token_notification_contacts')
-        .select('email, name')
-        .eq('token_id', payload.tokenId)
-        .eq('receives_rfi_notifications', true);
-
-      if (contactsError) {
-        console.error("Failed to fetch token contacts:", contactsError);
-      } else if (tokenContacts && tokenContacts.length > 0) {
-        console.log(`Found ${tokenContacts.length} token notification contacts`);
-        tokenContacts.forEach((contact: any) => {
-          if (contact.email && !recipientEmails.includes(contact.email)) {
-            recipientEmails.push(contact.email);
-          }
-        });
-      }
-    }
+    // NOTE: Token notification contacts are intentionally NOT included here
+    // They should not receive emails with links to internal dashboard pages
+    // A separate notification system should be used for external stakeholders
+    console.log(`Notifying ${recipientEmails.length} internal project members`);
 
     if (recipientEmails.length === 0) {
-      console.log("No recipients found for RFI notification");
+      console.log("No internal project members found for RFI notification");
       return new Response(
         JSON.stringify({ success: true, message: "No recipients to notify" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -153,9 +138,9 @@ serve(async (req) => {
                 ${payload.companyName ? `<p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">${payload.companyName}</p>` : ''}
               </div>
 
-              <!-- Action Button -->
+              <!-- Action Button - Links to RFIs page for internal team -->
               <div style="text-align: center;">
-                <a href="${Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app"}/dashboard/project-settings" 
+                <a href="${Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app"}/dashboard/rfis" 
                    style="display: inline-block; padding: 12px 32px; background-color: #1e40af; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">
                   View RFI in Dashboard
                 </a>
