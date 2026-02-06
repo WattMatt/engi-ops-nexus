@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -47,6 +48,7 @@ const CONTRACTOR_TYPES = [
 export function ContractorPortalSettings({ projectId }: ContractorPortalSettingsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [notificationContactsTokenId, setNotificationContactsTokenId] = useState<string | null>(null);
+  const [deleteConfirmToken, setDeleteConfirmToken] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     contractorType: 'main_contractor',
     companyName: '',
@@ -458,7 +460,10 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => deleteTokenMutation.mutate(token.id)}
+                          onClick={() => setDeleteConfirmToken({ 
+                            id: token.id, 
+                            name: token.company_name || token.contractor_name || 'this access link' 
+                          })}
                           title="Delete Access"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -531,6 +536,33 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
           onOpenChange={(open) => !open && setNotificationContactsTokenId(null)}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmToken} onOpenChange={(open) => !open && setDeleteConfirmToken(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Access Link?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the access link for <strong>{deleteConfirmToken?.name}</strong> and revoke all access. 
+              Any registered users will no longer be able to access the portal with this link.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmToken) {
+                  deleteTokenMutation.mutate(deleteConfirmToken.id);
+                  setDeleteConfirmToken(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
