@@ -124,7 +124,8 @@ export function ContractorRFISection({ projectId, contractorName, contractorEmai
             priority: newRFI.priority,
             submittedBy: contractorName,
             submittedByEmail: contractorEmail,
-            companyName
+            companyName,
+            tokenId: token // Pass token to include notification contacts
           }
         });
       } catch (emailError) {

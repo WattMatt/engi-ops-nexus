@@ -24,7 +24,8 @@ import {
   XCircle,
   Search,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  HelpCircle
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { 
@@ -35,6 +36,7 @@ import {
   type DeadlineStatus 
 } from "@/utils/dateCalculations";
 import { DeadlineExportButton } from "./DeadlineExportButton";
+import { InfoTooltip } from "@/components/ui/rich-tooltip";
 
 interface ContractorTenantTrackerProps {
   projectId: string;
@@ -243,14 +245,72 @@ export function ContractorTenantTracker({ projectId }: ContractorTenantTrackerPr
                   <TableRow>
                     <TableHead>Shop</TableHead>
                     <TableHead>Tenant Name</TableHead>
-                    <TableHead>BO Date</TableHead>
-                     <TableHead>DB Last Order</TableHead>
-                     <TableHead>Lighting Last Order</TableHead>
+                    <TableHead>
+                      <InfoTooltip
+                        description="Beneficial Occupation date - the target handover date for this tenant"
+                        side="top"
+                      >
+                        <span className="flex items-center gap-1 cursor-help">
+                          BO Date
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                        </span>
+                      </InfoTooltip>
+                    </TableHead>
+                    <TableHead>
+                      <InfoTooltip
+                        description="Deadline to place distribution board orders - calculated based on lead time from BO date"
+                        side="top"
+                      >
+                        <span className="flex items-center gap-1 cursor-help">
+                          DB Last Order
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                        </span>
+                      </InfoTooltip>
+                    </TableHead>
+                    <TableHead>
+                      <InfoTooltip
+                        description="Deadline to place lighting orders - calculated based on lead time from BO date"
+                        side="top"
+                      >
+                        <span className="flex items-center gap-1 cursor-help">
+                          Lighting Last Order
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                        </span>
+                      </InfoTooltip>
+                    </TableHead>
                     <TableHead>Connection</TableHead>
-                    <TableHead className="text-center">SOW</TableHead>
-                    <TableHead className="text-center">Layout</TableHead>
-                    <TableHead className="text-center">DB</TableHead>
-                    <TableHead className="text-center">Lighting</TableHead>
+                    <TableHead className="text-center">
+                      <InfoTooltip
+                        description="Scope of Work document received from tenant"
+                        side="top"
+                      >
+                        <span className="cursor-help">SOW</span>
+                      </InfoTooltip>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <InfoTooltip
+                        description="Shop layout plan received from tenant"
+                        side="top"
+                      >
+                        <span className="cursor-help">Layout</span>
+                      </InfoTooltip>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <InfoTooltip
+                        description="Distribution board has been ordered"
+                        side="top"
+                      >
+                        <span className="cursor-help">DB</span>
+                      </InfoTooltip>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <InfoTooltip
+                        description="Lighting has been ordered"
+                        side="top"
+                      >
+                        <span className="cursor-help">Lighting</span>
+                      </InfoTooltip>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

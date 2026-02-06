@@ -90,6 +90,7 @@ const ContractorReviewPortal = lazy(() => import("./pages/ContractorReviewPortal
 const ClientGeneratorReportView = lazy(() => import("./pages/ClientGeneratorReportView"));
 const ContractorPortal = lazy(() => import("./pages/ContractorPortal"));
 const CableVerificationPortal = lazy(() => import("./pages/CableVerificationPortal"));
+const PortalRedirect = lazy(() => import("./pages/PortalRedirect"));
 
 // Client subpages
 const ClientTenantReport = lazy(() => import("./pages/client/ClientTenantReport"));
@@ -155,6 +156,7 @@ const queryClient = new QueryClient({
                   <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
                   <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
                   <Route path="/contractor-portal" element={<ContractorPortal />} />
+                  <Route path="/p/:code" element={<PortalRedirect />} />
                   <Route path="/cable-verification" element={<CableVerificationPortal />} />
                   
                   {/* Global pages */}

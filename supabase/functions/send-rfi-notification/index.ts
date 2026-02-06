@@ -17,6 +17,7 @@ interface RFINotificationRequest {
   submittedBy: string;
   submittedByEmail: string;
   companyName?: string;
+  tokenId?: string; // Optional token ID to include token contacts
 }
 
 const supabase = createClient(
@@ -63,6 +64,27 @@ serve(async (req) => {
         recipientEmails.push(member.profiles.email);
       }
     });
+
+    // If tokenId is provided, also fetch token notification contacts
+    if (payload.tokenId) {
+      console.log("Fetching token notification contacts for token:", payload.tokenId);
+      const { data: tokenContacts, error: contactsError } = await supabase
+        .from('token_notification_contacts')
+        .select('email, name')
+        .eq('token_id', payload.tokenId)
+        .eq('receives_rfi_notifications', true);
+
+      if (contactsError) {
+        console.error("Failed to fetch token contacts:", contactsError);
+      } else if (tokenContacts && tokenContacts.length > 0) {
+        console.log(`Found ${tokenContacts.length} token notification contacts`);
+        tokenContacts.forEach((contact: any) => {
+          if (contact.email && !recipientEmails.includes(contact.email)) {
+            recipientEmails.push(contact.email);
+          }
+        });
+      }
+    }
 
     if (recipientEmails.length === 0) {
       console.log("No recipients found for RFI notification");

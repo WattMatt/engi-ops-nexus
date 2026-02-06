@@ -3101,6 +3101,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           project_id: string
+          short_code: string | null
           token: string
         }
         Insert: {
@@ -3117,6 +3118,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           project_id: string
+          short_code?: string | null
           token?: string
         }
         Update: {
@@ -3133,6 +3135,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           project_id?: string
+          short_code?: string | null
           token?: string
         }
         Relationships: [
@@ -15659,6 +15662,50 @@ export type Database = {
           },
         ]
       }
+      token_notification_contacts: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          email: string
+          id: string
+          name: string
+          receives_rfi_notifications: boolean | null
+          receives_status_updates: boolean | null
+          role: string | null
+          token_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          email: string
+          id?: string
+          name: string
+          receives_rfi_notifications?: boolean | null
+          receives_status_updates?: boolean | null
+          role?: string | null
+          token_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          email?: string
+          id?: string
+          name?: string
+          receives_rfi_notifications?: boolean | null
+          receives_status_updates?: boolean | null
+          role?: string | null
+          token_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_notification_contacts_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_portal_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       typing_indicators: {
         Row: {
           conversation_id: string
@@ -16296,6 +16343,18 @@ export type Database = {
           expires_at: string
           is_valid: boolean
           project_id: string
+        }[]
+      }
+      validate_portal_short_code: {
+        Args: { p_code: string }
+        Returns: {
+          company_name: string
+          contractor_email: string
+          contractor_name: string
+          contractor_type: string
+          is_valid: boolean
+          project_id: string
+          token: string
         }[]
       }
     }
