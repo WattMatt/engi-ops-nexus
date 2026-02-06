@@ -5,10 +5,14 @@ import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { toast } from "sonner";
+import { useSessionMonitor } from "@/hooks/useSessionMonitor";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  
+  // Session monitor for automatic logout
+  useSessionMonitor();
 
   useEffect(() => {
     checkAuth();

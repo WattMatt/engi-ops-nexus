@@ -2974,6 +2974,9 @@ export type Database = {
       }
       company_settings: {
         Row: {
+          auto_logout_enabled: boolean | null
+          auto_logout_time: string | null
+          auto_logout_timezone: string | null
           client_address_line1: string | null
           client_address_line2: string | null
           client_logo_url: string | null
@@ -2987,6 +2990,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          auto_logout_enabled?: boolean | null
+          auto_logout_time?: string | null
+          auto_logout_timezone?: string | null
           client_address_line1?: string | null
           client_address_line2?: string | null
           client_logo_url?: string | null
@@ -3000,6 +3006,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          auto_logout_enabled?: boolean | null
+          auto_logout_time?: string | null
+          auto_logout_timezone?: string | null
           client_address_line1?: string | null
           client_address_line2?: string | null
           client_logo_url?: string | null

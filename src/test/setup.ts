@@ -23,16 +23,23 @@ global.ResizeObserver = class ResizeObserver {
 };
 
 // Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  root = null;
-  rootMargin = '';
-  thresholds = [];
+class MockIntersectionObserver implements IntersectionObserver {
+  readonly root: Element | Document | null = null;
+  readonly rootMargin: string = '';
+  readonly thresholds: ReadonlyArray<number> = [];
+  readonly scrollMargin: string = '0px';
+  
+  constructor(
+    _callback: IntersectionObserverCallback,
+    _options?: IntersectionObserverInit
+  ) {}
+  
   observe() {}
   unobserve() {}
   disconnect() {}
-  takeRecords() { return []; }
-};
+  takeRecords(): IntersectionObserverEntry[] { return []; }
+}
+global.IntersectionObserver = MockIntersectionObserver;
 
 // Mock crypto.randomUUID
 if (!global.crypto) {
