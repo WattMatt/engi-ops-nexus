@@ -5,15 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map } from "lucide-react";
 import { ContractorDrawingRegister } from "@/components/contractor-portal/ContractorDrawingRegister";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
 import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
 import { ContractorTenantTracker } from "@/components/contractor-portal/ContractorTenantTracker";
 import { ContractorCableStatus } from "@/components/contractor-portal/ContractorCableStatus";
 import { ContractorInspectionRequests } from "@/components/contractor-portal/ContractorInspectionRequests";
+import { ContractorFloorPlanView } from "@/components/contractor-portal/ContractorFloorPlanView";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { PortalUserIdentityDialog, PortalUserIdentity } from "@/components/contractor-portal/PortalUserIdentityDialog";
+import { InfoTooltip } from "@/components/ui/rich-tooltip";
 
 // Version for cache busting - increment when major UI changes are deployed
 const PORTAL_VERSION = '2.1.0';
@@ -105,65 +107,84 @@ export default function ContractorPortal() {
   }, [token]);
 
   const validateToken = async () => {
-    try {
-      const { data, error: rpcError } = await supabase.rpc('validate_contractor_portal_token', {
-        p_token: token,
-        p_ip_address: null,
-        p_user_agent: navigator.userAgent
-      });
+    const maxRetries = 3;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        console.log(`[Portal] Validating token, attempt ${attempt + 1}/${maxRetries}`);
+        
+        const { data, error: rpcError } = await supabase.rpc('validate_contractor_portal_token', {
+          p_token: token,
+          p_ip_address: null,
+          p_user_agent: navigator.userAgent
+        });
 
-      if (rpcError) throw rpcError;
-
-      if (!data || data.length === 0) {
-        setAccessError({ code: 'NOT_FOUND', message: 'Token not found in database' });
-        setLoading(false);
-        return;
-      }
-
-      const tokenInfo = data[0];
-      
-      // Check specific error conditions
-      if (!tokenInfo.is_valid) {
-        // Determine specific reason based on expires_at
-        if (tokenInfo.expires_at && new Date(tokenInfo.expires_at) < new Date()) {
-          setAccessError({ 
-            code: 'EXPIRED', 
-            message: 'Token has expired',
-            details: `Expired on ${new Date(tokenInfo.expires_at).toLocaleDateString()}`
-          });
-        } else {
-          // Token exists but is not valid - likely deactivated
-          setAccessError({ code: 'INACTIVE', message: 'Token has been deactivated' });
+        if (rpcError) {
+          console.error(`[Portal] RPC error on attempt ${attempt + 1}:`, rpcError);
+          if (attempt < maxRetries - 1) {
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+            continue;
+          }
+          throw rpcError;
         }
+
+        if (!data || data.length === 0) {
+          setAccessError({ code: 'NOT_FOUND', message: 'Token not found in database' });
+          setLoading(false);
+          return;
+        }
+
+        const tokenInfo = data[0];
+        
+        // Check specific error conditions
+        if (!tokenInfo.is_valid) {
+          // Determine specific reason based on expires_at
+          if (tokenInfo.expires_at && new Date(tokenInfo.expires_at) < new Date()) {
+            setAccessError({ 
+              code: 'EXPIRED', 
+              message: 'Token has expired',
+              details: `Expired on ${new Date(tokenInfo.expires_at).toLocaleDateString()}`
+            });
+          } else {
+            // Token exists but is not valid - likely deactivated
+            setAccessError({ code: 'INACTIVE', message: 'Token has been deactivated' });
+          }
+          setLoading(false);
+          return;
+        }
+
+        console.log('[Portal] Token validated successfully');
+        setTokenData({
+          project_id: tokenInfo.project_id,
+          contractor_type: tokenInfo.contractor_type,
+          contractor_name: tokenInfo.contractor_name,
+          contractor_email: tokenInfo.contractor_email,
+          company_name: tokenInfo.company_name,
+          document_categories: tokenInfo.document_categories || [],
+          expires_at: tokenInfo.expires_at
+        });
+
+        // Fetch project details with branding
+        const { data: projectData, error: projectError } = await supabase
+          .from('projects')
+          .select('id, name, project_number, project_logo_url, client_logo_url, consultant_logo_url')
+          .eq('id', tokenInfo.project_id)
+          .single();
+
+        if (projectError) throw projectError;
+        setProject(projectData);
         setLoading(false);
         return;
+
+      } catch (err) {
+        console.error(`[Portal] Validation error on attempt ${attempt + 1}:`, err);
+        if (attempt < maxRetries - 1) {
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        } else {
+          setAccessError({ code: 'UNKNOWN', message: 'Failed to validate access' });
+          setLoading(false);
+        }
       }
-
-      setTokenData({
-        project_id: tokenInfo.project_id,
-        contractor_type: tokenInfo.contractor_type,
-        contractor_name: tokenInfo.contractor_name,
-        contractor_email: tokenInfo.contractor_email,
-        company_name: tokenInfo.company_name,
-        document_categories: tokenInfo.document_categories || [],
-        expires_at: tokenInfo.expires_at
-      });
-
-      // Fetch project details with branding
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
-        .select('id, name, project_number, project_logo_url, client_logo_url, consultant_logo_url')
-        .eq('id', tokenInfo.project_id)
-        .single();
-
-      if (projectError) throw projectError;
-      setProject(projectData);
-
-    } catch (err) {
-      console.error("Token validation error:", err);
-      setAccessError({ code: 'UNKNOWN', message: 'Failed to validate access' });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -255,31 +276,84 @@ export default function ContractorPortal() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
         <Tabs defaultValue="drawings" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="drawings" className="gap-2">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Drawing Register</span>
-            </TabsTrigger>
-            <TabsTrigger value="tenants" className="gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Tenant Tracker</span>
-            </TabsTrigger>
-            <TabsTrigger value="cables" className="gap-2">
-              <Cable className="h-4 w-4" />
-              <span className="hidden sm:inline">Cable Status</span>
-            </TabsTrigger>
-            <TabsTrigger value="inspections" className="gap-2">
-              <ClipboardCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Inspections</span>
-            </TabsTrigger>
-            <TabsTrigger value="procurement" className="gap-2">
-              <Package className="h-4 w-4" />
-              <span className="hidden sm:inline">Procurement</span>
-            </TabsTrigger>
-            <TabsTrigger value="rfi" className="gap-2">
-              <MessageSquarePlus className="h-4 w-4" />
-              <span className="hidden sm:inline">RFI Tracker</span>
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+            <InfoTooltip
+              title="Drawing Register"
+              description="View and download electrical drawings with full revision history. Drawings are grouped by discipline."
+              icon={FileText}
+              side="bottom"
+            >
+              <TabsTrigger value="drawings" className="gap-2">
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Drawings</span>
+              </TabsTrigger>
+            </InfoTooltip>
+            <InfoTooltip
+              title="Tenant Tracker"
+              description="Track documentation status and order deadlines per tenant. Monitor SOW, layouts, DB orders, and lighting orders."
+              icon={Users}
+              side="bottom"
+            >
+              <TabsTrigger value="tenants" className="gap-2">
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Tenants</span>
+              </TabsTrigger>
+            </InfoTooltip>
+            <InfoTooltip
+              title="Floor Plan"
+              description="View the floor plan with color-coded tenant zones. Click on a zone to see tenant details and status."
+              icon={Map}
+              side="bottom"
+            >
+              <TabsTrigger value="floorplan" className="gap-2">
+                <Map className="h-4 w-4" />
+                <span className="hidden sm:inline">Floor Plan</span>
+              </TabsTrigger>
+            </InfoTooltip>
+            <InfoTooltip
+              title="Cable Status"
+              description="Monitor cable installation and verification status across the project."
+              icon={Cable}
+              side="bottom"
+            >
+              <TabsTrigger value="cables" className="gap-2">
+                <Cable className="h-4 w-4" />
+                <span className="hidden sm:inline">Cables</span>
+              </TabsTrigger>
+            </InfoTooltip>
+            <InfoTooltip
+              title="Inspections"
+              description="Request and track site inspections. Submit inspection requests and view scheduled inspections."
+              icon={ClipboardCheck}
+              side="bottom"
+            >
+              <TabsTrigger value="inspections" className="gap-2">
+                <ClipboardCheck className="h-4 w-4" />
+                <span className="hidden sm:inline">Inspections</span>
+              </TabsTrigger>
+            </InfoTooltip>
+            <InfoTooltip
+              title="Procurement"
+              description="View procurement status and update order dates for equipment and materials."
+              icon={Package}
+              side="bottom"
+            >
+              <TabsTrigger value="procurement" className="gap-2">
+                <Package className="h-4 w-4" />
+                <span className="hidden sm:inline">Procurement</span>
+              </TabsTrigger>
+            </InfoTooltip>
+            <InfoTooltip
+              title="RFI Tracker"
+              description="Submit and track Requests for Information. The project team will be notified of new RFIs."
+              icon={MessageSquarePlus}
+              side="bottom"
+            >
+              <TabsTrigger value="rfi" className="gap-2">
+                <MessageSquarePlus className="h-4 w-4" />
+                <span className="hidden sm:inline">RFI</span>
+              </TabsTrigger>
+            </InfoTooltip>
           </TabsList>
 
           <TabsContent value="drawings">
@@ -288,6 +362,10 @@ export default function ContractorPortal() {
 
           <TabsContent value="tenants">
             <ContractorTenantTracker projectId={project.id} />
+          </TabsContent>
+
+          <TabsContent value="floorplan">
+            <ContractorFloorPlanView projectId={project.id} />
           </TabsContent>
 
           <TabsContent value="cables">

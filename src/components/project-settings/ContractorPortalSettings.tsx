@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Building2, Copy, Trash2, Plus, Link2, ExternalLink, Users, RefreshCw, Send, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Mail, User } from "lucide-react";
+import { Building2, Copy, Trash2, Plus, Link2, ExternalLink, Users, RefreshCw, Send, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Mail, User, Bell, Link } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format, formatDistanceToNow } from "date-fns";
+import { TokenNotificationContacts } from "./TokenNotificationContacts";
 
 interface ContractorPortalSettingsProps {
   projectId: string;
@@ -56,6 +57,7 @@ const DOCUMENT_CATEGORIES = [
 
 export function ContractorPortalSettings({ projectId }: ContractorPortalSettingsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [notificationContactsTokenId, setNotificationContactsTokenId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     contractorType: 'main_contractor',
     contractorName: '',
@@ -193,15 +195,27 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
     }
   });
 
-  const copyLink = (token: string) => {
-    const portalPath = `/contractor-portal?token=${token}`;
+  const copyLink = (token: string, shortCode?: string | null) => {
+    // Prefer short URL if available
+    const portalPath = shortCode 
+      ? `/p/${shortCode}`
+      : `/contractor-portal?token=${token}`;
     const url = `${window.location.origin}${portalPath}`;
     navigator.clipboard.writeText(url);
     toast.success('Link copied to clipboard');
   };
 
-  const sendLinkEmail = (email: string, token: string) => {
+  const copyFullLink = (token: string) => {
     const portalPath = `/contractor-portal?token=${token}`;
+    const url = `${window.location.origin}${portalPath}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Full link copied to clipboard');
+  };
+
+  const sendLinkEmail = (email: string, token: string, shortCode?: string | null) => {
+    const portalPath = shortCode 
+      ? `/p/${shortCode}`
+      : `/contractor-portal?token=${token}`;
     const url = `${window.location.origin}${portalPath}`;
     const subject = encodeURIComponent('Your Contractor Portal Access Link');
     const body = encodeURIComponent(`Here is your access link to the Contractor Portal:\n\n${url}\n\nThis link is personal and should not be shared.`);
@@ -391,6 +405,15 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                         {token.company_name && (
                           <p className="text-xs text-muted-foreground">{token.company_name}</p>
                         )}
+                        {/* Show short URL if available */}
+                        {(token as any).short_code && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Link className="h-3 w-3 text-muted-foreground" />
+                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                              /p/{(token as any).short_code}
+                            </code>
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -454,7 +477,7 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => copyLink(token.token)}
+                              onClick={() => copyLink(token.token, (token as any).short_code)}
                               title="Copy Link"
                             >
                               <Copy className="h-4 w-4" />
@@ -462,18 +485,27 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => window.open(`/contractor-portal?token=${token.token}`, '_blank')}
+                              onClick={() => window.open((token as any).short_code ? `/p/${(token as any).short_code}` : `/contractor-portal?token=${token.token}`, '_blank')}
                               title="Open Portal"
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </>
                         )}
+                        {/* Notification contacts */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setNotificationContactsTokenId(token.id)}
+                          title="Manage Notification Contacts"
+                        >
+                          <Bell className="h-4 w-4" />
+                        </Button>
                         {/* Resend link via email */}
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => sendLinkEmail(token.contractor_email, token.token)}
+                          onClick={() => sendLinkEmail(token.contractor_email, token.token, (token as any).short_code)}
                           title="Resend Link via Email"
                         >
                           <Send className="h-4 w-4" />
@@ -546,6 +578,16 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
           </div>
         )}
       </CardContent>
+
+      {/* Notification Contacts Dialog */}
+      {notificationContactsTokenId && (
+        <TokenNotificationContacts
+          tokenId={notificationContactsTokenId}
+          projectId={projectId}
+          open={!!notificationContactsTokenId}
+          onOpenChange={(open) => !open && setNotificationContactsTokenId(null)}
+        />
+      )}
     </Card>
   );
 }
