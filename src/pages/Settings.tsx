@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { WalkthroughSettings } from "@/components/walkthrough/WalkthroughSettings";
 import { CloudStorageSettings } from "@/components/settings/CloudStorageSettings";
+import { SessionSecuritySettings } from "@/components/settings/SessionSecuritySettings";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -89,6 +90,7 @@ const Settings = () => {
             {isAdmin && (
               <>
                 <TabsTrigger value="company">Company</TabsTrigger>
+                <TabsTrigger value="security">Session Security</TabsTrigger>
                 <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
                 <TabsTrigger value="templates">PDF Templates</TabsTrigger>
                 <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
@@ -135,6 +137,10 @@ const Settings = () => {
             <>
               <TabsContent value="company">
                 <CompanySettings />
+              </TabsContent>
+
+              <TabsContent value="security">
+                <SessionSecuritySettings />
               </TabsContent>
 
               <TabsContent value="pdf">

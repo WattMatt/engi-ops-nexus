@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ProjectContextHeader } from "@/components/common/ProjectContextHeader";
 import { useProjectClientCheck } from "@/hooks/useProjectClientCheck";
 import { ProjectContactSetupBanner } from "@/components/project/ProjectContactSetupBanner";
+import { useSessionMonitor } from "@/hooks/useSessionMonitor";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -25,6 +26,9 @@ const DashboardLayout = () => {
 
   // Check if project has a client contact assigned
   const { hasClient, isLoading: isCheckingClient, error: clientCheckError } = useProjectClientCheck(projectId);
+
+  // Session monitor for automatic logout
+  useSessionMonitor();
 
   // Check user's profile for password change requirements
   const { data: profile, refetch: refetchProfile } = useQuery({
