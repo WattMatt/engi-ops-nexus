@@ -34,25 +34,14 @@ function getTokenHealthStatus(token: { is_active: boolean; expires_at: string; a
   return { status: 'active', color: 'text-green-600', icon: CheckCircle };
 }
 
-const DOCUMENT_CATEGORIES = [
-  { id: 'sow', label: 'Scope of Work' },
-  { id: 'layouts', label: 'Shop Layouts' },
-  { id: 'lighting', label: 'Lighting Orders' },
-  { id: 'db_orders', label: 'DB Orders' },
-  { id: 'as_built', label: 'As-Built Drawings' },
-  { id: 'generators', label: 'Generators' },
-  { id: 'transformers', label: 'Transformers' },
-  { id: 'manuals', label: 'Manuals' },
-  { id: 'certificates', label: 'Certificates' },
-  { id: 'switchgear', label: 'Switchgear' },
-  { id: 'earthing_bonding', label: 'Earthing & Bonding' },
-  { id: 'surge_protection', label: 'Surge Protection' },
-  { id: 'metering', label: 'Metering' },
-  { id: 'cable_installation', label: 'Cable Installation' },
-  { id: 'emergency_systems', label: 'Emergency Systems' },
-  { id: 'protection_settings', label: 'Protection Settings' },
-  { id: 'arc_flash_studies', label: 'Arc Flash Studies' },
-  { id: 'energy_management', label: 'Energy Management' },
+const CONTRACTOR_TYPES = [
+  { value: 'main_contractor', label: 'Main Contractor' },
+  { value: 'subcontractor', label: 'Subcontractor' },
+  { value: 'electrical_contractor', label: 'Electrical Contractor' },
+  { value: 'consultant', label: 'Consultant' },
+  { value: 'client', label: 'Client' },
+  { value: 'supplier', label: 'Supplier' },
+  { value: 'other', label: 'Other' },
 ];
 
 export function ContractorPortalSettings({ projectId }: ContractorPortalSettingsProps) {
@@ -60,11 +49,8 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
   const [notificationContactsTokenId, setNotificationContactsTokenId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     contractorType: 'main_contractor',
-    contractorName: '',
-    contractorEmail: '',
     companyName: '',
-    expiryDays: '30',
-    documentCategories: [] as string[]
+    expiryDays: '30'
   });
 
   const queryClient = useQueryClient();
@@ -118,10 +104,10 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
         .insert({
           project_id: projectId,
           contractor_type: formData.contractorType,
-          contractor_name: formData.contractorName || 'Open Access',
-          contractor_email: formData.contractorEmail || 'portal@open.access',
+          contractor_name: formData.companyName || 'Open Access',
+          contractor_email: 'portal@open.access',
           company_name: formData.companyName || null,
-          document_categories: formData.documentCategories,
+          document_categories: [],
           expires_at: expiresAt.toISOString()
         })
         .select()
@@ -136,11 +122,8 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
       setDialogOpen(false);
       setFormData({
         contractorType: 'main_contractor',
-        contractorName: '',
-        contractorEmail: '',
         companyName: '',
-        expiryDays: '30',
-        documentCategories: []
+        expiryDays: '30'
       });
     },
     onError: (error) => {
@@ -222,13 +205,9 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
     window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
   };
 
-  const toggleCategory = (categoryId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      documentCategories: prev.documentCategories.includes(categoryId)
-        ? prev.documentCategories.filter(c => c !== categoryId)
-        : [...prev.documentCategories, categoryId]
-    }));
+  // Get contractor type label
+  const getContractorTypeLabel = (value: string) => {
+    return CONTRACTOR_TYPES.find(t => t.value === value)?.label || value;
   };
 
   if (isLoading) {
@@ -263,8 +242,13 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground mb-1">Open Access Link</p>
+                  <p>Anyone with this link can access the portal. Each user will be prompted to enter their own name and email on first visit, which will be logged for tracking and notifications.</p>
+                </div>
+
                 <div className="space-y-2">
-                  <Label>Contractor Type</Label>
+                  <Label>Portal Type</Label>
                   <Select
                     value={formData.contractorType}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, contractorType: value }))}
@@ -273,85 +257,44 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="main_contractor">Main Contractor</SelectItem>
-                      <SelectItem value="subcontractor">Subcontractor</SelectItem>
+                      {CONTRACTOR_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Primary Contact Name</Label>
-                    <Input
-                      placeholder="John Smith (optional)"
-                      value={formData.contractorName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, contractorName: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Primary Contact Email</Label>
-                    <Input
-                      type="email"
-                      placeholder="john@company.com (optional)"
-                      value={formData.contractorEmail}
-                      onChange={(e) => setFormData(prev => ({ ...prev, contractorEmail: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground mb-1">Open Access Link</p>
-                  <p>Anyone with this link can access the portal. Each user will be prompted to enter their own name and email on first visit, which will be logged for tracking and notifications.</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Company Name</Label>
-                    <Input
-                      placeholder="ABC Construction"
-                      value={formData.companyName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Link Expires In</Label>
-                    <Select
-                      value={formData.expiryDays}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, expiryDays: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="7">7 days</SelectItem>
-                        <SelectItem value="30">30 days</SelectItem>
-                        <SelectItem value="90">90 days</SelectItem>
-                        <SelectItem value="180">6 months</SelectItem>
-                        <SelectItem value="365">1 year</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label>Company / Link Name</Label>
+                  <Input
+                    placeholder="e.g. ABC Construction or 'Main Contractor Access'"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used to identify this link in the list
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Document Categories to Share</Label>
-                  <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg max-h-48 overflow-y-auto">
-                    {DOCUMENT_CATEGORIES.map(cat => (
-                      <div key={cat.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={cat.id}
-                          checked={formData.documentCategories.includes(cat.id)}
-                          onCheckedChange={() => toggleCategory(cat.id)}
-                        />
-                        <Label htmlFor={cat.id} className="text-sm font-normal cursor-pointer">
-                          {cat.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to show all available documents
-                  </p>
+                  <Label>Link Expires In</Label>
+                  <Select
+                    value={formData.expiryDays}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, expiryDays: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">7 days</SelectItem>
+                      <SelectItem value="30">30 days</SelectItem>
+                      <SelectItem value="90">90 days</SelectItem>
+                      <SelectItem value="180">6 months</SelectItem>
+                      <SelectItem value="365">1 year</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <DialogFooter>
@@ -419,7 +362,7 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
                     <TableCell>
                       <Badge variant="outline">
                         <Building2 className="h-3 w-3 mr-1" />
-                        {token.contractor_type === 'main_contractor' ? 'Main' : 'Sub'}
+                        {getContractorTypeLabel(token.contractor_type)}
                       </Badge>
                     </TableCell>
                     <TableCell>
