@@ -106,18 +106,34 @@ export function PortalUserIdentityDialog({
       console.error('Failed to store identity:', e);
     }
 
-     // Look up token_id from the token string
-     let tokenId: string | null = null;
-     try {
-       const { data: tokenData } = await supabase
-         .from('contractor_portal_tokens')
-         .select('id')
-         .eq('token', token)
-         .single();
-       tokenId = tokenData?.id || null;
-     } catch (e) {
-       console.error('Failed to look up token_id:', e);
-     }
+    // Look up token_id from the token string (try both full token and short_code)
+    let tokenId: string | null = null;
+    try {
+      // First try matching the full token
+      let { data: tokenData, error } = await supabase
+        .from('contractor_portal_tokens')
+        .select('id')
+        .eq('token', token)
+        .maybeSingle();
+      
+      // If no match, try short_code (for short URL access)
+      if (!tokenData && !error) {
+        const shortCodeResult = await supabase
+          .from('contractor_portal_tokens')
+          .select('id')
+          .eq('short_code', token)
+          .maybeSingle();
+        tokenData = shortCodeResult.data;
+      }
+      
+      tokenId = tokenData?.id || null;
+      
+      if (!tokenId) {
+        console.warn('Could not find token_id for token:', token.slice(0, 8) + '...');
+      }
+    } catch (e) {
+      console.error('Failed to look up token_id:', e);
+    }
  
      // Persist to database for email notifications
      try {
