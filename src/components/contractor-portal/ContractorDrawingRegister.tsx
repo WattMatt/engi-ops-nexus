@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DrawingPreviewDialog } from "@/components/drawings/DrawingPreviewDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import { 
   Search, 
   FileText, 
@@ -18,12 +20,15 @@ import {
   Download,
   History,
   Calendar,
-  CheckCircle2
+  CheckCircle2,
+  Lock
 } from "lucide-react";
 import { format } from "date-fns";
 
 interface ContractorDrawingRegisterProps {
   projectId: string;
+  token?: string;
+  userEmail?: string;
 }
 
 interface Drawing {
@@ -70,12 +75,12 @@ const CATEGORY_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 async function fetchDrawings(projectId: string): Promise<Drawing[]> {
+  // Fetch ALL drawings - visibility is now controlled at download level, not view level
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('project_drawings')
     .select('id, drawing_number, drawing_title, category, current_revision, status, revision_date, file_url, file_path, notes')
     .eq('project_id', projectId)
-    .eq('visible_to_contractor', true)
     .order('drawing_number');
   
   if (error) throw error;
@@ -92,6 +97,44 @@ async function fetchDrawings(projectId: string): Promise<Drawing[]> {
     file_path: d.file_path as string | null,
     notes: d.notes as string | null
   }));
+}
+
+// Check if user email is in the token's notification contacts (authorized for downloads)
+async function checkDownloadPermission(token: string, userEmail: string): Promise<boolean> {
+  if (!token || !userEmail) return false;
+  
+  // First get the token_id from the token string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: tokenData } = await (supabase as any)
+    .from('contractor_portal_tokens')
+    .select('id')
+    .eq('token', token)
+    .maybeSingle();
+  
+  // Also try short_code if no match
+  let tokenId = tokenData?.id;
+  if (!tokenId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: shortCodeData } = await (supabase as any)
+      .from('contractor_portal_tokens')
+      .select('id')
+      .eq('short_code', token)
+      .maybeSingle();
+    tokenId = shortCodeData?.id;
+  }
+  
+  if (!tokenId) return false;
+  
+  // Check if user email is in token notification contacts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: contacts } = await (supabase as any)
+    .from('token_notification_contacts')
+    .select('id')
+    .eq('token_id', tokenId)
+    .ilike('email', userEmail)
+    .maybeSingle();
+  
+  return !!contacts;
 }
 
 async function fetchRevisions(drawingIds: string[]): Promise<DrawingRevision[]> {
@@ -117,11 +160,18 @@ async function fetchRevisions(drawingIds: string[]): Promise<DrawingRevision[]> 
   }));
 }
 
-export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegisterProps) {
+export function ContractorDrawingRegister({ projectId, token, userEmail }: ContractorDrawingRegisterProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['E', 'P', 'L']));
   const [expandedDrawings, setExpandedDrawings] = useState<Set<string>>(new Set());
   const [previewDrawing, setPreviewDrawing] = useState<{ url: string; title: string; fileName: string } | null>(null);
+
+  // Check if user has download permission (is in token notification contacts)
+  const { data: canDownload = false } = useQuery<boolean>({
+    queryKey: ['contractor-download-permission', token, userEmail],
+    queryFn: () => checkDownloadPermission(token!, userEmail!),
+    enabled: !!token && !!userEmail
+  });
 
   // Fetch drawings
   const { data: drawings = [], isLoading: loadingDrawings } = useQuery<Drawing[]>({
@@ -436,18 +486,42 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
                                           >
                                             <Eye className="h-4 w-4" />
                                           </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => handleDownload(
-                                              drawing.file_url,
-                                              drawing.file_path,
-                                              `${drawing.drawing_number}_Rev${drawing.current_revision}.pdf`
-                                            )}
-                                          >
-                                            <Download className="h-4 w-4" />
-                                          </Button>
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    disabled={!canDownload}
+                                                    onClick={() => {
+                                                      if (canDownload) {
+                                                        handleDownload(
+                                                          drawing.file_url,
+                                                          drawing.file_path,
+                                                          `${drawing.drawing_number}_Rev${drawing.current_revision}.pdf`
+                                                        );
+                                                      } else {
+                                                        toast.info("Download access is restricted to authorized contacts");
+                                                      }
+                                                    }}
+                                                  >
+                                                    {canDownload ? (
+                                                      <Download className="h-4 w-4" />
+                                                    ) : (
+                                                      <Lock className="h-4 w-4" />
+                                                    )}
+                                                  </Button>
+                                                </span>
+                                              </TooltipTrigger>
+                                              {!canDownload && (
+                                                <TooltipContent>
+                                                  <p>Download restricted to authorized contacts</p>
+                                                </TooltipContent>
+                                              )}
+                                            </Tooltip>
+                                          </TooltipProvider>
                                         </>
                                       )}
                                     </div>
@@ -480,18 +554,42 @@ export function ContractorDrawingRegister({ projectId }: ContractorDrawingRegist
                                     <TableCell></TableCell>
                                     <TableCell className="text-right">
                                       {(rev.file_url || rev.file_path) && (
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-7 w-7"
-                                          onClick={() => handleDownload(
-                                            rev.file_url,
-                                            rev.file_path,
-                                            `${drawing.drawing_number}_Rev${rev.revision}.pdf`
-                                          )}
-                                        >
-                                          <Download className="h-3 w-3" />
-                                        </Button>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7"
+                                                  disabled={!canDownload}
+                                                  onClick={() => {
+                                                    if (canDownload) {
+                                                      handleDownload(
+                                                        rev.file_url,
+                                                        rev.file_path,
+                                                        `${drawing.drawing_number}_Rev${rev.revision}.pdf`
+                                                      );
+                                                    } else {
+                                                      toast.info("Download access is restricted to authorized contacts");
+                                                    }
+                                                  }}
+                                                >
+                                                  {canDownload ? (
+                                                    <Download className="h-3 w-3" />
+                                                  ) : (
+                                                    <Lock className="h-3 w-3" />
+                                                  )}
+                                                </Button>
+                                              </span>
+                                            </TooltipTrigger>
+                                            {!canDownload && (
+                                              <TooltipContent>
+                                                <p>Download restricted to authorized contacts</p>
+                                              </TooltipContent>
+                                            )}
+                                          </Tooltip>
+                                        </TooltipProvider>
                                       )}
                                     </TableCell>
                                   </TableRow>
