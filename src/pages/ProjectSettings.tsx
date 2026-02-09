@@ -195,18 +195,19 @@ export default function ProjectSettings() {
         </p>
       </div>
 
-      <Tabs defaultValue="settings" className="space-y-6">
-        <div className="overflow-x-auto -mx-1 px-1">
-          <TabsList className="inline-flex w-auto min-w-full h-auto gap-1">
-            <TabsTrigger value="settings" className="shrink-0">Project Settings</TabsTrigger>
-            <TabsTrigger value="contacts" className="shrink-0">Project Contacts</TabsTrigger>
-            <TabsTrigger value="global-contacts" className="shrink-0">Contacts Library</TabsTrigger>
-            <TabsTrigger value="members" className="shrink-0">Team Members</TabsTrigger>
-            <TabsTrigger value="client-portal" className="shrink-0">Client Portal</TabsTrigger>
-            <TabsTrigger value="contractor-portal" className="shrink-0">Contractor Portal</TabsTrigger>
-            <TabsTrigger value="report-automation" className="shrink-0">Report Automation</TabsTrigger>
+      <Tabs defaultValue="settings" className="flex flex-col md:flex-row md:gap-6">
+        <div className="overflow-x-auto md:overflow-visible -mx-1 px-1 md:mx-0 md:px-0 md:shrink-0">
+          <TabsList className="inline-flex w-auto min-w-full md:min-w-0 md:w-56 h-auto gap-1 md:flex-col md:items-stretch md:bg-muted/50 md:p-2 md:rounded-lg md:sticky md:top-8">
+            <TabsTrigger value="settings" className="shrink-0 md:justify-start">Project Settings</TabsTrigger>
+            <TabsTrigger value="contacts" className="shrink-0 md:justify-start">Project Contacts</TabsTrigger>
+            <TabsTrigger value="global-contacts" className="shrink-0 md:justify-start">Contacts Library</TabsTrigger>
+            <TabsTrigger value="members" className="shrink-0 md:justify-start">Team Members</TabsTrigger>
+            <TabsTrigger value="client-portal" className="shrink-0 md:justify-start">Client Portal</TabsTrigger>
+            <TabsTrigger value="contractor-portal" className="shrink-0 md:justify-start">Contractor Portal</TabsTrigger>
+            <TabsTrigger value="report-automation" className="shrink-0 md:justify-start">Report Automation</TabsTrigger>
           </TabsList>
         </div>
+        <div className="flex-1 min-w-0">
 
         <TabsContent value="settings">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -745,6 +746,7 @@ export default function ProjectSettings() {
         <TabsContent value="report-automation">
           {projectId && <ReportAutomationHub projectId={projectId} />}
         </TabsContent>
+      </div>
       </Tabs>
     </div>
     </TooltipProvider>
