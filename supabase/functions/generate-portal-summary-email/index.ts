@@ -277,9 +277,44 @@ serve(async (req) => {
       snapshot_data: currentSnapshot,
     });
 
-    console.log('[PortalSummaryEmail] Generated successfully for project', projectId);
+    console.log('[PortalSummaryEmail] Generated HTML successfully for project', projectId);
 
-    return new Response(JSON.stringify({ success: true, html }), {
+    // Generate PDF snapshot via PDFShift for archival attachment
+    let pdfBase64: string | null = null;
+    const pdfShiftApiKey = Deno.env.get('PDFSHIFT_API_KEY');
+    if (pdfShiftApiKey) {
+      try {
+        console.log('[PortalSummaryEmail] Generating PDF snapshot via PDFShift...');
+        const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${btoa(`api:${pdfShiftApiKey}`)}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            source: html,
+            format: 'A4',
+            margin: { top: '15mm', right: '15mm', bottom: '15mm', left: '15mm' },
+            printBackground: true,
+            sandbox: false,
+          }),
+        });
+
+        if (pdfResponse.ok) {
+          const pdfBuffer = await pdfResponse.arrayBuffer();
+          pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+          console.log('[PortalSummaryEmail] PDF snapshot generated:', pdfBuffer.byteLength, 'bytes');
+        } else {
+          console.error('[PortalSummaryEmail] PDFShift error:', pdfResponse.status, await pdfResponse.text());
+        }
+      } catch (pdfError) {
+        console.error('[PortalSummaryEmail] PDF generation failed (non-critical):', pdfError);
+      }
+    } else {
+      console.warn('[PortalSummaryEmail] PDFSHIFT_API_KEY not configured, skipping PDF attachment');
+    }
+
+    return new Response(JSON.stringify({ success: true, html, pdf: pdfBase64 }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

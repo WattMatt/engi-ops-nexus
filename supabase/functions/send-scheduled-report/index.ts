@@ -84,7 +84,7 @@ const REPORT_CONFIG: Record<ReportType, {
     edgeFunction: 'generate-portal-summary-email',
     subjectPrefix: 'Contractor Portal Summary',
     reportName: 'Portal_Summary',
-    isEmailOnly: true,
+    isEmailOnly: false, // Now includes PDF archival attachment
   },
 };
 
@@ -572,12 +572,32 @@ async function generateAndSendReport(
       throw new Error(summaryResult.error || 'Portal summary generation returned no data');
     }
 
-    // Send email-only (no PDF)
+    // Send email with optional PDF attachment for archival
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
 
     const reportDate = new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
+    const dateStr = new Date().toISOString().split('T')[0];
+    const pdfFilename = `${projectData.project_number}_Portal_Summary_${dateStr}.pdf`;
 
     console.log(`[SendScheduledReport] Sending portal summary email to ${allRecipients.join(', ')}`);
+
+    // Build email payload with optional PDF attachment
+    const emailPayload: Record<string, any> = {
+      from: 'Watson Mattheus <noreply@watsonmattheus.com>',
+      to: allRecipients,
+      subject: `[${projectData.project_number}] ${config.subjectPrefix} - ${reportDate}`,
+      html: summaryResult.html,
+    };
+
+    if (summaryResult.pdf) {
+      emailPayload.attachments = [
+        {
+          filename: pdfFilename,
+          content: summaryResult.pdf,
+        },
+      ];
+      console.log('[SendScheduledReport] PDF snapshot attached for archival');
+    }
 
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -585,12 +605,7 @@ async function generateAndSendReport(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
-      body: JSON.stringify({
-        from: 'Watson Mattheus <noreply@watsonmattheus.com>',
-        to: allRecipients,
-        subject: `[${projectData.project_number}] ${config.subjectPrefix} - ${reportDate}`,
-        html: summaryResult.html,
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     if (!emailResponse.ok) {
