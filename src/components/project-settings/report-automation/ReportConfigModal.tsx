@@ -60,6 +60,10 @@ export function ReportConfigModal({
     existingSettings?.next_run_at ? new Date(existingSettings.next_run_at) : undefined
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [endDate, setEndDate] = useState<Date | undefined>(
+    existingSettings?.report_config?.end_date ? new Date(existingSettings.report_config.end_date) : undefined
+  );
+  const [endCalendarOpen, setEndCalendarOpen] = useState(false);
   const [recipientEmails, setRecipientEmails] = useState<string[]>(existingSettings?.recipient_emails || []);
   const [documentId, setDocumentId] = useState<string>(existingSettings?.document_id || '');
   const [contactId, setContactId] = useState<string>(existingSettings?.contact_id || '');
@@ -84,6 +88,7 @@ export function ReportConfigModal({
       setScheduleType(existingSettings.schedule_type || 'weekly');
       setScheduleTime(existingSettings.schedule_time || '09:00');
       setStartDate(existingSettings.next_run_at ? new Date(existingSettings.next_run_at) : undefined);
+      setEndDate(existingSettings.report_config?.end_date ? new Date(existingSettings.report_config.end_date) : undefined);
       setRecipientEmails(existingSettings.recipient_emails || []);
       setDocumentId(existingSettings.document_id || '');
       setContactId(existingSettings.contact_id || '');
@@ -176,7 +181,7 @@ export function ReportConfigModal({
         recipient_emails: recipientEmails,
         document_id: documentId || null,
         contact_id: contactId || null,
-        report_config: reportConfig,
+        report_config: { ...reportConfig, end_date: endDate?.toISOString() || null },
         start_date: startDate?.toISOString() || null,
       });
       onOpenChange(false);
@@ -240,36 +245,81 @@ export function ReportConfigModal({
               Schedule
             </Label>
 
-            {/* Start Date Calendar */}
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">First Send Date</Label>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
+            {/* Start & End Date */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Start Date</Label>
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "PPP") : "Pick start date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(date) => {
+                        setStartDate(date);
+                        setCalendarOpen(false);
+                        // Clear end date if it's before new start date
+                        if (date && endDate && endDate < date) setEndDate(undefined);
+                      }}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">End Date <span className="text-muted-foreground/60">(optional)</span></Label>
+                <Popover open={endCalendarOpen} onOpenChange={setEndCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "PPP") : "No end date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={(date) => {
+                        setEndDate(date);
+                        setEndCalendarOpen(false);
+                      }}
+                      disabled={(date) => date < (startDate || new Date())}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {endDate && (
                   <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs text-muted-foreground px-1"
+                    onClick={() => setEndDate(undefined)}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP") : "Pick a start date"}
+                    <X className="h-3 w-3 mr-1" /> Clear end date
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={(date) => {
-                      setStartDate(date);
-                      setCalendarOpen(false);
-                    }}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+                )}
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -306,18 +356,31 @@ export function ReportConfigModal({
                   let d = new Date(startDate);
                   const [h, m] = scheduleTime.split(':').map(Number);
                   d.setHours(h, m, 0, 0);
-                  for (let i = 0; i < 4; i++) {
+                  for (let i = 0; i < 6; i++) {
+                    if (endDate && d > endDate) break;
                     upcoming.push(new Date(d));
                     if (scheduleType === 'weekly') d = addWeeks(d, 1);
                     else if (scheduleType === 'bi_weekly') d = addWeeks(d, 2);
                     else d = addMonths(d, 1);
                   }
-                  return upcoming.map((date, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                      {format(date, "EEE, MMM d, yyyy")} at {scheduleTime}
-                    </div>
-                  ));
+                  return (
+                    <>
+                      {upcoming.map((date, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          {format(date, "EEE, MMM d, yyyy")} at {scheduleTime}
+                        </div>
+                      ))}
+                      {endDate && (
+                        <div className="text-xs text-muted-foreground/70 pt-1 border-t mt-1">
+                          Automation ends {format(endDate, "MMM d, yyyy")}
+                        </div>
+                      )}
+                      {!endDate && upcoming.length >= 6 && (
+                        <div className="text-xs text-muted-foreground/70">…and continues indefinitely</div>
+                      )}
+                    </>
+                  );
                 })()}
               </div>
             )}
