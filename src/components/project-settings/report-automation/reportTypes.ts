@@ -11,7 +11,8 @@ export type ReportTypeId =
   | 'tenant_tracker'
   | 'cost_report'
   | 'cable_schedule'
-  | 'generator_report';
+  | 'generator_report'
+  | 'portal_summary';
 
 export interface ReportTypeConfig {
   id: ReportTypeId;
@@ -24,6 +25,7 @@ export interface ReportTypeConfig {
   requiresDocument?: boolean;
   documentType?: string;
   documentLabel?: string;
+  isEmailOnly?: boolean;
   contentOptions: {
     key: string;
     label: string;
@@ -96,6 +98,24 @@ export const REPORT_TYPES: ReportTypeConfig[] = [
       { key: 'include_tenant_schedule', label: 'Include Tenant Loading', defaultValue: true },
       { key: 'include_capital_recovery', label: 'Include Capital Recovery', defaultValue: true },
       { key: 'include_running_costs', label: 'Include Running Costs', defaultValue: true },
+    ],
+  },
+  {
+    id: 'portal_summary',
+    name: 'Portal Summary',
+    description: 'Contractor portal activity summary with change tracking',
+    icon: Users,
+    iconColor: 'text-indigo-600',
+    bgColor: 'bg-indigo-50',
+    edgeFunction: 'generate-portal-summary-email',
+    isEmailOnly: true,
+    contentOptions: [
+      { key: 'include_tenant_progress', label: 'Include Tenant Progress', defaultValue: true },
+      { key: 'include_drawing_register', label: 'Include Drawing Register', defaultValue: true },
+      { key: 'include_procurement_status', label: 'Include Procurement Status', defaultValue: true },
+      { key: 'include_cable_status', label: 'Include Cable Status', defaultValue: true },
+      { key: 'include_inspections', label: 'Include Inspections', defaultValue: true },
+      { key: 'include_rfis', label: 'Include RFIs', defaultValue: true },
     ],
   },
 ];

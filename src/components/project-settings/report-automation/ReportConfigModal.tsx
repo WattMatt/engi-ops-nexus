@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, X, Mail, Calendar, FileText } from "lucide-react";
+import { Loader2, Plus, X, Mail, Calendar, FileText, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { ReportTypeConfig, ReportTypeId } from "./reportTypes";
 import { getDefaultReportConfig } from "./reportTypes";
@@ -54,6 +54,7 @@ export function ReportConfigModal({
   const [saving, setSaving] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [projectContacts, setProjectContacts] = useState<any[]>([]);
+  const [portalContacts, setPortalContacts] = useState<string[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   
@@ -73,6 +74,9 @@ export function ReportConfigModal({
       loadProjectContacts();
       if (reportType.requiresDocument && reportType.documentType) {
         loadDocuments();
+      }
+      if (reportType.id === 'portal_summary') {
+        loadPortalContacts();
       }
     }
   }, [open, projectId, reportType]);
@@ -98,6 +102,29 @@ export function ReportConfigModal({
       .eq('project_id', projectId)
       .not('email', 'is', null);
     setProjectContacts(data || []);
+  };
+
+  const loadPortalContacts = async () => {
+    // Fetch active portal tokens for this project
+    const { data: tokens } = await supabase
+      .from('contractor_portal_tokens')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('is_active', true);
+
+    if (!tokens?.length) {
+      setPortalContacts([]);
+      return;
+    }
+
+    const tokenIds = tokens.map(t => t.id);
+    const { data: contacts } = await supabase
+      .from('token_notification_contacts')
+      .select('email, name')
+      .in('token_id', tokenIds);
+
+    const emails = (contacts || []).map(c => c.email).filter(Boolean);
+    setPortalContacts([...new Set(emails)]);
   };
 
   const loadDocuments = async () => {
@@ -284,6 +311,30 @@ export function ReportConfigModal({
               <Mail className="h-4 w-4" />
               Recipients
             </Label>
+
+            {/* Portal contacts auto-populated */}
+            {reportType.id === 'portal_summary' && portalContacts.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Info className="h-3.5 w-3.5" />
+                  Auto-populated from portal notification contacts
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {portalContacts.map(email => (
+                    <Badge key={email} variant="outline" className="gap-1 py-1 bg-indigo-50 border-indigo-200 text-indigo-700">
+                      {email}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {reportType.id === 'portal_summary' && portalContacts.length === 0 && (
+              <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-md">
+                <Info className="h-3.5 w-3.5" />
+                No portal notification contacts found. Add contacts in the portal token settings, or add manual recipients below.
+              </div>
+            )}
 
             {projectContacts.length > 0 && (
               <div className="space-y-2">

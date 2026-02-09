@@ -10630,6 +10630,38 @@ export type Database = {
           },
         ]
       }
+      portal_report_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          report_date: string
+          snapshot_data: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          report_date?: string
+          snapshot_data?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          report_date?: string
+          snapshot_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_report_snapshots_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_user_sessions: {
         Row: {
           access_count: number
