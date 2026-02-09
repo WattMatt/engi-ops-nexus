@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-type ReportType = 'tenant_tracker' | 'cost_report' | 'cable_schedule' | 'generator_report';
+type ReportType = 'tenant_tracker' | 'cost_report' | 'cable_schedule' | 'generator_report' | 'portal_summary';
 
 interface ManualTriggerRequest {
   mode: 'manual';
@@ -58,6 +58,7 @@ const REPORT_CONFIG: Record<ReportType, {
   edgeFunction: string;
   subjectPrefix: string;
   reportName: string;
+  isEmailOnly?: boolean;
 }> = {
   tenant_tracker: {
     edgeFunction: 'generate-tenant-tracker-pdf',
@@ -78,6 +79,12 @@ const REPORT_CONFIG: Record<ReportType, {
     edgeFunction: 'generate-generator-report-pdf',
     subjectPrefix: 'Generator Financial Evaluation',
     reportName: 'Generator_Report',
+  },
+  portal_summary: {
+    edgeFunction: 'generate-portal-summary-email',
+    subjectPrefix: 'Contractor Portal Summary',
+    reportName: 'Portal_Summary',
+    isEmailOnly: true,
   },
 };
 
@@ -519,6 +526,81 @@ async function generateAndSendReport(
         </tr>
       </table>
     `;
+
+  } else if (reportType === 'portal_summary') {
+    // Portal summary is email-only (no PDF attachment)
+    // Auto-fetch recipients from token_notification_contacts
+    const { data: tokenContacts } = await supabase
+      .from('contractor_portal_tokens')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('is_active', true);
+
+    const tokenIds = (tokenContacts || []).map((t: any) => t.id);
+    let portalRecipients: string[] = [];
+    if (tokenIds.length > 0) {
+      const { data: contacts } = await supabase
+        .from('token_notification_contacts')
+        .select('email')
+        .in('token_id', tokenIds);
+      portalRecipients = (contacts || []).map((c: any) => c.email).filter(Boolean);
+    }
+
+    // Merge with manually configured recipients
+    const allRecipients = [...new Set([...recipientEmails, ...portalRecipients])];
+    if (allRecipients.length === 0) {
+      throw new Error('No recipients found for portal summary');
+    }
+
+    // Call generate-portal-summary-email
+    const summaryResponse = await fetch(`${supabaseUrl}/functions/v1/${config.edgeFunction}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({ projectId, reportConfig }),
+    });
+
+    if (!summaryResponse.ok) {
+      const errorText = await summaryResponse.text();
+      throw new Error(`Portal summary generation failed: ${summaryResponse.status} - ${errorText}`);
+    }
+
+    const summaryResult = await summaryResponse.json();
+    if (!summaryResult.success || !summaryResult.html) {
+      throw new Error(summaryResult.error || 'Portal summary generation returned no data');
+    }
+
+    // Send email-only (no PDF)
+    if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
+
+    const reportDate = new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    console.log(`[SendScheduledReport] Sending portal summary email to ${allRecipients.join(', ')}`);
+
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: 'Watson Mattheus <noreply@watsonmattheus.com>',
+        to: allRecipients,
+        subject: `[${projectData.project_number}] ${config.subjectPrefix} - ${reportDate}`,
+        html: summaryResult.html,
+      }),
+    });
+
+    if (!emailResponse.ok) {
+      const errorText = await emailResponse.text();
+      throw new Error(`Failed to send portal summary email: ${emailResponse.status} - ${errorText}`);
+    }
+
+    const emailResult = await emailResponse.json();
+    console.log('[SendScheduledReport] Portal summary email sent:', emailResult.id);
+    return { success: true, emailId: emailResult.id };
 
   } else {
     throw new Error(`Unknown report type: ${reportType}`);
