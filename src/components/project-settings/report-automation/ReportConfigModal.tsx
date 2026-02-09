@@ -19,10 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, X, Mail, Calendar, FileText, Info } from "lucide-react";
+import { Loader2, Plus, X, Mail, Calendar as CalendarIcon, FileText, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { ReportTypeConfig, ReportTypeId } from "./reportTypes";
 import { getDefaultReportConfig } from "./reportTypes";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format, addDays, addWeeks, addMonths } from "date-fns";
 
 interface ReportConfigModalProps {
   open: boolean;
@@ -33,15 +37,6 @@ interface ReportConfigModalProps {
   onSave: (settings: any) => Promise<void>;
 }
 
-const weekDays = [
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
-  { value: 0, label: 'Sunday' },
-];
 
 export function ReportConfigModal({
   open,
@@ -60,8 +55,11 @@ export function ReportConfigModal({
   
   // Form state
   const [scheduleType, setScheduleType] = useState<string>(existingSettings?.schedule_type || 'weekly');
-  const [scheduleDay, setScheduleDay] = useState<number>(existingSettings?.schedule_day ?? 1);
   const [scheduleTime, setScheduleTime] = useState<string>(existingSettings?.schedule_time || '09:00');
+  const [startDate, setStartDate] = useState<Date | undefined>(
+    existingSettings?.next_run_at ? new Date(existingSettings.next_run_at) : undefined
+  );
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [recipientEmails, setRecipientEmails] = useState<string[]>(existingSettings?.recipient_emails || []);
   const [documentId, setDocumentId] = useState<string>(existingSettings?.document_id || '');
   const [contactId, setContactId] = useState<string>(existingSettings?.contact_id || '');
@@ -84,8 +82,8 @@ export function ReportConfigModal({
   useEffect(() => {
     if (existingSettings) {
       setScheduleType(existingSettings.schedule_type || 'weekly');
-      setScheduleDay(existingSettings.schedule_day ?? 1);
       setScheduleTime(existingSettings.schedule_time || '09:00');
+      setStartDate(existingSettings.next_run_at ? new Date(existingSettings.next_run_at) : undefined);
       setRecipientEmails(existingSettings.recipient_emails || []);
       setDocumentId(existingSettings.document_id || '');
       setContactId(existingSettings.contact_id || '');
@@ -173,12 +171,13 @@ export function ReportConfigModal({
     try {
       await onSave({
         schedule_type: scheduleType,
-        schedule_day: scheduleDay,
+        schedule_day: startDate ? startDate.getDay() : 1,
         schedule_time: scheduleTime,
         recipient_emails: recipientEmails,
         document_id: documentId || null,
         contact_id: contactId || null,
         report_config: reportConfig,
+        start_date: startDate?.toISOString() || null,
       });
       onOpenChange(false);
     } finally {
@@ -237,62 +236,55 @@ export function ReportConfigModal({
           {/* Schedule Configuration */}
           <div className="space-y-4">
             <Label className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
+              <CalendarIcon className="h-4 w-4" />
               Schedule
             </Label>
-            
-            <div className="grid gap-4 sm:grid-cols-3">
+
+            {/* Start Date Calendar */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">First Send Date</Label>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "PPP") : "Pick a start date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={(date) => {
+                      setStartDate(date);
+                      setCalendarOpen(false);
+                    }}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Frequency</Label>
+                <Label className="text-xs text-muted-foreground">Repeat Every</Label>
                 <Select value={scheduleType} onValueChange={setScheduleType}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="bi_weekly">Bi-Weekly</SelectItem>
+                    <SelectItem value="bi_weekly">Bi-Weekly (14 days)</SelectItem>
                     <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
-                  {scheduleType === 'monthly' ? 'Day of Month' : 'Day of Week'}
-                </Label>
-                {scheduleType === 'weekly' || scheduleType === 'bi_weekly' ? (
-                  <Select 
-                    value={scheduleDay.toString()} 
-                    onValueChange={(v) => setScheduleDay(parseInt(v))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {weekDays.map(day => (
-                        <SelectItem key={day.value} value={day.value.toString()}>
-                          {day.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Select 
-                    value={scheduleDay.toString()} 
-                    onValueChange={(v) => setScheduleDay(parseInt(v))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
-                        <SelectItem key={day} value={day.toString()}>
-                          {day}{day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -304,6 +296,31 @@ export function ReportConfigModal({
                 />
               </div>
             </div>
+
+            {/* Preview of upcoming sends */}
+            {startDate && (
+              <div className="rounded-md border p-3 bg-muted/30 space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Upcoming sends</Label>
+                {(() => {
+                  const upcoming: Date[] = [];
+                  let d = new Date(startDate);
+                  const [h, m] = scheduleTime.split(':').map(Number);
+                  d.setHours(h, m, 0, 0);
+                  for (let i = 0; i < 4; i++) {
+                    upcoming.push(new Date(d));
+                    if (scheduleType === 'weekly') d = addWeeks(d, 1);
+                    else if (scheduleType === 'bi_weekly') d = addWeeks(d, 2);
+                    else d = addMonths(d, 1);
+                  }
+                  return upcoming.map((date, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      {format(date, "EEE, MMM d, yyyy")} at {scheduleTime}
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Recipients */}
