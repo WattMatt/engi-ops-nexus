@@ -81,26 +81,27 @@ const Settings = () => {
           </div>
         </div>
 
-        <Tabs defaultValue={defaultTab} className="space-y-4">
-          <div className="overflow-x-auto -mx-1 px-1">
-            <TabsList className="inline-flex w-auto min-w-full h-auto gap-1 p-1">
-              <TabsTrigger value="profile" className="shrink-0">Profile</TabsTrigger>
-              <TabsTrigger value="notifications" className="shrink-0">Notifications</TabsTrigger>
-              <TabsTrigger value="app" className="shrink-0">App Settings</TabsTrigger>
-              <TabsTrigger value="storage" className="shrink-0">Cloud Storage</TabsTrigger>
+        <Tabs defaultValue={defaultTab} className="flex flex-col md:flex-row md:gap-6">
+          <div className="overflow-x-auto md:overflow-visible -mx-1 px-1 md:mx-0 md:px-0 md:shrink-0">
+            <TabsList className="inline-flex w-auto min-w-full md:min-w-0 md:w-56 h-auto gap-1 p-1 md:flex-col md:items-stretch md:bg-muted/50 md:p-2 md:rounded-lg md:sticky md:top-8">
+              <TabsTrigger value="profile" className="shrink-0 md:justify-start">Profile</TabsTrigger>
+              <TabsTrigger value="notifications" className="shrink-0 md:justify-start">Notifications</TabsTrigger>
+              <TabsTrigger value="app" className="shrink-0 md:justify-start">App Settings</TabsTrigger>
+              <TabsTrigger value="storage" className="shrink-0 md:justify-start">Cloud Storage</TabsTrigger>
               {isAdmin && (
                 <>
-                  <TabsTrigger value="company" className="shrink-0">Company</TabsTrigger>
-                  <TabsTrigger value="security" className="shrink-0">Session Security</TabsTrigger>
-                  <TabsTrigger value="pdf" className="shrink-0">PDF Quality</TabsTrigger>
-                  <TabsTrigger value="templates" className="shrink-0">PDF Templates</TabsTrigger>
-                  <TabsTrigger value="invoice" className="shrink-0">Invoice Settings</TabsTrigger>
-                  <TabsTrigger value="guides" className="shrink-0">Guides & Tours</TabsTrigger>
-                  <TabsTrigger value="tools" className="shrink-0">Developer Tools</TabsTrigger>
+                  <TabsTrigger value="company" className="shrink-0 md:justify-start">Company</TabsTrigger>
+                  <TabsTrigger value="security" className="shrink-0 md:justify-start">Session Security</TabsTrigger>
+                  <TabsTrigger value="pdf" className="shrink-0 md:justify-start">PDF Quality</TabsTrigger>
+                  <TabsTrigger value="templates" className="shrink-0 md:justify-start">PDF Templates</TabsTrigger>
+                  <TabsTrigger value="invoice" className="shrink-0 md:justify-start">Invoice Settings</TabsTrigger>
+                  <TabsTrigger value="guides" className="shrink-0 md:justify-start">Guides & Tours</TabsTrigger>
+                  <TabsTrigger value="tools" className="shrink-0 md:justify-start">Developer Tools</TabsTrigger>
                 </>
               )}
             </TabsList>
           </div>
+          <div className="flex-1 min-w-0 space-y-4">
 
           <TabsContent value="profile">
             <Card>
@@ -176,6 +177,7 @@ const Settings = () => {
               </TabsContent>
             </>
           )}
+          </div>
         </Tabs>
       </div>
     </div>
