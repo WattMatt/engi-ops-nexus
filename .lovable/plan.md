@@ -1,149 +1,161 @@
 
-
-# Automatic Daily Session Expiry & Cache Clear Implementation
+# Contractor Portal Automated Report Emails
 
 ## Overview
 
-This plan implements a scheduled automatic logout system that forces users to re-authenticate at a configurable time each day, while also clearing their local cache and storage. This is useful for security compliance, ensuring users don't leave sessions open indefinitely on shared devices.
-
-## Implementation Strategy
-
-The solution uses a **client-side session monitor** that checks the current time against a configured logout time, combined with an **admin-configurable setting** stored in the database. This approach works across all platforms (web, PWA, mobile via Capacitor).
+Add a new "Portal Summary" report type to the existing Report Automation Hub that aggregates all contractor portal data (tenants, drawings, procurement, cables, inspections, RFIs) into a single summary email. Recipients are automatically pulled from the portal token's notification contacts. From the second report onwards, a "Changes Since Last Report" section highlights what has changed.
 
 ---
 
 ## Architecture
 
 ```text
-+------------------+     +-------------------+     +------------------+
-|  Admin Settings  | --> |  Company Settings | --> | Session Monitor  |
-|  (UI Config)     |     |  (DB storage)     |     |  (Client Hook)   |
-+------------------+     +-------------------+     +------------------+
-                                                           |
-                                                           v
-                                                   +------------------+
-                                                   |  Force Logout    |
-                                                   |  - Sign out      |
-                                                   |  - Clear storage |
-                                                   |  - Redirect      |
-                                                   +------------------+
+Report Automation Hub (Settings)
+        |
+        v
+  "Portal Summary" card (new report type)
+        |
+        v
+  send-scheduled-report (Edge Function)
+        |
+        v
+  generate-portal-summary-email (NEW Edge Function)
+        |
+        +-- Queries all portal-relevant tables for the project
+        +-- Queries snapshot table for previous report data
+        +-- Computes diff (new/changed items)
+        +-- Builds branded HTML email with summary + changes
+        +-- Sends via Resend to all token_notification_contacts
+        +-- Saves current snapshot for next comparison
 ```
 
 ---
 
 ## Changes Required
 
-### 1. Database Schema Update
+### 1. Database Migration
 
-Add session management columns to the existing `company_settings` table:
+**New table: `portal_report_snapshots`** -- stores a JSON snapshot of portal data after each report is sent, enabling diff comparison for subsequent reports.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `auto_logout_enabled` | boolean | Toggle for the feature (default: false) |
-| `auto_logout_time` | time | Time of day to trigger logout (e.g., "02:00:00") |
-| `auto_logout_timezone` | text | Timezone for the scheduled time (e.g., "Africa/Johannesburg") |
+| id | uuid (PK) | Auto-generated |
+| project_id | uuid (FK) | Reference to projects table |
+| report_date | timestamptz | When the report was generated |
+| snapshot_data | jsonb | Full snapshot of counts and key items |
+| created_at | timestamptz | Record creation time |
 
-### 2. New Hook: `useSessionMonitor`
+RLS: Service role only (edge function access). No public access needed.
 
-**Location**: `src/hooks/useSessionMonitor.ts`
+### 2. Update Report Types Configuration
 
-Core logic:
-- Runs a check every minute while user is authenticated
-- Compares current time against the configured logout time (accounting for timezone)
-- Triggers logout if within the scheduled window (e.g., 02:00 - 02:05)
-- Performs a complete cache clear:
-  - Supabase auth signOut
-  - localStorage.clear()
-  - sessionStorage.clear()
-  - IndexedDB database deletion
-  - Cache API cleanup
-  - React Query cache clear
+**File: `src/components/project-settings/report-automation/reportTypes.ts`**
 
-### 3. Session Monitor Integration
+Add a new `portal_summary` report type:
+- Name: "Portal Summary"
+- Description: "Contractor portal activity summary with change tracking"
+- Icon: Users (or a portal-related icon)
+- Content options:
+  - Include Tenant Progress
+  - Include Drawing Register
+  - Include Procurement Status
+  - Include Cable Status
+  - Include Inspections
+  - Include RFIs
 
-**Location**: `src/pages/DashboardLayout.tsx` and `src/pages/AdminLayout.tsx`
+### 3. Update Report Automation Hub
 
-- Add `useSessionMonitor()` hook to both layout components
-- The hook will silently monitor in the background
-- When triggered, shows a brief toast notification ("Session expired - please log in again") then redirects to `/auth`
+**File: `src/components/project-settings/report-automation/ReportAutomationHub.tsx`**
 
-### 4. Admin Configuration UI
+- For the Portal Summary report type, auto-populate recipients from `token_notification_contacts` for the project's active tokens instead of requiring manual email entry
+- Add a note in the config modal showing "Recipients auto-populated from portal contacts"
 
-**Location**: `src/pages/Settings.tsx` (Admin settings section)
+### 4. Update ReportConfigModal
 
-New card under admin settings:
-- **Session Security** card with:
-  - Toggle switch for "Enable daily auto-logout"
-  - Time picker for "Logout time" (default: 02:00 AM)
-  - Timezone selector (defaults to user's local timezone)
-  - Description explaining the feature
+**File: `src/components/project-settings/report-automation/ReportConfigModal.tsx`**
 
----
+- When report type is `portal_summary`, fetch and display contacts from `token_notification_contacts` (joined via `contractor_portal_tokens` for the project)
+- Show the contacts as read-only badges with a note explaining they come from the portal token settings
+- Allow adding additional manual recipients on top of the auto-populated ones
 
-## Technical Details
+### 5. New Edge Function: `generate-portal-summary-email`
 
-### Session Monitor Logic
+**File: `supabase/functions/generate-portal-summary-email/index.ts`**
 
-```text
-Every 60 seconds:
-1. Check if auto_logout_enabled = true
-2. Get current time in configured timezone
-3. Check if current time is within logout window (configured time +/- 2 mins)
-4. If yes AND user is authenticated:
-   a. Sign out from backend
-   b. Clear all local storage
-   c. Clear IndexedDB
-   d. Clear Cache API
-   e. Show notification
-   f. Redirect to /auth
-```
+This function:
 
-### Storage Clearing Process
+1. **Fetches all portal data** for the project:
+   - Tenants: count, completion stats from `tenants` table
+   - Drawings: count, latest revisions from `project_drawings`
+   - Procurement: count by status from `project_procurement_items`
+   - Cables: count, installation status from `cable_schedule_entries`
+   - Inspections: count by status from `inspection_requests`
+   - RFIs: count by status from `rfis`
 
-The following will be cleared during auto-logout:
-- **localStorage**: All project-specific keys, settings, cached data
-- **sessionStorage**: Temporary state
-- **IndexedDB**: All offline stores (site diary, cables, budgets, drawings, etc.)
-- **Cache API**: PWA cached assets and API responses
-- **React Query cache**: In-memory query cache
+2. **Fetches previous snapshot** from `portal_report_snapshots` (most recent for this project)
 
-### Grace Period Handling
+3. **Computes changes** by comparing current data vs previous snapshot:
+   - New items added (drawings, RFIs, inspections, procurement items)
+   - Status changes (e.g., inspections moved from pending to completed)
+   - Updated counts and percentages
 
-To prevent users from being logged out while actively working:
-- Only trigger if the user has been idle for 5+ minutes
-- Store last activity timestamp
-- If user is actively using the app during logout window, delay by 30 minutes
+4. **Builds HTML email** with:
+   - Branded header with project name and report date
+   - Current status summary table for each portal section
+   - "Changes Since Last Report" section (only from 2nd report onwards) showing:
+     - New items added with details
+     - Status changes with before/after
+     - Updated metrics comparison
+   - Footer with report generation timestamp
 
----
+5. **Saves current snapshot** to `portal_report_snapshots` for next comparison
 
-## Files to Create/Modify
+6. **Returns** the HTML content (no PDF attachment -- this is an email-only summary)
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/hooks/useSessionMonitor.ts` | Create | Core session monitoring logic |
-| `src/hooks/useIdleTracker.ts` | Create | Track user activity for grace period |
-| `src/components/settings/SessionSecuritySettings.tsx` | Create | Admin UI for configuration |
-| `src/pages/DashboardLayout.tsx` | Modify | Add session monitor hook |
-| `src/pages/AdminLayout.tsx` | Modify | Add session monitor hook |
-| `src/pages/Settings.tsx` | Modify | Add session security settings section |
-| Database migration | Create | Add columns to company_settings |
+### 6. Update send-scheduled-report Edge Function
+
+**File: `supabase/functions/send-scheduled-report/index.ts`**
+
+- Add `portal_summary` to the `ReportType` union and `REPORT_CONFIG` mapping
+- For `portal_summary` type:
+  - Auto-fetch recipients from `token_notification_contacts` for the project (in addition to any manually configured emails)
+  - Call `generate-portal-summary-email` to get the HTML content
+  - Send as an HTML email (no PDF attachment) via Resend
+  - The email subject format: "[Project Name] - Contractor Portal Summary - [Date]"
 
 ---
 
-## Security Considerations
+## Data Aggregation Details
 
-- The logout time is configurable only by admin/moderator users
-- The feature is disabled by default
-- All credentials and tokens are properly invalidated on logout
-- Works even if user closes browser and reopens later (persisted setting check)
+The portal summary will collect and present:
+
+| Section | Data Source | Metrics |
+|---------|-----------|---------|
+| Tenants | `tenants` | Total count, completion %, items pending |
+| Drawings | `project_drawings` | Total count, by status, latest revisions |
+| Procurement | `project_procurement_items` | Total, by status (ordered/delivered/pending), overdue items |
+| Cables | Cable schedule entries | Total cables, installed vs pending |
+| Inspections | `inspection_requests` | Total, by status (pending/scheduled/completed), overdue |
+| RFIs | `rfis` | Total, by status (open/answered/closed), overdue |
+
+## Change Tracking Logic
+
+The snapshot stores counts and key identifiers. On subsequent reports, the diff logic:
+
+1. Compares item counts (e.g., "3 new drawings added")
+2. Identifies new items by comparing ID lists
+3. Tracks status transitions (e.g., "5 inspections moved to completed")
+4. Highlights overdue items that were not overdue in the previous report
 
 ---
 
-## Additional Improvement Suggestions
+## Files Summary
 
-After implementing this feature, consider:
-1. **Session activity logging** - Track when users log in/out for audit purposes
-2. **Maximum session duration** - Add a maximum hours setting (e.g., 12 hours max regardless of time)
-3. **Device-specific sessions** - Allow users to see and revoke sessions on other devices
-4. **Pre-logout warning** - Show a 5-minute warning notification before auto-logout
-
+| File | Action |
+|------|--------|
+| Database migration | Create `portal_report_snapshots` table |
+| `src/components/project-settings/report-automation/reportTypes.ts` | Add `portal_summary` type |
+| `src/components/project-settings/report-automation/ReportConfigModal.tsx` | Add auto-recipient logic for portal type |
+| `src/components/project-settings/report-automation/ReportAutomationHub.tsx` | Minor update for portal recipient handling |
+| `supabase/functions/generate-portal-summary-email/index.ts` | Create -- core summary + diff logic |
+| `supabase/functions/send-scheduled-report/index.ts` | Add portal_summary dispatch |
