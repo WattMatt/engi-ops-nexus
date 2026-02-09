@@ -183,7 +183,7 @@ export default function ProjectSettings() {
 
   return (
     <TooltipProvider>
-    <div className="container max-w-4xl py-8">
+    <div className="container max-w-6xl py-8">
       <div className="mb-6">
         <Button variant="ghost" onClick={() => navigate("/dashboard")} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
