@@ -250,6 +250,7 @@ export function ReportConfigModal({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="bi_weekly">Bi-Weekly</SelectItem>
                     <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
@@ -257,9 +258,9 @@ export function ReportConfigModal({
 
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">
-                  {scheduleType === 'weekly' ? 'Day of Week' : 'Day of Month'}
+                  {scheduleType === 'monthly' ? 'Day of Month' : 'Day of Week'}
                 </Label>
-                {scheduleType === 'weekly' ? (
+                {scheduleType === 'weekly' || scheduleType === 'bi_weekly' ? (
                   <Select 
                     value={scheduleDay.toString()} 
                     onValueChange={(v) => setScheduleDay(parseInt(v))}

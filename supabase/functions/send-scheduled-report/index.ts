@@ -720,6 +720,16 @@ function calculateNextRunAt(setting: AutomationSetting): string {
       daysToAdd += 7;
     }
     nextRun.setDate(now.getDate() + daysToAdd);
+  } else if (setting.schedule_type === 'bi_weekly') {
+    const targetDay = setting.schedule_day ?? 1;
+    const currentDay = now.getDay();
+    let daysToAdd = targetDay - currentDay;
+    if (daysToAdd <= 0) {
+      daysToAdd += 14;
+    } else {
+      daysToAdd += 7; // Next occurrence + 1 week = bi-weekly
+    }
+    nextRun.setDate(now.getDate() + daysToAdd);
   } else if (setting.schedule_type === 'monthly') {
     const targetDate = setting.schedule_day ?? 1;
     nextRun.setMonth(now.getMonth() + 1);
