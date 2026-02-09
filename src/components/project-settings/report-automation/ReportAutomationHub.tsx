@@ -139,11 +139,13 @@ export function ReportAutomationHub({ projectId }: ReportAutomationHubProps) {
     const existing = settings[selectedReportType];
     const { data: { user } } = await supabase.auth.getUser();
     
-    const nextRunAt = calculateNextRunAt(
-      newSettings.schedule_type,
-      newSettings.schedule_day,
-      newSettings.schedule_time
-    );
+    const nextRunAt = newSettings.start_date 
+      ? newSettings.start_date 
+      : calculateNextRunAt(
+          newSettings.schedule_type,
+          newSettings.schedule_day,
+          newSettings.schedule_time
+        );
 
     const settingsData = {
       project_id: projectId,
