@@ -82,23 +82,25 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue={defaultTab} className="space-y-4">
-          <TabsList className="flex flex-wrap h-auto gap-1 p-1">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="app">App Settings</TabsTrigger>
-            <TabsTrigger value="storage">Cloud Storage</TabsTrigger>
-            {isAdmin && (
-              <>
-                <TabsTrigger value="company">Company</TabsTrigger>
-                <TabsTrigger value="security">Session Security</TabsTrigger>
-                <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
-                <TabsTrigger value="templates">PDF Templates</TabsTrigger>
-                <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
-                <TabsTrigger value="guides">Guides & Tours</TabsTrigger>
-                <TabsTrigger value="tools">Developer Tools</TabsTrigger>
-              </>
-            )}
-          </TabsList>
+          <div className="overflow-x-auto -mx-1 px-1">
+            <TabsList className="inline-flex w-auto min-w-full h-auto gap-1 p-1">
+              <TabsTrigger value="profile" className="shrink-0">Profile</TabsTrigger>
+              <TabsTrigger value="notifications" className="shrink-0">Notifications</TabsTrigger>
+              <TabsTrigger value="app" className="shrink-0">App Settings</TabsTrigger>
+              <TabsTrigger value="storage" className="shrink-0">Cloud Storage</TabsTrigger>
+              {isAdmin && (
+                <>
+                  <TabsTrigger value="company" className="shrink-0">Company</TabsTrigger>
+                  <TabsTrigger value="security" className="shrink-0">Session Security</TabsTrigger>
+                  <TabsTrigger value="pdf" className="shrink-0">PDF Quality</TabsTrigger>
+                  <TabsTrigger value="templates" className="shrink-0">PDF Templates</TabsTrigger>
+                  <TabsTrigger value="invoice" className="shrink-0">Invoice Settings</TabsTrigger>
+                  <TabsTrigger value="guides" className="shrink-0">Guides & Tours</TabsTrigger>
+                  <TabsTrigger value="tools" className="shrink-0">Developer Tools</TabsTrigger>
+                </>
+              )}
+            </TabsList>
+          </div>
 
           <TabsContent value="profile">
             <Card>

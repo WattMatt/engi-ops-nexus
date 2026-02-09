@@ -196,16 +196,17 @@ export default function ProjectSettings() {
       </div>
 
       <Tabs defaultValue="settings" className="space-y-6">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="settings">Project Settings</TabsTrigger>
-          <TabsTrigger value="contacts">Project Contacts</TabsTrigger>
-          <TabsTrigger value="global-contacts">Contacts Library</TabsTrigger>
-          <TabsTrigger value="members">Team Members</TabsTrigger>
-          <TabsTrigger value="client-portal">Client Portal</TabsTrigger>
-          <TabsTrigger value="contractor-portal">Contractor Portal</TabsTrigger>
-          
-          <TabsTrigger value="report-automation">Report Automation</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="inline-flex w-auto min-w-full h-auto gap-1">
+            <TabsTrigger value="settings" className="shrink-0">Project Settings</TabsTrigger>
+            <TabsTrigger value="contacts" className="shrink-0">Project Contacts</TabsTrigger>
+            <TabsTrigger value="global-contacts" className="shrink-0">Contacts Library</TabsTrigger>
+            <TabsTrigger value="members" className="shrink-0">Team Members</TabsTrigger>
+            <TabsTrigger value="client-portal" className="shrink-0">Client Portal</TabsTrigger>
+            <TabsTrigger value="contractor-portal" className="shrink-0">Contractor Portal</TabsTrigger>
+            <TabsTrigger value="report-automation" className="shrink-0">Report Automation</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="settings">
           <form onSubmit={handleSubmit} className="space-y-6">
