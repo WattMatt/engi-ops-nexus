@@ -155,11 +155,14 @@ serve(async (req) => {
         format: 'A4',
         use_print: true,
         margin: {
-          top: '15mm',
+          top: '25mm',
           right: '15mm',
-          bottom: '20mm',
+          bottom: '22mm',
           left: '15mm',
         },
+        displayHeaderFooter: true,
+        headerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;"><span style="font-weight:600;color:#374151;">Tenant Tracker Report</span><span>${projectData.name}</span></div>`,
+        footerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;"><span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
       }),
     });
 
@@ -387,9 +390,6 @@ function generateHTML(
           </div>
         </div>
         
-        <div class="page-footer">
-          <span>Page 2</span>
-        </div>
       </div>
     `;
   }
@@ -467,9 +467,6 @@ function generateHTML(
           </tbody>
         </table>
         
-        <div class="page-footer">
-          <span>Page ${options.includeKpiPage ? 3 : 2}</span>
-        </div>
       </div>
     `;
   }
@@ -907,6 +904,11 @@ function generateHTML(
       border-bottom: 1px solid #e5e7eb;
     }
     
+    /* PDF Standards: table integrity */
+    thead { display: table-header-group !important; }
+    tfoot { display: table-footer-group !important; }
+    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    
     .tenant-table .center {
       text-align: center;
     }
@@ -970,15 +972,7 @@ function generateHTML(
       color: white;
     }
     
-    .page-footer {
-      position: absolute;
-      bottom: 20px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 9pt;
-      color: #94a3b8;
-    }
+    /* .page-footer removed — using PDFShift displayHeaderFooter instead */
   </style>
 </head>
 <body>

@@ -265,6 +265,11 @@ function generateHTML(data: FloorPlanPdfRequest): string {
       display: table-header-group;
     }
     
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    
     th {
       background: #1e40af;
       color: white;
@@ -604,8 +609,11 @@ serve(async (req) => {
       body: JSON.stringify({
         source: html,
         format: 'A4',
-        margin: { top: '15mm', right: '12mm', bottom: '20mm', left: '12mm' },
+        margin: { top: '25mm', right: '12mm', bottom: '22mm', left: '12mm' },
         use_print: true,
+        displayHeaderFooter: true,
+        headerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 12mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;"><span style="font-weight:600;color:#374151;">Floor Plan Report</span><span>${requestData.projectName}</span></div>`,
+        footerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 12mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;"><span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
       }),
     });
 

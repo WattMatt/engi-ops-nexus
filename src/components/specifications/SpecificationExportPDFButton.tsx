@@ -9,9 +9,9 @@ import { format } from "date-fns";
 import { 
   initializePDF, 
   getStandardTableStyles, 
-  addPageNumbers,
   type PDFExportOptions 
 } from "@/utils/pdfExportBase";
+import { addRunningHeaders, addRunningFooter, getAutoTableDefaults } from "@/utils/pdf/jspdfStandards";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ContactSelector } from "@/components/shared/ContactSelector";
 
@@ -73,6 +73,7 @@ export const SpecificationExportPDFButton = ({ specification }: SpecificationExp
       }
 
       autoTable(doc, {
+        ...getAutoTableDefaults(),
         startY: yPos,
         body: infoData,
         theme: "plain",
@@ -111,8 +112,9 @@ export const SpecificationExportPDFButton = ({ specification }: SpecificationExp
         }
       }
 
-      // Add standardized page numbers
-      addPageNumbers(doc, 2, exportOptions.quality);
+      // Add standardized running headers and footers
+      addRunningHeaders(doc, "Technical Specification", specification.specification_name, 2);
+      addRunningFooter(doc, format(new Date(), "dd MMMM yyyy"), 2);
 
       // Save the PDF
       doc.save(`Specification_${specification.spec_number || specification.specification_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);

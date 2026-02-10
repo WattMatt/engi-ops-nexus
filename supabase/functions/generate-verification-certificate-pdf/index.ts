@@ -152,7 +152,10 @@ serve(async (req) => {
         source: html,
         landscape: false,
         format: "A4",
-        margin: "20mm",
+        margin: { top: "25mm", right: "20mm", bottom: "22mm", left: "20mm" },
+        displayHeaderFooter: true,
+        headerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 20mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;"><span style="font-weight:600;color:#374151;">Verification Certificate</span><span>${data.project?.name || 'Project'}</span></div>`,
+        footerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 20mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;"><span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
       }),
     });
 
@@ -329,6 +332,8 @@ function buildCertificateHTML(data: {
       border-collapse: collapse;
       font-size: 12px;
     }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
     th {
       text-align: left;
       padding: 10px 8px;

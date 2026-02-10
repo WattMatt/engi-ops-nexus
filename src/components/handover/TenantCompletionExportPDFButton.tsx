@@ -8,9 +8,9 @@ import { generateCoverPage, fetchCompanyDetails } from "@/utils/pdfCoverPage";
 import { 
   initializePDF, 
   getStandardTableStyles,
-  addPageNumbers,
   type PDFExportOptions 
 } from "@/utils/pdfExportBase";
+import { addRunningHeaders, addRunningFooter, getAutoTableDefaults } from "@/utils/pdf/jspdfStandards";
 
 interface TenantData {
   id: string;
@@ -363,6 +363,7 @@ export const TenantCompletionExportPDFButton = ({
       ]);
 
       autoTable(doc, {
+        ...getAutoTableDefaults(),
         startY: yPos,
         head: [["Shop No.", "Shop Name", "Documents", "Progress", "Status"]],
         body: summaryData,
@@ -446,22 +447,9 @@ export const TenantCompletionExportPDFButton = ({
         });
       }
 
-      // Add standardized page numbers  
-      addPageNumbers(doc, 1, exportOptions.quality); // Include cover page in numbering
-      
-      // Add generation timestamp on all pages
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(128, 128, 128);
-        doc.text(
-          `Generated: ${new Date().toLocaleString()}`,
-          pageWidth - 14,
-          pageHeight - 10,
-          { align: "right" }
-        );
-      }
+      // Add standardized running headers and footers
+      addRunningHeaders(doc, "Tenant Handover Completion Report", projectName, 2);
+      addRunningFooter(doc, new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), 2);
 
       // Save the PDF
       const fileName = `Handover_Completion_${projectName.replace(/\s+/g, "_")}_${

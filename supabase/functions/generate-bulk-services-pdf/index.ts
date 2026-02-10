@@ -211,6 +211,10 @@ function generateHTML(data: RequestBody): string {
       margin: 0;
       padding: 0;
     }
+    /* PDF Standards: table integrity */
+    thead { display: table-header-group !important; }
+    tfoot { display: table-footer-group !important; }
+    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
     .page-break {
       page-break-after: always;
     }
@@ -504,7 +508,10 @@ serve(async (req) => {
       body: JSON.stringify({
         source: html,
         format: 'A4',
-        margin: { top: '15mm', right: '15mm', bottom: '20mm', left: '15mm' },
+        margin: { top: '25mm', right: '15mm', bottom: '22mm', left: '15mm' },
+        displayHeaderFooter: true,
+        headerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;"><span style="font-weight:600;color:#374151;">Bulk Services Report</span><span>${projectName || 'Bulk Services'}</span></div>`,
+        footerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;"><span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
       }),
     });
 
