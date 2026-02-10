@@ -591,8 +591,11 @@ serve(async (req) => {
         source: html,
         format: 'A4',
         landscape: true,
-        margin: { top: '12mm', right: '10mm', bottom: '18mm', left: '10mm' },
+        margin: { top: '22mm', right: '10mm', bottom: '20mm', left: '10mm' },
         use_print: true,
+        displayHeaderFooter: true,
+        headerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 10mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;"><span style="font-weight:600;color:#374151;">Cable Schedule Report</span><span>${requestData.scheduleName || ''}</span></div>`,
+        footerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 10mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;"><span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
       }),
     });
 

@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { FileText, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addRunningFooter } from "@/utils/pdf/jspdfStandards";
 
 interface GeneratePayslipDialogProps {
   open: boolean;
@@ -126,6 +127,9 @@ export function GeneratePayslipDialog({
     doc.setFontSize(8);
     doc.text("This is a computer-generated payslip and does not require a signature.", 105, 280, { align: "center" });
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, 285, { align: "center" });
+    
+    // Add page numbers
+    addRunningFooter(doc, new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), 1);
     
     return doc;
   };
