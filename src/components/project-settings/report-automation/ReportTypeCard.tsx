@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Settings, Send, Clock, Calendar, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
+import { InfoTooltip } from "@/components/ui/rich-tooltip";
 import type { ReportTypeConfig } from "./reportTypes";
 
 interface ReportTypeCardProps {
@@ -52,10 +53,17 @@ export function ReportTypeCard({
           <div className={`p-3 rounded-lg ${config.bgColor}`}>
             <Icon className={`h-6 w-6 ${config.iconColor}`} />
           </div>
-          <Switch 
-            checked={isEnabled} 
-            onCheckedChange={onToggle}
-          />
+          <InfoTooltip
+            title={isEnabled ? "Disable Automation" : "Enable Automation"}
+            description={isEnabled 
+              ? "Turn off automated email delivery for this report. Existing schedule will be paused." 
+              : "Turn on automated email delivery. Configure schedule and recipients first."}
+          >
+            <Switch 
+              checked={isEnabled} 
+              onCheckedChange={onToggle}
+            />
+          </InfoTooltip>
         </div>
 
         <h3 className="font-semibold text-lg mb-1">{config.name}</h3>
@@ -65,13 +73,18 @@ export function ReportTypeCard({
 
         {/* Schedule Status */}
         <div className="space-y-2 mb-4">
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Schedule:</span>
-            <Badge variant={isEnabled && scheduleType ? 'default' : 'secondary'} className="text-xs">
-              {getScheduleLabel()}
-            </Badge>
-          </div>
+          <InfoTooltip
+            title="Schedule Frequency"
+            description="How often this report is generated and emailed. Click 'Configure' to change the frequency, start/end dates, and recipients."
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Schedule:</span>
+              <Badge variant={isEnabled && scheduleType ? 'default' : 'secondary'} className="text-xs">
+                {getScheduleLabel()}
+              </Badge>
+            </div>
+          </InfoTooltip>
 
           {lastRunAt && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -90,23 +103,33 @@ export function ReportTypeCard({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex-1"
-            onClick={onConfigure}
+          <InfoTooltip
+            title="Configure Report"
+            description="Set schedule frequency, start/end dates, recipient emails, and choose which sections to include in the report."
           >
-            <Settings className="h-4 w-4 mr-1" />
-            Configure
-          </Button>
-          <Button 
-            variant="secondary" 
-            size="sm"
-            onClick={onSendTest}
-            disabled={isSending}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex-1"
+              onClick={onConfigure}
+            >
+              <Settings className="h-4 w-4 mr-1" />
+              Configure
+            </Button>
+          </InfoTooltip>
+          <InfoTooltip
+            title="Send Test Email"
+            description="Send a one-off test email now to the configured recipients. Use this to preview the report content before enabling automation."
           >
-            <Send className="h-4 w-4" />
-          </Button>
+            <Button 
+              variant="secondary" 
+              size="sm"
+              onClick={onSendTest}
+              disabled={isSending}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </InfoTooltip>
         </div>
       </CardContent>
     </Card>

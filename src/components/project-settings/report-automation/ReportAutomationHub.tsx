@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Mail, CalendarClock } from "lucide-react";
+import { Loader2, Mail, CalendarClock, HelpCircle } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/rich-tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { REPORT_TYPES, type ReportTypeId } from "./reportTypes";
@@ -235,7 +236,15 @@ export function ReportAutomationHub({ projectId }: ReportAutomationHubProps) {
               <CalendarClock className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle>Report Automation Hub</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Report Automation Hub
+                <InfoTooltip
+                  title="Report Automation"
+                  description="Configure automated report generation and email delivery. Enable reports, set schedules with start/end dates, and add recipients. Reports are generated as PDFs and emailed on the configured schedule."
+                >
+                  <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                </InfoTooltip>
+              </CardTitle>
               <CardDescription>
                 Configure automatic report generation and email delivery for each report type
               </CardDescription>
