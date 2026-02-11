@@ -1,130 +1,133 @@
 
-# Fix PDF Pipeline: Unified Cover Page and Working Headers/Footers
 
-## Problems Found
+# Distribution Board Legend Card - Electronic Completion System
 
-1. **Headers/footers appear on cover page (page 1)**: The JavaScript `<script>` approach in PDFShift header/footer HTML does NOT work -- PDFShift does not execute JS in header/footer source fragments
-2. **Cover pages are totally inconsistent**: 5 different cover page designs across 7 edge functions, 2 functions have no cover page at all
-3. **No test/preview mechanism**: Can only verify by generating and emailing, making iteration slow and wasteful
+## Overview
 
-## Solution
+Add a new "DB Legend Cards" tab to the Contractor Portal where contractors can electronically fill out distribution board legend cards for each tenant. Once completed, they can submit the card to a selected project contact for review. The system also needs a new database table and a PDF generation pipeline for the completed legend cards.
 
-### Phase 1: Create a Shared Cover Page HTML Generator
+## What the Form Captures
 
-Add a `generateStandardCoverPage()` function to `supabase/functions/_shared/pdfStandards.ts` that produces a single, consistent, branded cover page HTML block used by ALL edge functions.
+Based on the uploaded example (DB-TEL legend card), each legend card contains:
 
-The cover page will include:
-- Company logo (centered, from company_settings)
-- Decorative divider line
-- Report title (e.g. "TENANT TRACKER REPORT")
-- Report subtitle (e.g. "Tenant Schedule and Progress Analysis")
-- Project name (prominent, branded color)
-- Project number
-- PREPARED FOR section (contact details)
-- PREPARED BY section (company details)
-- Date and revision at bottom
-- Gradient accent bar (left side)
-- `page-break-after: always` to force the next content onto page 2
+1. **Header Info**: DB Name, Address, Phone, Email, Tel Number, DOL Reg No, COC No, Addendum No, Date
+2. **Section Info**: Section name (e.g. "EMERGENCY SECTION"), fed-from info, feeding breaker ID, feeding system/cabling info
+3. **Circuit Breaker Schedule**: A two-column table with up to ~50 rows per column (CB 1-50 left, CB 51-100+ right), each row having Circuit Breaker Number, Description, and Amp Rating
+4. **Contactor Details**: Up to 3 contactors (C1, C2, C3) with fields for Amps, Controlling, KW, Coil, Poles
 
-### Phase 2: Fix Cover Page Header/Footer Exclusion
+## Database Design
 
-Since PDFShift does NOT execute JavaScript in header/footer HTML, we need a different approach:
+### New Table: `db_legend_cards`
 
-**Option: Use CSS `@page :first` in the main document body to add extra top/bottom padding on page 1 that "pushes" the header/footer content off the visible cover, combined with PDFShift's `header.start_at` parameter.**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid PK | |
+| tenant_id | uuid FK -> tenants | Which tenant this board belongs to |
+| project_id | uuid FK -> projects | Project reference |
+| db_name | text | e.g. "DB-TEL", "DB-LV1" |
+| address | text | Installation address |
+| phone | text | Contractor phone |
+| email | text | Contractor email |
+| tel_number | text | Alternative tel |
+| dol_reg_no | text | DOL registration number |
+| coc_no | text | COC number |
+| addendum_no | text | Addendum reference |
+| section_name | text | e.g. "EMERGENCY SECTION" |
+| fed_from | text | e.g. "MAIN BOARD 1.2" |
+| feeding_breaker_id | text | |
+| feeding_system_info | text | Cabling info |
+| circuits | jsonb | Array of {cb_no, description, amp_rating} for all circuit breakers |
+| contactors | jsonb | Array of {name, amps, controlling, kw, coil, poles} |
+| status | text | 'draft', 'submitted', 'approved', 'rejected' |
+| submitted_at | timestamptz | When contractor submitted |
+| submitted_by_name | text | Contractor name who submitted |
+| submitted_by_email | text | Contractor email who submitted |
+| submitted_to_contact_id | uuid FK -> project_contacts | Who it was submitted to |
+| reviewer_notes | text | Feedback from reviewer |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
-Actually, the correct PDFShift approach is simpler -- PDFShift supports a `start_at` property in header and footer objects that tells it which page number to start displaying them:
+RLS: Public read/write (portal is token-based, not auth-based -- consistent with existing portal patterns).
+
+### Enable Realtime
+
+For live updates when cards are submitted or reviewed.
+
+## New Components
+
+### 1. Contractor Portal Tab: `ContractorDBLegendCards.tsx`
+
+- New tab added to the portal (8th tab) with a circuit board icon
+- Shows a list of tenants with their legend card status
+- "View / Edit" button per tenant opens the legend card form
+- Status badges: Draft, Submitted, Approved, Rejected
+- Option to add multiple boards per tenant (e.g. DB-TEL, DB-LV1, DB-EMERG)
+
+### 2. Legend Card Form: `DBLegendCardForm.tsx`
+
+- Full electronic form matching the PDF layout
+- Header section: DB Name, Address, Phone, Email, DOL Reg No, COC No
+- Section info: Section name, Fed From, Feeding Breaker ID
+- Circuit breaker table: Dynamic rows (add/remove), two-column layout on desktop
+  - Each row: CB Number (auto-incremented), Description (text input), Amp Rating (text input)
+- Contactor section: Up to 3 contactors with Amps, Controlling, KW, Coil, Poles fields
+- Auto-save as draft
+- Submit button with contact selector (from project_contacts)
+
+### 3. Submit Dialog: `DBLegendCardSubmitDialog.tsx`
+
+- Shows a dropdown of project contacts to submit to
+- Confirmation step
+- Triggers notification email to selected contact
+
+### 4. Dashboard View (Internal): `DBLegendCardsDashboard.tsx`
+
+- For the internal dashboard (not portal) to review submitted cards
+- Approve/Reject with notes
+- Export to PDF
+
+## Contractor Portal Integration
+
+In `src/pages/ContractorPortal.tsx`:
+- Add 8th tab "DB Legend Cards" with grid icon
+- Grid changes from `grid-cols-7` to `grid-cols-8`
+- Pass project ID, contractor name, email to the new component
+
+## Notification Edge Function
+
+Create `send-legend-card-notification` edge function:
+- Triggered when a contractor submits a completed legend card
+- Sends email to the selected project contact
+- Uses Resend API (consistent with existing notification functions)
+- Includes project name, tenant/shop number, DB name, and a link back to review
+
+## PDF Generation (Future Enhancement)
+
+Add `generate-legend-card-pdf` edge function using the unified PDF pipeline:
+- Uses the shared cover page from `pdfStandards.ts`
+- Generates a professional PDF matching the original paper form layout
+- Available for download from both portal and dashboard
+
+## File Structure
 
 ```
-header: {
-  source: headerHtml,
-  spacing: '5mm',
-  start_at: 2   // Skip page 1
-}
-footer: {
-  source: footerHtml,
-  spacing: '5mm',
-  start_at: 2   // Skip page 1
-}
+src/components/contractor-portal/
+  ContractorDBLegendCards.tsx          -- Tab content: tenant list with legend card status
+  DBLegendCardForm.tsx                -- The electronic form
+  DBLegendCardSubmitDialog.tsx        -- Submit to contact dialog
+
+supabase/functions/
+  send-legend-card-notification/
+    index.ts                          -- Email notification on submission
 ```
 
-If `start_at` is not supported, we fall back to using CSS `visibility: hidden` with a class-based approach in the header/footer source (no JS needed):
+## Implementation Sequence
 
-```html
-<style>
-  .hdr { display: flex; /* ... */ }
-</style>
-<div class="hdr">...</div>
-```
+1. Create the `db_legend_cards` database table with RLS policies
+2. Build `ContractorDBLegendCards.tsx` -- tenant list with card status
+3. Build `DBLegendCardForm.tsx` -- the full electronic form
+4. Build `DBLegendCardSubmitDialog.tsx` -- submit with contact selection
+5. Add the new tab to `ContractorPortal.tsx`
+6. Create the notification edge function
+7. Deploy and test end-to-end via the portal
 
-And in the main document, override cover page margins to 0 with `@page :first { margin-top: 0; margin-bottom: 0; }`.
-
-### Phase 3: Refactor All 7 Edge Functions
-
-Each function will be updated to:
-1. Import `generateStandardCoverPage` from `_shared/pdfStandards.ts`
-2. Remove its bespoke cover page HTML
-3. Call the shared function with report-specific data (title, subtitle, contact, etc.)
-4. Use shared cover page CSS (also from `_shared/pdfStandards.ts`)
-
-### Phase 4: Add a Test/Preview Endpoint
-
-Create a lightweight mechanism to test PDFs without emailing:
-- Use the existing `generate-pdf-pdfshift` generic function as a test harness
-- Or add a `?preview=true` query parameter to each function that returns the raw HTML (not PDF) so you can open it in a browser and visually verify before converting
-
-## Technical Details
-
-### Shared Cover Page Function Signature
-
-```typescript
-// In supabase/functions/_shared/pdfStandards.ts
-
-interface CoverPageOptions {
-  reportTitle: string;       // e.g. "TENANT TRACKER REPORT"
-  reportSubtitle?: string;   // e.g. "Tenant Schedule & Progress Analysis"
-  projectName: string;
-  projectNumber?: string;
-  revision?: string;
-  reportDate?: string;
-  companyLogoUrl?: string;
-  companyName?: string;
-  companyAddress?: string;
-  companyPhone?: string;
-  contactName?: string;
-  contactOrganization?: string;
-  contactPhone?: string;
-  contactEmail?: string;
-}
-
-function generateStandardCoverPage(options: CoverPageOptions): string;
-function getStandardCoverPageCSS(): string;
-```
-
-### Files Modified
-
-| File | Change |
-|------|--------|
-| `supabase/functions/_shared/pdfStandards.ts` | Add `generateStandardCoverPage()`, `getStandardCoverPageCSS()`, fix header/footer `start_at` |
-| `supabase/functions/generate-tenant-tracker-pdf/index.ts` | Replace custom cover page with shared function |
-| `supabase/functions/generate-generator-report-pdf/index.ts` | Replace custom cover page with shared function |
-| `supabase/functions/generate-cable-schedule-pdf/index.ts` | Replace custom cover page with shared function |
-| `supabase/functions/generate-floor-plan-pdf/index.ts` | Replace custom cover page with shared function |
-| `supabase/functions/generate-bulk-services-pdf/index.ts` | Replace custom cover page with shared function |
-| `supabase/functions/generate-electrical-budget-pdf/index.ts` | Add cover page (currently has none) |
-| `supabase/functions/generate-verification-certificate-pdf/index.ts` | Add cover page (currently has none) |
-
-### Testing Approach
-
-After deployment, we will:
-1. Call each edge function directly via curl with test data
-2. The response includes base64 PDF -- decode and verify visually before sending any emails
-3. Only send test emails once all 7 are confirmed working
-
-### Sequence
-
-1. Update `_shared/pdfStandards.ts` with all shared functions
-2. Update all 7 edge functions
-3. Deploy all 7 + shared
-4. Test each one via direct curl call (no email)
-5. Review the base64 PDFs for correct cover page, headers on page 2+, no headers on page 1
-6. Only then send test emails
