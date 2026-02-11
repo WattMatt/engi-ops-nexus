@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Save, Download } from "lucide-react";
 import { toast } from "sonner";
 import { DBLegendCardSubmitDialog } from "./DBLegendCardSubmitDialog";
@@ -198,19 +199,23 @@ export function DBLegendCardForm({ cardId, projectId, projectName, projectNumber
     onBack();
   };
 
+  const [pdfPageSize, setPdfPageSize] = useState<"A4" | "A5">("A4");
+
   const handleDownloadPdf = async () => {
     if (!form) return;
     setGeneratingPdf(true);
     try {
       // Save first
       await handleSave();
-      const filename = `${form.db_name.replace(/[^a-zA-Z0-9._-]/g, '_')}_Legend_Card.pdf`;
+      const sizeLabel = pdfPageSize === "A5" ? "_A5" : "";
+      const filename = `${form.db_name.replace(/[^a-zA-Z0-9._-]/g, '_')}${sizeLabel}_Legend_Card.pdf`;
       const { data, error } = await supabase.functions.invoke("generate-legend-card-pdf", {
         body: {
           cardId,
           projectName,
           projectNumber,
           filename,
+          pageSize: pdfPageSize,
         },
       });
       if (error) throw error;
@@ -228,7 +233,7 @@ export function DBLegendCardForm({ cardId, projectId, projectName, projectNumber
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("PDF downloaded");
+      toast.success(`PDF downloaded (${pdfPageSize})`);
     } catch (err: any) {
       toast.error("PDF generation failed: " + err.message);
     } finally {
@@ -250,8 +255,17 @@ export function DBLegendCardForm({ cardId, projectId, projectName, projectNumber
           {form.status.toUpperCase()}
         </Badge>
         <div className="flex gap-2">
+          <Select value={pdfPageSize} onValueChange={(v) => setPdfPageSize(v as "A4" | "A5")}>
+            <SelectTrigger className="w-[70px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="A4">A4</SelectItem>
+              <SelectItem value="A5">A5</SelectItem>
+            </SelectContent>
+          </Select>
           <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={generatingPdf}>
-            <Download className="h-4 w-4 mr-1" /> {generatingPdf ? "Generating..." : "Download PDF"}
+            <Download className="h-4 w-4 mr-1" /> {generatingPdf ? "Generating..." : "PDF"}
           </Button>
           {!isReadOnly && (
             <>

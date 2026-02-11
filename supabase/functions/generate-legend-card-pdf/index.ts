@@ -31,6 +31,8 @@ interface LegendCardPdfRequest {
   contactOrganization?: string;
   contactEmail?: string;
   filename: string;
+  pageSize?: 'A4' | 'A5';
+  notes?: string;
 }
 
 function escapeHtml(str: string): string {
@@ -56,9 +58,24 @@ function generateCircuitRows(circuits: Circuit[], start: number, end: number): s
 }
 
 function generateHTML(card: any, req: LegendCardPdfRequest): string {
-  const circuits: Circuit[] = card.circuits || [];
+  const allCircuits: Circuit[] = card.circuits || [];
   const contactors: Contactor[] = card.contactors || [];
-  const half = Math.max(Math.ceil(circuits.length / 2), 25);
+  const isA5 = req.pageSize === 'A5';
+
+  // A5: truncate to 50 circuits, split 1-25 / 26-50
+  // A4: show all circuits, split evenly
+  const circuits = isA5 ? allCircuits.slice(0, 50) : allCircuits;
+  const half = isA5 ? 25 : Math.max(Math.ceil(circuits.length / 2), 25);
+
+  // A5 uses smaller fonts and tighter spacing
+  const bodyFontSize = isA5 ? '6.5pt' : '8pt';
+  const tableFontSize = isA5 ? '6pt' : '7pt';
+  const titleFontSize = isA5 ? '10pt' : '14pt';
+  const sectionFontSize = isA5 ? '7pt' : '9pt';
+  const fieldLabelSize = isA5 ? '6pt' : '7pt';
+  const fieldValueSize = isA5 ? '6.5pt' : '8pt';
+  const headerPadding = isA5 ? '5px 8px' : '8px 14px';
+  const contentPadding = isA5 ? '6px 0' : '10px 0';
 
   const coverPage = generateStandardCoverPage({
     reportTitle: 'DB LEGEND CARD',
@@ -93,52 +110,52 @@ function generateHTML(card: any, req: LegendCardPdfRequest): string {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 8pt;
+    font-size: ${bodyFontSize};
     color: #1a1a2e;
-    line-height: 1.4;
+    line-height: 1.3;
   }
 
-  .content { padding: 10px 0; }
+  .content { padding: ${contentPadding}; }
 
   .header-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: ${isA5 ? '4px' : '8px'};
+    margin-bottom: ${isA5 ? '6px' : '12px'};
   }
   .header-grid .field {
     display: flex;
     align-items: center;
     gap: 4px;
     border-bottom: 1px solid #e2e8f0;
-    padding: 3px 0;
+    padding: ${isA5 ? '2px 0' : '3px 0'};
   }
   .header-grid .field-label {
     font-weight: 700;
-    font-size: 7pt;
+    font-size: ${fieldLabelSize};
     color: #475569;
     white-space: nowrap;
-    min-width: 80px;
+    min-width: ${isA5 ? '60px' : '80px'};
   }
   .header-grid .field-value {
-    font-size: 8pt;
+    font-size: ${fieldValueSize};
   }
 
   .section-title {
     background: #1e3a5f;
     color: white;
-    padding: 5px 10px;
-    font-size: 9pt;
+    padding: ${isA5 ? '3px 8px' : '5px 10px'};
+    font-size: ${sectionFontSize};
     font-weight: 700;
     letter-spacing: 0.5px;
-    margin: 12px 0 8px;
+    margin: ${isA5 ? '6px 0 4px' : '12px 0 8px'};
   }
 
   .section-info {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr;
-    gap: 6px;
-    margin-bottom: 12px;
+    gap: ${isA5 ? '4px' : '6px'};
+    margin-bottom: ${isA5 ? '6px' : '12px'};
   }
   .section-info .field { border-bottom: 1px solid #e2e8f0; padding: 3px 0; }
 
@@ -146,60 +163,60 @@ function generateHTML(card: any, req: LegendCardPdfRequest): string {
   .circuit-wrapper {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: ${isA5 ? '6px' : '12px'};
   }
   .circuit-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 7pt;
+    font-size: ${tableFontSize};
   }
   .circuit-table th {
     background: #334155;
     color: white;
-    padding: 4px 6px;
+    padding: ${isA5 ? '2px 4px' : '4px 6px'};
     text-align: left;
-    font-size: 7pt;
+    font-size: ${tableFontSize};
     font-weight: 600;
   }
   .circuit-table td {
     border: 1px solid #cbd5e1;
-    padding: 2px 6px;
-    font-size: 7pt;
+    padding: ${isA5 ? '1px 4px' : '2px 6px'};
+    font-size: ${tableFontSize};
   }
-  .cb-no { width: 40px; text-align: center; font-weight: 600; color: #475569; }
+  .cb-no { width: ${isA5 ? '30px' : '40px'}; text-align: center; font-weight: 600; color: #475569; }
   .cb-desc { }
-  .cb-amp { width: 45px; text-align: center; }
+  .cb-amp { width: ${isA5 ? '35px' : '45px'}; text-align: center; }
   .circuit-table tr:nth-child(even) { background: #f8fafc; }
 
   /* Contactor table */
   .contactor-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 7pt;
+    font-size: ${tableFontSize};
     margin-top: 4px;
   }
   .contactor-table th {
     background: #334155;
     color: white;
-    padding: 4px 6px;
+    padding: ${isA5 ? '2px 4px' : '4px 6px'};
     text-align: left;
-    font-size: 7pt;
+    font-size: ${tableFontSize};
   }
   .contactor-table td {
     border: 1px solid #cbd5e1;
-    padding: 3px 6px;
-    font-size: 7pt;
+    padding: ${isA5 ? '2px 4px' : '3px 6px'};
+    font-size: ${tableFontSize};
   }
-  .cont-label { font-weight: 700; width: 40px; text-align: center; color: #1e3a5f; }
+  .cont-label { font-weight: 700; width: ${isA5 ? '30px' : '40px'}; text-align: center; color: #1e3a5f; }
 
   .db-title-bar {
     background: linear-gradient(135deg, #1e3a5f, #3b82f6);
     color: white;
-    padding: 8px 14px;
-    font-size: 14pt;
+    padding: ${headerPadding};
+    font-size: ${titleFontSize};
     font-weight: 700;
     letter-spacing: 1px;
-    margin-bottom: 12px;
+    margin-bottom: ${isA5 ? '6px' : '12px'};
     border-radius: 2px;
   }
 </style>
@@ -307,9 +324,11 @@ serve(async (req) => {
     console.log('[LegendCardPDF] HTML generated, length:', html.length);
 
     // Call PDFShift
+    const pageSize = requestData.pageSize || 'A4';
     const pdfPayload = buildPDFShiftPayload(html, {
       reportTitle: `DB Legend Card — ${card.db_name || ''}`,
       projectName: requestData.projectName || '',
+      format: pageSize,
     });
 
     const pdfShiftResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {

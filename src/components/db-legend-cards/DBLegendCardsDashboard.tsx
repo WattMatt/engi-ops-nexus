@@ -74,6 +74,8 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
   const [reviewCard, setReviewCard] = useState<LegendCard | null>(null);
   // For batch review
   const [batchAction, setBatchAction] = useState<"approve" | "reject" | null>(null);
+  // PDF size chooser
+  const [pdfSizeCard, setPdfSizeCard] = useState<LegendCard | null>(null);
 
   const { data: cards = [], isLoading } = useQuery({
     queryKey: ["db-legend-cards-dashboard", projectId, statusFilter],
@@ -238,12 +240,14 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
     }
   };
 
-  const handleDownloadPdf = async (card: LegendCard) => {
+  const handleDownloadPdf = async (card: LegendCard, pageSize: "A4" | "A5" = "A4") => {
+    setPdfSizeCard(null);
     setGeneratingPdf(card.id);
     try {
-      const filename = `${card.db_name.replace(/[^a-zA-Z0-9._-]/g, "_")}_Legend_Card.pdf`;
+      const sizeLabel = pageSize === "A5" ? "_A5" : "";
+      const filename = `${card.db_name.replace(/[^a-zA-Z0-9._-]/g, "_")}${sizeLabel}_Legend_Card.pdf`;
       const { data, error } = await supabase.functions.invoke("generate-legend-card-pdf", {
-        body: { cardId: card.id, filename },
+        body: { cardId: card.id, filename, pageSize },
       });
       if (error) throw error;
       if (!data?.filePath) throw new Error("No file path returned");
@@ -259,7 +263,7 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("PDF downloaded");
+      toast.success(`PDF downloaded (${pageSize})`);
     } catch (err: any) {
       toast.error("PDF generation failed: " + err.message);
     } finally {
@@ -411,7 +415,7 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleDownloadPdf(card)}
+                          onClick={() => setPdfSizeCard(card)}
                           disabled={generatingPdf === card.id}
                         >
                           <Download className="h-4 w-4 mr-1" />
@@ -532,6 +536,36 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
           onOpenChange={(open) => !open && setHistoryCard(null)}
         />
       )}
+
+      {/* PDF Size Chooser Dialog */}
+      <Dialog open={!!pdfSizeCard} onOpenChange={() => setPdfSizeCard(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Choose PDF Size</DialogTitle>
+            <DialogDescription>
+              {pdfSizeCard?.db_name} — {Array.isArray(pdfSizeCard?.circuits) ? pdfSizeCard.circuits.length : 0} circuits
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2"
+              onClick={() => pdfSizeCard && handleDownloadPdf(pdfSizeCard, "A4")}
+            >
+              <span className="text-lg font-bold">A4</span>
+              <span className="text-[10px] text-muted-foreground text-center leading-tight">Full size — all circuits</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2"
+              onClick={() => pdfSizeCard && handleDownloadPdf(pdfSizeCard, "A5")}
+            >
+              <span className="text-lg font-bold">A5</span>
+              <span className="text-[10px] text-muted-foreground text-center leading-tight">Compact — max 50 circuits (1-25 / 26-50)</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
