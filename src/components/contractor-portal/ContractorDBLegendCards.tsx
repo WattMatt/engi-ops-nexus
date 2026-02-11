@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, ArrowLeft, CircuitBoard, Search, Filter, ChevronsUpDown } from "lucide-react";
+import { Plus, ArrowLeft, CircuitBoard, Search, Filter, ChevronsUpDown, Layers } from "lucide-react";
 import { DBLegendCardForm } from "./DBLegendCardForm";
+import { toast } from "sonner";
 
 interface ContractorDBLegendCardsProps {
   projectId: string;
@@ -125,6 +126,39 @@ export function ContractorDBLegendCards({ projectId, projectName, projectNumber,
     refetch();
   };
 
+  const [bulkCreating, setBulkCreating] = useState(false);
+
+  const tenantsWithoutCards = useMemo(() => {
+    return tenants.filter((t) => getCardsForTenant(t.id).length === 0);
+  }, [tenants, legendCards]);
+
+  const handleBulkCreate = async () => {
+    if (tenantsWithoutCards.length === 0) {
+      toast.info("All tenants already have at least one card.");
+      return;
+    }
+    setBulkCreating(true);
+    try {
+      const rows = tenantsWithoutCards.map((t) => ({
+        project_id: projectId,
+        tenant_id: t.id,
+        db_name: `DB-${t.shop_name}`,
+        status: "draft",
+      }));
+      const { error } = await supabase
+        .from("db_legend_cards" as any)
+        .insert(rows as any);
+      if (error) throw error;
+      toast.success(`Created ${rows.length} legend card${rows.length !== 1 ? "s" : ""} successfully.`);
+      refetch();
+    } catch (err) {
+      console.error("Bulk create error:", err);
+      toast.error("Failed to create cards. Please try again.");
+    } finally {
+      setBulkCreating(false);
+    }
+  };
+
   const handleBack = () => {
     setSelectedCardId(null);
     setCreatingForTenantId(null);
@@ -167,10 +201,23 @@ export function ContractorDBLegendCards({ projectId, projectName, projectNumber,
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CircuitBoard className="h-5 w-5" />
-          DB Legend Cards
-        </CardTitle>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="flex items-center gap-2">
+            <CircuitBoard className="h-5 w-5" />
+            DB Legend Cards
+          </CardTitle>
+          {!isLoading && tenantsWithoutCards.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkCreate}
+              disabled={bulkCreating}
+            >
+              <Layers className="h-4 w-4 mr-1" />
+              {bulkCreating ? "Creating..." : `Create All (${tenantsWithoutCards.length})`}
+            </Button>
+          )}
+        </div>
         <CardDescription>
           Complete distribution board legend cards for each tenant. Add multiple boards per tenant as needed.
         </CardDescription>
