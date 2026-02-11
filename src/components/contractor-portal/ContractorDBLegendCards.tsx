@@ -134,7 +134,7 @@ export function ContractorDBLegendCards({ projectId, projectName, projectNumber,
           <p className="text-muted-foreground text-sm">No tenants found for this project.</p>
         ) : (
           <div className="space-y-3">
-            {tenants.map((tenant) => {
+            {tenants.map((tenant, index) => {
               const cards = getCardsForTenant(tenant.id);
               return (
                 <div
@@ -142,9 +142,14 @@ export function ContractorDBLegendCards({ projectId, projectName, projectNumber,
                   className="border rounded-lg p-4 space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{tenant.shop_number} — {tenant.shop_name}</p>
-                      <p className="text-xs text-muted-foreground">{cards.length} legend card{cards.length !== 1 ? "s" : ""}</p>
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <p className="font-medium">{tenant.shop_number} — {tenant.shop_name}</p>
+                        <p className="text-xs text-muted-foreground">{cards.length} legend card{cards.length !== 1 ? "s" : ""}</p>
+                      </div>
                     </div>
                     <Button size="sm" variant="outline" onClick={() => handleCreateCard(tenant.id)}>
                       <Plus className="h-4 w-4 mr-1" /> Add Board
