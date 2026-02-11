@@ -8,6 +8,7 @@
 import jsPDF from "jspdf";
 import { captureChartAsCanvas, createHighQualityPDF, addHighQualityImage, waitForElementRender, captureChartAsBase64 } from "@/utils/pdfQualitySettings";
 import { generateCoverPage, fetchCompanyDetails } from "@/utils/pdfCoverPage";
+import { addRunningHeaders, addRunningFooter } from "@/utils/pdf/jspdfStandards";
 import { createDocument, downloadPdf } from "./pdfmake";
 import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 interface PredictionData {
@@ -242,6 +243,10 @@ export const exportPredictionToPDF = async ({
     doc.text(line, 14, yPos);
     yPos += 6;
   });
+
+  // Add standardized running headers and footers
+  addRunningHeaders(doc, 'AI Cost Prediction Report', projectName);
+  addRunningFooter(doc, new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }));
 
   // Save the PDF
   const fileName = `Cost_Prediction_${projectName.replace(/\s+/g, "_")}_${
