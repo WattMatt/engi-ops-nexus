@@ -13,7 +13,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Download, Check, X, Eye, Search, CircuitBoard } from "lucide-react";
+import { Download, Check, X, Eye, Search, CircuitBoard, History } from "lucide-react";
+import { LegendCardReportHistory } from "./LegendCardReportHistory";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -60,6 +61,7 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
   const [processing, setProcessing] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
+  const [historyCard, setHistoryCard] = useState<LegendCard | null>(null);
 
   const { data: cards = [], isLoading } = useQuery({
     queryKey: ["db-legend-cards-dashboard", projectId, statusFilter],
@@ -261,6 +263,14 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
                     <div className="flex gap-2 shrink-0">
                       <Button
                         size="sm"
+                        variant="ghost"
+                        onClick={() => setHistoryCard(card)}
+                        title="Report history"
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => handleDownloadPdf(card)}
                         disabled={generatingPdf === card.id}
@@ -330,6 +340,15 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {historyCard && (
+        <LegendCardReportHistory
+          cardId={historyCard.id}
+          cardName={historyCard.db_name}
+          open={!!historyCard}
+          onOpenChange={(open) => !open && setHistoryCard(null)}
+        />
+      )}
     </div>
   );
 }

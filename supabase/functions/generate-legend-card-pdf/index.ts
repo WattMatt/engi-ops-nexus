@@ -333,8 +333,24 @@ serve(async (req) => {
     const pdfBuffer = await pdfShiftResponse.arrayBuffer();
     console.log('[LegendCardPDF] PDF generated:', pdfBuffer.byteLength, 'bytes');
 
-    // Upload to storage
-    const filePath = `${requestData.cardId}/${requestData.filename}`;
+    // Determine next revision
+    const { data: existingReports } = await supabase
+      .from('legend_card_reports')
+      .select('revision')
+      .eq('card_id', requestData.cardId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    let revNum = 1;
+    if (existingReports && existingReports.length > 0) {
+      const lastRev = existingReports[0].revision;
+      const match = lastRev.match(/R(\d+)/);
+      if (match) revNum = parseInt(match[1]) + 1;
+    }
+    const revision = `R${String(revNum).padStart(2, '0')}`;
+
+    // Upload to storage with revision in path
+    const filePath = `${requestData.cardId}/${revision}_${requestData.filename}`;
     const { error: uploadError } = await supabase.storage
       .from('legend-card-reports')
       .upload(filePath, new Uint8Array(pdfBuffer), {
@@ -350,9 +366,34 @@ serve(async (req) => {
       );
     }
 
-    console.log('[LegendCardPDF] PDF saved successfully');
+    // Save report record
+    const authHeader = req.headers.get('Authorization');
+    let userId: string | null = null;
+    if (authHeader) {
+      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+      userId = user?.id || null;
+    }
+
+    const { error: insertError } = await supabase
+      .from('legend_card_reports')
+      .insert({
+        card_id: requestData.cardId,
+        project_id: card.project_id,
+        report_name: card.db_name || 'Legend Card',
+        revision,
+        file_path: filePath,
+        file_size: pdfBuffer.byteLength,
+        generated_by: userId,
+        notes: requestData.notes || null,
+      });
+
+    if (insertError) {
+      console.error('[LegendCardPDF] Report record error:', insertError);
+    }
+
+    console.log('[LegendCardPDF] PDF saved successfully, revision:', revision);
     return new Response(
-      JSON.stringify({ success: true, filePath, fileSize: pdfBuffer.byteLength }),
+      JSON.stringify({ success: true, filePath, fileSize: pdfBuffer.byteLength, revision }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
