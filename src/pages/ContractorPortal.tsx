@@ -277,7 +277,7 @@ export default function ContractorPortal() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
         <Tabs defaultValue="drawings" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full overflow-x-auto">
             <InfoTooltip
               title="Drawing Register"
               description="View and download electrical drawings with full revision history. Drawings are grouped by discipline."
