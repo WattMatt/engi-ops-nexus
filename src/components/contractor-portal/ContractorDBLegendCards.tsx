@@ -9,6 +9,8 @@ import { DBLegendCardForm } from "./DBLegendCardForm";
 
 interface ContractorDBLegendCardsProps {
   projectId: string;
+  projectName: string;
+  projectNumber: string;
   contractorName: string;
   contractorEmail: string;
 }
@@ -35,7 +37,7 @@ const statusColors: Record<string, string> = {
   rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
-export function ContractorDBLegendCards({ projectId, contractorName, contractorEmail }: ContractorDBLegendCardsProps) {
+export function ContractorDBLegendCards({ projectId, projectName, projectNumber, contractorName, contractorEmail }: ContractorDBLegendCardsProps) {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [creatingForTenantId, setCreatingForTenantId] = useState<string | null>(null);
 
@@ -99,6 +101,8 @@ export function ContractorDBLegendCards({ projectId, contractorName, contractorE
         <DBLegendCardForm
           cardId={selectedCardId}
           projectId={projectId}
+          projectName={projectName}
+          projectNumber={projectNumber}
           contractorName={contractorName}
           contractorEmail={contractorEmail}
           onBack={handleBack}
