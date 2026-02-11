@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map, CircuitBoard } from "lucide-react";
 import { ContractorDrawingRegister } from "@/components/contractor-portal/ContractorDrawingRegister";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
 import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
@@ -13,6 +13,7 @@ import { ContractorTenantTracker } from "@/components/contractor-portal/Contract
 import { ContractorCableStatus } from "@/components/contractor-portal/ContractorCableStatus";
 import { ContractorInspectionRequests } from "@/components/contractor-portal/ContractorInspectionRequests";
 import { ContractorFloorPlanView } from "@/components/contractor-portal/ContractorFloorPlanView";
+import { ContractorDBLegendCards } from "@/components/contractor-portal/ContractorDBLegendCards";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { PortalUserIdentityDialog, PortalUserIdentity } from "@/components/contractor-portal/PortalUserIdentityDialog";
 import { InfoTooltip } from "@/components/ui/rich-tooltip";
@@ -276,7 +277,7 @@ export default function ContractorPortal() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
         <Tabs defaultValue="drawings" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
             <InfoTooltip
               title="Drawing Register"
               description="View and download electrical drawings with full revision history. Drawings are grouped by discipline."
@@ -354,6 +355,17 @@ export default function ContractorPortal() {
                 <span className="hidden sm:inline">RFI</span>
               </TabsTrigger>
             </InfoTooltip>
+            <InfoTooltip
+              title="DB Legend Cards"
+              description="Complete distribution board legend cards electronically for each tenant. Submit completed cards for review."
+              icon={CircuitBoard}
+              side="bottom"
+            >
+              <TabsTrigger value="db-legend" className="gap-2">
+                <CircuitBoard className="h-4 w-4" />
+                <span className="hidden sm:inline">DB Cards</span>
+              </TabsTrigger>
+            </InfoTooltip>
           </TabsList>
 
           <TabsContent value="drawings">
@@ -402,6 +414,14 @@ export default function ContractorPortal() {
               contractorEmail={activeUserEmail}
               companyName={tokenData.company_name}
               token={token || ''}
+            />
+          </TabsContent>
+
+          <TabsContent value="db-legend">
+            <ContractorDBLegendCards
+              projectId={project.id}
+              contractorName={activeUserName}
+              contractorEmail={activeUserEmail}
             />
           </TabsContent>
         </Tabs>
