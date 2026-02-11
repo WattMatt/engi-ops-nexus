@@ -106,13 +106,13 @@ export function ContractorDBLegendCards({ projectId, projectName, projectNumber,
     return { total, withCards, withoutCards, allCards };
   }, [tenants, legendCards]);
 
-  const handleCreateCard = async (tenantId: string) => {
+  const handleCreateCard = async (tenantId: string, shopName: string) => {
     const { data, error } = await supabase
       .from("db_legend_cards" as any)
       .insert({
         project_id: projectId,
         tenant_id: tenantId,
-        db_name: "DB-1",
+        db_name: `DB-${shopName}`,
         status: "draft",
       } as any)
       .select("id")
@@ -273,7 +273,7 @@ export function ContractorDBLegendCards({ projectId, projectName, projectNumber,
                             <p className="text-xs text-muted-foreground">{cards.length} legend card{cards.length !== 1 ? "s" : ""}</p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" onClick={() => handleCreateCard(tenant.id)}>
+                        <Button size="sm" variant="outline" onClick={() => handleCreateCard(tenant.id, tenant.shop_name)}>
                           <Plus className="h-4 w-4 mr-1" /> Add Board
                         </Button>
                       </div>
