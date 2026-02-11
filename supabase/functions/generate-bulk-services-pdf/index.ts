@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -216,47 +216,7 @@ function generateHTML(data: RequestBody): string {
     thead { display: table-header-group !important; }
     tfoot { display: table-footer-group !important; }
     tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-    .page-break {
-      page-break-after: always;
-    }
-    .cover-page {
-      text-align: center;
-      padding-top: 80px;
-    }
-    .logo-container {
-      margin-bottom: 40px;
-    }
-    .main-title {
-      font-size: 32px;
-      font-weight: bold;
-      color: ${COLORS.primary};
-      margin: 40px 0 10px;
-    }
-    .subtitle {
-      font-size: 14px;
-      color: ${COLORS.textLight};
-      margin: 5px 0;
-    }
-    .divider {
-      width: 200px;
-      height: 3px;
-      background: ${COLORS.primary};
-      margin: 40px auto;
-    }
-    .meta-table {
-      margin: 0 auto;
-      text-align: left;
-    }
-    .meta-table td {
-      padding: 6px 15px;
-      font-size: 11px;
-    }
-    .meta-label {
-      color: ${COLORS.textLight};
-    }
-    .meta-value {
-      font-weight: 600;
-    }
+    ${getStandardCoverPageCSS()}
     .page-header {
       font-size: 16px;
       font-weight: bold;
@@ -303,34 +263,14 @@ function generateHTML(data: RequestBody): string {
 </head>
 <body>
   <!-- COVER PAGE -->
-  <div class="cover-page">
-    <div class="logo-container">
-      ${logoHtml}
-    </div>
-    <div class="main-title">BULK SERVICES REPORT</div>
-    <div class="subtitle">ELECTRICAL INFRASTRUCTURE</div>
-    <div class="subtitle">Document ${document.document_number}</div>
-    <div class="divider"></div>
-    <table class="meta-table">
-      <tr>
-        <td class="meta-label">Project:</td>
-        <td class="meta-value">${projectName || 'Bulk Services'}</td>
-      </tr>
-      <tr>
-        <td class="meta-label">Revision:</td>
-        <td class="meta-value">${revision}</td>
-      </tr>
-      <tr>
-        <td class="meta-label">Date:</td>
-        <td class="meta-value">${formatDate(new Date().toISOString())}</td>
-      </tr>
-      <tr>
-        <td class="meta-label">Method:</td>
-        <td class="meta-value">${methodName}</td>
-      </tr>
-    </table>
-    ${companyDetails?.companyName ? `<p style="margin-top: 80px; color: ${COLORS.textLight};">${companyDetails.companyName}</p>` : ''}
-  </div>
+  ${generateStandardCoverPage({
+    reportTitle: 'BULK SERVICES REPORT',
+    reportSubtitle: 'Electrical Infrastructure',
+    projectName: projectName || 'Bulk Services',
+    revision: revision,
+    companyLogoUrl: companyDetails?.companyLogoUrl || undefined,
+    companyName: companyDetails?.companyName || undefined,
+  })}
 
   <div class="page-break"></div>
 
