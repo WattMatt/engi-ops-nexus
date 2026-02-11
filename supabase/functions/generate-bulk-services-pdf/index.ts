@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -499,20 +500,18 @@ serve(async (req) => {
 
     // Call PDFShift API
     console.log('[BulkServicesPDF] Calling PDFShift API...');
+    const pdfPayload = buildPDFShiftPayload(html, {
+      reportTitle: 'Bulk Services Report',
+      projectName: projectName || 'Bulk Services',
+    });
+
     const pdfShiftResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${btoa(`api:${pdfShiftApiKey}`)}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        source: html,
-        format: 'A4',
-        margin: { top: '25mm', right: '15mm', bottom: '22mm', left: '15mm' },
-        displayHeaderFooter: true,
-        headerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;"><span style="font-weight:600;color:#374151;">Bulk Services Report</span><span>${projectName || 'Bulk Services'}</span></div>`,
-        footerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;"><span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
-      }),
+      body: JSON.stringify(pdfPayload),
     });
 
     if (!pdfShiftResponse.ok) {
