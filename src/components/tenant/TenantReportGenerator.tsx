@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { addRunningHeaders, addRunningFooter, getAutoTableDefaults } from "@/utils/pdf/jspdfStandards";
 import { ReportOptionsDialog, ReportOptions } from "./ReportOptionsDialog";
 import { generateCoverPage } from "@/utils/pdfCoverPageSimple";
 
@@ -402,11 +403,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       yPos += 16;
     });
 
-    // Page footer
-    doc.setFontSize(9);
-    doc.setTextColor(148, 163, 184);
-    doc.setFont("helvetica", "italic");
-    doc.text(`Page 2`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    // Remove hardcoded page footer - running headers/footers added at end
   };
 
 
@@ -638,6 +635,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     });
 
     autoTable(doc, {
+      ...getAutoTableDefaults(),
       startY: tableStartY,
       head: [headers],
       body: tableData,
@@ -715,15 +713,6 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
           }
         }
       },
-      didDrawPage: (data) => {
-        // Add page number
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Page ${currentPage}`, doc.internal.pageSize.getWidth() / 2, pageHeight - 10, { align: 'center' });
-      }
     });
   };
 
@@ -751,12 +740,6 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         doc.setFont("helvetica", "normal");
         doc.text("Floor plan masking not yet configured for this project.", 20, 45);
         doc.text("Use the Floor Plan Masking tab to create tenant zones.", 20, 55);
-        
-        doc.setFontSize(9);
-        doc.setTextColor(150, 150, 150);
-        doc.setFont("helvetica", "italic");
-        const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
-        doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
         return;
       }
 
@@ -831,12 +814,6 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.setTextColor(120, 120, 120);
       doc.setFont("helvetica", "italic");
       doc.text("Note: Use 'Update Preview Colors' in Floor Plan Masking to refresh colors before generating reports.", 20, pageHeight - 12);
-
-      // Page footer
-      doc.setFontSize(9);
-      doc.setTextColor(150, 150, 150);
-      const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
-      doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
       
     } catch (error) {
       console.error('Error generating layout page:', error);
@@ -887,15 +864,6 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.text(`${idx + 2}. ${section}`, 25, yPos);
       yPos += 7;
     });
-    
-    yPos += 10;
-    
-    // Page footer
-    doc.setFontSize(9);
-    doc.setTextColor(148, 163, 184);
-    doc.setFont("helvetica", "italic");
-    const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
-    doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
   };
 
   const handleGenerateReport = async (options: ReportOptions) => {
@@ -959,9 +927,12 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         generateTenantSchedule(doc, options, includedTenants);
       }
 
+      // Add standardized running headers and footers (skip cover page)
+      addRunningHeaders(doc, 'Tenant Tracker Report', projectName);
+      addRunningFooter(doc, new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }));
+
       // Convert PDF to blob
       const pdfBlob = doc.output('blob');
-      
       // Calculate metrics for database
       const totalArea = includedTenants.reduce((sum, t) => sum + (t.area || 0), 0);
       const totalDbCost = includedTenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);

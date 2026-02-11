@@ -17,6 +17,7 @@ import {
   STANDARD_MARGINS,
   checkPageBreak,
 } from "./pdfExportBase";
+import { addRunningHeaders, addRunningFooter, getAutoTableDefaults } from "@/utils/pdf/jspdfStandards";
 import { createDocument, downloadPdf } from "./pdfmake";
 import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 
@@ -154,6 +155,7 @@ export async function generateSectionPDF(sectionId: string): Promise<Blob> {
   ];
 
   autoTable(doc, {
+    ...getAutoTableDefaults(),
     startY: y,
     head: [["Summary", "Amount"]],
     body: summaryData,
@@ -239,6 +241,7 @@ export async function generateSectionPDF(sectionId: string): Promise<Blob> {
     });
 
     autoTable(doc, {
+      ...getAutoTableDefaults(),
       startY: y,
       head: [[
         "Code",
@@ -318,8 +321,9 @@ export async function generateSectionPDF(sectionId: string): Promise<Blob> {
   doc.text("Signature: ____________________________________", STANDARD_MARGINS.left, y);
   doc.text("Date: ____________________", pageWidth / 2, y);
 
-  // Add page numbers
-  addPageNumbers(doc, 1);
+  // Add standardized running headers and footers
+  addRunningHeaders(doc, 'Final Account Section Review', projectName);
+  addRunningFooter(doc, new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }));
 
   // Return as blob
   return doc.output("blob");

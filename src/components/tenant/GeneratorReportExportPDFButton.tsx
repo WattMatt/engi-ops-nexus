@@ -17,6 +17,7 @@ import {
   STANDARD_MARGINS,
   type PDFExportOptions 
 } from "@/utils/pdfExportBase";
+import { addRunningHeaders, addRunningFooter, getAutoTableDefaults } from "@/utils/pdf/jspdfStandards";
 import { LoadDistributionChart } from "./charts/LoadDistributionChart";
 import { CostBreakdownChart } from "./charts/CostBreakdownChart";
 import { RecoveryProjectionChart } from "./charts/RecoveryProjectionChart";
@@ -339,7 +340,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       ];
 
       autoTable(doc, {
-        startY: yPos,
+        ...getAutoTableDefaults(),
         head: [equipmentCostingData[0]],
         body: equipmentCostingData.slice(1),
         theme: "grid",
@@ -570,13 +571,13 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const centerMargin = (pageWidth - tableWidth) / 2;
 
       autoTable(doc, {
+        ...getAutoTableDefaults(),
         startY: yPos,
         head: [tableHeader],
         body: tenantRows,
         theme: "grid",
         headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 6 },
         styles: { fontSize: 6 },
-        columnStyles,
         margin: { left: centerMargin, right: centerMargin },
         didParseCell: (data) => {
           // Apply color coding to zone column headers - MUST use didParseCell instead of willDrawCell
@@ -1069,7 +1070,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       }
 
       autoTable(doc, {
-        startY: yPos,
+        ...getAutoTableDefaults(),
         head: [runningTableHeader],
         body: runningTableBody,
         theme: "grid",
@@ -1345,6 +1346,10 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           document.body.removeChild(chartContainer);
         }
       }
+
+      // Add standardized running headers and footers (skip cover page)
+      addRunningHeaders(doc, 'Generator Financial Evaluation', project.name || 'Project');
+      addRunningFooter(doc, format(new Date(), 'dd MMMM yyyy'));
 
       // Save PDF to blob
       const pdfBlob = doc.output("blob");
