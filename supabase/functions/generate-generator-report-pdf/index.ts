@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
@@ -316,45 +316,19 @@ function generateHTML(
 
   // ===== COVER PAGE =====
   if (options.includeCoverPage) {
-    coverPageHtml = `
-      <div class="cover-page">
-        <div class="cover-gradient-bar"></div>
-        <div class="cover-content">
-          ${companySettings?.company_logo_url ? `
-            <img src="${companySettings.company_logo_url}" class="cover-logo" alt="Company Logo" />
-          ` : ''}
-          
-          <div class="cover-divider"></div>
-          
-          <h1 class="cover-title">GENERATOR FINANCIAL EVALUATION</h1>
-          <p class="cover-subtitle">Centre Standby Plant Analysis</p>
-          
-          <h2 class="cover-project">${project.name}</h2>
-          <p class="cover-number">${project.project_number || ''}</p>
-          
-          <div class="cover-details">
-            <div class="cover-section">
-              <h3>PREPARED FOR:</h3>
-              ${contactData ? `
-                <p>${contactData.organization_name || ''}</p>
-                <p>${contactData.contact_person_name || ''}</p>
-                ${contactData.phone ? `<p>Tel: ${contactData.phone}</p>` : ''}
-              ` : '<p>-</p>'}
-            </div>
-            <div class="cover-section">
-              <h3>PREPARED BY:</h3>
-              <p>${companySettings?.company_name || 'Watson Mattheus Engineering'}</p>
-              ${companySettings?.address_line1 ? `<p>${companySettings.address_line1}</p>` : ''}
-              ${companySettings?.phone ? `<p>Tel: ${companySettings.phone}</p>` : ''}
-            </div>
-          </div>
-          
-          <div class="cover-footer">
-            <span>Date: ${reportDate}</span>
-          </div>
-        </div>
-      </div>
-    `;
+    coverPageHtml = generateStandardCoverPage({
+      reportTitle: 'GENERATOR FINANCIAL EVALUATION',
+      reportSubtitle: 'Centre Standby Plant Analysis',
+      projectName: project.name,
+      projectNumber: project.project_number || undefined,
+      companyLogoUrl: companySettings?.company_logo_url || undefined,
+      companyName: companySettings?.company_name || undefined,
+      companyAddress: companySettings?.address_line1 || undefined,
+      companyPhone: companySettings?.phone || undefined,
+      contactName: contactData?.contact_person_name || undefined,
+      contactOrganization: contactData?.organization_name || undefined,
+      contactPhone: contactData?.phone || undefined,
+    });
   }
 
   // ===== EXECUTIVE SUMMARY =====
@@ -669,94 +643,7 @@ function generateHTML(
       margin: 0;
     }
     
-    .cover-page {
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-      color: white;
-      page-break-after: always;
-    }
-    
-    .cover-gradient-bar {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 8px;
-      height: 100vh;
-      background: linear-gradient(180deg, #f59e0b 0%, #ef4444 100%);
-    }
-    
-    .cover-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 50px 60px;
-    }
-    
-    .cover-logo {
-      max-height: 60px;
-      max-width: 180px;
-      margin-bottom: 40px;
-    }
-    
-    .cover-divider {
-      width: 80px;
-      height: 4px;
-      background: #f59e0b;
-      margin-bottom: 30px;
-    }
-    
-    .cover-title {
-      font-size: 32pt;
-      font-weight: 700;
-      margin-bottom: 10px;
-      letter-spacing: 1px;
-    }
-    
-    .cover-subtitle {
-      font-size: 14pt;
-      font-weight: 300;
-      opacity: 0.9;
-      margin-bottom: 40px;
-    }
-    
-    .cover-project {
-      font-size: 20pt;
-      font-weight: 600;
-      margin-bottom: 5px;
-    }
-    
-    .cover-number {
-      font-size: 12pt;
-      opacity: 0.8;
-      margin-bottom: 50px;
-    }
-    
-    .cover-details {
-      display: flex;
-      gap: 60px;
-    }
-    
-    .cover-section h3 {
-      font-size: 9pt;
-      font-weight: 600;
-      opacity: 0.7;
-      margin-bottom: 8px;
-      letter-spacing: 1px;
-    }
-    
-    .cover-section p {
-      font-size: 10pt;
-      margin-bottom: 3px;
-    }
-    
-    .cover-footer {
-      padding: 20px 60px;
-      font-size: 10pt;
-      opacity: 0.8;
-    }
+    ${getStandardCoverPageCSS()}
     
     /* Content Pages */
     .page {

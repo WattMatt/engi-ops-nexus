@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const corsHeaders = {
@@ -261,46 +261,20 @@ function generateHTML(
 
   // ===== COVER PAGE =====
   if (options.includeCoverPage) {
-    coverPageHtml = `
-      <div class="cover-page">
-        <div class="cover-gradient-bar"></div>
-        <div class="cover-content">
-          ${companySettings?.company_logo_url ? `
-            <img src="${companySettings.company_logo_url}" class="cover-logo" alt="Company Logo" />
-          ` : ''}
-          
-          <div class="cover-divider"></div>
-          
-          <h1 class="cover-title">TENANT TRACKER REPORT</h1>
-          <p class="cover-subtitle">Tenant Schedule & Progress Analysis</p>
-          
-          <h2 class="cover-project">${project.name}</h2>
-          <p class="cover-number">${project.project_number}</p>
-          
-          <div class="cover-details">
-            <div class="cover-section">
-              <h3>PREPARED FOR:</h3>
-              ${contactData ? `
-                <p>${contactData.organization_name || ''}</p>
-                <p>${contactData.contact_person_name || ''}</p>
-                ${contactData.phone ? `<p>Tel: ${contactData.phone}</p>` : ''}
-                ${contactData.email ? `<p>${contactData.email}</p>` : ''}
-              ` : '<p>-</p>'}
-            </div>
-            <div class="cover-section">
-              <h3>PREPARED BY:</h3>
-              <p>${companySettings?.company_name || 'Watson Mattheus Engineering'}</p>
-              ${companySettings?.address_line1 ? `<p>${companySettings.address_line1}</p>` : ''}
-              ${companySettings?.phone ? `<p>Tel: ${companySettings.phone}</p>` : ''}
-            </div>
-          </div>
-          
-          <div class="cover-footer">
-            <span>Date: ${reportDate}</span>
-          </div>
-        </div>
-      </div>
-    `;
+    coverPageHtml = generateStandardCoverPage({
+      reportTitle: 'TENANT TRACKER REPORT',
+      reportSubtitle: 'Tenant Schedule & Progress Analysis',
+      projectName: project.name,
+      projectNumber: project.project_number,
+      companyLogoUrl: companySettings?.company_logo_url || undefined,
+      companyName: companySettings?.company_name || undefined,
+      companyAddress: companySettings?.address_line1 || undefined,
+      companyPhone: companySettings?.phone || undefined,
+      contactName: contactData?.contact_person_name || undefined,
+      contactOrganization: contactData?.organization_name || undefined,
+      contactPhone: contactData?.phone || undefined,
+      contactEmail: contactData?.email || undefined,
+    });
   }
 
   // ===== KPI PAGE =====
@@ -489,104 +463,7 @@ function generateHTML(
       font-size: 10pt;
     }
     
-    /* ===== COVER PAGE ===== */
-    .cover-page {
-      page-break-after: always;
-      min-height: 100vh;
-      position: relative;
-      padding: 40px 50px;
-    }
-    
-    .cover-gradient-bar {
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 10px;
-      background: linear-gradient(to bottom, #1e3a5f 0%, #3b82f6 100%);
-    }
-    
-    .cover-content {
-      text-align: center;
-      padding-top: 30px;
-    }
-    
-    .cover-logo {
-      max-width: 160px;
-      max-height: 70px;
-      object-fit: contain;
-      margin-bottom: 20px;
-    }
-    
-    .cover-divider {
-      width: 100px;
-      height: 2px;
-      background: #3b82f6;
-      margin: 20px auto;
-    }
-    
-    .cover-title {
-      font-size: 28pt;
-      font-weight: bold;
-      color: #1e3a5f;
-      margin-bottom: 10px;
-    }
-    
-    .cover-subtitle {
-      font-size: 14pt;
-      color: #64748b;
-      margin-bottom: 40px;
-    }
-    
-    .cover-project {
-      font-size: 22pt;
-      font-weight: bold;
-      color: #3b82f6;
-      margin-bottom: 5px;
-    }
-    
-    .cover-number {
-      font-size: 14pt;
-      color: #64748b;
-      margin-bottom: 60px;
-    }
-    
-    .cover-details {
-      display: flex;
-      justify-content: space-between;
-      text-align: left;
-      margin-top: 80px;
-      padding-top: 20px;
-      border-top: 1px solid #e2e8f0;
-    }
-    
-    .cover-section {
-      width: 45%;
-    }
-    
-    .cover-section h3 {
-      font-size: 10pt;
-      font-weight: bold;
-      color: #3b82f6;
-      margin-bottom: 8px;
-    }
-    
-    .cover-section p {
-      font-size: 9pt;
-      color: #374151;
-      margin-bottom: 4px;
-    }
-    
-    .cover-footer {
-      position: absolute;
-      bottom: 30px;
-      left: 50px;
-      right: 50px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 9pt;
-      color: #64748b;
-    }
+    ${getStandardCoverPageCSS()}
     
     /* ===== KPI PAGE ===== */
     .kpi-page {

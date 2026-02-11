@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -177,110 +177,7 @@ function generateHTML(data: CableSchedulePdfRequest): string {
       margin: 15mm 10mm 15mm 10mm;
     }
     
-    @page :first {
-      margin-top: 0;
-      margin-bottom: 0;
-    }
-    
-    /* Cover Page */
-    .cover-page {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      background: linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #3b82f6 100%);
-      color: white;
-      padding: 0;
-      margin: 0 -10mm;
-      width: calc(100% + 20mm);
-      page-break-after: always;
-    }
-    
-    .cover-header {
-      padding: 15mm 20mm;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-    
-    .cover-logo {
-      max-height: 20mm;
-      max-width: 60mm;
-    }
-    
-    .cover-badge {
-      background: rgba(255,255,255,0.15);
-      padding: 3mm 6mm;
-      border-radius: 2mm;
-      font-size: 10pt;
-      font-weight: 500;
-    }
-    
-    .cover-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 0 20mm;
-    }
-    
-    .cover-title {
-      font-size: 32pt;
-      font-weight: 700;
-      margin-bottom: 5mm;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-    }
-    
-    .cover-subtitle {
-      font-size: 16pt;
-      font-weight: 300;
-      opacity: 0.9;
-      margin-bottom: 15mm;
-    }
-    
-    .cover-project-name {
-      font-size: 22pt;
-      font-weight: 500;
-      padding: 6mm 10mm;
-      background: rgba(255,255,255,0.1);
-      border-left: 4px solid #60a5fa;
-      margin-bottom: 10mm;
-    }
-    
-    .cover-meta {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10mm;
-      margin-top: 10mm;
-    }
-    
-    .cover-meta-item {
-      background: rgba(255,255,255,0.08);
-      padding: 5mm;
-      border-radius: 2mm;
-    }
-    
-    .cover-meta-label {
-      font-size: 8pt;
-      opacity: 0.7;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 2mm;
-    }
-    
-    .cover-meta-value {
-      font-size: 12pt;
-      font-weight: 500;
-    }
-    
-    .cover-footer {
-      padding: 10mm 20mm;
-      background: rgba(0,0,0,0.2);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 9pt;
-    }
+    ${getStandardCoverPageCSS()}
     
     /* Content Sections */
     .section {
@@ -434,47 +331,15 @@ function generateHTML(data: CableSchedulePdfRequest): string {
 <body>
 
 <!-- Cover Page -->
-<div class="cover-page">
-  <div class="cover-header">
-    ${data.companyLogoBase64 ? `<img src="${data.companyLogoBase64}" class="cover-logo" alt="Company Logo" />` : '<div></div>'}
-    <div class="cover-badge">Rev ${data.revision}</div>
-  </div>
-  
-  <div class="cover-content">
-    <div class="cover-title">Cable Schedule</div>
-    <div class="cover-subtitle">Comprehensive Cable Installation Report</div>
-    
-    <div class="cover-project-name">${data.scheduleName}</div>
-    
-    <div class="cover-meta">
-      ${data.projectNumber ? `
-      <div class="cover-meta-item">
-        <div class="cover-meta-label">Project Number</div>
-        <div class="cover-meta-value">${data.projectNumber}</div>
-      </div>
-      ` : ''}
-      <div class="cover-meta-item">
-        <div class="cover-meta-label">Schedule Number</div>
-        <div class="cover-meta-value">${data.scheduleNumber}</div>
-      </div>
-      <div class="cover-meta-item">
-        <div class="cover-meta-label">Total Cables</div>
-        <div class="cover-meta-value">${sortedEntries.length}</div>
-      </div>
-      ${data.clientName ? `
-      <div class="cover-meta-item">
-        <div class="cover-meta-label">Client</div>
-        <div class="cover-meta-value">${data.clientName}</div>
-      </div>
-      ` : ''}
-    </div>
-  </div>
-  
-  <div class="cover-footer">
-    <div class="compliance-note">Designed in accordance with SANS 10142-1</div>
-    <div>Generated: ${currentDate}</div>
-  </div>
-</div>
+${generateStandardCoverPage({
+  reportTitle: 'CABLE SCHEDULE',
+  reportSubtitle: 'Comprehensive Cable Installation Report',
+  projectName: data.scheduleName,
+  projectNumber: data.projectNumber || undefined,
+  revision: data.revision,
+  contactName: data.contactName || undefined,
+  contactOrganization: data.clientName || undefined,
+})}
 
 <!-- Summary Page -->
 <div class="section">

@@ -3,7 +3,7 @@
  * Creates a professional PDF certificate for cable schedule verification
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
@@ -145,7 +145,7 @@ serve(async (req) => {
 
     const pdfPayload = buildPDFShiftPayload(html, {
       reportTitle: 'Verification Certificate',
-      projectName: data.project?.name || 'Project',
+      projectName: project?.name || 'Project',
     });
 
     const pdfResponse = await fetch("https://api.pdfshift.io/v3/convert/pdf", {

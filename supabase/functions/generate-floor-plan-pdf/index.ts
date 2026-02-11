@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -191,47 +191,7 @@ function generateHTML(data: FloorPlanPdfRequest): string {
       page-break-after: avoid;
     }
     
-    /* Cover Page */
-    .cover-page {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      padding: 40mm 20mm;
-      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-      color: white;
-      min-height: 100vh;
-    }
-    
-    .cover-title {
-      font-size: 28pt;
-      font-weight: 700;
-      margin-bottom: 8mm;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-    }
-    
-    .cover-subtitle {
-      font-size: 14pt;
-      font-weight: 300;
-      margin-bottom: 20mm;
-      opacity: 0.9;
-    }
-    
-    .cover-project {
-      font-size: 20pt;
-      font-weight: 500;
-      margin-bottom: 30mm;
-      padding: 8mm 16mm;
-      background: rgba(255,255,255,0.15);
-      border-radius: 4px;
-    }
-    
-    .cover-date {
-      font-size: 11pt;
-      opacity: 0.8;
-    }
+    ${getStandardCoverPageCSS()}
     
     /* Content Sections */
     .section {
@@ -372,12 +332,11 @@ function generateHTML(data: FloorPlanPdfRequest): string {
 <body>
 
 <!-- Cover Page -->
-<div class="page cover-page">
-  <div class="cover-title">Floor Plan Report</div>
-  <div class="cover-subtitle">Electrical Markup Documentation</div>
-  <div class="cover-project">${projectName}</div>
-  <div class="cover-date">Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-</div>
+${generateStandardCoverPage({
+  reportTitle: 'FLOOR PLAN REPORT',
+  reportSubtitle: 'Electrical Markup Documentation',
+  projectName: projectName,
+})}
 
 <!-- Summary Page -->
 <div class="page">
