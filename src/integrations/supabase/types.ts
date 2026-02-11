@@ -3816,6 +3816,115 @@ export type Database = {
           },
         ]
       }
+      db_legend_cards: {
+        Row: {
+          addendum_no: string | null
+          address: string | null
+          card_date: string | null
+          circuits: Json
+          coc_no: string | null
+          contactors: Json
+          created_at: string
+          db_name: string
+          dol_reg_no: string | null
+          email: string | null
+          fed_from: string | null
+          feeding_breaker_id: string | null
+          feeding_system_info: string | null
+          id: string
+          phone: string | null
+          project_id: string
+          reviewer_notes: string | null
+          section_name: string | null
+          status: string
+          submitted_at: string | null
+          submitted_by_email: string | null
+          submitted_by_name: string | null
+          submitted_to_contact_id: string | null
+          tel_number: string | null
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          addendum_no?: string | null
+          address?: string | null
+          card_date?: string | null
+          circuits?: Json
+          coc_no?: string | null
+          contactors?: Json
+          created_at?: string
+          db_name?: string
+          dol_reg_no?: string | null
+          email?: string | null
+          fed_from?: string | null
+          feeding_breaker_id?: string | null
+          feeding_system_info?: string | null
+          id?: string
+          phone?: string | null
+          project_id: string
+          reviewer_notes?: string | null
+          section_name?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by_email?: string | null
+          submitted_by_name?: string | null
+          submitted_to_contact_id?: string | null
+          tel_number?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          addendum_no?: string | null
+          address?: string | null
+          card_date?: string | null
+          circuits?: Json
+          coc_no?: string | null
+          contactors?: Json
+          created_at?: string
+          db_name?: string
+          dol_reg_no?: string | null
+          email?: string | null
+          fed_from?: string | null
+          feeding_breaker_id?: string | null
+          feeding_system_info?: string | null
+          id?: string
+          phone?: string | null
+          project_id?: string
+          reviewer_notes?: string | null
+          section_name?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by_email?: string | null
+          submitted_by_name?: string | null
+          submitted_to_contact_id?: string | null
+          tel_number?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "db_legend_cards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "db_legend_cards_submitted_to_contact_id_fkey"
+            columns: ["submitted_to_contact_id"]
+            isOneToOne: false
+            referencedRelation: "project_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "db_legend_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       db_sizing_rules: {
         Row: {
           category: string
