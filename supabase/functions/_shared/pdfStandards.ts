@@ -5,41 +5,32 @@
  * 
  * EVERY PDFShift edge function MUST use these helpers to ensure
  * consistent headers, footers, page numbers, and table integrity.
+ * 
+ * PDFShift API uses `header: { source: html }` and `footer: { source: html }`
+ * with variables: {{ page }}, {{ total }}, {{ title }}, {{ url }}, {{ date }}
  */
 
 /**
- * Standard header template for PDFShift.
+ * Standard header HTML for PDFShift.
  * Displays report title (left) and project name (right).
- * Hidden on page 1 (cover page).
+ * Uses {{ page }} variable to hide on cover page (page 1).
  */
-export function getStandardHeaderTemplate(reportTitle: string, projectName: string): string {
-  return `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;">
+export function getStandardHeaderSource(reportTitle: string, projectName: string): string {
+  return `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:5px 15mm 4px 15mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;">
     <span style="font-weight:600;color:#374151;">${escapeHtml(reportTitle)}</span>
     <span>${escapeHtml(projectName)}</span>
-  </div>
-  <style>
-    .pageNumber-1 ~ div { display: none; }
-  </style>
-  <script>
-    // Hide header on cover page (page 1)
-    document.addEventListener('DOMContentLoaded', function() {
-      var pageNum = parseInt(document.querySelector('.pageNumber')?.textContent || '0');
-      if (pageNum <= 1) {
-        document.querySelector('div')?.style.setProperty('visibility', 'hidden');
-      }
-    });
-  </script>`;
+  </div>`;
 }
 
 /**
- * Standard footer template for PDFShift.
+ * Standard footer HTML for PDFShift.
  * Displays report date (left) and automatic Page X of Y (right).
- * Hidden on page 1 (cover page).
+ * Uses PDFShift's {{ page }} and {{ total }} variables for automatic page numbering.
  */
-export function getStandardFooterTemplate(reportDate: string): string {
-  return `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;">
+export function getStandardFooterSource(reportDate: string): string {
+  return `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:4px 15mm 5px 15mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;">
     <span>${escapeHtml(reportDate)}</span>
-    <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+    <span>Page {{ page }} of {{ total }}</span>
   </div>`;
 }
 
@@ -83,10 +74,13 @@ export const LANDSCAPE_MARGINS = {
 /**
  * Build a complete PDFShift API payload with enforced standards.
  * 
+ * Uses PDFShift's native `header` and `footer` objects with `source` property.
+ * See: https://docs.pdfshift.io/docs/header-footer
+ * 
  * Usage:
  * ```typescript
  * import { buildPDFShiftPayload } from '../_shared/pdfStandards.ts';
- * const payload = buildPDFShiftPayload(html, { reportTitle: 'Tenant Tracker', projectName: 'KINGSWALK', reportDate: '10 February 2026' });
+ * const payload = buildPDFShiftPayload(html, { reportTitle: 'Tenant Tracker', projectName: 'KINGSWALK' });
  * ```
  */
 export function buildPDFShiftPayload(
@@ -109,9 +103,14 @@ export function buildPDFShiftPayload(
     landscape: options.landscape || false,
     use_print: options.usePrint !== false,
     margin: margins,
-    displayHeaderFooter: true,
-    headerTemplate: getStandardHeaderTemplate(options.reportTitle, options.projectName),
-    footerTemplate: getStandardFooterTemplate(reportDate),
+    header: {
+      source: getStandardHeaderSource(options.reportTitle, options.projectName),
+      spacing: '5mm',
+    },
+    footer: {
+      source: getStandardFooterSource(reportDate),
+      spacing: '5mm',
+    },
   };
 }
 
