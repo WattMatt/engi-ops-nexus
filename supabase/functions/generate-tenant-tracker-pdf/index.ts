@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const corsHeaders = {
@@ -143,27 +144,18 @@ serve(async (req) => {
     );
 
     // Call PDFShift API
+    const pdfPayload = buildPDFShiftPayload(html, {
+      reportTitle: 'Tenant Tracker Report',
+      projectName: projectData.name,
+    });
+
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${btoa(`api:${PDFSHIFT_API_KEY}`)}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        source: html,
-        landscape: false,
-        format: 'A4',
-        use_print: true,
-        margin: {
-          top: '25mm',
-          right: '15mm',
-          bottom: '22mm',
-          left: '15mm',
-        },
-        displayHeaderFooter: true,
-        headerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;"><span style="font-weight:600;color:#374151;">Tenant Tracker Report</span><span>${projectData.name}</span></div>`,
-        footerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 15mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;"><span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
-      }),
+      body: JSON.stringify(pdfPayload),
     });
 
     if (!pdfResponse.ok) {

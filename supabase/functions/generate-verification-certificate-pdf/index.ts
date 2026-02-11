@@ -3,6 +3,7 @@
  * Creates a professional PDF certificate for cable schedule verification
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { buildPDFShiftPayload } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
@@ -142,21 +143,18 @@ serve(async (req) => {
       );
     }
 
+    const pdfPayload = buildPDFShiftPayload(html, {
+      reportTitle: 'Verification Certificate',
+      projectName: data.project?.name || 'Project',
+    });
+
     const pdfResponse = await fetch("https://api.pdfshift.io/v3/convert/pdf", {
       method: "POST",
       headers: {
         "Authorization": `Basic ${btoa(`api:${pdfshiftApiKey}`)}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        source: html,
-        landscape: false,
-        format: "A4",
-        margin: { top: "25mm", right: "20mm", bottom: "22mm", left: "20mm" },
-        displayHeaderFooter: true,
-        headerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 20mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;"><span style="font-weight:600;color:#374151;">Verification Certificate</span><span>${data.project?.name || 'Project'}</span></div>`,
-        footerTemplate: `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 20mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:4px;"><span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
-      }),
+      body: JSON.stringify(pdfPayload),
     });
 
     if (!pdfResponse.ok) {
