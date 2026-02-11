@@ -14,6 +14,8 @@ import { DBLegendCardSubmitDialog } from "./DBLegendCardSubmitDialog";
 interface DBLegendCardFormProps {
   cardId: string;
   projectId: string;
+  projectName: string;
+  projectNumber: string;
   contractorName: string;
   contractorEmail: string;
   onBack: () => void;
@@ -59,7 +61,7 @@ const emptyContactor = (): Contactor => ({
   name: "", amps: "", controlling: "", kw: "", coil: "", poles: "",
 });
 
-export function DBLegendCardForm({ cardId, projectId, contractorName, contractorEmail, onBack }: DBLegendCardFormProps) {
+export function DBLegendCardForm({ cardId, projectId, projectName, projectNumber, contractorName, contractorEmail, onBack }: DBLegendCardFormProps) {
   const [form, setForm] = useState<CardData | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -206,7 +208,8 @@ export function DBLegendCardForm({ cardId, projectId, contractorName, contractor
       const { data, error } = await supabase.functions.invoke("generate-legend-card-pdf", {
         body: {
           cardId,
-          projectName: "",
+          projectName,
+          projectNumber,
           filename,
         },
       });

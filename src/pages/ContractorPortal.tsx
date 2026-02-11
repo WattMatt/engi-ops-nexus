@@ -420,6 +420,8 @@ export default function ContractorPortal() {
           <TabsContent value="db-legend">
             <ContractorDBLegendCards
               projectId={project.id}
+              projectName={project.name}
+              projectNumber={project.project_number}
               contractorName={activeUserName}
               contractorEmail={activeUserEmail}
             />
