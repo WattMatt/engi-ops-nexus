@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Trash2, Save, Download } from "lucide-react";
 import { toast } from "sonner";
 import { DBLegendCardSubmitDialog } from "./DBLegendCardSubmitDialog";
 
@@ -63,6 +63,7 @@ export function DBLegendCardForm({ cardId, projectId, contractorName, contractor
   const [form, setForm] = useState<CardData | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const { data: card, isLoading } = useQuery({
     queryKey: ["db-legend-card", cardId],
@@ -195,6 +196,43 @@ export function DBLegendCardForm({ cardId, projectId, contractorName, contractor
     onBack();
   };
 
+  const handleDownloadPdf = async () => {
+    if (!form) return;
+    setGeneratingPdf(true);
+    try {
+      // Save first
+      await handleSave();
+      const filename = `${form.db_name.replace(/[^a-zA-Z0-9._-]/g, '_')}_Legend_Card.pdf`;
+      const { data, error } = await supabase.functions.invoke("generate-legend-card-pdf", {
+        body: {
+          cardId,
+          projectName: "",
+          filename,
+        },
+      });
+      if (error) throw error;
+      if (!data?.filePath) throw new Error("No file path returned");
+
+      // Download from storage
+      const { data: blob, error: dlError } = await supabase.storage
+        .from("legend-card-reports")
+        .download(data.filePath);
+      if (dlError) throw dlError;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("PDF downloaded");
+    } catch (err: any) {
+      toast.error("PDF generation failed: " + err.message);
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   if (isLoading || !form) {
     return <p className="text-muted-foreground text-sm p-4">Loading legend card...</p>;
   }
@@ -208,16 +246,21 @@ export function DBLegendCardForm({ cardId, projectId, contractorName, contractor
         <Badge variant={form.status === "approved" ? "default" : form.status === "rejected" ? "destructive" : "secondary"}>
           {form.status.toUpperCase()}
         </Badge>
-        {!isReadOnly && (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4 mr-1" /> {saving ? "Saving..." : "Save Draft"}
-            </Button>
-            <Button size="sm" onClick={() => { handleSave(); setSubmitOpen(true); }}>
-              Submit for Review
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={generatingPdf}>
+            <Download className="h-4 w-4 mr-1" /> {generatingPdf ? "Generating..." : "Download PDF"}
+          </Button>
+          {!isReadOnly && (
+            <>
+              <Button size="sm" variant="outline" onClick={handleSave} disabled={saving}>
+                <Save className="h-4 w-4 mr-1" /> {saving ? "Saving..." : "Save Draft"}
+              </Button>
+              <Button size="sm" onClick={() => { handleSave(); setSubmitOpen(true); }}>
+                Submit for Review
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {form.reviewer_notes && (
