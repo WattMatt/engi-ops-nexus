@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS, getStandardCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -200,10 +200,7 @@ function generateHTML(data: RequestBody): string {
 <head>
   <meta charset="UTF-8">
   <style>
-    @page {
-      size: A4;
-      margin: 20mm 15mm;
-    }
+    ${getStandardCSS()}
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 11px;
@@ -212,10 +209,6 @@ function generateHTML(data: RequestBody): string {
       margin: 0;
       padding: 0;
     }
-    /* PDF Standards: table integrity */
-    thead { display: table-header-group !important; }
-    tfoot { display: table-footer-group !important; }
-    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
     ${getStandardCoverPageCSS()}
     .page-header {
       font-size: 16px;

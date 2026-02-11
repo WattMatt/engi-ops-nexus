@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS, getStandardCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -160,21 +160,18 @@ function generateHTML(data: CableSchedulePdfRequest): string {
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     
     * {
-      margin: 0;
-      padding: 0;
       box-sizing: border-box;
     }
+    
+    ${getStandardCSS({ landscape: true })}
     
     body {
       font-family: 'Roboto', sans-serif;
       font-size: 8pt;
       line-height: 1.4;
       color: #1f2937;
-    }
-    
-    @page {
-      size: A4 landscape;
-      margin: 15mm 10mm 15mm 10mm;
+      margin: 0;
+      padding: 0;
     }
     
     ${getStandardCoverPageCSS()}

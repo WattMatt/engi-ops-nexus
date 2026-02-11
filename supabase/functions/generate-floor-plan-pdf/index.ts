@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS, getStandardCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -157,29 +157,18 @@ function generateHTML(data: FloorPlanPdfRequest): string {
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     
     * {
-      margin: 0;
-      padding: 0;
       box-sizing: border-box;
     }
+    
+    ${getStandardCSS()}
     
     body {
       font-family: 'Roboto', sans-serif;
       font-size: 9pt;
       line-height: 1.4;
       color: #1f2937;
-    }
-    
-    /* Page rules */
-    @page {
-      size: A4 portrait;
-      margin: 15mm 12mm 20mm 12mm;
-      @bottom-center {
-        content: element(footer);
-      }
-    }
-    
-    @page :first {
-      @bottom-center { content: none; }
+      margin: 0;
+      padding: 0;
     }
     
     .page {
@@ -287,19 +276,7 @@ function generateHTML(data: FloorPlanPdfRequest): string {
       display: block;
     }
     
-    /* Footer */
-    .running-footer {
-      position: running(footer);
-      font-size: 8pt;
-      color: #6b7280;
-      text-align: center;
-      padding-top: 2mm;
-      border-top: 1px solid #e5e7eb;
-    }
-    
-    .running-footer span {
-      margin: 0 4mm;
-    }
+    /* Legacy footer removed - using PDFShift native header/footer via buildPDFShiftPayload */
     
     /* Summary Cards */
     .summary-grid {
@@ -520,12 +497,7 @@ ${layoutImageBase64 ? `
 </div>
 ` : ''}
 
-<!-- Running Footer -->
-<div class="running-footer">
-  <span>${projectName}</span>
-  <span>|</span>
-  <span>Generated: ${new Date().toLocaleDateString('en-GB')}</span>
-</div>
+<!-- Footer handled by PDFShift native header/footer -->
 
 </body>
 </html>`;
