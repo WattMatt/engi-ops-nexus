@@ -8229,6 +8229,56 @@ export type Database = {
         }
         Relationships: []
       }
+      legend_card_reports: {
+        Row: {
+          card_id: string
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          report_name: string
+          revision: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          report_name: string
+          revision?: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          report_name?: string
+          revision?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legend_card_reports_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "db_legend_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lighting_analysis_settings: {
         Row: {
           analysis_period_years: number | null
