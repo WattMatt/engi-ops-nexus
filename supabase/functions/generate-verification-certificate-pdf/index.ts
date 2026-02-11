@@ -3,7 +3,7 @@
  * Creates a professional PDF certificate for cable schedule verification
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { buildPDFShiftPayload, generateStandardCoverPage } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS, getStandardCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
@@ -254,6 +254,8 @@ function buildCertificateHTML(data: {
 <head>
   <meta charset="UTF-8">
   <style>
+    ${getStandardCSS()}
+    ${getStandardCoverPageCSS()}
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
       color: #1a1a1a;

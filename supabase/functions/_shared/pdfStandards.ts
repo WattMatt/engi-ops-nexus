@@ -243,9 +243,24 @@ export function getStandardFooterSource(reportDate: string): string {
  * Standard CSS rules that MUST be injected into every PDFShift HTML document.
  * Ensures table integrity, header repetition, and row-break protection.
  */
-export function getStandardCSS(): string {
+export function getStandardCSS(options?: { landscape?: boolean; format?: string }): string {
+  const isLandscape = options?.landscape || false;
+  const format = options?.format || 'A4';
+  const margins = isLandscape ? LANDSCAPE_MARGINS : STANDARD_MARGINS;
+  
   return `
     /* === PDF STANDARDS (from _shared/pdfStandards.ts) === */
+    @page {
+      size: ${format}${isLandscape ? ' landscape' : ''};
+      margin: ${margins.top} ${margins.right} ${margins.bottom} ${margins.left};
+    }
+    
+    /* Cover page gets zero margin so it fills the page */
+    @page :first {
+      margin: 0;
+    }
+    
+    /* Table integrity */
     thead { display: table-header-group !important; }
     tfoot { display: table-footer-group !important; }
     tr { page-break-inside: avoid !important; break-inside: avoid !important; }
@@ -319,12 +334,12 @@ export function buildPDFShiftPayload(
     margin: margins,
     header: {
       source: getStandardHeaderSource(options.reportTitle, options.projectName),
-      spacing: '5mm',
+      height: '20mm',
       start_at: 2,
     },
     footer: {
       source: getStandardFooterSource(reportDate),
-      spacing: '5mm',
+      height: '15mm',
       start_at: 2,
     },
   };

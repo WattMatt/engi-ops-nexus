@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS, getStandardCSS } from "../_shared/pdfStandards.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
@@ -624,23 +624,17 @@ function generateHTML(
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { box-sizing: border-box; }
     
-    /* PDF Standards: table integrity */
-    thead { display: table-header-group !important; }
-    tfoot { display: table-footer-group !important; }
-    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    ${getStandardCSS()}
     
     body {
       font-family: 'Inter', sans-serif;
       font-size: 9pt;
       line-height: 1.5;
       color: #1f2937;
-    }
-    
-    @page {
-      size: A4;
       margin: 0;
+      padding: 0;
     }
     
     ${getStandardCoverPageCSS()}

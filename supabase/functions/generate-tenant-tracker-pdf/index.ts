@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS } from "../_shared/pdfStandards.ts";
+import { buildPDFShiftPayload, generateStandardCoverPage, getStandardCoverPageCSS, getStandardCSS } from "../_shared/pdfStandards.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const corsHeaders = {
@@ -445,15 +445,10 @@ function generateHTML(
   <meta charset="utf-8">
   <title>Tenant Tracker Report - ${project.name}</title>
   <style>
-    @page {
-      size: A4;
-      margin: 0;
-    }
+    ${getStandardCSS()}
     
     * {
       box-sizing: border-box;
-      margin: 0;
-      padding: 0;
     }
     
     body {
@@ -461,6 +456,8 @@ function generateHTML(
       line-height: 1.5;
       color: #1f2937;
       font-size: 10pt;
+      margin: 0;
+      padding: 0;
     }
     
     ${getStandardCoverPageCSS()}
