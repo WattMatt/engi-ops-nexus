@@ -16,10 +16,11 @@
  * Uses {{ page }} variable to hide on cover page (page 1).
  */
 export function getStandardHeaderSource(reportTitle: string, projectName: string): string {
-  return `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:5px 15mm 4px 15mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;">
+  return `<div id="hdr" style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:5px 15mm 4px 15mm;display:flex;justify-content:space-between;align-items:center;color:#6b7280;border-bottom:1px solid #e5e7eb;">
     <span style="font-weight:600;color:#374151;">${escapeHtml(reportTitle)}</span>
     <span>${escapeHtml(projectName)}</span>
-  </div>`;
+  </div>
+  <script>var p='{{ page }}';if(parseInt(p)===1){document.getElementById('hdr').style.display='none';}</script>`;
 }
 
 /**
@@ -28,10 +29,11 @@ export function getStandardHeaderSource(reportTitle: string, projectName: string
  * Uses PDFShift's {{ page }} and {{ total }} variables for automatic page numbering.
  */
 export function getStandardFooterSource(reportDate: string): string {
-  return `<div style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:4px 15mm 5px 15mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;">
+  return `<div id="ftr" style="width:100%;font-size:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:4px 15mm 5px 15mm;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;border-top:1px solid #e5e7eb;">
     <span>${escapeHtml(reportDate)}</span>
     <span>Page {{ page }} of {{ total }}</span>
-  </div>`;
+  </div>
+  <script>var p='{{ page }}';if(parseInt(p)===1){document.getElementById('ftr').style.display='none';}</script>`;
 }
 
 /**
