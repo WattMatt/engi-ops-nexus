@@ -21,6 +21,7 @@ import {
   Settings,
   Package,
   ClipboardCheck,
+  CircuitBoard,
   LucideIcon,
 } from "lucide-react";
 
@@ -63,6 +64,7 @@ export const fieldOperationsItems: NavItem[] = [
   { title: "Final Accounts", url: "/dashboard/final-accounts", icon: FileCheck },
   { title: "Procurement", url: "/dashboard/procurement", icon: Package },
   { title: "Inspections", url: "/dashboard/inspections", icon: ClipboardCheck },
+  { title: "DB Legend Cards", url: "/dashboard/db-legend-cards", icon: CircuitBoard },
 ];
 
 // AI & Reports Workspace - AI tools and reporting
