@@ -80,6 +80,7 @@ const DrawingRegister = lazy(() => import("./pages/DrawingRegister"));
 const HandoverDocuments = lazy(() => import("./pages/HandoverDocuments"));
 const Procurement = lazy(() => import("./pages/Procurement"));
 const Inspections = lazy(() => import("./pages/Inspections"));
+const DBLegendCards = lazy(() => import("./pages/DBLegendCards"));
 
 // External/client portals
 const HandoverClient = lazy(() => import("./pages/HandoverClient"));
@@ -218,6 +219,7 @@ const queryClient = new QueryClient({
                     <Route path="drawings" element={<DrawingRegister />} />
                     <Route path="procurement" element={<Procurement />} />
                     <Route path="inspections" element={<Inspections />} />
+                    <Route path="db-legend-cards" element={<DBLegendCards />} />
                   </Route>
                   
                   {/* External review */}
