@@ -1,22 +1,25 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Download, Check, X, Eye, Search, CircuitBoard, History } from "lucide-react";
+import { Download, Check, X, Search, CircuitBoard, History, ChevronDown, ChevronRight } from "lucide-react";
 import { LegendCardReportHistory } from "./LegendCardReportHistory";
+import { LegendCardDetailViewer } from "./LegendCardDetailViewer";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface DBLegendCardsDashboardProps {
   projectId: string;
@@ -35,7 +38,11 @@ interface LegendCard {
   address: string | null;
   coc_no: string | null;
   section_name: string | null;
+  fed_from: string | null;
+  feeding_breaker_id: string | null;
+  feeding_system_info: string | null;
   circuits: any[];
+  contactors: any[];
   reviewer_notes: string | null;
 }
 
@@ -56,12 +63,17 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [reviewCard, setReviewCard] = useState<LegendCard | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
   const [processing, setProcessing] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
   const [historyCard, setHistoryCard] = useState<LegendCard | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // For single-card review
+  const [reviewCard, setReviewCard] = useState<LegendCard | null>(null);
+  // For batch review
+  const [batchAction, setBatchAction] = useState<"approve" | "reject" | null>(null);
 
   const { data: cards = [], isLoading } = useQuery({
     queryKey: ["db-legend-cards-dashboard", projectId, statusFilter],
@@ -94,6 +106,18 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
     },
   });
 
+  const { data: project } = useQuery({
+    queryKey: ["project-name", projectId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("projects")
+        .select("name")
+        .eq("id", projectId)
+        .single();
+      return data;
+    },
+  });
+
   const tenantMap = new Map(tenants.map((t) => [t.id, t]));
 
   const filteredCards = cards.filter((card) => {
@@ -108,18 +132,64 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
     );
   });
 
+  const submittedFiltered = filteredCards.filter((c) => c.status === "submitted");
+
+  const toggleExpand = (id: string) => {
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === submittedFiltered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(submittedFiltered.map((c) => c.id)));
+    }
+  };
+
+  const sendNotification = async (card: LegendCard, action: "approved" | "rejected", notes: string) => {
+    if (!card.submitted_by_email) return;
+    try {
+      await supabase.functions.invoke("send-legend-card-notification", {
+        body: {
+          recipientEmail: card.submitted_by_email,
+          recipientName: card.submitted_by_name || "Contractor",
+          dbName: card.db_name,
+          projectName: project?.name || "",
+          action,
+          reviewerNotes: notes || undefined,
+        },
+      });
+    } catch (err) {
+      console.error("Failed to send notification:", err);
+    }
+  };
+
   const handleReview = async (action: "approve" | "reject") => {
     if (!reviewCard) return;
     setProcessing(true);
     try {
+      const newStatus = action === "approve" ? "approved" : "rejected";
       const { error } = await supabase
         .from("db_legend_cards" as any)
-        .update({
-          status: action === "approve" ? "approved" : "rejected",
-          reviewer_notes: reviewNotes || null,
-        } as any)
+        .update({ status: newStatus, reviewer_notes: reviewNotes || null } as any)
         .eq("id", reviewCard.id);
       if (error) throw error;
+
+      // Send email notification
+      await sendNotification(reviewCard, newStatus as "approved" | "rejected", reviewNotes);
+
       toast.success(`Legend card ${action === "approve" ? "approved" : "rejected"}`);
       setReviewCard(null);
       setReviewNotes("");
@@ -127,6 +197,42 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
       queryClient.invalidateQueries({ queryKey: ["db-legend-cards-dashboard"] });
     } catch (err: any) {
       toast.error("Failed: " + err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleBatchReview = async (action: "approve" | "reject") => {
+    setProcessing(true);
+    const newStatus = action === "approve" ? "approved" : "rejected";
+    const targetCards = cards.filter((c) => selectedIds.has(c.id) && c.status === "submitted");
+    let successCount = 0;
+
+    try {
+      for (const card of targetCards) {
+        const { error } = await supabase
+          .from("db_legend_cards" as any)
+          .update({ status: newStatus, reviewer_notes: reviewNotes || null } as any)
+          .eq("id", card.id);
+        if (error) {
+          console.error(`Failed to update ${card.db_name}:`, error);
+          continue;
+        }
+        successCount++;
+        // Stagger email sends (500ms delay) to respect Resend rate limits
+        await sendNotification(card, newStatus as "approved" | "rejected", reviewNotes);
+        if (targetCards.indexOf(card) < targetCards.length - 1) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+
+      toast.success(`${successCount} card(s) ${action === "approve" ? "approved" : "rejected"}`);
+      setSelectedIds(new Set());
+      setBatchAction(null);
+      setReviewNotes("");
+      queryClient.invalidateQueries({ queryKey: ["db-legend-cards-dashboard"] });
+    } catch (err: any) {
+      toast.error("Batch action failed: " + err.message);
     } finally {
       setProcessing(false);
     }
@@ -197,8 +303,8 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 items-center">
+      {/* Filters + Batch Actions */}
+      <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -220,7 +326,30 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
             <SelectItem value="draft">Draft</SelectItem>
           </SelectContent>
         </Select>
+
+        {selectedIds.size > 0 && (
+          <div className="flex gap-2 items-center ml-auto">
+            <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+            <Button size="sm" variant="default" onClick={() => { setBatchAction("approve"); setReviewNotes(""); }}>
+              <Check className="h-4 w-4 mr-1" /> Approve All
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => { setBatchAction("reject"); setReviewNotes(""); }}>
+              <X className="h-4 w-4 mr-1" /> Reject All
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Select All for submitted */}
+      {submittedFiltered.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={selectedIds.size === submittedFiltered.length && submittedFiltered.length > 0}
+            onCheckedChange={toggleSelectAll}
+          />
+          <span className="text-xs text-muted-foreground">Select all submitted ({submittedFiltered.length})</span>
+        </div>
+      )}
 
       {/* Cards List */}
       {isLoading ? (
@@ -238,66 +367,81 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
             const tenant = card.tenant_id ? tenantMap.get(card.tenant_id) : null;
             const cfg = statusConfig[card.status] || statusConfig.draft;
             const circuitCount = Array.isArray(card.circuits) ? card.circuits.length : 0;
+            const isExpanded = expandedCards.has(card.id);
 
             return (
               <Card key={card.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className="font-semibold">{card.db_name}</span>
-                        <Badge variant={cfg.variant}>{cfg.label}</Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        {tenant && <span>{tenant.shop_number} — {tenant.shop_name}</span>}
-                        {card.section_name && <span>Section: {card.section_name}</span>}
-                        <span>{circuitCount} circuits</span>
-                        {card.submitted_by_name && (
-                          <span>By: {card.submitted_by_name}</span>
-                        )}
-                        {card.submitted_at && (
-                          <span>Submitted: {format(new Date(card.submitted_at), "dd MMM yyyy")}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setHistoryCard(card)}
-                        title="Report history"
-                      >
-                        <History className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownloadPdf(card)}
-                        disabled={generatingPdf === card.id}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        {generatingPdf === card.id ? "..." : "PDF"}
-                      </Button>
+                  <Collapsible open={isExpanded} onOpenChange={() => toggleExpand(card.id)}>
+                    <div className="flex items-center gap-3">
+                      {/* Checkbox for submitted cards */}
                       {card.status === "submitted" && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => { setReviewCard(card); setReviewAction("approve"); setReviewNotes(""); }}
-                          >
-                            <Check className="h-4 w-4 mr-1" /> Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => { setReviewCard(card); setReviewAction("reject"); setReviewNotes(""); }}
-                          >
-                            <X className="h-4 w-4 mr-1" /> Reject
-                          </Button>
-                        </>
+                        <Checkbox
+                          checked={selectedIds.has(card.id)}
+                          onCheckedChange={() => toggleSelect(card.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       )}
+
+                      {/* Expand trigger */}
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </Button>
+                      </CollapsibleTrigger>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="font-semibold">{card.db_name}</span>
+                          <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          {tenant && <span>{tenant.shop_number} — {tenant.shop_name}</span>}
+                          {card.section_name && <span>Section: {card.section_name}</span>}
+                          <span>{circuitCount} circuits</span>
+                          {card.submitted_by_name && <span>By: {card.submitted_by_name}</span>}
+                          {card.submitted_at && <span>Submitted: {format(new Date(card.submitted_at), "dd MMM yyyy")}</span>}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" variant="ghost" onClick={() => setHistoryCard(card)} title="Report history">
+                          <History className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadPdf(card)}
+                          disabled={generatingPdf === card.id}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          {generatingPdf === card.id ? "..." : "PDF"}
+                        </Button>
+                        {card.status === "submitted" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => { setReviewCard(card); setReviewAction("approve"); setReviewNotes(""); }}
+                            >
+                              <Check className="h-4 w-4 mr-1" /> Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => { setReviewCard(card); setReviewAction("reject"); setReviewNotes(""); }}
+                            >
+                              <X className="h-4 w-4 mr-1" /> Reject
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
+
+                    <CollapsibleContent>
+                      <LegendCardDetailViewer card={card} />
+                    </CollapsibleContent>
+                  </Collapsible>
                 </CardContent>
               </Card>
             );
@@ -305,7 +449,7 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
         </div>
       )}
 
-      {/* Review Dialog */}
+      {/* Single Review Dialog */}
       <Dialog open={!!reviewCard && !!reviewAction} onOpenChange={() => { setReviewCard(null); setReviewAction(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -314,6 +458,11 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
             </DialogTitle>
             <DialogDescription>
               {reviewCard?.db_name} — {reviewCard?.tenant_id ? tenantMap.get(reviewCard.tenant_id)?.shop_number : ""}
+              {reviewCard?.submitted_by_email && (
+                <span className="block text-xs mt-1">
+                  Notification will be sent to {reviewCard.submitted_by_email}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -336,6 +485,40 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
               disabled={processing || (reviewAction === "reject" && !reviewNotes.trim())}
             >
               {processing ? "Processing..." : reviewAction === "approve" ? "Approve" : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Review Dialog */}
+      <Dialog open={!!batchAction} onOpenChange={() => setBatchAction(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Batch {batchAction === "approve" ? "Approve" : "Reject"} — {selectedIds.size} Card(s)
+            </DialogTitle>
+            <DialogDescription>
+              This will {batchAction} all selected submitted cards and send email notifications to each contractor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Notes {batchAction === "reject" ? "(required)" : "(optional)"}</Label>
+              <Textarea
+                placeholder={batchAction === "reject" ? "Please explain why these cards are being rejected..." : "Optional notes applied to all..."}
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchAction(null)}>Cancel</Button>
+            <Button
+              variant={batchAction === "approve" ? "default" : "destructive"}
+              onClick={() => batchAction && handleBatchReview(batchAction)}
+              disabled={processing || (batchAction === "reject" && !reviewNotes.trim())}
+            >
+              {processing ? "Processing..." : `${batchAction === "approve" ? "Approve" : "Reject"} ${selectedIds.size} Card(s)`}
             </Button>
           </DialogFooter>
         </DialogContent>
