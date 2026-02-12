@@ -6,7 +6,8 @@ import { MetricCard, MetricGrid } from "@/components/common/MetricCard";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Key, Users, AlertTriangle, Clock, RefreshCw, BarChart3 } from "lucide-react";
+import { Key, Users, AlertTriangle, Clock, RefreshCw, BarChart3, RotateCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { formatDistanceToNow, format, addDays, differenceInDays, subDays, startOfWeek, eachDayOfInterval, eachWeekOfInterval } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -141,6 +142,22 @@ export function ContractorPortalWidget() {
     onError: () => toast.error("Failed to extend token"),
   });
 
+  // Toggle auto-renew mutation
+  const toggleAutoRenewMutation = useMutation({
+    mutationFn: async ({ id, auto_renew }: { id: string; auto_renew: boolean }) => {
+      const { error } = await supabase
+        .from("contractor_portal_tokens")
+        .update({ auto_renew })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["contractor-portal-active-tokens"] });
+      toast.success(`Auto-renew ${variables.auto_renew ? "enabled" : "disabled"}`);
+    },
+    onError: () => toast.error("Failed to update auto-renew"),
+  });
+
   return (
     <Card className="mb-6">
       <CardHeader className="pb-3">
@@ -250,57 +267,83 @@ export function ContractorPortalWidget() {
           )}
         </div>
 
-        {/* Expiring tokens table */}
-        {expiringTokens.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              Expiring Links
-            </h4>
+        {/* Active tokens with auto-renew toggles */}
+        <div>
+          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+            <RotateCw className="h-4 w-4 text-muted-foreground" />
+            Active Tokens — Auto-Renew
+          </h4>
+          {activeTokens.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active tokens</p>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Contractor</TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Expires</TableHead>
+                  <TableHead className="text-center">Auto-Renew</TableHead>
                   <TableHead className="w-[100px]">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expiringTokens.map((token) => {
-                  const daysLeft = differenceInDays(new Date(token.expires_at), new Date());
-                  return (
-                    <TableRow key={token.id}>
-                      <TableCell className="font-medium">{token.contractor_name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {token.short_code}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className={daysLeft <= 3 ? "text-destructive font-medium" : "text-yellow-600 dark:text-yellow-400"}>
-                          {daysLeft} day{daysLeft !== 1 ? "s" : ""} left
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          disabled={extendMutation.isPending}
-                          onClick={() => extendMutation.mutate({ id: token.id, expires_at: token.expires_at })}
-                        >
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          +30 days
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {activeTokens
+                  .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime())
+                  .map((token) => {
+                    const daysLeft = differenceInDays(new Date(token.expires_at), new Date());
+                    const isExpiring = daysLeft <= 14;
+                    return (
+                      <TableRow key={token.id}>
+                        <TableCell className="font-medium">{token.contractor_name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {token.short_code}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className={
+                            daysLeft <= 3
+                              ? "text-destructive font-medium"
+                              : isExpiring
+                              ? "text-yellow-600 dark:text-yellow-400"
+                              : "text-muted-foreground"
+                          }>
+                            {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={token.auto_renew ?? true}
+                            onCheckedChange={(checked) =>
+                              toggleAutoRenewMutation.mutate({ id: token.id, auto_renew: checked })
+                            }
+                            disabled={toggleAutoRenewMutation.isPending}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {isExpiring && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              disabled={extendMutation.isPending}
+                              onClick={() => extendMutation.mutate({ id: token.id, expires_at: token.expires_at })}
+                            >
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              +30 days
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
               </TableBody>
             </Table>
-          </div>
-        )}
+          )}
+          <p className="text-xs text-muted-foreground mt-2">
+            Tokens with auto-renew enabled are automatically extended by 30 days when they are 7 days from expiring.
+          </p>
+        </div>
 
         {/* Recent visitors table */}
         <div>

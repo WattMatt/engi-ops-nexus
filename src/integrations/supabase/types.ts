@@ -3099,6 +3099,7 @@ export type Database = {
         Row: {
           access_count: number | null
           accessed_at: string | null
+          auto_renew: boolean
           company_name: string | null
           contractor_email: string
           contractor_name: string
@@ -3109,13 +3110,16 @@ export type Database = {
           expires_at: string
           id: string
           is_active: boolean | null
+          last_renewed_at: string | null
           project_id: string
+          renewal_count: number
           short_code: string | null
           token: string
         }
         Insert: {
           access_count?: number | null
           accessed_at?: string | null
+          auto_renew?: boolean
           company_name?: string | null
           contractor_email: string
           contractor_name: string
@@ -3126,13 +3130,16 @@ export type Database = {
           expires_at: string
           id?: string
           is_active?: boolean | null
+          last_renewed_at?: string | null
           project_id: string
+          renewal_count?: number
           short_code?: string | null
           token?: string
         }
         Update: {
           access_count?: number | null
           accessed_at?: string | null
+          auto_renew?: boolean
           company_name?: string | null
           contractor_email?: string
           contractor_name?: string
@@ -3143,7 +3150,9 @@ export type Database = {
           expires_at?: string
           id?: string
           is_active?: boolean | null
+          last_renewed_at?: string | null
           project_id?: string
+          renewal_count?: number
           short_code?: string | null
           token?: string
         }
