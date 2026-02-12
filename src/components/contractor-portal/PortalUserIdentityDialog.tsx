@@ -71,20 +71,29 @@ export function PortalUserIdentityDialog({
     },
   });
 
-  // Check for existing identity on mount
+  // Check for existing identity on mount - expires after 24 hours
   useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const identity = JSON.parse(stored) as PortalUserIdentity;
-        if (identity.name && identity.email) {
+        const storedTime = new Date(identity.timestamp).getTime();
+        const now = Date.now();
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+
+        // Only reuse identity if less than 24 hours old
+        if (identity.name && identity.email && (now - storedTime) < twentyFourHours) {
           onIdentityConfirmed(identity);
           setHasChecked(true);
           return;
         }
+
+        // Expired — clear it
+        localStorage.removeItem(storageKey);
       }
     } catch (e) {
       console.error('Failed to parse stored identity:', e);
+      localStorage.removeItem(storageKey);
     }
     
     // No valid identity found, show dialog
