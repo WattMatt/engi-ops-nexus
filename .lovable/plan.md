@@ -1,63 +1,73 @@
 
 
-# Contractor Portal Activity Widget for Admin Dashboard
+# Fix Contractor Portal Access: Add Anonymous RLS Policies
 
-## Overview
-Add a new dashboard widget to the admin area that provides a real-time summary of contractor portal activity, including active tokens, recent visitors, and expiring links. This gives administrators instant visibility into portal health without needing to navigate elsewhere.
+## Problem
+Contractors access the portal as anonymous (unauthenticated) users via token-based links. Most project data tables only have RLS policies for `authenticated` users, causing "Access Denied" or empty screens on the Drawings, Cable Status, Floor Plan, Procurement, RFIs, and Inspections tabs.
 
-## What You'll See
+## Solution
 
-The widget will appear on the admin Projects page and will display three sections:
+### Step 1: Create Security Helper Function
 
-1. **Summary metrics bar** -- Active tokens count, total visitors, and links expiring soon
-2. **Expiring links alert** -- Tokens expiring within 14 days, with quick "Extend" action
-3. **Recent visitors list** -- Last 10 portal visitors showing name, email, which link they used, and when
-
----
-
-## Technical Plan
-
-### New file: `src/components/admin/ContractorPortalWidget.tsx`
-
-A self-contained card component that:
-- Queries `contractor_portal_tokens` for active/expiring token stats
-- Queries `portal_user_sessions` for recent visitor activity (last 10 sessions)
-- Displays 3 MetricCards: Active Tokens, Total Visitors (last 30 days), Expiring Soon (next 14 days)
-- Shows a compact table of expiring tokens with a one-click "Extend 30 days" button
-- Shows a compact table of recent visitors with name, email, contractor link name, and timestamp
-- Uses existing UI components (Card, MetricCard, Table, Button, Badge)
-- Uses `@tanstack/react-query` for data fetching, matching existing patterns
-
-### Modified file: `src/pages/ProjectSelect.tsx`
-
-- Import and render `ContractorPortalWidget` at the top of the admin projects view (only when `isAdminRoute` is true)
-- Conditionally shown so it only appears in the `/admin` context, not the regular project selector
-
-### Modified file: `src/components/AdminSidebar.tsx`
-
-- No changes needed -- the widget is embedded in the existing admin projects page
-
-### Data queries used
+Create `has_valid_contractor_portal_token(p_project_id UUID)` -- a `SECURITY DEFINER` function that checks whether an active, non-expired contractor token exists for the given project. This mirrors the existing `has_valid_client_portal_token` pattern.
 
 ```sql
--- Active tokens count
-SELECT count(*) FROM contractor_portal_tokens 
-WHERE is_active = true AND expires_at > now();
-
--- Expiring within 14 days
-SELECT * FROM contractor_portal_tokens 
-WHERE is_active = true AND expires_at BETWEEN now() AND now() + interval '14 days';
-
--- Recent visitors (last 10)
-SELECT pus.*, cpt.contractor_name, cpt.short_code 
-FROM portal_user_sessions pus
-JOIN contractor_portal_tokens cpt ON pus.token_id = cpt.id
-ORDER BY pus.created_at DESC LIMIT 10;
+CREATE OR REPLACE FUNCTION has_valid_contractor_portal_token(p_project_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM contractor_portal_tokens
+    WHERE project_id = p_project_id
+      AND is_active = true
+      AND expires_at > now()
+  );
+$$;
 ```
 
-### Extend token action
-The "Extend 30 days" button will update `expires_at` by adding 30 days to the current expiry date, using the existing Supabase client.
+### Step 2: Add Anon SELECT Policies
 
-### No database changes required
-All data already exists in `contractor_portal_tokens` and `portal_user_sessions` tables. Existing RLS policies for authenticated admin users already grant access.
+Add `FOR SELECT TO anon` policies on each blocked table:
+
+| Table | Policy Condition |
+|-------|-----------------|
+| `project_drawings` | `has_valid_contractor_portal_token(project_id)` |
+| `drawing_revisions` | Join through `project_drawings` to get `project_id` |
+| `cable_schedules` | `has_valid_contractor_portal_token(project_id)` |
+| `floor_plan_zones` | `has_valid_contractor_portal_token(project_id)` |
+| `procurement_items` | `has_valid_contractor_portal_token(project_id)` |
+| `rfis` | `has_valid_contractor_portal_token(project_id)` |
+| `inspection_requests` | `has_valid_contractor_portal_token(project_id)` |
+
+For `drawing_revisions` (which has `drawing_id` not `project_id`):
+```sql
+CREATE POLICY "Anon contractor view revisions"
+ON drawing_revisions FOR SELECT TO anon
+USING (
+  EXISTS (
+    SELECT 1 FROM project_drawings pd
+    WHERE pd.id = drawing_revisions.drawing_id
+      AND has_valid_contractor_portal_token(pd.project_id)
+  )
+);
+```
+
+### Step 3: Improve Error Diagnostics in Portal UI
+
+Update `ContractorPortal.tsx` and `PortalRedirect.tsx` error screens to include:
+- The short code used and timestamp
+- A "Copy Error Details" button so contractors can paste diagnostic info when reporting issues
+- Clearer error messages distinguishing between expired, revoked, and not-found links
+
+### Security Notes
+- All new policies are **SELECT-only** -- contractors cannot modify data
+- Access is scoped to projects with at least one active, non-expired token
+- The helper function uses `SECURITY DEFINER` to avoid RLS recursion
+- No sensitive user/auth data is exposed
+
+### Files Changed
+- **Database migration** (new): 1 function + 7 RLS policies
+- `src/pages/ContractorPortal.tsx`: Enhanced error display with diagnostics
+- `src/pages/PortalRedirect.tsx`: Enhanced error display with diagnostics
 
