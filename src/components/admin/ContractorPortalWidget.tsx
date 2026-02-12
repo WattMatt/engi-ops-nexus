@@ -6,12 +6,70 @@ import { MetricCard, MetricGrid } from "@/components/common/MetricCard";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Key, Users, AlertTriangle, Clock, RefreshCw } from "lucide-react";
+import { Key, Users, AlertTriangle, Clock, RefreshCw, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDistanceToNow, format, addDays, differenceInDays } from "date-fns";
+import { formatDistanceToNow, format, addDays, differenceInDays, subDays, startOfWeek, eachDayOfInterval, eachWeekOfInterval } from "date-fns";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+
+type TrendMode = "daily" | "weekly";
+
+function useVisitorTrends(mode: TrendMode) {
+  return useQuery({
+    queryKey: ["contractor-portal-visitor-trends", mode],
+    queryFn: async () => {
+      const daysBack = mode === "daily" ? 30 : 90;
+      const since = subDays(new Date(), daysBack).toISOString();
+
+      const { data, error } = await supabase
+        .from("contractor_portal_access_log")
+        .select("accessed_at")
+        .gte("accessed_at", since)
+        .order("accessed_at", { ascending: true });
+
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
+
+      const now = new Date();
+
+      if (mode === "daily") {
+        const interval = { start: subDays(now, 29), end: now };
+        const days = eachDayOfInterval(interval);
+        const counts = new Map<string, number>();
+        days.forEach((d) => counts.set(format(d, "yyyy-MM-dd"), 0));
+
+        data.forEach((row) => {
+          const key = format(new Date(row.accessed_at), "yyyy-MM-dd");
+          if (counts.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
+        });
+
+        return Array.from(counts.entries()).map(([date, visits]) => ({
+          label: format(new Date(date), "dd MMM"),
+          visits,
+        }));
+      } else {
+        const interval = { start: subDays(now, 89), end: now };
+        const weeks = eachWeekOfInterval(interval, { weekStartsOn: 1 });
+        const counts = new Map<string, number>();
+        weeks.forEach((w) => counts.set(format(w, "yyyy-MM-dd"), 0));
+
+        data.forEach((row) => {
+          const weekStart = startOfWeek(new Date(row.accessed_at), { weekStartsOn: 1 });
+          const key = format(weekStart, "yyyy-MM-dd");
+          if (counts.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
+        });
+
+        return Array.from(counts.entries()).map(([date, visits]) => ({
+          label: format(new Date(date), "dd MMM"),
+          visits,
+        }));
+      }
+    },
+  });
+}
 
 export function ContractorPortalWidget() {
   const queryClient = useQueryClient();
+  const [trendMode, setTrendMode] = useState<TrendMode>("daily");
 
   // Active tokens
   const { data: activeTokens = [] } = useQuery({
@@ -62,6 +120,9 @@ export function ContractorPortalWidget() {
     },
   });
 
+  // Visitor trends
+  const { data: trendData = [], isLoading: trendsLoading } = useVisitorTrends(trendMode);
+
   // Extend token mutation
   const extendMutation = useMutation({
     mutationFn: async (token: { id: string; expires_at: string }) => {
@@ -111,6 +172,83 @@ export function ContractorPortalWidget() {
             description={expiringTokens.length > 0 ? "Within 14 days" : "All tokens healthy"}
           />
         </MetricGrid>
+
+        {/* Visitor Trends Chart */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium flex items-center gap-1.5">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              Visitor Trends
+            </h4>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant={trendMode === "daily" ? "default" : "ghost"}
+                className="h-7 text-xs px-3"
+                onClick={() => setTrendMode("daily")}
+              >
+                Daily
+              </Button>
+              <Button
+                size="sm"
+                variant={trendMode === "weekly" ? "default" : "ghost"}
+                className="h-7 text-xs px-3"
+                onClick={() => setTrendMode("weekly")}
+              >
+                Weekly
+              </Button>
+            </div>
+          </div>
+          {trendsLoading ? (
+            <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+              Loading trends…
+            </div>
+          ) : trendData.length === 0 ? (
+            <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+              No visitor data yet
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={trendData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="portalVisitGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11 }}
+                  className="fill-muted-foreground"
+                  interval={trendMode === "daily" ? 4 : 1}
+                />
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  className="fill-muted-foreground"
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--popover))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    color: "hsl(var(--popover-foreground))",
+                  }}
+                  formatter={(value: number) => [value, "Visits"]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="visits"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  fill="url(#portalVisitGrad)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
 
         {/* Expiring tokens table */}
         {expiringTokens.length > 0 && (
