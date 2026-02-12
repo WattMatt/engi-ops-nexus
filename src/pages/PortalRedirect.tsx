@@ -8,7 +8,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertTriangle, Link2Off, Clock, XCircle, RefreshCw } from "lucide-react";
+import { Loader2, AlertTriangle, Link2Off, Clock, XCircle, RefreshCw, Copy } from "lucide-react";
+import { toast } from "sonner";
 
 type ErrorType = 'NOT_FOUND' | 'EXPIRED' | 'INACTIVE' | 'ERROR';
 
@@ -154,9 +155,25 @@ export default function PortalRedirect() {
               >
                 Request New Link
               </Button>
+              <Button
+                variant="ghost"
+                className="w-full text-xs"
+                onClick={() => {
+                  const details = [
+                    `Error: ${error}`,
+                    `Code: ${code?.toUpperCase() || 'None'}`,
+                    `Time: ${new Date().toISOString()}`,
+                  ].join('\n');
+                  navigator.clipboard.writeText(details);
+                  toast.success('Error details copied to clipboard');
+                }}
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                Copy Error Details
+              </Button>
             </div>
             <p className="text-xs text-center text-muted-foreground">
-              Code: {code?.toUpperCase() || 'None'}
+              Code: {code?.toUpperCase() || 'None'} · {new Date().toLocaleString()}
             </p>
           </CardContent>
         </Card>
