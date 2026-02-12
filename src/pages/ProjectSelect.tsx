@@ -17,6 +17,7 @@ import { ProjectsSidebar, ProjectsSection } from "@/components/projects/Projects
 import { RoadmapReviewContent } from "@/components/projects/RoadmapReviewContent";
 import { GlobalAnalytics } from "@/components/projects/GlobalAnalytics";
 import { cn } from "@/lib/utils";
+import { ContractorPortalWidget } from "@/components/admin/ContractorPortalWidget";
 
 interface Project {
   id: string;
@@ -98,6 +99,7 @@ const ProjectSelect = () => {
       case "projects":
         return (
           <>
+            {isAdminRoute && <ContractorPortalWidget />}
             {loading || roleLoading ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <ProjectSkeleton />
