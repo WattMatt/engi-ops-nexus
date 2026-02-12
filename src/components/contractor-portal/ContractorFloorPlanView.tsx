@@ -1,10 +1,10 @@
 /**
  * Contractor Floor Plan View
  * Read-only floor plan viewer with tenant zone color coding
- * Displays the same markup from the admin tenant tracker
+ * Renders the actual marked-up PDF from storage with zone overlays
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,8 @@ import {
   Clock, 
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +26,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+// Set up the worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface ContractorFloorPlanViewProps {
   projectId: string;
@@ -61,7 +68,8 @@ export function ContractorFloorPlanView({ projectId }: ContractorFloorPlanViewPr
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
-  const [imageDimensions, setImageDimensions] = useState({ width: 800, height: 600 });
+  const [pdfDimensions, setPdfDimensions] = useState({ width: 800, height: 600 });
+  const [pdfLoading, setPdfLoading] = useState(true);
 
   // Fetch floor plan record
   const { data: floorPlanRecord, isLoading: loadingFloorPlan } = useQuery({
@@ -113,6 +121,14 @@ export function ContractorFloorPlanView({ projectId }: ContractorFloorPlanViewPr
     },
   });
 
+  // Build the PDF URL from public storage
+  const pdfUrl = useMemo(() => {
+    const { data } = supabase.storage
+      .from('floor-plans')
+      .getPublicUrl(`${projectId}/base.pdf`);
+    return data.publicUrl;
+  }, [projectId]);
+
   // Get tenant status
   const getTenantStatus = (tenantId: string) => {
     const tenant = tenants.find(t => t.id === tenantId);
@@ -147,18 +163,18 @@ export function ContractorFloorPlanView({ projectId }: ContractorFloorPlanViewPr
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.25, 0.5));
   const handleResetZoom = () => setZoomLevel(1);
 
-  // Handle image load to get dimensions
-  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+  // Handle PDF page render to get dimensions
+  const handlePageRenderSuccess = (page: any) => {
+    setPdfDimensions({ width: page.width, height: page.height });
+    setPdfLoading(false);
   };
 
   // Render SVG overlay
-  const renderZonesOverlay = () => {
+  const renderZonesOverlay = (dims: { width: number; height: number }) => {
     return (
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox={`0 0 ${imageDimensions.width} ${imageDimensions.height}`}
+        viewBox={`0 0 ${dims.width} ${dims.height}`}
         preserveAspectRatio="xMidYMid meet"
       >
         {zones.map((zone) => {
@@ -196,6 +212,38 @@ export function ContractorFloorPlanView({ projectId }: ContractorFloorPlanViewPr
     );
   };
 
+  // Render PDF with zones overlay
+  const renderFloorPlanContent = (maxWidth?: number) => {
+    const width = maxWidth || Math.min(window.innerWidth * 0.85, 1200);
+    
+    return (
+      <div className="relative inline-block">
+        <Document
+          file={pdfUrl}
+          onLoadError={(error) => {
+            console.error("Error loading floor plan PDF:", error);
+            setPdfLoading(false);
+          }}
+          loading={
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">Loading floor plan...</span>
+            </div>
+          }
+        >
+          <Page
+            pageNumber={1}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+            width={width}
+            onRenderSuccess={handlePageRenderSuccess}
+          />
+        </Document>
+        {!pdfLoading && renderZonesOverlay(pdfDimensions)}
+      </div>
+    );
+  };
+
   if (loadingFloorPlan || loadingZones) {
     return (
       <div className="space-y-4">
@@ -217,19 +265,6 @@ export function ContractorFloorPlanView({ projectId }: ContractorFloorPlanViewPr
       </Card>
     );
   }
-
-  // Get composite image URL - already a full public URL
-  const getImageUrl = () => {
-    const url = floorPlanRecord.composite_image_url!;
-    // If already a full URL, use directly; otherwise construct from storage
-    if (url.startsWith('http')) {
-      return url;
-    }
-    const { data } = supabase.storage
-      .from('floor-plans')
-      .getPublicUrl(url);
-    return data.publicUrl;
-  };
 
   const assignedZones = zones.filter(z => z.tenant_id && z.tenant_name);
 
@@ -273,13 +308,7 @@ export function ContractorFloorPlanView({ projectId }: ContractorFloorPlanViewPr
               className="relative inline-block min-w-full"
               style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}
             >
-              <img
-                src={getImageUrl()}
-                alt="Floor Plan"
-                className="max-w-full h-auto"
-                onLoad={handleImageLoad}
-              />
-              {renderZonesOverlay()}
+              {renderFloorPlanContent()}
             </div>
           </div>
         </CardContent>
@@ -388,12 +417,7 @@ export function ContractorFloorPlanView({ projectId }: ContractorFloorPlanViewPr
             <DialogTitle>Floor Plan</DialogTitle>
           </DialogHeader>
           <div className="relative flex-1 overflow-auto">
-            <img
-              src={getImageUrl()}
-              alt="Floor Plan"
-              className="max-w-full h-auto"
-            />
-            {renderZonesOverlay()}
+            {renderFloorPlanContent(window.innerWidth * 0.9)}
           </div>
         </DialogContent>
       </Dialog>
