@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map, CircuitBoard } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map, CircuitBoard, Copy, CheckCheck } from "lucide-react";
+import { toast } from "sonner";
 import { ContractorDrawingRegister } from "@/components/contractor-portal/ContractorDrawingRegister";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
 import { ContractorRFISection } from "@/components/contractor-portal/ContractorRFISection";
@@ -235,9 +236,26 @@ export default function ContractorPortal() {
                 <Mail className="h-4 w-4 mr-2" />
                 Request New Access Link
               </Button>
+              <Button
+                variant="ghost"
+                className="w-full text-xs"
+                onClick={() => {
+                  const details = [
+                    `Error: ${accessError?.code || 'UNKNOWN'}`,
+                    `Token: ${token ? token.slice(0, 8) + '...' : 'None'}`,
+                    `Time: ${new Date().toISOString()}`,
+                    `Details: ${accessError?.details || 'N/A'}`,
+                  ].join('\n');
+                  navigator.clipboard.writeText(details);
+                  toast.success('Error details copied to clipboard');
+                }}
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                Copy Error Details
+              </Button>
             </div>
             <p className="text-xs text-center text-muted-foreground mt-4">
-              Error Code: {accessError?.code || 'UNKNOWN'}
+              Error: {accessError?.code || 'UNKNOWN'} · {new Date().toLocaleString()}
             </p>
           </CardContent>
         </Card>
