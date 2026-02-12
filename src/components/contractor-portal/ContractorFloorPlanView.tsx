@@ -218,12 +218,16 @@ export function ContractorFloorPlanView({ projectId }: ContractorFloorPlanViewPr
     );
   }
 
-  // Get composite image URL from storage
+  // Get composite image URL - already a full public URL
   const getImageUrl = () => {
-    // composite_image_url is the storage path
+    const url = floorPlanRecord.composite_image_url!;
+    // If already a full URL, use directly; otherwise construct from storage
+    if (url.startsWith('http')) {
+      return url;
+    }
     const { data } = supabase.storage
       .from('floor-plans')
-      .getPublicUrl(floorPlanRecord.composite_image_url!);
+      .getPublicUrl(url);
     return data.publicUrl;
   };
 
