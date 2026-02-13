@@ -657,3 +657,170 @@ function drawSummaryCard(
   textEl(svg, x + 3, y + 18, line2, { size: 3.5, fill: accentColor, weight: 'bold' });
   textEl(svg, x + 3, y + 24, line3, { size: 2.2, fill: TEXT_MUTED });
 }
+
+// ─── 6. Variance Comparison Bar Chart ───
+
+export interface VarianceComparisonData {
+  categories: {
+    code: string;
+    description: string;
+    originalBudget: number;
+    anticipatedFinal: number;
+  }[];
+}
+
+export function buildVarianceComparisonSvg(data: VarianceComparisonData): SVGSVGElement {
+  const svg = createSvgElement();
+  el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
+  addPageHeader(svg, 'VARIANCE COMPARISON');
+
+  const items = data.categories.filter(c => c.originalBudget > 0 || c.anticipatedFinal > 0);
+
+  if (items.length === 0) {
+    textEl(svg, PAGE_W / 2, PAGE_H / 2, 'No budget data available', {
+      size: 5, fill: TEXT_MUTED, anchor: 'middle',
+    });
+    return svg;
+  }
+
+  // Chart area dimensions
+  const chartLeft = MARGIN_LEFT + 30; // room for Y-axis labels
+  const chartRight = PAGE_W - MARGIN_RIGHT - 5;
+  const chartTop = 38;
+  const chartBottom = 200;
+  const chartW = chartRight - chartLeft;
+  const chartH = chartBottom - chartTop;
+
+  // Find max value for scale
+  const maxVal = Math.max(...items.flatMap(c => [c.originalBudget, c.anticipatedFinal]));
+  const niceMax = Math.ceil(maxVal / 1000000) * 1000000 || 1;
+
+  // Y-axis gridlines and labels
+  const gridSteps = 5;
+  for (let i = 0; i <= gridSteps; i++) {
+    const yPos = chartBottom - (i / gridSteps) * chartH;
+    const val = (i / gridSteps) * niceMax;
+
+    // Gridline
+    el('line', {
+      x1: chartLeft, y1: yPos,
+      x2: chartRight, y2: yPos,
+      stroke: BORDER_COLOR, 'stroke-width': 0.2,
+      'stroke-dasharray': i === 0 ? 'none' : '1,1',
+    }, svg);
+
+    // Y-axis label
+    const label = val >= 1000000
+      ? `R${(val / 1000000).toFixed(1)}M`
+      : val >= 1000
+        ? `R${(val / 1000).toFixed(0)}K`
+        : `R${val.toFixed(0)}`;
+    textEl(svg, chartLeft - 2, yPos + 1, label, {
+      size: 2.2, fill: TEXT_MUTED, anchor: 'end',
+    });
+  }
+
+  // Bar groups
+  const groupW = chartW / items.length;
+  const barW = Math.min(groupW * 0.3, 12); // each bar width
+  const gap = 1.5; // gap between paired bars
+
+  const ORIGINAL_COLOR = BRAND_ACCENT;
+  const ANTICIPATED_COLOR = '#7c3aed';
+
+  items.forEach((cat, i) => {
+    const groupCenterX = chartLeft + groupW * i + groupW / 2;
+
+    // Original Budget bar
+    const origH = (cat.originalBudget / niceMax) * chartH;
+    const origX = groupCenterX - barW - gap / 2;
+    el('rect', {
+      x: origX, y: chartBottom - origH,
+      width: barW, height: Math.max(origH, 0.5),
+      fill: ORIGINAL_COLOR, rx: 0.8,
+    }, svg);
+
+    // Anticipated Final bar
+    const antH = (cat.anticipatedFinal / niceMax) * chartH;
+    const antX = groupCenterX + gap / 2;
+    el('rect', {
+      x: antX, y: chartBottom - antH,
+      width: barW, height: Math.max(antH, 0.5),
+      fill: ANTICIPATED_COLOR, rx: 0.8,
+    }, svg);
+
+    // Value labels on top of bars (if tall enough)
+    if (origH > 8) {
+      textEl(svg, origX + barW / 2, chartBottom - origH - 2, formatCompact(cat.originalBudget), {
+        size: 2, fill: ORIGINAL_COLOR, anchor: 'middle', weight: 'bold',
+      });
+    }
+    if (antH > 8) {
+      textEl(svg, antX + barW / 2, chartBottom - antH - 2, formatCompact(cat.anticipatedFinal), {
+        size: 2, fill: ANTICIPATED_COLOR, anchor: 'middle', weight: 'bold',
+      });
+    }
+
+    // X-axis label (category code)
+    textEl(svg, groupCenterX, chartBottom + 5, cat.code, {
+      size: 2.5, fill: TEXT_DARK, anchor: 'middle', weight: 'bold',
+    });
+  });
+
+  // Legend
+  const legendY = chartBottom + 14;
+  el('rect', { x: chartLeft, y: legendY - 3, width: 4, height: 4, rx: 0.8, fill: ORIGINAL_COLOR }, svg);
+  textEl(svg, chartLeft + 6, legendY, 'Original Budget', { size: 2.8, fill: TEXT_DARK });
+  el('rect', { x: chartLeft + 40, y: legendY - 3, width: 4, height: 4, rx: 0.8, fill: ANTICIPATED_COLOR }, svg);
+  textEl(svg, chartLeft + 46, legendY, 'Anticipated Final', { size: 2.8, fill: TEXT_DARK });
+
+  // Variance detail table below chart
+  const tableY = legendY + 12;
+  const tableCols = [
+    { label: 'CATEGORY', x: 0, w: 55 },
+    { label: 'ORIGINAL BUDGET', x: 55, w: 35 },
+    { label: 'ANTICIPATED FINAL', x: 90, w: 35 },
+    { label: 'VARIANCE', x: 125, w: 27 },
+    { label: '% CHANGE', x: 152, w: 28 },
+  ];
+  const tRowH = 6.5;
+
+  // Table header
+  el('rect', { x: MARGIN_LEFT, y: tableY, width: CONTENT_W, height: tRowH, fill: BRAND_PRIMARY }, svg);
+  tableCols.forEach(c => {
+    textEl(svg, MARGIN_LEFT + c.x + 2, tableY + 4.5, c.label, { size: 2.4, fill: WHITE, weight: 'bold' });
+  });
+
+  let ty = tableY + tRowH;
+  items.forEach((cat, i) => {
+    if (ty + tRowH > PAGE_H - 20) return; // safety
+
+    const bg = i % 2 === 0 ? WHITE : BRAND_LIGHT;
+    el('rect', { x: MARGIN_LEFT, y: ty, width: CONTENT_W, height: tRowH, fill: bg, stroke: BORDER_COLOR, 'stroke-width': 0.1 }, svg);
+
+    const desc = `${cat.code} — ${cat.description}`;
+    const truncDesc = desc.length > 35 ? desc.slice(0, 32) + '...' : desc;
+    textEl(svg, MARGIN_LEFT + 2, ty + 4.5, truncDesc, { size: 2.6 });
+    textEl(svg, MARGIN_LEFT + tableCols[1].x + tableCols[1].w - 2, ty + 4.5, formatCurrency(cat.originalBudget), { size: 2.6, anchor: 'end' });
+    textEl(svg, MARGIN_LEFT + tableCols[2].x + tableCols[2].w - 2, ty + 4.5, formatCurrency(cat.anticipatedFinal), { size: 2.6, anchor: 'end' });
+
+    const variance = cat.anticipatedFinal - cat.originalBudget;
+    const vColor = variance >= 0 ? SUCCESS_COLOR : DANGER_COLOR;
+    const vSign = variance >= 0 ? '+' : '-';
+    textEl(svg, MARGIN_LEFT + tableCols[3].x + tableCols[3].w - 2, ty + 4.5, `${vSign}${formatCurrency(variance)}`, { size: 2.6, anchor: 'end', fill: vColor });
+
+    const pctChange = cat.originalBudget > 0 ? ((variance / cat.originalBudget) * 100).toFixed(1) : '—';
+    const pctStr = typeof pctChange === 'string' && pctChange !== '—' ? `${variance >= 0 ? '+' : ''}${pctChange}%` : pctChange;
+    textEl(svg, MARGIN_LEFT + tableCols[4].x + tableCols[4].w - 2, ty + 4.5, pctStr, { size: 2.6, anchor: 'end', fill: vColor });
+
+    ty += tRowH;
+  });
+
+  return svg;
+}
+
+function formatCompact(val: number): string {
+  if (val >= 1000000) return `R${(val / 1000000).toFixed(1)}M`;
+  if (val >= 1000) return `R${(val / 1000).toFixed(0)}K`;
+  return `R${val.toFixed(0)}`;
+}
