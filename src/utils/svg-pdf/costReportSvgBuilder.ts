@@ -90,6 +90,23 @@ export interface VariationsData {
   totalAmount: number;
 }
 
+export interface VariationLineItem {
+  line_number: number;
+  description: string;
+  quantity: number | null;
+  rate: number | null;
+  amount: number;
+  comments?: string;
+}
+
+export interface VariationSheetData {
+  code: string;
+  description: string;
+  amount: number;
+  isCredit: boolean;
+  lineItems: VariationLineItem[];
+}
+
 // ─── Shared helpers ───
 
 function createSvgElement(): SVGSVGElement {
@@ -562,6 +579,119 @@ function createNewVariationsPage(pages: SVGSVGElement[]): SVGSVGElement {
   addPageHeader(svg, pages.length === 0 ? 'VARIATIONS' : 'VARIATIONS (cont.)');
   pages.push(svg);
   return svg;
+}
+
+// ─── 4b. Variation Sheets (one per variation with line items) ───
+
+export function buildVariationSheetsSvg(variations: VariationSheetData[]): SVGSVGElement[] {
+  const pages: SVGSVGElement[] = [];
+
+  variations.forEach((v) => {
+    const svg = createSvgElement();
+    el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
+    addPageHeader(svg, 'VARIATION SHEET');
+    pages.push(svg);
+
+    let y = 30;
+
+    // Variation header card
+    el('rect', { x: MARGIN_LEFT, y, width: CONTENT_W, height: 20, rx: 2, fill: BRAND_LIGHT, stroke: BORDER_COLOR, 'stroke-width': 0.3 }, svg);
+    
+    // Code badge
+    const badgeBg = v.isCredit ? '#fee2e2' : '#dcfce7';
+    const badgeFg = v.isCredit ? DANGER_COLOR : SUCCESS_COLOR;
+    el('rect', { x: MARGIN_LEFT + 3, y: y + 3, width: 16, height: 5, rx: 1, fill: badgeBg }, svg);
+    textEl(svg, MARGIN_LEFT + 11, y + 6.5, v.code, { size: 2.8, fill: badgeFg, weight: 'bold', anchor: 'middle' });
+
+    // Type label
+    const typeLabel = v.isCredit ? 'CREDIT' : 'ADDITION';
+    el('rect', { x: MARGIN_LEFT + 21, y: y + 3, width: 14, height: 5, rx: 1, fill: v.isCredit ? '#fef2f2' : '#f0fdf4' }, svg);
+    textEl(svg, MARGIN_LEFT + 28, y + 6.5, typeLabel, { size: 2.2, fill: badgeFg, weight: 'bold', anchor: 'middle' });
+
+    // Description (auto-scale)
+    const descText = v.description;
+    const descMaxW = CONTENT_W - 10;
+    const descSize = 4;
+    const descEstW = descText.length * descSize * 0.5;
+    const finalDescSize = descEstW > descMaxW ? Math.max(3, descMaxW / (descText.length * 0.5)) : descSize;
+    textEl(svg, MARGIN_LEFT + 3, y + 14, descText, { size: finalDescSize, fill: TEXT_DARK, weight: 'bold' });
+
+    // Amount on the right
+    const amtText = formatCurrency(v.amount);
+    const amtColor = v.isCredit ? DANGER_COLOR : SUCCESS_COLOR;
+    textEl(svg, MARGIN_LEFT + CONTENT_W - 3, y + 14, amtText, { size: 4, fill: amtColor, weight: 'bold', anchor: 'end' });
+
+    y += 24;
+
+    // Line items table
+    if (v.lineItems.length > 0) {
+      const cols = [
+        { label: '#', x: 0, w: 10 },
+        { label: 'DESCRIPTION', x: 10, w: 80 },
+        { label: 'QTY', x: 90, w: 20 },
+        { label: 'RATE', x: 110, w: 30 },
+        { label: 'AMOUNT', x: 140, w: 40 },
+      ];
+      const rowH = 7;
+
+      // Table header
+      el('rect', { x: MARGIN_LEFT, y, width: CONTENT_W, height: rowH, fill: BRAND_PRIMARY }, svg);
+      cols.forEach(c => {
+        const anchor = (c.label === 'QTY' || c.label === 'RATE' || c.label === 'AMOUNT') ? 'end' : undefined;
+        const xPos = anchor === 'end' ? MARGIN_LEFT + c.x + c.w - 2 : MARGIN_LEFT + c.x + 2;
+        textEl(svg, xPos, y + 5, c.label, { size: 2.6, fill: WHITE, weight: 'bold', anchor });
+      });
+      y += rowH;
+
+      // Line item rows
+      v.lineItems.forEach((item, i) => {
+        if (y + rowH > MAX_Y) {
+          // New page for overflow
+          const newSvg = createSvgElement();
+          el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, newSvg);
+          addPageHeader(newSvg, `VARIATION SHEET — ${v.code} (cont.)`);
+          pages.push(newSvg);
+          // Re-assign parent for subsequent elements — but SVG elements are already appended
+          // We need to use the new svg for remaining items
+          y = 30;
+          el('rect', { x: MARGIN_LEFT, y, width: CONTENT_W, height: rowH, fill: BRAND_PRIMARY }, newSvg);
+          cols.forEach(c => {
+            const anchor = (c.label === 'QTY' || c.label === 'RATE' || c.label === 'AMOUNT') ? 'end' : undefined;
+            const xPos = anchor === 'end' ? MARGIN_LEFT + c.x + c.w - 2 : MARGIN_LEFT + c.x + 2;
+            textEl(newSvg, xPos, y + 5, c.label, { size: 2.6, fill: WHITE, weight: 'bold', anchor });
+          });
+          y += rowH;
+          // Note: subsequent items need to be added to newSvg, but we can't reassign svg in forEach
+          // For simplicity, we'll handle this with the current page reference pattern
+        }
+
+        const currentSvg = pages[pages.length - 1];
+        const bg = i % 2 === 0 ? WHITE : BRAND_LIGHT;
+        el('rect', { x: MARGIN_LEFT, y, width: CONTENT_W, height: rowH, fill: bg, stroke: BORDER_COLOR, 'stroke-width': 0.1 }, currentSvg);
+
+        textEl(currentSvg, MARGIN_LEFT + cols[0].x + 2, y + 5, String(item.line_number || i + 1), { size: 2.6, fill: TEXT_MUTED });
+        const itemDesc = item.description.length > 50 ? item.description.slice(0, 47) + '...' : item.description;
+        textEl(currentSvg, MARGIN_LEFT + cols[1].x + 2, y + 5, itemDesc, { size: 2.6 });
+        textEl(currentSvg, MARGIN_LEFT + cols[2].x + cols[2].w - 2, y + 5, item.quantity != null ? String(item.quantity) : '-', { size: 2.6, anchor: 'end' });
+        textEl(currentSvg, MARGIN_LEFT + cols[3].x + cols[3].w - 2, y + 5, item.rate != null ? formatCurrency(item.rate) : '-', { size: 2.6, anchor: 'end' });
+        textEl(currentSvg, MARGIN_LEFT + cols[4].x + cols[4].w - 2, y + 5, formatCurrency(item.amount), { size: 2.6, anchor: 'end', fill: v.isCredit ? DANGER_COLOR : TEXT_DARK });
+
+        y += rowH;
+      });
+
+      // Subtotal row
+      const currentSvg = pages[pages.length - 1];
+      y += 1;
+      el('rect', { x: MARGIN_LEFT, y, width: CONTENT_W, height: rowH + 1, fill: v.isCredit ? '#fee2e2' : '#dcfce7', rx: 1 }, currentSvg);
+      textEl(currentSvg, MARGIN_LEFT + 3, y + 5, `TOTAL — ${v.code}`, { size: 3, weight: 'bold' });
+      textEl(currentSvg, MARGIN_LEFT + cols[4].x + cols[4].w - 2, y + 5, formatCurrency(v.amount), { size: 3, weight: 'bold', anchor: 'end', fill: amtColor });
+    } else {
+      // No line items
+      textEl(svg, PAGE_W / 2, y + 10, 'No line items recorded for this variation', { size: 3.5, fill: TEXT_MUTED, anchor: 'middle' });
+    }
+  });
+
+  return pages;
 }
 
 // ─── 5. Budget Distribution Donut Chart ───

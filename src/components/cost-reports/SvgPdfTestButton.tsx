@@ -12,6 +12,7 @@ import {
   buildExecutiveSummarySvg,
   buildCategoryDetailsSvg,
   buildVariationsSvg,
+  buildVariationSheetsSvg,
   buildBudgetDistributionSvg,
   buildVarianceComparisonSvg,
   buildProjectHealthSvg,
@@ -21,6 +22,7 @@ import {
   applyPageFooters,
   type CategoryDetailData,
   type VariationItem,
+  type VariationSheetData,
   type TocEntry,
 } from "@/utils/svg-pdf/costReportSvgBuilder";
 import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
@@ -145,18 +147,35 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
     });
     const categoryPages = buildCategoryDetailsSvg(categoryDetails);
 
-    // Build Variations pages
+    // Build Variations summary pages
     const variationItems: VariationItem[] = vars.map((v: any) => ({
       code: v.code || '',
       description: v.description || '',
       amount: Number(v.amount || 0),
-      status: v.status || 'pending',
+      status: v.is_credit ? 'credit' : 'addition',
       tenantName: v.tenants?.shop_name || v.tenants?.shop_number || '',
     }));
     const variationsPages = buildVariationsSvg({
       items: variationItems,
       totalAmount: variationItems.reduce((s, v) => s + v.amount, 0),
     });
+
+    // Build individual Variation Sheet pages
+    const variationSheets: VariationSheetData[] = vars.map((v: any) => ({
+      code: v.code || '',
+      description: v.description || '',
+      amount: Number(v.amount || 0),
+      isCredit: !!v.is_credit,
+      lineItems: (v.variation_line_items || []).map((li: any) => ({
+        line_number: li.line_number || 0,
+        description: li.description || '',
+        quantity: li.quantity,
+        rate: li.rate,
+        amount: Number(li.amount || 0),
+        comments: li.comments || '',
+      })),
+    }));
+    const variationSheetPages = buildVariationSheetsSvg(variationSheets);
 
     // Build Budget Distribution donut chart page
     const distributionSvg = buildBudgetDistributionSvg({
@@ -217,7 +236,7 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
     });
 
     // Assemble pages WITHOUT TOC first to determine page counts
-    const contentPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages, contractorSvg, ...notesPages];
+    const contentPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages, ...variationSheetPages, contractorSvg, ...notesPages];
     const contentLabels = [
       'Cover Page',
       'Executive Summary',
@@ -226,6 +245,10 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       'Variance Comparison',
       ...categoryPages.map((_, i) => i === 0 ? 'Category Details' : `Categories (p${i + 1})`),
       ...variationsPages.map((_, i) => i === 0 ? 'Variations' : `Variations (p${i + 1})`),
+      ...variationSheetPages.map((_, i) => {
+        const sheetVar = variationSheets[Math.min(i, variationSheets.length - 1)];
+        return `Sheet ${sheetVar?.code || i + 1}`;
+      }),
       'Contractor Summary',
       ...notesPages.map((_, i) => i === 0 ? 'Notes & Assumptions' : `Notes (p${i + 1})`),
     ];
