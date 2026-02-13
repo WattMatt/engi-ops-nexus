@@ -17,9 +17,11 @@ import {
   buildProjectHealthSvg,
   buildNotesPageSvg,
   buildContractorSummarySvg,
+  buildTableOfContentsSvg,
   applyPageFooters,
   type CategoryDetailData,
   type VariationItem,
+  type TocEntry,
 } from "@/utils/svg-pdf/costReportSvgBuilder";
 import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
 import { Separator } from "@/components/ui/separator";
@@ -28,8 +30,6 @@ interface SvgPdfTestButtonProps {
   report: any;
 }
 
-// Dynamic labels built during page generation
-const STATIC_LABELS = ["Cover Page", "Executive Summary"];
 
 export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
   const { toast } = useToast();
@@ -216,10 +216,11 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       ],
     });
 
-    // Assemble all pages and labels
-    const allPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages, contractorSvg, ...notesPages];
-    const labels = [
-      ...STATIC_LABELS,
+    // Assemble pages WITHOUT TOC first to determine page counts
+    const contentPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages, contractorSvg, ...notesPages];
+    const contentLabels = [
+      'Cover Page',
+      'Executive Summary',
       'Project Health',
       'Budget Distribution',
       'Variance Comparison',
@@ -228,6 +229,19 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       'Contractor Summary',
       ...notesPages.map((_, i) => i === 0 ? 'Notes & Assumptions' : `Notes (p${i + 1})`),
     ];
+
+    // Build TOC entries — TOC will be inserted at index 1, so all pages shift +1
+    const tocEntries: TocEntry[] = contentLabels.slice(1).map((label, i) => ({
+      label,
+      pageNumber: i + 3, // +1 for cover, +1 for TOC itself, +1 for 1-indexed
+      indent: label.includes('(p') || label.includes('(cont'),
+    }));
+
+    const tocSvg = buildTableOfContentsSvg(tocEntries);
+
+    // Insert TOC after cover
+    const allPages = [contentPages[0], tocSvg, ...contentPages.slice(1)];
+    const labels = ['Cover Page', 'Table of Contents', ...contentLabels.slice(1)];
     setPageLabels(labels);
 
     // Apply footers with accurate "Page X of Y" after full assembly
