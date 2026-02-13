@@ -1323,3 +1323,92 @@ export function buildContractorSummarySvg(data: ContractorSummaryData): SVGSVGEl
 
   return svg;
 }
+
+// ─── 10. Table of Contents ───
+
+export interface TocEntry {
+  label: string;
+  pageNumber: number;
+  indent?: boolean;
+}
+
+/**
+ * Build a Table of Contents page.
+ * Call AFTER all other pages are assembled and labels/page numbers are known.
+ * The TOC itself will be inserted at index 1 (after cover), so page numbers
+ * passed here should already account for the TOC page being added (+1 offset).
+ */
+export function buildTableOfContentsSvg(entries: TocEntry[]): SVGSVGElement {
+  const svg = createSvgElement();
+  el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
+  addPageHeader(svg, 'TABLE OF CONTENTS');
+
+  let y = 38;
+  const ROW_H = 9;
+  const dotStartX = MARGIN_LEFT + 4;
+  const pageNumX = PAGE_W - MARGIN_RIGHT - 4;
+
+  entries.forEach((entry, i) => {
+    if (y + ROW_H > PAGE_H - 25) return; // safety
+
+    const indent = entry.indent ? 8 : 0;
+    const textX = MARGIN_LEFT + indent + 4;
+
+    // Alternating row bg
+    if (i % 2 === 0) {
+      el('rect', {
+        x: MARGIN_LEFT, y: y - 1,
+        width: CONTENT_W, height: ROW_H,
+        fill: BRAND_LIGHT, rx: 1,
+      }, svg);
+    }
+
+    // Section number circle
+    el('circle', {
+      cx: MARGIN_LEFT + indent + 1.5, cy: y + 3.5,
+      r: 2.5, fill: entry.indent ? BORDER_COLOR : BRAND_PRIMARY,
+    }, svg);
+    textEl(svg, MARGIN_LEFT + indent + 1.5, y + 4.5, String(i + 1), {
+      size: 2, fill: entry.indent ? TEXT_MUTED : WHITE, weight: 'bold', anchor: 'middle',
+    });
+
+    // Section label
+    textEl(svg, textX + 4, y + 4.5, entry.label, {
+      size: entry.indent ? 3 : 3.3,
+      fill: entry.indent ? TEXT_MUTED : TEXT_DARK,
+      weight: entry.indent ? 'normal' : 'bold',
+    });
+
+    // Dot leader
+    const labelEndX = textX + 4 + entry.label.length * 1.8; // rough estimate
+    const dotsStartX = Math.max(labelEndX + 2, MARGIN_LEFT + 100);
+    let dotX = dotsStartX;
+    while (dotX < pageNumX - 8) {
+      el('circle', {
+        cx: dotX, cy: y + 4, r: 0.3, fill: BORDER_COLOR,
+      }, svg);
+      dotX += 2;
+    }
+
+    // Page number
+    textEl(svg, pageNumX, y + 4.5, String(entry.pageNumber), {
+      size: 3.2, fill: BRAND_ACCENT, weight: 'bold', anchor: 'end',
+    });
+
+    y += ROW_H;
+  });
+
+  // Decorative bottom accent
+  if (y < PAGE_H - 40) {
+    el('line', {
+      x1: MARGIN_LEFT + 20, y1: y + 8,
+      x2: PAGE_W - MARGIN_RIGHT - 20, y2: y + 8,
+      stroke: BRAND_ACCENT, 'stroke-width': 0.3,
+    }, svg);
+    textEl(svg, PAGE_W / 2, y + 14, `${entries.length} sections  •  SVG Engine (Beta)`, {
+      size: 2.5, fill: TEXT_MUTED, anchor: 'middle',
+    });
+  }
+
+  return svg;
+}
