@@ -15,6 +15,7 @@ import {
   buildBudgetDistributionSvg,
   buildVarianceComparisonSvg,
   buildProjectHealthSvg,
+  buildNotesPageSvg,
   applyPageFooters,
   type CategoryDetailData,
   type VariationItem,
@@ -194,8 +195,17 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       variationsTotal: variationItems.reduce((s, v) => s + v.amount, 0),
     });
 
+    // Build Notes & Assumptions pages (if notes exist)
+    const notesPages = report.notes
+      ? buildNotesPageSvg({
+          notes: report.notes,
+          projectName: report.project_name,
+          reportDate: report.report_date,
+        })
+      : [];
+
     // Assemble all pages and labels
-    const allPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages];
+    const allPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages, ...notesPages];
     const labels = [
       ...STATIC_LABELS,
       'Project Health',
@@ -203,6 +213,7 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       'Variance Comparison',
       ...categoryPages.map((_, i) => i === 0 ? 'Category Details' : `Categories (p${i + 1})`),
       ...variationsPages.map((_, i) => i === 0 ? 'Variations' : `Variations (p${i + 1})`),
+      ...notesPages.map((_, i) => i === 0 ? 'Notes & Assumptions' : `Notes (p${i + 1})`),
     ];
     setPageLabels(labels);
 

@@ -1061,3 +1061,119 @@ function getRiskDescription(level: string, utilization: number, variancePct: num
   if (level === 'medium') return `Budget utilization at ${utilization.toFixed(1)}% with ${variancePct.toFixed(1)}% variance — monitor closely.`;
   return `Budget utilization at ${utilization.toFixed(1)}% with ${variancePct.toFixed(1)}% variance — project on track.`;
 }
+
+// ─── 8. Notes & Assumptions ───
+
+export interface NotesPageData {
+  notes: string;
+  projectName?: string;
+  reportDate?: string;
+}
+
+export function buildNotesPageSvg(data: NotesPageData): SVGSVGElement[] {
+  const pages: SVGSVGElement[] = [];
+  let svg = createNewNotesPage(pages);
+
+  // Parse notes into lines with word-wrap
+  const rawLines = data.notes.split('\n');
+  const LINE_H = 5;
+  const MAX_CHARS_PER_LINE = 85;
+  const MAX_CONTENT_Y = PAGE_H - MARGIN_BOTTOM - 14;
+  let y = 34;
+
+  // Optional metadata line
+  if (data.projectName || data.reportDate) {
+    const meta = [data.projectName, data.reportDate].filter(Boolean).join('  •  ');
+    textEl(svg, MARGIN_LEFT, y, meta, { size: 2.8, fill: TEXT_MUTED });
+    y += 6;
+  }
+
+  // Decorative top border for content area
+  el('rect', {
+    x: MARGIN_LEFT, y, width: CONTENT_W, height: 0.5,
+    fill: BRAND_ACCENT,
+  }, svg);
+  y += 4;
+
+  for (const rawLine of rawLines) {
+    // Handle empty lines as paragraph breaks
+    if (rawLine.trim() === '') {
+      y += LINE_H * 0.6;
+      if (y > MAX_CONTENT_Y) {
+        svg = createNewNotesPage(pages);
+        y = 34;
+      }
+      continue;
+    }
+
+    // Detect heading-style lines (lines starting with # or ALL CAPS short lines)
+    const isHeading = rawLine.startsWith('#') || (rawLine.length < 50 && rawLine === rawLine.toUpperCase() && rawLine.trim().length > 2);
+    const cleanLine = rawLine.replace(/^#+\s*/, '');
+
+    // Word-wrap long lines
+    const wrappedLines = wrapText(cleanLine, MAX_CHARS_PER_LINE);
+
+    for (let wi = 0; wi < wrappedLines.length; wi++) {
+      if (y > MAX_CONTENT_Y) {
+        svg = createNewNotesPage(pages);
+        y = 34;
+      }
+
+      if (isHeading && wi === 0) {
+        // Heading style with accent bar
+        y += 2;
+        el('rect', {
+          x: MARGIN_LEFT, y: y - 1,
+          width: 1.5, height: LINE_H + 1,
+          fill: BRAND_ACCENT, rx: 0.3,
+        }, svg);
+        textEl(svg, MARGIN_LEFT + 4, y + 3, wrappedLines[wi], {
+          size: 3.8, fill: BRAND_PRIMARY, weight: 'bold',
+        });
+        y += LINE_H + 3;
+      } else {
+        // Detect bullet points
+        const bulletMatch = wrappedLines[wi].match(/^[\-\•\*]\s*(.*)/);
+        if (bulletMatch && wi === 0) {
+          el('circle', {
+            cx: MARGIN_LEFT + 3, cy: y + 2,
+            r: 0.8, fill: BRAND_ACCENT,
+          }, svg);
+          textEl(svg, MARGIN_LEFT + 6, y + 3, bulletMatch[1], { size: 3.2, fill: TEXT_DARK });
+        } else {
+          const indent = bulletMatch ? 6 : 0;
+          const text = bulletMatch ? bulletMatch[1] : wrappedLines[wi];
+          textEl(svg, MARGIN_LEFT + indent, y + 3, text, { size: 3.2, fill: TEXT_DARK });
+        }
+        y += LINE_H;
+      }
+    }
+  }
+
+  return pages;
+}
+
+function createNewNotesPage(pages: SVGSVGElement[]): SVGSVGElement {
+  const svg = createSvgElement();
+  el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
+  addPageHeader(svg, pages.length === 0 ? 'NOTES & ASSUMPTIONS' : 'NOTES & ASSUMPTIONS (cont.)');
+  pages.push(svg);
+  return svg;
+}
+
+function wrapText(text: string, maxChars: number): string[] {
+  if (text.length <= maxChars) return [text];
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    if ((current + ' ' + word).trim().length > maxChars) {
+      if (current) lines.push(current);
+      current = word;
+    } else {
+      current = current ? current + ' ' + word : word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
