@@ -6,7 +6,14 @@ import { Download, Loader2, Eye, EyeOff, Clock, HardDrive, ZoomIn, ZoomOut, Rota
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
-import { buildCoverPageSvg, buildExecutiveSummarySvg } from "@/utils/svg-pdf/costReportSvgBuilder";
+import {
+  buildCoverPageSvg,
+  buildExecutiveSummarySvg,
+  buildCategoryDetailsSvg,
+  buildVariationsSvg,
+  type CategoryDetailData,
+  type VariationItem,
+} from "@/utils/svg-pdf/costReportSvgBuilder";
 import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
 import { Separator } from "@/components/ui/separator";
 
@@ -14,7 +21,8 @@ interface SvgPdfTestButtonProps {
   report: any;
 }
 
-const PAGE_LABELS = ["Cover Page", "Executive Summary"];
+// Dynamic labels built during page generation
+const STATIC_LABELS = ["Cover Page", "Executive Summary"];
 
 export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
   const { toast } = useToast();
@@ -22,6 +30,7 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
   const [showPreview, setShowPreview] = useState(false);
   const [benchmarks, setBenchmarks] = useState<{ timeMs: number; sizeBytes: number } | null>(null);
   const [svgPages, setSvgPages] = useState<SVGSVGElement[]>([]);
+  const [pageLabels, setPageLabels] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [zoom, setZoom] = useState(100);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -80,7 +89,54 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       },
     });
 
-    return [coverSvg, summarySvg];
+    // Build Category Details pages
+    const categoryDetails: CategoryDetailData[] = cats.map((cat: any) => {
+      const items = (cat.cost_line_items || []);
+      const originalBudget = items.reduce((s: number, i: any) => s + Number(i.original_budget || 0), 0);
+      const previousReport = items.reduce((s: number, i: any) => s + Number(i.previous_report || 0), 0);
+      const anticipatedFinal = items.reduce((s: number, i: any) => s + Number(i.anticipated_final || 0), 0);
+      return {
+        code: cat.code,
+        description: cat.description,
+        lineItems: items.map((i: any) => ({
+          description: i.description || '',
+          original_budget: Number(i.original_budget || 0),
+          previous_report: Number(i.previous_report || 0),
+          anticipated_final: Number(i.anticipated_final || 0),
+        })),
+        subtotals: {
+          originalBudget,
+          previousReport,
+          anticipatedFinal,
+          variance: anticipatedFinal - previousReport,
+        },
+      };
+    });
+    const categoryPages = buildCategoryDetailsSvg(categoryDetails);
+
+    // Build Variations pages
+    const variationItems: VariationItem[] = vars.map((v: any) => ({
+      code: v.code || '',
+      description: v.description || '',
+      amount: Number(v.amount || 0),
+      status: v.status || 'pending',
+      tenantName: v.tenants?.shop_name || v.tenants?.shop_number || '',
+    }));
+    const variationsPages = buildVariationsSvg({
+      items: variationItems,
+      totalAmount: variationItems.reduce((s, v) => s + v.amount, 0),
+    });
+
+    // Assemble all pages and labels
+    const allPages = [coverSvg, summarySvg, ...categoryPages, ...variationsPages];
+    const labels = [
+      ...STATIC_LABELS,
+      ...categoryPages.map((_, i) => i === 0 ? 'Category Details' : `Categories (p${i + 1})`),
+      ...variationsPages.map((_, i) => i === 0 ? 'Variations' : `Variations (p${i + 1})`),
+    ];
+    setPageLabels(labels);
+
+    return allPages;
   }, [report]);
 
   const handleGenerate = async () => {
@@ -183,7 +239,7 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
                   SVG Preview
                 </CardTitle>
                 <Badge variant="outline" className="text-xs font-normal">
-                  {PAGE_LABELS[currentPage] || `Page ${currentPage + 1}`}
+                  {pageLabels[currentPage] || `Page ${currentPage + 1}`}
                 </Badge>
               </div>
 
@@ -247,7 +303,7 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
                     }
                   `}
                 >
-                  {PAGE_LABELS[i] || `Page ${i + 1}`}
+                  {pageLabels[i] || `Page ${i + 1}`}
                 </button>
               ))}
             </div>
