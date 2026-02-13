@@ -268,7 +268,29 @@ export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
   const cardY = 135;
   el('rect', { x: 30, y: cardY, width: 150, height: 50, rx: 3, fill: BRAND_LIGHT, stroke: BORDER_COLOR, 'stroke-width': 0.3 }, svg);
   textEl(svg, 40, cardY + 12, 'PROJECT', { size: 3, fill: TEXT_MUTED, weight: 'bold' });
-  textEl(svg, 40, cardY + 20, data.projectName, { size: 5, fill: TEXT_DARK, weight: 'bold' });
+  // Auto-scale/wrap project name to fit within card
+  const cardTextMaxW = 140; // card width (150) minus padding (10)
+  const projNameSize = 5;
+  const projCharW = 0.5; // approximate char width ratio for bold
+  const projEstW = data.projectName.length * projNameSize * projCharW;
+  if (projEstW > cardTextMaxW) {
+    const mid = Math.floor(data.projectName.length / 2);
+    let sp = data.projectName.lastIndexOf(' ', mid + 10);
+    if (sp < 3) sp = data.projectName.indexOf(' ', mid - 10);
+    if (sp > 0) {
+      const l1 = data.projectName.substring(0, sp);
+      const l2 = data.projectName.substring(sp + 1);
+      const longer = Math.max(l1.length, l2.length);
+      const sz = Math.max(3.5, Math.min(projNameSize, cardTextMaxW / (longer * projCharW)));
+      textEl(svg, 40, cardY + 18, l1, { size: sz, fill: TEXT_DARK, weight: 'bold' });
+      textEl(svg, 40, cardY + 18 + sz * 1.4, l2, { size: sz, fill: TEXT_DARK, weight: 'bold' });
+    } else {
+      const sz = Math.max(3.5, cardTextMaxW / (data.projectName.length * projCharW));
+      textEl(svg, 40, cardY + 20, data.projectName, { size: sz, fill: TEXT_DARK, weight: 'bold' });
+    }
+  } else {
+    textEl(svg, 40, cardY + 20, data.projectName, { size: projNameSize, fill: TEXT_DARK, weight: 'bold' });
+  }
   if (data.projectNumber) {
     textEl(svg, 40, cardY + 28, `Project No: ${data.projectNumber}`, { size: 3.5, fill: TEXT_MUTED });
   }
