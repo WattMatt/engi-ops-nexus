@@ -6,6 +6,9 @@
  * 2. Executive Summary - category table
  * 3. Category Details - line items per category with subtotals
  * 4. Variations - variation items with status and amounts
+ * 5. Budget Distribution - donut chart
+ * 6. Variance Comparison - side-by-side bar charts
+ * 7. Project Health - KPI gauges dashboard
  */
 
 // A4 in mm for SVG viewBox
@@ -823,4 +826,225 @@ function formatCompact(val: number): string {
   if (val >= 1000000) return `R${(val / 1000000).toFixed(1)}M`;
   if (val >= 1000) return `R${(val / 1000).toFixed(0)}K`;
   return `R${val.toFixed(0)}`;
+}
+
+// ─── 7. Project Health KPI Dashboard ───
+
+export interface ProjectHealthData {
+  totalOriginalBudget: number;
+  totalAnticipatedFinal: number;
+  totalCurrentVariance: number;
+  totalOriginalVariance: number;
+  categoryCount: number;
+  categoriesOverBudget: number;
+  categoriesUnderBudget: number;
+  categoriesOnTrack: number;
+  variationsCount: number;
+  variationsTotal: number;
+}
+
+export function buildProjectHealthSvg(data: ProjectHealthData): SVGSVGElement {
+  const svg = createSvgElement();
+  el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
+  addPageHeader(svg, 'PROJECT HEALTH DASHBOARD');
+
+  // ── Row 1: Gauge cards ──
+  const gaugeY = 35;
+  const gaugeCardW = (CONTENT_W - 6) / 3;
+  const gaugeCardH = 55;
+
+  // 1. Budget Utilization gauge
+  const utilization = data.totalOriginalBudget > 0
+    ? (data.totalAnticipatedFinal / data.totalOriginalBudget) * 100
+    : 0;
+  drawGaugeCard(svg, MARGIN_LEFT, gaugeY, gaugeCardW, gaugeCardH,
+    'Budget Utilization', utilization, '%',
+    getUtilizationColor(utilization),
+    `${formatCompact(data.totalAnticipatedFinal)} of ${formatCompact(data.totalOriginalBudget)}`
+  );
+
+  // 2. Variance Severity gauge
+  const variancePct = data.totalOriginalBudget > 0
+    ? Math.abs(data.totalOriginalVariance / data.totalOriginalBudget) * 100
+    : 0;
+  const varianceDirection = data.totalOriginalVariance >= 0 ? 'Over' : 'Under';
+  drawGaugeCard(svg, MARGIN_LEFT + gaugeCardW + 3, gaugeY, gaugeCardW, gaugeCardH,
+    'Variance Severity', Math.min(variancePct, 100), '%',
+    getVarianceSeverityColor(variancePct),
+    `${varianceDirection} by ${formatCompact(Math.abs(data.totalOriginalVariance))}`
+  );
+
+  // 3. Category Health gauge
+  const healthPct = data.categoryCount > 0
+    ? ((data.categoriesOnTrack + data.categoriesUnderBudget) / data.categoryCount) * 100
+    : 100;
+  drawGaugeCard(svg, MARGIN_LEFT + (gaugeCardW + 3) * 2, gaugeY, gaugeCardW, gaugeCardH,
+    'Category Health', healthPct, '%',
+    getHealthColor(healthPct),
+    `${data.categoriesOnTrack + data.categoriesUnderBudget} of ${data.categoryCount} on track`
+  );
+
+  // ── Row 2: KPI metric cards ──
+  const kpiY = gaugeY + gaugeCardH + 10;
+  const kpiW = (CONTENT_W - 9) / 4;
+  const kpiH = 28;
+
+  drawKpiCard(svg, MARGIN_LEFT, kpiY, kpiW, kpiH,
+    'Total Categories', String(data.categoryCount), BRAND_ACCENT, 'Active budget categories');
+  drawKpiCard(svg, MARGIN_LEFT + kpiW + 3, kpiY, kpiW, kpiH,
+    'Over Budget', String(data.categoriesOverBudget), DANGER_COLOR,
+    `${data.categoryCount > 0 ? ((data.categoriesOverBudget / data.categoryCount) * 100).toFixed(0) : 0}% of categories`);
+  drawKpiCard(svg, MARGIN_LEFT + (kpiW + 3) * 2, kpiY, kpiW, kpiH,
+    'Under Budget', String(data.categoriesUnderBudget), SUCCESS_COLOR,
+    `${data.categoryCount > 0 ? ((data.categoriesUnderBudget / data.categoryCount) * 100).toFixed(0) : 0}% of categories`);
+  drawKpiCard(svg, MARGIN_LEFT + (kpiW + 3) * 3, kpiY, kpiW, kpiH,
+    'Variations', String(data.variationsCount), '#7c3aed',
+    `Total: ${formatCompact(data.variationsTotal)}`);
+
+  // ── Row 3: Financial summary table ──
+  const tableY = kpiY + kpiH + 12;
+  textEl(svg, MARGIN_LEFT, tableY, 'FINANCIAL SUMMARY', { size: 4, fill: BRAND_PRIMARY, weight: 'bold' });
+
+  const summaryRows = [
+    { label: 'Original Budget', value: data.totalOriginalBudget, color: TEXT_DARK },
+    { label: 'Anticipated Final', value: data.totalAnticipatedFinal, color: TEXT_DARK },
+    { label: 'Current Period Variance', value: data.totalCurrentVariance, color: data.totalCurrentVariance >= 0 ? SUCCESS_COLOR : DANGER_COLOR },
+    { label: 'Variance from Original', value: data.totalOriginalVariance, color: data.totalOriginalVariance >= 0 ? SUCCESS_COLOR : DANGER_COLOR },
+  ];
+
+  let sy = tableY + 8;
+  summaryRows.forEach((row, i) => {
+    const bg = i % 2 === 0 ? BRAND_LIGHT : WHITE;
+    el('rect', { x: MARGIN_LEFT, y: sy, width: CONTENT_W, height: 8, fill: bg, stroke: BORDER_COLOR, 'stroke-width': 0.1 }, svg);
+    textEl(svg, MARGIN_LEFT + 4, sy + 5.5, row.label, { size: 3.2, fill: TEXT_DARK });
+    const sign = row.value >= 0 ? '' : '-';
+    textEl(svg, PAGE_W - MARGIN_RIGHT - 4, sy + 5.5, `${sign}${formatCurrency(Math.abs(row.value))}`, {
+      size: 3.2, fill: row.color, weight: 'bold', anchor: 'end',
+    });
+    sy += 8;
+  });
+
+  // ── Row 4: Status indicator strip ──
+  const stripY = sy + 10;
+  textEl(svg, MARGIN_LEFT, stripY, 'RISK ASSESSMENT', { size: 4, fill: BRAND_PRIMARY, weight: 'bold' });
+
+  const riskLevel = getRiskLevel(utilization, variancePct);
+  const riskColors = { low: SUCCESS_COLOR, medium: '#d97706', high: DANGER_COLOR };
+  const riskBgs = { low: '#dcfce7', medium: WARNING_BG, high: '#fee2e2' };
+
+  const riskY = stripY + 8;
+  el('rect', { x: MARGIN_LEFT, y: riskY, width: CONTENT_W, height: 16, rx: 2, fill: riskBgs[riskLevel], stroke: riskColors[riskLevel], 'stroke-width': 0.3 }, svg);
+
+  // Risk icon (circle indicator)
+  el('circle', { cx: MARGIN_LEFT + 8, cy: riskY + 8, r: 3, fill: riskColors[riskLevel] }, svg);
+  textEl(svg, MARGIN_LEFT + 14, riskY + 9.5, `Overall Risk: ${riskLevel.toUpperCase()}`, {
+    size: 3.5, fill: riskColors[riskLevel], weight: 'bold',
+  });
+  textEl(svg, MARGIN_LEFT + 14, riskY + 13.5, getRiskDescription(riskLevel, utilization, variancePct), {
+    size: 2.5, fill: TEXT_MUTED,
+  });
+
+  return svg;
+}
+
+// ── Gauge drawing helper ──
+
+function drawGaugeCard(
+  svg: SVGSVGElement,
+  x: number, y: number, w: number, h: number,
+  title: string, value: number, unit: string,
+  color: string, subtitle: string
+) {
+  el('rect', { x, y, width: w, height: h, rx: 2, fill: WHITE, stroke: BORDER_COLOR, 'stroke-width': 0.3 }, svg);
+  el('rect', { x, y, width: w, height: 1.5, rx: 0.5, fill: color }, svg);
+
+  textEl(svg, x + w / 2, y + 8, title.toUpperCase(), {
+    size: 2.5, fill: TEXT_MUTED, weight: 'bold', anchor: 'middle',
+  });
+
+  // Semi-circle gauge
+  const cx = x + w / 2;
+  const cy = y + 32;
+  const r = 16;
+  const startAngle = Math.PI;
+  const endAngle = 0;
+  const sweepAngle = startAngle - (value / 100) * Math.PI;
+
+  // Background arc
+  const bgX1 = cx + r * Math.cos(startAngle);
+  const bgY1 = cy + r * Math.sin(startAngle);
+  const bgX2 = cx + r * Math.cos(endAngle);
+  const bgY2 = cy + r * Math.sin(endAngle);
+  el('path', {
+    d: `M ${bgX1} ${bgY1} A ${r} ${r} 0 1 1 ${bgX2} ${bgY2}`,
+    fill: 'none', stroke: '#e2e8f0', 'stroke-width': 3, 'stroke-linecap': 'round',
+  }, svg);
+
+  // Value arc
+  if (value > 0) {
+    const valAngle = startAngle - Math.min(value / 100, 1) * Math.PI;
+    const vX2 = cx + r * Math.cos(valAngle);
+    const vY2 = cy + r * Math.sin(valAngle);
+    const largeArc = value > 50 ? 1 : 0;
+    el('path', {
+      d: `M ${bgX1} ${bgY1} A ${r} ${r} 0 ${largeArc} 1 ${vX2} ${vY2}`,
+      fill: 'none', stroke: color, 'stroke-width': 3, 'stroke-linecap': 'round',
+    }, svg);
+  }
+
+  // Center value
+  textEl(svg, cx, cy - 2, `${value.toFixed(1)}${unit}`, {
+    size: 5, fill: color, weight: 'bold', anchor: 'middle',
+  });
+
+  // Subtitle
+  textEl(svg, cx, y + h - 5, subtitle, {
+    size: 2.3, fill: TEXT_MUTED, anchor: 'middle',
+  });
+}
+
+// ── KPI card helper ──
+
+function drawKpiCard(
+  svg: SVGSVGElement,
+  x: number, y: number, w: number, h: number,
+  title: string, value: string, color: string, subtitle: string
+) {
+  el('rect', { x, y, width: w, height: h, rx: 2, fill: BRAND_LIGHT, stroke: BORDER_COLOR, 'stroke-width': 0.2 }, svg);
+  el('rect', { x, y, width: 1.5, height: h, rx: 0.5, fill: color }, svg);
+  textEl(svg, x + 5, y + 7, title.toUpperCase(), { size: 2.2, fill: TEXT_MUTED, weight: 'bold' });
+  textEl(svg, x + 5, y + 16, value, { size: 6, fill: color, weight: 'bold' });
+  textEl(svg, x + 5, y + 23, subtitle, { size: 2.2, fill: TEXT_MUTED });
+}
+
+// ── Color/status helpers ──
+
+function getUtilizationColor(pct: number): string {
+  if (pct <= 90) return SUCCESS_COLOR;
+  if (pct <= 105) return '#d97706';
+  return DANGER_COLOR;
+}
+
+function getVarianceSeverityColor(pct: number): string {
+  if (pct <= 5) return SUCCESS_COLOR;
+  if (pct <= 15) return '#d97706';
+  return DANGER_COLOR;
+}
+
+function getHealthColor(pct: number): string {
+  if (pct >= 75) return SUCCESS_COLOR;
+  if (pct >= 50) return '#d97706';
+  return DANGER_COLOR;
+}
+
+function getRiskLevel(utilization: number, variancePct: number): 'low' | 'medium' | 'high' {
+  if (utilization > 110 || variancePct > 15) return 'high';
+  if (utilization > 100 || variancePct > 5) return 'medium';
+  return 'low';
+}
+
+function getRiskDescription(level: string, utilization: number, variancePct: number): string {
+  if (level === 'high') return `Budget utilization at ${utilization.toFixed(1)}% with ${variancePct.toFixed(1)}% variance — immediate attention required.`;
+  if (level === 'medium') return `Budget utilization at ${utilization.toFixed(1)}% with ${variancePct.toFixed(1)}% variance — monitor closely.`;
+  return `Budget utilization at ${utilization.toFixed(1)}% with ${variancePct.toFixed(1)}% variance — project on track.`;
 }
