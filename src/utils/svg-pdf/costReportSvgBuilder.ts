@@ -1177,3 +1177,149 @@ function wrapText(text: string, maxChars: number): string[] {
   if (current) lines.push(current);
   return lines;
 }
+
+// ─── 9. Contractor Summary ───
+
+export interface ContractorEntry {
+  role: string;
+  name: string | null;
+  icon: string; // emoji or letter
+  accentColor: string;
+}
+
+export interface ContractorSummaryData {
+  contractors: ContractorEntry[];
+  projectName?: string;
+}
+
+export function buildContractorSummarySvg(data: ContractorSummaryData): SVGSVGElement {
+  const svg = createSvgElement();
+  el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
+  addPageHeader(svg, 'CONTRACTOR SUMMARY');
+
+  let y = 34;
+
+  if (data.projectName) {
+    textEl(svg, MARGIN_LEFT, y, `Project: ${data.projectName}`, { size: 3, fill: TEXT_MUTED });
+    y += 8;
+  }
+
+  // Card grid: 2 columns
+  const cardW = (CONTENT_W - 6) / 2;
+  const cardH = 38;
+  const gapX = 6;
+  const gapY = 6;
+
+  data.contractors.forEach((contractor, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const cx = MARGIN_LEFT + col * (cardW + gapX);
+    const cy = y + row * (cardH + gapY);
+
+    // Card background
+    el('rect', {
+      x: cx, y: cy, width: cardW, height: cardH,
+      rx: 2, fill: WHITE, stroke: BORDER_COLOR, 'stroke-width': 0.3,
+    }, svg);
+
+    // Top accent bar
+    el('rect', {
+      x: cx, y: cy, width: cardW, height: 2,
+      rx: 1, fill: contractor.accentColor,
+    }, svg);
+
+    // Icon circle
+    el('circle', {
+      cx: cx + 10, cy: cy + 14,
+      r: 5, fill: contractor.accentColor + '20',
+      stroke: contractor.accentColor, 'stroke-width': 0.3,
+    }, svg);
+    textEl(svg, cx + 10, cy + 16, contractor.icon, {
+      size: 4.5, anchor: 'middle', fill: contractor.accentColor, weight: 'bold',
+    });
+
+    // Role label
+    textEl(svg, cx + 18, cy + 10, contractor.role.toUpperCase(), {
+      size: 2.5, fill: TEXT_MUTED, weight: 'bold',
+    });
+
+    // Contractor name or "Not Assigned"
+    if (contractor.name) {
+      const displayName = contractor.name.length > 30 ? contractor.name.slice(0, 27) + '...' : contractor.name;
+      textEl(svg, cx + 18, cy + 17, displayName, {
+        size: 3.5, fill: TEXT_DARK, weight: 'bold',
+      });
+
+      // Status badge - assigned
+      el('rect', {
+        x: cx + 18, y: cy + 22,
+        width: 18, height: 4, rx: 1,
+        fill: '#dcfce7',
+      }, svg);
+      textEl(svg, cx + 27, cy + 25, 'ASSIGNED', {
+        size: 2, fill: SUCCESS_COLOR, weight: 'bold', anchor: 'middle',
+      });
+    } else {
+      textEl(svg, cx + 18, cy + 17, 'Not Assigned', {
+        size: 3.5, fill: TEXT_MUTED,
+      });
+
+      // Status badge - pending
+      el('rect', {
+        x: cx + 18, y: cy + 22,
+        width: 18, height: 4, rx: 1,
+        fill: WARNING_BG,
+      }, svg);
+      textEl(svg, cx + 27, cy + 25, 'PENDING', {
+        size: 2, fill: '#d97706', weight: 'bold', anchor: 'middle',
+      });
+    }
+
+    // Separator line
+    el('line', {
+      x1: cx + 5, y1: cy + 30,
+      x2: cx + cardW - 5, y2: cy + 30,
+      stroke: BORDER_COLOR, 'stroke-width': 0.15,
+    }, svg);
+
+    // Footer with role category
+    textEl(svg, cx + cardW / 2, cy + 35, `${contractor.role} Services`, {
+      size: 2.2, fill: TEXT_MUTED, anchor: 'middle',
+    });
+  });
+
+  // Summary bar at the bottom
+  const assigned = data.contractors.filter(c => c.name).length;
+  const total = data.contractors.length;
+  const summaryY = y + Math.ceil(total / 2) * (cardH + gapY) + 6;
+
+  if (summaryY < PAGE_H - 40) {
+    el('rect', {
+      x: MARGIN_LEFT, y: summaryY,
+      width: CONTENT_W, height: 14, rx: 2,
+      fill: BRAND_LIGHT, stroke: BORDER_COLOR, 'stroke-width': 0.2,
+    }, svg);
+
+    textEl(svg, MARGIN_LEFT + 5, summaryY + 6, 'ASSIGNMENT STATUS', {
+      size: 2.5, fill: TEXT_MUTED, weight: 'bold',
+    });
+
+    // Progress bar
+    const barX = MARGIN_LEFT + 45;
+    const barW = 80;
+    const barY = summaryY + 3;
+    el('rect', { x: barX, y: barY, width: barW, height: 3, rx: 1, fill: '#e2e8f0' }, svg);
+    const fillW = total > 0 ? (assigned / total) * barW : 0;
+    el('rect', { x: barX, y: barY, width: fillW, height: 3, rx: 1, fill: SUCCESS_COLOR }, svg);
+
+    textEl(svg, barX + barW + 4, barY + 2.5, `${assigned}/${total} assigned`, {
+      size: 2.5, fill: TEXT_DARK, weight: 'bold',
+    });
+
+    textEl(svg, MARGIN_LEFT + 5, summaryY + 12, `${total - assigned} contractor${total - assigned !== 1 ? 's' : ''} still pending assignment`, {
+      size: 2.5, fill: total - assigned > 0 ? '#d97706' : SUCCESS_COLOR,
+    });
+  }
+
+  return svg;
+}

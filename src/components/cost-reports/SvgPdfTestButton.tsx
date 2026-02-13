@@ -16,6 +16,7 @@ import {
   buildVarianceComparisonSvg,
   buildProjectHealthSvg,
   buildNotesPageSvg,
+  buildContractorSummarySvg,
   applyPageFooters,
   type CategoryDetailData,
   type VariationItem,
@@ -204,8 +205,19 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
         })
       : [];
 
+    // Build Contractor Summary page
+    const contractorSvg = buildContractorSummarySvg({
+      projectName: report.project_name,
+      contractors: [
+        { role: 'Electrical', name: report.electrical_contractor || null, icon: '⚡', accentColor: '#2563eb' },
+        { role: 'CCTV', name: report.cctv_contractor || null, icon: '📹', accentColor: '#7c3aed' },
+        { role: 'Earthing', name: report.earthing_contractor || null, icon: '⏚', accentColor: '#16a34a' },
+        { role: 'Standby Plants', name: report.standby_plants_contractor || null, icon: '🔋', accentColor: '#ea580c' },
+      ],
+    });
+
     // Assemble all pages and labels
-    const allPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages, ...notesPages];
+    const allPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages, contractorSvg, ...notesPages];
     const labels = [
       ...STATIC_LABELS,
       'Project Health',
@@ -213,6 +225,7 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       'Variance Comparison',
       ...categoryPages.map((_, i) => i === 0 ? 'Category Details' : `Categories (p${i + 1})`),
       ...variationsPages.map((_, i) => i === 0 ? 'Variations' : `Variations (p${i + 1})`),
+      'Contractor Summary',
       ...notesPages.map((_, i) => i === 0 ? 'Notes & Assumptions' : `Notes (p${i + 1})`),
     ];
     setPageLabels(labels);
