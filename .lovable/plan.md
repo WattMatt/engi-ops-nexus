@@ -1,73 +1,88 @@
 
 
-# Fix Contractor Portal Access: Add Anonymous RLS Policies
+# SVG-to-PDF Report Generation: Proof of Concept + Cost Report Toggle
 
-## Problem
-Contractors access the portal as anonymous (unauthenticated) users via token-based links. Most project data tables only have RLS policies for `authenticated` users, causing "Access Denied" or empty screens on the Drawings, Cable Status, Floor Plan, Procurement, RFIs, and Inspections tabs.
+## Overview
 
-## Solution
+This plan introduces an experimental SVG-based report rendering pipeline alongside the existing pdfmake/PDFShift system. The idea is to build report pages as SVG elements (giving pixel-perfect layout control, native vector graphics, and easy charting), then convert them to PDF using the `svg2pdf.js` + `jsPDF` library combination. A toggle in the Cost Report's "Reports" tab lets users switch between the current PDF engine and the new SVG engine.
 
-### Step 1: Create Security Helper Function
+## Why SVG-to-PDF?
 
-Create `has_valid_contractor_portal_token(p_project_id UUID)` -- a `SECURITY DEFINER` function that checks whether an active, non-expired contractor token exists for the given project. This mirrors the existing `has_valid_client_portal_token` pattern.
+- **Pixel-perfect control**: SVG gives exact positioning of text, shapes, and graphics -- no pdfmake layout engine quirks.
+- **Native vector charts**: Donut charts, bar charts, and KPI cards can be rendered as SVG natively without canvas capture.
+- **Browser preview**: The same SVG can be displayed inline as a live preview before converting to PDF.
+- **Consistency**: What you see in the SVG is exactly what ends up in the PDF.
 
-```sql
-CREATE OR REPLACE FUNCTION has_valid_contractor_portal_token(p_project_id UUID)
-RETURNS BOOLEAN
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM contractor_portal_tokens
-    WHERE project_id = p_project_id
-      AND is_active = true
-      AND expires_at > now()
-  );
-$$;
+## Implementation Steps
+
+### 1. Install `svg2pdf.js` dependency
+- Add `svg2pdf.js` (works with the existing `jspdf` package already installed).
+
+### 2. Create SVG Report Engine utility
+**New file: `src/utils/svg-pdf/svgToPdfEngine.ts`**
+- Core function: takes an array of SVG elements (one per page), converts each to a jsPDF page using `svg2pdf.js`.
+- Handles A4 page sizing (595.28 x 841.89 pt).
+- Returns a Blob or triggers download.
+
+### 3. Create SVG Cost Report Builder
+**New file: `src/utils/svg-pdf/costReportSvgBuilder.ts`**
+- Builds SVG strings/elements for each report section:
+  - **Cover Page**: Company branding, project name, report number, revision, date.
+  - **Executive Summary**: Category table rendered as SVG `<rect>` + `<text>` elements.
+- This is a proof-of-concept -- initially only the Cover Page and Executive Summary will be rendered in SVG format.
+
+### 4. Create a test/demo component
+**New file: `src/components/cost-reports/SvgPdfTestButton.tsx`**
+- A button component that generates a test SVG report and converts it to PDF.
+- Includes a live SVG preview panel so users can see the output before downloading.
+- Shows generation time and file size for benchmarking against the existing engine.
+
+### 5. Add SVG/PDF toggle to Cost Report "Reports" tab
+**Modified file: `src/pages/CostReportDetail.tsx`**
+- Add a toggle switch (or segmented control) in the Reports tab card:
+  - **Standard PDF** (default): Uses the existing `ExportPDFButton` with the pdfmake fallback chain.
+  - **SVG Report (Beta)**: Uses the new `SvgPdfTestButton` to generate via the SVG pipeline.
+- The toggle is clearly marked as experimental/beta.
+
+### 6. Update ExportPDFButton to accept engine prop
+**Modified file: `src/components/cost-reports/ExportPDFButton.tsx`**
+- Add an optional `engine` prop (`'standard' | 'svg'`).
+- When `engine === 'svg'`, route through the SVG builder instead of the fallback chain.
+- This keeps the same progress UI, settings dialog, and history workflow.
+
+## Technical Details
+
+```text
++------------------+       +-------------------+       +-----------+
+| Cost Report Data | ----> | SVG Builder       | ----> | SVG Pages |
+|                  |       | (cover, summary)  |       | (in-DOM)  |
++------------------+       +-------------------+       +-----------+
+                                                            |
+                                                            v
+                                                   +----------------+
+                                                   | svg2pdf.js     |
+                                                   | + jsPDF         |
+                                                   +----------------+
+                                                            |
+                                                            v
+                                                   +----------------+
+                                                   | PDF Blob       |
+                                                   | (download/save)|
+                                                   +----------------+
 ```
 
-### Step 2: Add Anon SELECT Policies
+### Key technical decisions:
+- **svg2pdf.js** is the most mature SVG-to-PDF library (10+ years, maintained by yWorks).
+- SVG elements are created programmatically (not from DOM queries) to ensure consistency.
+- Each "page" is a separate SVG with dimensions matching A4 in points.
+- The existing `jspdf` package is already installed -- `svg2pdf.js` extends it with a `.svg()` method.
 
-Add `FOR SELECT TO anon` policies on each blocked table:
+## Scope (Proof of Concept)
 
-| Table | Policy Condition |
-|-------|-----------------|
-| `project_drawings` | `has_valid_contractor_portal_token(project_id)` |
-| `drawing_revisions` | Join through `project_drawings` to get `project_id` |
-| `cable_schedules` | `has_valid_contractor_portal_token(project_id)` |
-| `floor_plan_zones` | `has_valid_contractor_portal_token(project_id)` |
-| `procurement_items` | `has_valid_contractor_portal_token(project_id)` |
-| `rfis` | `has_valid_contractor_portal_token(project_id)` |
-| `inspection_requests` | `has_valid_contractor_portal_token(project_id)` |
+This is intentionally limited to validate the approach:
+- Only **Cover Page** and **Executive Summary** sections in SVG.
+- Side-by-side comparison toggle so users can evaluate quality vs. the existing engine.
+- Benchmarking output (time, file size) displayed after generation.
 
-For `drawing_revisions` (which has `drawing_id` not `project_id`):
-```sql
-CREATE POLICY "Anon contractor view revisions"
-ON drawing_revisions FOR SELECT TO anon
-USING (
-  EXISTS (
-    SELECT 1 FROM project_drawings pd
-    WHERE pd.id = drawing_revisions.drawing_id
-      AND has_valid_contractor_portal_token(pd.project_id)
-  )
-);
-```
-
-### Step 3: Improve Error Diagnostics in Portal UI
-
-Update `ContractorPortal.tsx` and `PortalRedirect.tsx` error screens to include:
-- The short code used and timestamp
-- A "Copy Error Details" button so contractors can paste diagnostic info when reporting issues
-- Clearer error messages distinguishing between expired, revoked, and not-found links
-
-### Security Notes
-- All new policies are **SELECT-only** -- contractors cannot modify data
-- Access is scoped to projects with at least one active, non-expired token
-- The helper function uses `SECURITY DEFINER` to avoid RLS recursion
-- No sensitive user/auth data is exposed
-
-### Files Changed
-- **Database migration** (new): 1 function + 7 RLS policies
-- `src/pages/ContractorPortal.tsx`: Enhanced error display with diagnostics
-- `src/pages/PortalRedirect.tsx`: Enhanced error display with diagnostics
+Once validated, the SVG engine can be expanded to all report sections and other report types.
 
