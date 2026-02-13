@@ -38,6 +38,8 @@ interface CoverPageData {
   revision: string;
   date: string;
   projectNumber?: string;
+  companyLogoBase64?: string | null;
+  clientLogoBase64?: string | null;
 }
 
 interface SummaryRow {
@@ -163,11 +165,45 @@ export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
   el('rect', { x: 0, y: 0, width: PAGE_W, height: 8, fill: BRAND_PRIMARY }, svg);
   el('rect', { x: 0, y: 8, width: PAGE_W, height: 2, fill: BRAND_ACCENT }, svg);
 
-  textEl(svg, PAGE_W / 2, 45, data.companyName.toUpperCase(), {
+  // Logo(s) — rendered above company name
+  const hasCompanyLogo = !!data.companyLogoBase64;
+  const hasClientLogo = !!data.clientLogoBase64;
+  let logoBottomY = 20; // default top position when no logos
+
+  if (hasCompanyLogo && hasClientLogo) {
+    // Both logos side by side
+    el('image', {
+      x: 45, y: 16, width: 30, height: 18,
+      href: data.companyLogoBase64!,
+      preserveAspectRatio: 'xMidYMid meet',
+    }, svg);
+    el('image', {
+      x: 135, y: 16, width: 30, height: 18,
+      href: data.clientLogoBase64!,
+      preserveAspectRatio: 'xMidYMid meet',
+    }, svg);
+    logoBottomY = 38;
+  } else if (hasCompanyLogo) {
+    el('image', {
+      x: PAGE_W / 2 - 20, y: 16, width: 40, height: 22,
+      href: data.companyLogoBase64!,
+      preserveAspectRatio: 'xMidYMid meet',
+    }, svg);
+    logoBottomY = 42;
+  } else if (hasClientLogo) {
+    el('image', {
+      x: PAGE_W / 2 - 20, y: 16, width: 40, height: 22,
+      href: data.clientLogoBase64!,
+      preserveAspectRatio: 'xMidYMid meet',
+    }, svg);
+    logoBottomY = 42;
+  }
+
+  textEl(svg, PAGE_W / 2, logoBottomY + 8, data.companyName.toUpperCase(), {
     size: 8, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
   });
 
-  el('line', { x1: 60, y1: 55, x2: 150, y2: 55, stroke: BRAND_ACCENT, 'stroke-width': 0.5 }, svg);
+  el('line', { x1: 60, y1: logoBottomY + 18, x2: 150, y2: logoBottomY + 18, stroke: BRAND_ACCENT, 'stroke-width': 0.5 }, svg);
 
   textEl(svg, PAGE_W / 2, 90, 'COST REPORT', {
     size: 14, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',

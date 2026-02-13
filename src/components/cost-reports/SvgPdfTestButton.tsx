@@ -6,6 +6,7 @@ import { Download, Loader2, Eye, EyeOff, Clock, HardDrive, ZoomIn, ZoomOut, Rota
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
+import { imageToBase64 } from "@/utils/pdfmake/helpers";
 import {
   buildCoverPageSvg,
   buildExecutiveSummarySvg,
@@ -62,6 +63,28 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
     const categoryTotals = calculateCategoryTotals(cats, allLineItems, vars);
     const grandTotals = calculateGrandTotals(categoryTotals);
 
+    // Convert logos to base64 with timeout
+    let companyLogoBase64: string | null = null;
+    let clientLogoBase64: string | null = null;
+    const LOGO_TIMEOUT = 4000;
+
+    if (company?.company_logo_url) {
+      try {
+        companyLogoBase64 = await Promise.race([
+          imageToBase64(company.company_logo_url),
+          new Promise<null>((_, rej) => setTimeout(() => rej(new Error('timeout')), LOGO_TIMEOUT)),
+        ]);
+      } catch { console.warn('[SVG-PDF] Company logo conversion failed, skipping'); }
+    }
+    if (company?.client_logo_url) {
+      try {
+        clientLogoBase64 = await Promise.race([
+          imageToBase64(company.client_logo_url),
+          new Promise<null>((_, rej) => setTimeout(() => rej(new Error('timeout')), LOGO_TIMEOUT)),
+        ]);
+      } catch { console.warn('[SVG-PDF] Client logo conversion failed, skipping'); }
+    }
+
     const coverSvg = buildCoverPageSvg({
       companyName: company?.company_name || "Company Name",
       projectName: report.project_name || "Project",
@@ -69,6 +92,8 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       revision: report.revision || "A",
       date: new Date().toLocaleDateString("en-ZA"),
       projectNumber: report.project_number,
+      companyLogoBase64,
+      clientLogoBase64,
     });
 
     const summaryRows = categoryTotals.map((cat: any) => ({
