@@ -1424,14 +1424,15 @@ export function buildContractorSummarySvg(data: ContractorSummaryData): SVGSVGEl
       rx: 1, fill: contractor.accentColor,
     }, svg);
 
-    // Icon circle
+    // Icon circle with letter abbreviation (emojis don't render in svg2pdf.js)
     el('circle', {
       cx: cx + 10, cy: cy + 14,
-      r: 5, fill: contractor.accentColor + '20',
-      stroke: contractor.accentColor, 'stroke-width': 0.3,
+      r: 5, fill: contractor.accentColor,
     }, svg);
-    textEl(svg, cx + 10, cy + 16, contractor.icon, {
-      size: 4.5, anchor: 'middle', fill: contractor.accentColor, weight: 'bold',
+    // Use first letter of role as icon for PDF compatibility
+    const iconLetter = contractor.role.charAt(0).toUpperCase();
+    textEl(svg, cx + 10, cy + 16, iconLetter, {
+      size: 4, anchor: 'middle', fill: WHITE, weight: 'bold',
     });
 
     // Role label
