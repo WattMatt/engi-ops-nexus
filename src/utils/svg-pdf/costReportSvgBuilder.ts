@@ -391,11 +391,11 @@ export function buildCategoryDetailsSvg(categories: CategoryDetailData[]): SVGSV
 
     // Column headers
     const cols = [
-      { label: 'DESCRIPTION', x: 0, w: 72 },
-      { label: 'ORIGINAL', x: 72, w: 30 },
-      { label: 'PREVIOUS', x: 102, w: 30 },
-      { label: 'ANTICIPATED', x: 132, w: 30 },
-      { label: 'VARIANCE', x: 162, w: 18 },
+      { label: 'DESCRIPTION', x: 0, w: 56 },
+      { label: 'ORIGINAL', x: 56, w: 30 },
+      { label: 'PREVIOUS', x: 86, w: 30 },
+      { label: 'ANTICIPATED', x: 116, w: 32 },
+      { label: 'VARIANCE', x: 148, w: 32 },
     ];
 
     el('rect', { x: MARGIN_LEFT, y, width: CONTENT_W, height: CATEGORY_ROW_H, fill: '#f1f5f9' }, svg);
@@ -430,16 +430,16 @@ export function buildCategoryDetailsSvg(categories: CategoryDetailData[]): SVGSV
       el('rect', { x: MARGIN_LEFT, y, width: CONTENT_W, height: CATEGORY_ROW_H, fill: bg, stroke: BORDER_COLOR, 'stroke-width': 0.1 }, svg);
 
       // Truncate long descriptions
-      const desc = item.description.length > 45 ? item.description.slice(0, 42) + '...' : item.description;
-      textEl(svg, MARGIN_LEFT + 2, y + 4.5, desc, { size: 2.8 });
-      textEl(svg, MARGIN_LEFT + cols[1].x + cols[1].w - 2, y + 4.5, formatCurrency(item.original_budget), { size: 2.8, anchor: 'end' });
-      textEl(svg, MARGIN_LEFT + cols[2].x + cols[2].w - 2, y + 4.5, formatCurrency(item.previous_report), { size: 2.8, anchor: 'end' });
-      textEl(svg, MARGIN_LEFT + cols[3].x + cols[3].w - 2, y + 4.5, formatCurrency(item.anticipated_final), { size: 2.8, anchor: 'end' });
+      const desc = item.description.length > 35 ? item.description.slice(0, 32) + '...' : item.description;
+      textEl(svg, MARGIN_LEFT + 2, y + 4.5, desc, { size: 2.6 });
+      textEl(svg, MARGIN_LEFT + cols[1].x + cols[1].w - 2, y + 4.5, formatCurrency(item.original_budget), { size: 2.5, anchor: 'end' });
+      textEl(svg, MARGIN_LEFT + cols[2].x + cols[2].w - 2, y + 4.5, formatCurrency(item.previous_report), { size: 2.5, anchor: 'end' });
+      textEl(svg, MARGIN_LEFT + cols[3].x + cols[3].w - 2, y + 4.5, formatCurrency(item.anticipated_final), { size: 2.5, anchor: 'end' });
       
       const variance = item.anticipated_final - item.previous_report;
       const vColor = variance >= 0 ? SUCCESS_COLOR : DANGER_COLOR;
       const vSign = variance >= 0 ? '+' : '-';
-      textEl(svg, MARGIN_LEFT + cols[4].x + cols[4].w - 2, y + 4.5, `${vSign}${formatCurrency(variance)}`, { size: 2.8, anchor: 'end', fill: vColor });
+      textEl(svg, MARGIN_LEFT + cols[4].x + cols[4].w - 2, y + 4.5, `${vSign}${formatCurrency(variance)}`, { size: 2.5, anchor: 'end', fill: vColor });
 
       y += CATEGORY_ROW_H;
     });
@@ -451,12 +451,12 @@ export function buildCategoryDetailsSvg(categories: CategoryDetailData[]): SVGSV
     }
     el('rect', { x: MARGIN_LEFT, y, width: CONTENT_W, height: CATEGORY_ROW_H + 1, fill: '#e2e8f0' }, svg);
     textEl(svg, MARGIN_LEFT + 2, y + 4.5, `${cat.code} SUBTOTAL`, { size: 2.8, weight: 'bold' });
-    textEl(svg, MARGIN_LEFT + cols[1].x + cols[1].w - 2, y + 4.5, formatCurrency(cat.subtotals.originalBudget), { size: 2.8, weight: 'bold', anchor: 'end' });
-    textEl(svg, MARGIN_LEFT + cols[2].x + cols[2].w - 2, y + 4.5, formatCurrency(cat.subtotals.previousReport), { size: 2.8, weight: 'bold', anchor: 'end' });
-    textEl(svg, MARGIN_LEFT + cols[3].x + cols[3].w - 2, y + 4.5, formatCurrency(cat.subtotals.anticipatedFinal), { size: 2.8, weight: 'bold', anchor: 'end' });
+    textEl(svg, MARGIN_LEFT + cols[1].x + cols[1].w - 2, y + 4.5, formatCurrency(cat.subtotals.originalBudget), { size: 2.6, weight: 'bold', anchor: 'end' });
+    textEl(svg, MARGIN_LEFT + cols[2].x + cols[2].w - 2, y + 4.5, formatCurrency(cat.subtotals.previousReport), { size: 2.6, weight: 'bold', anchor: 'end' });
+    textEl(svg, MARGIN_LEFT + cols[3].x + cols[3].w - 2, y + 4.5, formatCurrency(cat.subtotals.anticipatedFinal), { size: 2.6, weight: 'bold', anchor: 'end' });
     const sColor = cat.subtotals.variance >= 0 ? SUCCESS_COLOR : DANGER_COLOR;
     const sSign = cat.subtotals.variance >= 0 ? '+' : '-';
-    textEl(svg, MARGIN_LEFT + cols[4].x + cols[4].w - 2, y + 4.5, `${sSign}${formatCurrency(cat.subtotals.variance)}`, { size: 2.8, weight: 'bold', anchor: 'end', fill: sColor });
+    textEl(svg, MARGIN_LEFT + cols[4].x + cols[4].w - 2, y + 4.5, `${sSign}${formatCurrency(cat.subtotals.variance)}`, { size: 2.6, weight: 'bold', anchor: 'end', fill: sColor });
     y += CATEGORY_ROW_H + 8; // extra gap between categories
   });
 
