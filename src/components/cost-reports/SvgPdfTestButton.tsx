@@ -11,6 +11,7 @@ import {
   buildExecutiveSummarySvg,
   buildCategoryDetailsSvg,
   buildVariationsSvg,
+  buildBudgetDistributionSvg,
   type CategoryDetailData,
   type VariationItem,
 } from "@/utils/svg-pdf/costReportSvgBuilder";
@@ -127,10 +128,21 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       totalAmount: variationItems.reduce((s, v) => s + v.amount, 0),
     });
 
+    // Build Budget Distribution donut chart page
+    const distributionSvg = buildBudgetDistributionSvg({
+      categories: categoryTotals.map((cat: any) => ({
+        code: cat.code,
+        description: cat.description,
+        amount: cat.originalBudget,
+      })),
+      totalBudget: grandTotals.originalBudget,
+    });
+
     // Assemble all pages and labels
-    const allPages = [coverSvg, summarySvg, ...categoryPages, ...variationsPages];
+    const allPages = [coverSvg, summarySvg, distributionSvg, ...categoryPages, ...variationsPages];
     const labels = [
       ...STATIC_LABELS,
+      'Budget Distribution',
       ...categoryPages.map((_, i) => i === 0 ? 'Category Details' : `Categories (p${i + 1})`),
       ...variationsPages.map((_, i) => i === 0 ? 'Variations' : `Variations (p${i + 1})`),
     ];
