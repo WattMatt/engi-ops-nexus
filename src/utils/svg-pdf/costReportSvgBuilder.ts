@@ -292,7 +292,16 @@ export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
     textEl(svg, 40, cardY + 20, data.projectName, { size: projNameSize, fill: TEXT_DARK, weight: 'bold' });
   }
   if (data.projectNumber) {
-    textEl(svg, 40, cardY + 28, `Project No: ${data.projectNumber}`, { size: 3.5, fill: TEXT_MUTED });
+    const projNumText = `Project No: ${data.projectNumber}`;
+    const projNumSize = 3.5;
+    const projNumCharW = 0.45;
+    const projNumEstW = projNumText.length * projNumSize * projNumCharW;
+    if (projNumEstW > cardTextMaxW) {
+      const scaledSz = Math.max(2.5, cardTextMaxW / (projNumText.length * projNumCharW));
+      textEl(svg, 40, cardY + 28, projNumText, { size: scaledSz, fill: TEXT_MUTED });
+    } else {
+      textEl(svg, 40, cardY + 28, projNumText, { size: projNumSize, fill: TEXT_MUTED });
+    }
   }
   textEl(svg, 40, cardY + 40, `Date: ${data.date}`, { size: 3.5, fill: TEXT_MUTED });
 
