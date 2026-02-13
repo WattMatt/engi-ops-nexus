@@ -156,7 +156,7 @@ function addPageFooter(svg: SVGSVGElement, pageNum: number, totalPages: number) 
     x2: PAGE_W - MARGIN_RIGHT, y2: PAGE_H - 10,
     stroke: BORDER_COLOR, 'stroke-width': 0.3,
   }, svg);
-  textEl(svg, MARGIN_LEFT, PAGE_H - 6, 'SVG Engine (Beta)', {
+  textEl(svg, MARGIN_LEFT, PAGE_H - 6, 'SVG Engine', {
     size: 2.5, fill: '#94a3b8',
   });
   textEl(svg, PAGE_W - MARGIN_RIGHT, PAGE_H - 6, `Page ${pageNum} of ${totalPages}`, {
@@ -324,7 +324,7 @@ export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
 
   el('rect', { x: 0, y: PAGE_H - 10, width: PAGE_W, height: 2, fill: BRAND_ACCENT }, svg);
   el('rect', { x: 0, y: PAGE_H - 8, width: PAGE_W, height: 8, fill: BRAND_PRIMARY }, svg);
-  textEl(svg, PAGE_W / 2, PAGE_H - 3, 'Generated via SVG Engine (Beta)', {
+  textEl(svg, PAGE_W / 2, PAGE_H - 3, 'Generated via SVG Engine', {
     size: 2.5, fill: '#94a3b8', anchor: 'middle',
   });
 
@@ -1602,7 +1602,7 @@ export function buildTableOfContentsSvg(entries: TocEntry[]): SVGSVGElement {
       x2: PAGE_W - MARGIN_RIGHT - 20, y2: y + 8,
       stroke: BRAND_ACCENT, 'stroke-width': 0.3,
     }, svg);
-    textEl(svg, PAGE_W / 2, y + 14, `${entries.length} sections  •  SVG Engine (Beta)`, {
+    textEl(svg, PAGE_W / 2, y + 14, `${entries.length} sections  •  SVG Engine`, {
       size: 2.5, fill: TEXT_MUTED, anchor: 'middle',
     });
   }

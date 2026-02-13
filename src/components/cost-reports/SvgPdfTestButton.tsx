@@ -348,7 +348,7 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
             <><Eye className="mr-1 h-4 w-4" />Preview SVG</>
           )}
         </Button>
-        <Badge variant="secondary" className="text-xs">Beta</Badge>
+        
       </div>
 
       {/* Benchmarks */}
