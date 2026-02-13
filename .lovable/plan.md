@@ -1,5 +1,6 @@
 
 
+
 # SVG-to-PDF Report Generation: Proof of Concept + Cost Report Toggle
 
 ## Overview
@@ -85,4 +86,3 @@ This is intentionally limited to validate the approach:
 - Benchmarking output (time, file size) displayed after generation.
 
 Once validated, the SVG engine can be expanded to all report sections and other report types.
-
