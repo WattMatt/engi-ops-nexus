@@ -215,11 +215,46 @@ export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
     logoBottomY = 42;
   }
 
-  textEl(svg, PAGE_W / 2, logoBottomY + 8, data.companyName.toUpperCase(), {
-    size: 8, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
-  });
+  // Auto-scale company name to fit within page width
+  const companyText = data.companyName.toUpperCase();
+  const maxTextWidth = PAGE_W - 20; // 10mm margin each side
+  const charWidthRatio = 0.55; // approximate width-to-size ratio for bold text
+  const idealSize = 8;
+  const estimatedWidth = companyText.length * idealSize * charWidthRatio;
+  
+  if (estimatedWidth > maxTextWidth) {
+    // Try to fit on two lines by splitting at a space near the middle
+    const midpoint = Math.floor(companyText.length / 2);
+    let splitIdx = companyText.lastIndexOf(' ', midpoint + 10);
+    if (splitIdx < 5) splitIdx = companyText.indexOf(' ', midpoint - 10);
+    if (splitIdx > 0) {
+      const line1 = companyText.substring(0, splitIdx);
+      const line2 = companyText.substring(splitIdx + 1);
+      // Scale font to fit the longer line
+      const longerLine = line1.length > line2.length ? line1 : line2;
+      const scaledSize = Math.min(idealSize, maxTextWidth / (longerLine.length * charWidthRatio));
+      const finalSize = Math.max(4, scaledSize);
+      textEl(svg, PAGE_W / 2, logoBottomY + 6, line1, {
+        size: finalSize, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
+      });
+      textEl(svg, PAGE_W / 2, logoBottomY + 6 + finalSize * 1.3, line2, {
+        size: finalSize, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
+      });
+    } else {
+      // Single word too long — just scale down
+      const scaledSize = Math.max(4, maxTextWidth / (companyText.length * charWidthRatio));
+      textEl(svg, PAGE_W / 2, logoBottomY + 8, companyText, {
+        size: scaledSize, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
+      });
+    }
+  } else {
+    textEl(svg, PAGE_W / 2, logoBottomY + 8, companyText, {
+      size: idealSize, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
+    });
+  }
 
-  el('line', { x1: 60, y1: logoBottomY + 18, x2: 150, y2: logoBottomY + 18, stroke: BRAND_ACCENT, 'stroke-width': 0.5 }, svg);
+  const lineY = estimatedWidth > maxTextWidth ? logoBottomY + 6 + idealSize * 2.8 : logoBottomY + 18;
+  el('line', { x1: 60, y1: lineY, x2: 150, y2: lineY, stroke: BRAND_ACCENT, 'stroke-width': 0.5 }, svg);
 
   textEl(svg, PAGE_W / 2, 90, 'COST REPORT', {
     size: 14, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
