@@ -445,3 +445,179 @@ function createNewVariationsPage(pages: SVGSVGElement[]): SVGSVGElement {
   pages.push(svg);
   return svg;
 }
+
+// ─── 5. Budget Distribution Donut Chart ───
+
+const CHART_COLORS = [
+  '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a',
+  '#0891b2', '#4f46e5', '#c026d3', '#d97706', '#059669',
+];
+
+export interface BudgetDistributionData {
+  categories: { code: string; description: string; amount: number }[];
+  totalBudget: number;
+}
+
+export function buildBudgetDistributionSvg(data: BudgetDistributionData): SVGSVGElement {
+  const svg = createSvgElement();
+  el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
+  addPageHeader(svg, 'BUDGET DISTRIBUTION');
+
+  const items = data.categories
+    .filter(c => c.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+
+  if (items.length === 0) {
+    textEl(svg, PAGE_W / 2, PAGE_H / 2, 'No budget data available', {
+      size: 5, fill: TEXT_MUTED, anchor: 'middle',
+    });
+    return svg;
+  }
+
+  const total = items.reduce((s, c) => s + c.amount, 0);
+
+  // Donut chart center and radii
+  const cx = 70;
+  const cy = 95;
+  const outerR = 42;
+  const innerR = 24;
+
+  // Draw arcs
+  let startAngle = -Math.PI / 2; // start at top
+
+  items.forEach((item, i) => {
+    const fraction = item.amount / total;
+    const endAngle = startAngle + fraction * 2 * Math.PI;
+    const color = CHART_COLORS[i % CHART_COLORS.length];
+
+    // Only draw if fraction is meaningful
+    if (fraction < 0.001) { startAngle = endAngle; return; }
+
+    const largeArc = fraction > 0.5 ? 1 : 0;
+
+    // Outer arc points
+    const x1o = cx + outerR * Math.cos(startAngle);
+    const y1o = cy + outerR * Math.sin(startAngle);
+    const x2o = cx + outerR * Math.cos(endAngle);
+    const y2o = cy + outerR * Math.sin(endAngle);
+
+    // Inner arc points (reverse direction)
+    const x1i = cx + innerR * Math.cos(endAngle);
+    const y1i = cy + innerR * Math.sin(endAngle);
+    const x2i = cx + innerR * Math.cos(startAngle);
+    const y2i = cy + innerR * Math.sin(startAngle);
+
+    const d = [
+      `M ${x1o} ${y1o}`,
+      `A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2o} ${y2o}`,
+      `L ${x1i} ${y1i}`,
+      `A ${innerR} ${innerR} 0 ${largeArc} 0 ${x2i} ${y2i}`,
+      'Z',
+    ].join(' ');
+
+    el('path', { d, fill: color, stroke: WHITE, 'stroke-width': 0.5 }, svg);
+
+    // Percentage label on slice (for segments > 8%)
+    if (fraction > 0.08) {
+      const midAngle = startAngle + (endAngle - startAngle) / 2;
+      const labelR = (outerR + innerR) / 2;
+      const lx = cx + labelR * Math.cos(midAngle);
+      const ly = cy + labelR * Math.sin(midAngle);
+      textEl(svg, lx, ly + 1, `${(fraction * 100).toFixed(1)}%`, {
+        size: 2.5, fill: WHITE, weight: 'bold', anchor: 'middle',
+      });
+    }
+
+    startAngle = endAngle;
+  });
+
+  // Center text
+  textEl(svg, cx, cy - 2, 'TOTAL', { size: 2.5, fill: TEXT_MUTED, anchor: 'middle' });
+  textEl(svg, cx, cy + 3, formatCurrency(total), {
+    size: 3.5, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
+  });
+
+  // Legend on the right side
+  const legendX = 125;
+  let legendY = 45;
+  const legendRowH = 9;
+
+  // Legend header
+  textEl(svg, legendX, legendY, 'CATEGORY BREAKDOWN', {
+    size: 3, fill: BRAND_PRIMARY, weight: 'bold',
+  });
+  legendY += 6;
+
+  items.forEach((item, i) => {
+    if (legendY > PAGE_H - 40) return; // safety limit
+
+    const color = CHART_COLORS[i % CHART_COLORS.length];
+    const pct = ((item.amount / total) * 100).toFixed(1);
+
+    // Color swatch
+    el('rect', {
+      x: legendX, y: legendY - 3,
+      width: 4, height: 4, rx: 0.8,
+      fill: color,
+    }, svg);
+
+    // Category code + description
+    const label = `${item.code} — ${item.description}`;
+    const truncLabel = label.length > 28 ? label.slice(0, 25) + '...' : label;
+    textEl(svg, legendX + 6, legendY, truncLabel, { size: 2.6, fill: TEXT_DARK });
+
+    // Amount + percentage
+    textEl(svg, legendX + 6, legendY + 4, `${formatCurrency(item.amount)}  (${pct}%)`, {
+      size: 2.4, fill: TEXT_MUTED,
+    });
+
+    legendY += legendRowH;
+  });
+
+  // Summary cards at bottom
+  const cardY = 160;
+  const cardW = (CONTENT_W - 6) / 3;
+
+  // Largest category
+  const largest = items[0];
+  drawSummaryCard(svg, MARGIN_LEFT, cardY, cardW, 'Largest Category',
+    `${largest.code} — ${largest.description}`,
+    formatCurrency(largest.amount),
+    `${((largest.amount / total) * 100).toFixed(1)}% of total`,
+    CHART_COLORS[0]
+  );
+
+  // Number of categories
+  drawSummaryCard(svg, MARGIN_LEFT + cardW + 3, cardY, cardW, 'Categories',
+    `${items.length} active`,
+    formatCurrency(total),
+    'Total Original Budget',
+    BRAND_ACCENT
+  );
+
+  // Smallest category
+  const smallest = items[items.length - 1];
+  drawSummaryCard(svg, MARGIN_LEFT + (cardW + 3) * 2, cardY, cardW, 'Smallest Category',
+    `${smallest.code} — ${smallest.description}`,
+    formatCurrency(smallest.amount),
+    `${((smallest.amount / total) * 100).toFixed(1)}% of total`,
+    CHART_COLORS[items.length - 1 < CHART_COLORS.length ? items.length - 1 : CHART_COLORS.length - 1]
+  );
+
+  return svg;
+}
+
+function drawSummaryCard(
+  svg: SVGSVGElement,
+  x: number, y: number, w: number,
+  title: string, line1: string, line2: string, line3: string,
+  accentColor: string
+) {
+  el('rect', { x, y, width: w, height: 30, rx: 2, fill: BRAND_LIGHT, stroke: BORDER_COLOR, 'stroke-width': 0.2 }, svg);
+  el('rect', { x, y, width: w, height: 1.5, rx: 0.5, fill: accentColor }, svg);
+  textEl(svg, x + 3, y + 6, title.toUpperCase(), { size: 2.2, fill: TEXT_MUTED, weight: 'bold' });
+  const truncLine1 = line1.length > 22 ? line1.slice(0, 19) + '...' : line1;
+  textEl(svg, x + 3, y + 12, truncLine1, { size: 2.8, fill: TEXT_DARK });
+  textEl(svg, x + 3, y + 18, line2, { size: 3.5, fill: accentColor, weight: 'bold' });
+  textEl(svg, x + 3, y + 24, line3, { size: 2.2, fill: TEXT_MUTED });
+}
