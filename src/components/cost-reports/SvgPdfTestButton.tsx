@@ -13,6 +13,7 @@ import {
   buildCategoryDetailsSvg,
   buildVariationsSvg,
   buildBudgetDistributionSvg,
+  buildVarianceComparisonSvg,
   type CategoryDetailData,
   type VariationItem,
 } from "@/utils/svg-pdf/costReportSvgBuilder";
@@ -163,11 +164,22 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       totalBudget: grandTotals.originalBudget,
     });
 
+    // Build Variance Comparison bar chart page
+    const varianceComparisonSvg = buildVarianceComparisonSvg({
+      categories: categoryTotals.map((cat: any) => ({
+        code: cat.code,
+        description: cat.description,
+        originalBudget: cat.originalBudget,
+        anticipatedFinal: cat.anticipatedFinal,
+      })),
+    });
+
     // Assemble all pages and labels
-    const allPages = [coverSvg, summarySvg, distributionSvg, ...categoryPages, ...variationsPages];
+    const allPages = [coverSvg, summarySvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages];
     const labels = [
       ...STATIC_LABELS,
       'Budget Distribution',
+      'Variance Comparison',
       ...categoryPages.map((_, i) => i === 0 ? 'Category Details' : `Categories (p${i + 1})`),
       ...variationsPages.map((_, i) => i === 0 ? 'Variations' : `Variations (p${i + 1})`),
     ];
