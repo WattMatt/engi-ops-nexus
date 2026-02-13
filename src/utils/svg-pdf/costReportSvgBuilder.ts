@@ -147,6 +147,19 @@ function addPageFooter(svg: SVGSVGElement, pageNum: number, totalPages: number) 
   });
 }
 
+/**
+ * Apply page footers to all assembled pages.
+ * Call this AFTER all pages are assembled so total page count is accurate.
+ * Skips page index 0 (cover page) by default.
+ */
+export function applyPageFooters(pages: SVGSVGElement[], skipCover: boolean = true) {
+  const total = pages.length;
+  pages.forEach((svg, i) => {
+    if (skipCover && i === 0) return;
+    addPageFooter(svg, i + 1, total);
+  });
+}
+
 function addPageHeader(svg: SVGSVGElement, title: string) {
   el('rect', { x: 0, y: 0, width: PAGE_W, height: 1.5, fill: BRAND_ACCENT }, svg);
   textEl(svg, MARGIN_LEFT, MARGIN_TOP + 3, title, {

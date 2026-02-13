@@ -15,6 +15,7 @@ import {
   buildBudgetDistributionSvg,
   buildVarianceComparisonSvg,
   buildProjectHealthSvg,
+  applyPageFooters,
   type CategoryDetailData,
   type VariationItem,
 } from "@/utils/svg-pdf/costReportSvgBuilder";
@@ -204,6 +205,9 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       ...variationsPages.map((_, i) => i === 0 ? 'Variations' : `Variations (p${i + 1})`),
     ];
     setPageLabels(labels);
+
+    // Apply footers with accurate "Page X of Y" after full assembly
+    applyPageFooters(allPages);
 
     return allPages;
   }, [report]);
