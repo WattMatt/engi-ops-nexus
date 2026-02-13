@@ -1,17 +1,20 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Loader2, Eye, EyeOff, Clock, HardDrive } from "lucide-react";
+import { Download, Loader2, Eye, EyeOff, Clock, HardDrive, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import { buildCoverPageSvg, buildExecutiveSummarySvg } from "@/utils/svg-pdf/costReportSvgBuilder";
 import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
+import { Separator } from "@/components/ui/separator";
 
 interface SvgPdfTestButtonProps {
   report: any;
 }
+
+const PAGE_LABELS = ["Cover Page", "Executive Summary"];
 
 export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
   const { toast } = useToast();
@@ -19,24 +22,24 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
   const [showPreview, setShowPreview] = useState(false);
   const [benchmarks, setBenchmarks] = useState<{ timeMs: number; sizeBytes: number } | null>(null);
   const [svgPages, setSvgPages] = useState<SVGSVGElement[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [zoom, setZoom] = useState(100);
+  const [isExpanded, setIsExpanded] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const buildSvgPages = async (): Promise<SVGSVGElement[]> => {
-    // Fetch company settings
+  const buildSvgPages = useCallback(async (): Promise<SVGSVGElement[]> => {
     const { data: company } = await supabase
       .from("company_settings")
       .select("*")
       .limit(1)
       .maybeSingle();
 
-    // Fetch categories with line items
     const { data: categoriesData } = await supabase
       .from("cost_categories")
       .select("*, cost_line_items(*)")
       .eq("cost_report_id", report.id)
       .order("display_order");
 
-    // Fetch variations
     const { data: variationsData } = await supabase
       .from("cost_variations")
       .select("*, variation_line_items(*)")
@@ -49,7 +52,6 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
     const categoryTotals = calculateCategoryTotals(cats, allLineItems, vars);
     const grandTotals = calculateGrandTotals(categoryTotals);
 
-    // Build Cover Page
     const coverSvg = buildCoverPageSvg({
       companyName: company?.company_name || "Company Name",
       projectName: report.project_name || "Project",
@@ -59,7 +61,6 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       projectNumber: report.project_number,
     });
 
-    // Build Executive Summary
     const summaryRows = categoryTotals.map((cat: any) => ({
       code: cat.code,
       description: cat.description,
@@ -80,7 +81,7 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
     });
 
     return [coverSvg, summarySvg];
-  };
+  }, [report]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -89,13 +90,14 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
     try {
       const pages = await buildSvgPages();
       setSvgPages(pages);
+      setShowPreview(true);
+      setCurrentPage(0);
 
       const result = await svgPagesToDownload(pages, {
         filename: `CostReport_${report.report_number}_SVG.pdf`,
       });
 
       setBenchmarks(result);
-
       toast({
         title: "SVG PDF Generated",
         description: `Generated in ${result.timeMs}ms (${(result.sizeBytes / 1024).toFixed(1)} KB)`,
@@ -113,46 +115,47 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
   };
 
   const handlePreview = async () => {
+    if (showPreview) {
+      setShowPreview(false);
+      return;
+    }
+
     if (svgPages.length === 0) {
       setIsGenerating(true);
       try {
         const pages = await buildSvgPages();
         setSvgPages(pages);
+        setCurrentPage(0);
       } catch (error: any) {
-        toast({
-          title: "Preview Failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        toast({ title: "Preview Failed", description: error.message, variant: "destructive" });
         setIsGenerating(false);
         return;
       }
       setIsGenerating(false);
     }
-    setShowPreview(!showPreview);
+    setShowPreview(true);
   };
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 25, 200));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 25, 50));
+  const handleZoomReset = () => setZoom(100);
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 items-center">
+      {/* Action Buttons */}
+      <div className="flex gap-2 items-center flex-wrap">
         <Button onClick={handleGenerate} disabled={isGenerating} variant="outline">
           {isGenerating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating...
-            </>
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
           ) : (
-            <>
-              <Download className="mr-2 h-4 w-4" />
-              Export SVG PDF
-            </>
+            <><Download className="mr-2 h-4 w-4" />Export SVG PDF</>
           )}
         </Button>
         <Button onClick={handlePreview} variant="ghost" size="sm" disabled={isGenerating}>
           {showPreview ? (
-            <><EyeOff className="mr-1 h-4 w-4" /> Hide Preview</>
+            <><EyeOff className="mr-1 h-4 w-4" />Hide Preview</>
           ) : (
-            <><Eye className="mr-1 h-4 w-4" /> Preview SVG</>
+            <><Eye className="mr-1 h-4 w-4" />Preview SVG</>
           )}
         </Button>
         <Badge variant="secondary" className="text-xs">Beta</Badge>
@@ -162,34 +165,122 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       {benchmarks && (
         <div className="flex gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5" />
-            {benchmarks.timeMs}ms
+            <Clock className="h-3.5 w-3.5" />{benchmarks.timeMs}ms
           </span>
           <span className="flex items-center gap-1">
-            <HardDrive className="h-3.5 w-3.5" />
-            {(benchmarks.sizeBytes / 1024).toFixed(1)} KB
+            <HardDrive className="h-3.5 w-3.5" />{(benchmarks.sizeBytes / 1024).toFixed(1)} KB
           </span>
         </div>
       )}
 
-      {/* SVG Preview */}
+      {/* Inline SVG Preview Panel */}
       {showPreview && svgPages.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">SVG Preview ({svgPages.length} pages)</CardTitle>
+        <Card className={isExpanded ? "fixed inset-4 z-50 overflow-hidden flex flex-col" : ""}>
+          <CardHeader className="pb-2 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-sm font-medium">
+                  SVG Preview
+                </CardTitle>
+                <Badge variant="outline" className="text-xs font-normal">
+                  {PAGE_LABELS[currentPage] || `Page ${currentPage + 1}`}
+                </Badge>
+              </div>
+
+              {/* Toolbar */}
+              <div className="flex items-center gap-1">
+                {/* Page Navigation */}
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7"
+                  disabled={currentPage === 0}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground min-w-[3rem] text-center">
+                  {currentPage + 1} / {svgPages.length}
+                </span>
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7"
+                  disabled={currentPage === svgPages.length - 1}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+
+                <Separator orientation="vertical" className="h-5 mx-1" />
+
+                {/* Zoom Controls */}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomOut} disabled={zoom <= 50}>
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground min-w-[2.5rem] text-center">{zoom}%</span>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomIn} disabled={zoom >= 200}>
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomReset} title="Reset zoom">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+
+                <Separator orientation="vertical" className="h-5 mx-1" />
+
+                {/* Expand/Collapse */}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsExpanded(e => !e)}>
+                  {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div ref={previewRef} className="space-y-4 overflow-auto max-h-[600px]">
-              {svgPages.map((svg, i) => (
-                <div
+
+          <CardContent className={isExpanded ? "flex-1 overflow-hidden" : ""}>
+            {/* Page Thumbnails */}
+            <div className="flex gap-2 mb-3">
+              {svgPages.map((_, i) => (
+                <button
                   key={i}
-                  className="border rounded-lg shadow-sm bg-background p-2"
-                  dangerouslySetInnerHTML={{ __html: svg.outerHTML }}
-                />
+                  onClick={() => setCurrentPage(i)}
+                  className={`
+                    px-3 py-1.5 rounded-md text-xs font-medium transition-colors
+                    ${currentPage === i
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }
+                  `}
+                >
+                  {PAGE_LABELS[i] || `Page ${i + 1}`}
+                </button>
               ))}
+            </div>
+
+            {/* SVG Render Area */}
+            <div
+              ref={previewRef}
+              className={`
+                overflow-auto border rounded-lg bg-muted/30
+                ${isExpanded ? "h-[calc(100%-3rem)]" : "max-h-[500px]"}
+              `}
+            >
+              <div
+                className="flex justify-center p-4 transition-transform origin-top"
+                style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
+              >
+                <div
+                  className="bg-background rounded-lg shadow-lg border"
+                  style={{ width: "210mm" }}
+                  dangerouslySetInnerHTML={{ __html: svgPages[currentPage].outerHTML }}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Expanded backdrop */}
+      {isExpanded && showPreview && (
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+          onClick={() => setIsExpanded(false)}
+        />
       )}
     </div>
   );
