@@ -341,11 +341,11 @@ export function buildExecutiveSummarySvg(data: ExecutiveSummaryData): SVGSVGElem
   const tableX = MARGIN_LEFT;
   const tableW = CONTENT_W;
   const cols = [
-    { label: 'CODE', x: 0, w: 18 },
-    { label: 'CATEGORY', x: 18, w: 52 },
-    { label: 'ORIGINAL BUDGET', x: 70, w: 38 },
-    { label: 'ANTICIPATED FINAL', x: 108, w: 38 },
-    { label: 'VARIANCE', x: 146, w: 34 },
+    { label: 'CODE', x: 0, w: 14 },
+    { label: 'CATEGORY', x: 14, w: 46 },
+    { label: 'ORIGINAL BUDGET', x: 60, w: 38 },
+    { label: 'ANTICIPATED FINAL', x: 98, w: 42 },
+    { label: 'VARIANCE', x: 140, w: 40 },
   ];
   const rowH = 8;
   let y = 30;
