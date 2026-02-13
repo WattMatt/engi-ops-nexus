@@ -14,6 +14,7 @@ import {
   buildVariationsSvg,
   buildBudgetDistributionSvg,
   buildVarianceComparisonSvg,
+  buildProjectHealthSvg,
   type CategoryDetailData,
   type VariationItem,
 } from "@/utils/svg-pdf/costReportSvgBuilder";
@@ -174,10 +175,29 @@ export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
       })),
     });
 
+    // Build Project Health KPI dashboard page
+    const overBudget = categoryTotals.filter((c: any) => c.anticipatedFinal > c.originalBudget && c.originalBudget > 0).length;
+    const underBudget = categoryTotals.filter((c: any) => c.anticipatedFinal < c.originalBudget && c.originalBudget > 0).length;
+    const onTrack = categoryTotals.filter((c: any) => c.anticipatedFinal === c.originalBudget || c.originalBudget === 0).length;
+
+    const projectHealthSvg = buildProjectHealthSvg({
+      totalOriginalBudget: grandTotals.originalBudget,
+      totalAnticipatedFinal: grandTotals.anticipatedFinal,
+      totalCurrentVariance: grandTotals.currentVariance,
+      totalOriginalVariance: grandTotals.originalVariance,
+      categoryCount: categoryTotals.length,
+      categoriesOverBudget: overBudget,
+      categoriesUnderBudget: underBudget,
+      categoriesOnTrack: onTrack,
+      variationsCount: vars.length,
+      variationsTotal: variationItems.reduce((s, v) => s + v.amount, 0),
+    });
+
     // Assemble all pages and labels
-    const allPages = [coverSvg, summarySvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages];
+    const allPages = [coverSvg, summarySvg, projectHealthSvg, distributionSvg, varianceComparisonSvg, ...categoryPages, ...variationsPages];
     const labels = [
       ...STATIC_LABELS,
+      'Project Health',
       'Budget Distribution',
       'Variance Comparison',
       ...categoryPages.map((_, i) => i === 0 ? 'Category Details' : `Categories (p${i + 1})`),
