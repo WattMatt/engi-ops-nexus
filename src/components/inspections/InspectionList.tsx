@@ -70,8 +70,8 @@ export const InspectionList = () => {
       // In a real integration, we would likely fetch 'projects' here if 'sites' don't exist
       // But we will try to fetch 'sites' assuming the schema migration happened or we are using projects as sites
       
-      const { data: sitesData, error: sitesError } = await supabase
-        .from("sites") // Warning: this table might not exist in wm-office yet!
+      const { data: sitesData, error: sitesError } = await (supabase
+        .from("sites" as any) as any)
         .select("id, name");
 
       if (sitesError) {
@@ -85,8 +85,8 @@ export const InspectionList = () => {
       let allInspections: Inspection[] = [];
 
       if (isOnline) {
-        const { data, error } = await supabase
-          .from("inspections")
+        const { data, error } = await (supabase
+          .from("inspections" as any) as any)
           .select("*, sites(id, name)")
           .order("created_at", { ascending: false });
         

@@ -1,4 +1,4 @@
-export interface ReportConfig {
+export interface PDFReportConfig {
   includeCoverPage?: boolean;
   includeExecutiveSummary?: boolean;
   includeFinancialOverview?: boolean;

@@ -76,7 +76,7 @@ export function InspectionForm({ initialData, inspectionId, onSuccess }: Inspect
       if (inspectionId) {
         await updateInspection(inspectionId, data);
       } else {
-        await createInspection(data);
+        await createInspection(data as import('@/hooks/useOfflineInspections').InspectionData);
       }
       onSuccess?.();
     } catch (error) {
