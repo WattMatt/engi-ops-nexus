@@ -8,43 +8,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { 
-  MoreHorizontal, 
-  Copy, 
-  Trash2, 
-  ExternalLink,
-  Eye,
-  Mail,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  RefreshCw,
-  FileText,
-  Loader2
+  MoreHorizontal, Copy, Trash2, ExternalLink, Eye, Mail,
+  Clock, CheckCircle2, XCircle, RefreshCw, FileText, Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +28,10 @@ import { format, formatDistanceToNow, isPast } from "date-fns";
 import { CableVerificationStatusBadge } from "./CableVerificationStatusBadge";
 import { VerificationStatus } from "@/types/cableVerification";
 import { EmptyState, LoadingState } from "@/components/common";
+import { svgPagesToPdfBlob } from "@/utils/svg-pdf/svgToPdfEngine";
+import { buildVerificationCertPdf, type VerificationCertPdfData } from "@/utils/svg-pdf/verificationCertPdfBuilder";
+import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
+import { imageToBase64 } from "@/utils/pdfmake/helpers";
 
 interface TokenWithVerification {
   id: string;
@@ -79,6 +59,7 @@ interface TokenWithVerification {
     revision: string | null;
   };
 }
+
 interface CableScheduleVerificationHistoryProps {
   scheduleId: string;
 }
@@ -89,27 +70,16 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch verification tokens with their verification records
   const { data: tokens, isLoading, error } = useQuery({
     queryKey: ['cable-verification-tokens', scheduleId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cable_schedule_verification_tokens')
-        .select(`
-          *,
-          cable_schedule_verifications (
-            id,
-            status,
-            completed_at,
-            signoff_name
-          )
-        `)
+        .select(`*, cable_schedule_verifications (id, status, completed_at, signoff_name)`)
         .eq('schedule_id', scheduleId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Transform the data to match our expected shape
       return (data || []).map(token => ({
         ...token,
         verification: token.cable_schedule_verifications?.[0] ? {
@@ -122,38 +92,27 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
     },
   });
 
-  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (tokenId: string) => {
       const { error } = await supabase
         .from('cable_schedule_verification_tokens')
         .delete()
         .eq('id', tokenId);
-      
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cable-verification-tokens', scheduleId] });
-      toast({
-        title: "Verification link deleted",
-        description: "The verification link has been revoked",
-      });
+      toast({ title: "Verification link deleted", description: "The verification link has been revoked" });
       setDeleteTokenId(null);
     },
     onError: () => {
-      toast({
-        title: "Failed to delete",
-        description: "Please try again",
-        variant: "destructive",
-      });
+      toast({ title: "Failed to delete", description: "Please try again", variant: "destructive" });
     },
   });
 
-  // Resend email mutation
   const resendMutation = useMutation({
     mutationFn: async (token: TokenWithVerification) => {
       const verificationUrl = `${window.location.origin}/cable-verification?token=${token.token}`;
-      
       const { error } = await supabase.functions.invoke('send-cable-verification-email', {
         body: {
           to: token.electrician_email,
@@ -163,21 +122,13 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
           expires_at: token.expires_at,
         },
       });
-
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({
-        title: "Email sent",
-        description: "Verification link email has been resent",
-      });
+      toast({ title: "Email sent", description: "Verification link email has been resent" });
     },
     onError: () => {
-      toast({
-        title: "Failed to send email",
-        description: "Please try again",
-        variant: "destructive",
-      });
+      toast({ title: "Failed to send email", description: "Please try again", variant: "destructive" });
     },
   });
 
@@ -199,71 +150,106 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
   const downloadCertificate = async (verificationId: string) => {
     setDownloadingCertificateId(verificationId);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-verification-certificate-pdf', {
-        body: { verification_id: verificationId },
-      });
+      // Fetch verification data
+      const { data: verification, error: vErr } = await (supabase
+        .from('cable_schedule_verifications') as any)
+        .select('*')
+        .eq('id', verificationId)
+        .single();
+      if (vErr) throw vErr;
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error || 'Failed to generate certificate');
+      // Fetch verification items
+      const { data: items } = await (supabase
+        .from('cable_schedule_verification_items' as any) as any)
+        .select('*')
+        .eq('verification_id', verificationId);
 
-      if (data.pdfBase64) {
-        // Convert base64 to blob and download
-        const byteCharacters = atob(data.pdfBase64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
-        
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = data.filename || 'Verification_Certificate.pdf';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+      // Fetch schedule info
+      const { data: schedule } = await supabase
+        .from('cable_schedules')
+        .select('*, projects(name, project_number)')
+        .eq('id', scheduleId)
+        .single();
 
-        toast({ title: "Certificate downloaded" });
-      } else if (data.storageUrl) {
-        window.open(data.storageUrl, '_blank');
+      // Company data
+      const { data: company } = await supabase
+        .from('company_settings')
+        .select('company_name, company_logo_url')
+        .limit(1)
+        .maybeSingle();
+
+      let companyLogoBase64: string | null = null;
+      if (company?.company_logo_url) {
+        try { companyLogoBase64 = await imageToBase64(company.company_logo_url); } catch {}
       }
-    } catch (err) {
+
+      const coverData: StandardCoverPageData = {
+        reportTitle: "Verification Certificate",
+        reportSubtitle: `Schedule: ${(schedule as any)?.schedule_name || 'Cable Schedule'}`,
+        projectName: (schedule as any)?.projects?.name || 'Project',
+        projectNumber: (schedule as any)?.projects?.project_number,
+        date: format(new Date(), "dd MMMM yyyy"),
+        companyName: company?.company_name || undefined,
+        companyLogoBase64,
+      };
+
+      const verifiedItems = (items || []).filter((i: any) => i.status === 'verified').length;
+      const issueItems = (items || []).filter((i: any) => i.status === 'issue').length;
+      const notInstalledItems = (items || []).filter((i: any) => i.status === 'not_installed').length;
+
+      const certData: VerificationCertPdfData = {
+        coverData,
+        projectName: (schedule as any)?.projects?.name || 'Project',
+        projectNumber: (schedule as any)?.projects?.project_number || '',
+        scheduleName: (schedule as any)?.schedule_name || 'Cable Schedule',
+        scheduleRevision: (schedule as any)?.revision,
+        electrician: {
+          name: verification.signoff_name || 'Unknown',
+          company: verification.signoff_company || '',
+          registration: verification.signoff_registration || '',
+        },
+        stats: {
+          total: (items || []).length,
+          verified: verifiedItems,
+          issues: issueItems,
+          not_installed: notInstalledItems,
+        },
+        items: (items || []).map((i: any) => ({
+          cable_tag: i.cable_tag || '',
+          from_location: i.from_location || '',
+          to_location: i.to_location || '',
+          cable_size: i.cable_size || '',
+          status: i.status || 'pending',
+          notes: i.notes,
+          measured_length: i.measured_length,
+        })),
+        completedAt: verification.completed_at || new Date().toISOString(),
+        certId: verificationId,
+      };
+
+      const pages = buildVerificationCertPdf(certData);
+      const { blob } = await svgPagesToPdfBlob(pages);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Verification_Certificate_${format(new Date(), 'yyyyMMdd')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Certificate downloaded" });
+    } catch (err: any) {
       console.error('Failed to download certificate:', err);
-      toast({
-        title: "Failed to generate certificate",
-        description: "Please try again later",
-        variant: "destructive",
-      });
+      toast({ title: "Failed to generate certificate", description: "Please try again later", variant: "destructive" });
     } finally {
       setDownloadingCertificateId(null);
     }
   };
 
-  if (isLoading) {
-    return <LoadingState message="Loading verification history..." />;
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="py-8">
-          <p className="text-center text-destructive">Failed to load verification history</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!tokens?.length) {
-    return (
-      <EmptyState
-        title="No verification links"
-        description="Create a verification link above to allow site electricians to verify cable installations"
-        icon={CheckCircle2}
-      />
-    );
-  }
+  if (isLoading) return <LoadingState message="Loading verification history..." />;
+  if (error) return <Card><CardContent className="py-8"><p className="text-center text-destructive">Failed to load verification history</p></CardContent></Card>;
+  if (!tokens?.length) return <EmptyState title="No verification links" description="Create a verification link above to allow site electricians to verify cable installations" icon={CheckCircle2} />;
 
   return (
     <>
@@ -289,16 +275,13 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
                     <div className="flex flex-col">
                       <span className="font-medium">{token.electrician_name}</span>
                       <span className="text-sm text-muted-foreground">{token.electrician_email}</span>
-                      {token.company_name && (
-                        <span className="text-xs text-muted-foreground">{token.company_name}</span>
-                      )}
+                      {token.company_name && <span className="text-xs text-muted-foreground">{token.company_name}</span>}
                     </div>
                   </TableCell>
                   <TableCell>
                     {isExpired && !token.verification?.completed_at ? (
                       <Badge variant="outline" className="bg-muted text-muted-foreground">
-                        <XCircle className="mr-1 h-3 w-3" />
-                        Expired
+                        <XCircle className="mr-1 h-3 w-3" />Expired
                       </Badge>
                     ) : (
                       <CableVerificationStatusBadge status={verificationStatus} />
@@ -308,13 +291,9 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
                     <div className="flex items-center gap-1 text-sm">
                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                       {isExpired ? (
-                        <span className="text-muted-foreground">
-                          Expired {formatDistanceToNow(new Date(token.expires_at))} ago
-                        </span>
+                        <span className="text-muted-foreground">Expired {formatDistanceToNow(new Date(token.expires_at))} ago</span>
                       ) : (
-                        <span>
-                          {formatDistanceToNow(new Date(token.expires_at))} left
-                        </span>
+                        <span>{formatDistanceToNow(new Date(token.expires_at))} left</span>
                       )}
                     </div>
                   </TableCell>
@@ -323,39 +302,22 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
                       {token.access_count > 0 ? (
                         <>
                           {token.access_count} visit{token.access_count !== 1 ? 's' : ''}
-                          {token.accessed_at && (
-                            <span className="block text-xs">
-                              Last: {format(new Date(token.accessed_at), 'MMM d, HH:mm')}
-                            </span>
-                          )}
+                          {token.accessed_at && <span className="block text-xs">Last: {format(new Date(token.accessed_at), 'MMM d, HH:mm')}</span>}
                         </>
-                      ) : (
-                        'Not accessed'
-                      )}
+                      ) : 'Not accessed'}
                     </div>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => copyLink(token.token)}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy Link
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openLink(token.token)}>
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Open Portal
-                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => copyLink(token.token)}><Copy className="mr-2 h-4 w-4" />Copy Link</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openLink(token.token)}><ExternalLink className="mr-2 h-4 w-4" />Open Portal</DropdownMenuItem>
                         {token.verification && (
                           <>
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Results
-                            </DropdownMenuItem>
+                            <DropdownMenuItem><Eye className="mr-2 h-4 w-4" />View Results</DropdownMenuItem>
                             {(token.verification.status === 'verified' || token.verification.status === 'issues_found') && (
                               <DropdownMenuItem 
                                 onClick={() => downloadCertificate(token.verification!.id)}
@@ -372,20 +334,12 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
                           </>
                         )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => resendMutation.mutate(token)}
-                          disabled={resendMutation.isPending}
-                        >
-                          <Mail className="mr-2 h-4 w-4" />
-                          Resend Email
+                        <DropdownMenuItem onClick={() => resendMutation.mutate(token)} disabled={resendMutation.isPending}>
+                          <Mail className="mr-2 h-4 w-4" />Resend Email
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteTokenId(token.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Revoke Access
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTokenId(token.id)}>
+                          <Trash2 className="mr-2 h-4 w-4" />Revoke Access
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -397,15 +351,13 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
         </Table>
       </div>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteTokenId} onOpenChange={() => setDeleteTokenId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke verification access?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete the verification link. The electrician will no longer 
-              be able to access the verification portal. Any incomplete verification progress 
-              will be lost.
+              be able to access the verification portal. Any incomplete verification progress will be lost.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

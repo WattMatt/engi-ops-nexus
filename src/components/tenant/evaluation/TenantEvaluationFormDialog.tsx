@@ -272,25 +272,13 @@ export function TenantEvaluationFormDialog({
 
     setIsGeneratingReport(true);
     try {
-      // First save the evaluation
+      // Save the evaluation as completed (PDF generation handled separately via report history)
       const savedEvaluation = await saveMutation.mutateAsync("completed");
-      
-      // Then generate the PDF report
-      const response = await supabase.functions.invoke("generate-tenant-evaluation-pdf", {
-        body: {
-          evaluation: savedEvaluation,
-          tenant,
-          projectName,
-        },
-      });
 
-      if (response.error) throw response.error;
-
-      // Invalidate the report query so the preview dialog can find it
       queryClient.invalidateQueries({ queryKey: ["tenant-evaluation-report", savedEvaluation.id] });
       queryClient.invalidateQueries({ queryKey: ["tenant-evaluations"] });
       
-      toast.success("Evaluation report generated and saved");
+      toast.success("Evaluation saved as completed");
       onSuccess();
     } catch (error: any) {
       toast.error(`Failed to generate report: ${error.message}`);
