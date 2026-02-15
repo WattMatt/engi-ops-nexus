@@ -4,7 +4,7 @@
  */
 import {
   createSvgElement, el, textEl, formatCurrencyValue, buildStandardCoverPageSvg,
-  buildTablePages, addPageHeader, applyPageFooters, buildTableOfContentsSvg,
+  buildTablePages, addPageHeader, applyPageFooters, applyRunningHeaders, buildTableOfContentsSvg,
   drawStatCards, MARGIN_LEFT, MARGIN_TOP, PAGE_W, PAGE_H, CONTENT_W,
   WHITE, BRAND_PRIMARY, BRAND_LIGHT, TEXT_DARK, TEXT_MUTED, BORDER_COLOR,
   type StandardCoverPageData, type TableColumn, type TocEntry, type StatCard,
@@ -147,6 +147,7 @@ export function buildFinalAccountPdf(data: FinalAccountPdfData): SVGSVGElement[]
   const tocSvg = buildTableOfContentsSvg(tocEntries);
   const allPages = [coverSvg, tocSvg, ...contentPages.slice(1)];
 
+  applyRunningHeaders(allPages, 'Final Account', coverData.projectName || '');
   applyPageFooters(allPages, 'Final Account');
   return allPages;
 }

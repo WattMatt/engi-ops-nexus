@@ -3,7 +3,7 @@
  */
 import {
   createSvgElement, el, textEl, buildStandardCoverPageSvg,
-  buildTablePages, addPageHeader, applyPageFooters, drawStatCards,
+  buildTablePages, addPageHeader, applyPageFooters, applyRunningHeaders, drawStatCards,
   buildTableOfContentsSvg,
   MARGIN_LEFT, MARGIN_TOP, PAGE_W, PAGE_H, CONTENT_W,
   WHITE, BRAND_PRIMARY, TEXT_DARK, TEXT_MUTED, BRAND_LIGHT,
@@ -119,6 +119,7 @@ export function buildHandoverCompletionPdf(data: HandoverPdfData): SVGSVGElement
   const tocSvg = buildTableOfContentsSvg(tocEntries);
   const allPages = [coverSvg, tocSvg, ...contentPages.slice(1)];
 
+  applyRunningHeaders(allPages, 'Tenant Handover Completion', coverData.projectName || '');
   applyPageFooters(allPages, 'Tenant Handover Completion');
   return allPages;
 }
