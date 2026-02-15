@@ -413,6 +413,85 @@ export function drawStatCards(svg: SVGSVGElement, stats: StatCard[], y: number):
   return y + 22;
 }
 
+// ─── Running Header (PDF Spec §1 — All Pages Except Cover) ───
+
+/**
+ * Apply running headers to all pages except the cover (index 0).
+ * Left: report title. Right: project name.
+ */
+export function applyRunningHeaders(
+  pages: SVGSVGElement[],
+  reportTitle: string,
+  projectName: string,
+  skipCover: boolean = true
+) {
+  pages.forEach((svg, i) => {
+    if (skipCover && i === 0) return;
+    // Top accent line
+    el('rect', { x: 0, y: 0, width: PAGE_W, height: 0.8, fill: BRAND_ACCENT }, svg);
+    // Report title — left
+    textEl(svg, MARGIN_LEFT, 6, reportTitle, {
+      size: 2.8, fill: TEXT_MUTED, weight: 'bold',
+    });
+    // Project name — right
+    textEl(svg, PAGE_W - MARGIN_RIGHT, 6, truncate(projectName, 50), {
+      size: 2.8, fill: TEXT_MUTED, anchor: 'end',
+    });
+    // Separator line below header
+    el('line', {
+      x1: MARGIN_LEFT, y1: 8,
+      x2: PAGE_W - MARGIN_RIGHT, y2: 8,
+      stroke: BORDER_COLOR, 'stroke-width': 0.2,
+    }, svg);
+  });
+}
+
+// ─── Executive Summary Template ───
+
+export interface ExecutiveSummaryData {
+  items: { label: string; value: string; color?: string }[];
+  narrative?: string;
+}
+
+export function buildExecutiveSummarySvg(data: ExecutiveSummaryData): SVGSVGElement {
+  const svg = createSvgElement();
+  el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
+  addPageHeader(svg, 'Executive Summary');
+
+  let y = MARGIN_TOP + 16;
+
+  // KPI cards (up to 4 per row)
+  if (data.items.length > 0) {
+    const perRow = Math.min(data.items.length, 4);
+    const cardW = (CONTENT_W - (perRow - 1) * 2) / perRow;
+    data.items.forEach((item, i) => {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const x = MARGIN_LEFT + col * (cardW + 2);
+      const cy = y + row * 22;
+      el('rect', { x, y: cy, width: cardW, height: 18, fill: BRAND_LIGHT, rx: 1.5 }, svg);
+      textEl(svg, x + cardW / 2, cy + 7, item.value, {
+        size: 5, fill: item.color || BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
+      });
+      textEl(svg, x + cardW / 2, cy + 13, item.label, {
+        size: 2.5, fill: TEXT_MUTED, anchor: 'middle',
+      });
+    });
+    y += Math.ceil(data.items.length / perRow) * 22 + 6;
+  }
+
+  // Narrative text
+  if (data.narrative) {
+    const lines = wrapText(data.narrative, CONTENT_W, 3.5);
+    for (const line of lines) {
+      textEl(svg, MARGIN_LEFT, y, line, { size: 3.5 });
+      y += 5;
+    }
+  }
+
+  return svg;
+}
+
 // ─── Table of Contents ───
 
 export interface TocEntry {

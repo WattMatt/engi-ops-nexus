@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { StandardCoverPageData } from '@/utils/svg-pdf/sharedSvgHelpers';
 
 const LOGO_TIMEOUT = 4000;
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 1000;
 
 export interface ReportPersistConfig {
   storageBucket: string;
@@ -28,9 +30,22 @@ export interface SvgReportResult {
   dbRecord: any | null;
 }
 
+export type ReportProgress = 
+  | 'building' 
+  | 'converting' 
+  | 'uploading' 
+  | 'saving' 
+  | 'complete' 
+  | 'error';
+
+export interface ProgressCallback {
+  (stage: ReportProgress, detail?: string): void;
+}
+
 export function useSvgPdfReport() {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState<ReportProgress | null>(null);
   const [benchmarks, setBenchmarks] = useState<{ timeMs: number; sizeBytes: number } | null>(null);
   const [svgPages, setSvgPages] = useState<SVGSVGElement[]>([]);
   const [showPreview, setShowPreview] = useState(false);
@@ -89,22 +104,51 @@ export function useSvgPdfReport() {
   }, []);
 
   /**
+   * Retry wrapper with exponential backoff.
+   */
+  const withRetry = useCallback(async <T>(
+    fn: () => Promise<T>,
+    label: string,
+    retries: number = MAX_RETRIES,
+  ): Promise<T> => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        if (attempt === retries) throw err;
+        console.warn(`[SvgPdf] ${label} attempt ${attempt + 1} failed, retrying...`, err.message);
+        await new Promise(r => setTimeout(r, RETRY_DELAY * (attempt + 1)));
+      }
+    }
+    throw new Error(`${label} failed after ${retries + 1} attempts`);
+  }, []);
+
+  /**
    * Core pipeline: build pages → PDF blob → upload → DB record.
    */
   const generateAndPersist = useCallback(async (
     buildFn: () => SVGSVGElement[] | Promise<SVGSVGElement[]>,
     config: ReportPersistConfig,
     onSuccess?: () => void,
+    onProgress?: ProgressCallback,
   ): Promise<SvgReportResult | null> => {
     setIsGenerating(true);
     setBenchmarks(null);
+    const report = (stage: ReportProgress, detail?: string) => {
+      setProgress(stage);
+      onProgress?.(stage, detail);
+    };
 
     try {
+      // Stage 1: Build SVG pages
+      report('building', 'Constructing report pages...');
       const pages = await buildFn();
       setSvgPages(pages);
       setShowPreview(true);
       setCurrentPage(0);
 
+      // Stage 2: Convert to PDF
+      report('converting', `Converting ${pages.length} pages to PDF...`);
       const { blob, timeMs } = await svgPagesToPdfBlob(pages);
       const sizeBytes = blob.size;
       setBenchmarks({ timeMs, sizeBytes });
@@ -114,23 +158,30 @@ export function useSvgPdfReport() {
       const userId = sessionData?.session?.user?.id;
       const revision = config.revision || await getNextRevision(config);
 
-      // Upload
+      // Stage 3: Upload with retry
+      report('uploading', 'Uploading PDF to storage...');
       const fileName = `${config.reportName.replace(/[^a-zA-Z0-9._-]/g, '_')}_${revision}_${Date.now()}.pdf`;
       const storagePath = `${config.foreignKeyValue}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(config.storageBucket)
-        .upload(storagePath, blob, { contentType: 'application/pdf', upsert: false });
-
-      if (uploadError) {
-        console.error('[SvgPdf] Upload failed:', uploadError);
-        // Fallback: direct download
+      let uploadSuccess = false;
+      try {
+        await withRetry(async () => {
+          const { error } = await supabase.storage
+            .from(config.storageBucket)
+            .upload(storagePath, blob, { contentType: 'application/pdf', upsert: false });
+          if (error) throw error;
+        }, 'Upload');
+        uploadSuccess = true;
+      } catch (uploadError: any) {
+        console.error('[SvgPdf] Upload failed after retries:', uploadError);
         triggerDownload(blob, fileName);
         toast({ title: 'PDF Generated', description: `Downloaded directly (${(sizeBytes / 1024).toFixed(1)} KB)` });
+        report('complete', 'Downloaded directly (upload failed)');
         return { blob, timeMs, sizeBytes, dbRecord: null };
       }
 
-      // DB record
+      // Stage 4: Save DB record with retry
+      report('saving', 'Saving report record...');
       const insertData: Record<string, any> = {
         [config.foreignKeyColumn]: config.foreignKeyValue,
         report_name: `${config.reportName} ${revision}`,
@@ -144,20 +195,27 @@ export function useSvgPdfReport() {
         insertData.project_id = config.projectId;
       }
 
-      const { data: record, error: dbError } = await supabase
-        .from(config.dbTable as any)
-        .insert(insertData as any)
-        .select()
-        .single();
-
-      if (dbError) {
-        console.error('[SvgPdf] DB insert failed:', dbError);
+      let record: any = null;
+      try {
+        record = await withRetry(async () => {
+          const { data, error } = await supabase
+            .from(config.dbTable as any)
+            .insert(insertData as any)
+            .select()
+            .single();
+          if (error) throw error;
+          return data;
+        }, 'DB insert');
+      } catch (dbError: any) {
+        console.error('[SvgPdf] DB insert failed after retries:', dbError);
         triggerDownload(blob, fileName);
         toast({ title: 'PDF Generated', description: 'Downloaded directly (history save failed)' });
+        report('complete', 'Downloaded (DB save failed)');
         return { blob, timeMs, sizeBytes, dbRecord: null };
       }
 
       onSuccess?.();
+      report('complete', `${revision} — ${timeMs}ms, ${(sizeBytes / 1024).toFixed(1)} KB`);
       toast({
         title: 'PDF Generated & Saved',
         description: `${revision} generated in ${timeMs}ms (${(sizeBytes / 1024).toFixed(1)} KB)`,
@@ -166,15 +224,17 @@ export function useSvgPdfReport() {
       return { blob, timeMs, sizeBytes, dbRecord: record };
     } catch (error: any) {
       console.error('[SvgPdf] Generation failed:', error);
+      report('error', error.message);
       toast({ title: 'PDF Generation Failed', description: error.message, variant: 'destructive' });
       return null;
     } finally {
       setIsGenerating(false);
     }
-  }, [toast, getNextRevision]);
+  }, [toast, getNextRevision, withRetry]);
 
   return {
     isGenerating,
+    progress,
     benchmarks,
     svgPages,
     showPreview,
