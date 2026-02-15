@@ -8,15 +8,11 @@ import { CostReportOverview } from "@/components/cost-reports/CostReportOverview
 import { CostCategoriesManager } from "@/components/cost-reports/CostCategoriesManager";
 import { CostVariationsManager } from "@/components/cost-reports/CostVariationsManager";
 import { ReportDetailsManager } from "@/components/cost-reports/ReportDetailsManager";
-import { ExportPDFButton } from "@/components/cost-reports/ExportPDFButton";
 import { CompareReportsDialog } from "@/components/cost-reports/CompareReportsDialog";
 import { ImportExcelDialog } from "@/components/cost-reports/ImportExcelDialog";
 import { CostReportHistory } from "@/components/cost-reports/CostReportHistory";
 import { SvgPdfExportButton } from "@/components/cost-reports/SvgPdfExportButton";
 import { Card, CardContent } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 
 const CostReportDetail = () => {
@@ -24,7 +20,6 @@ const CostReportDetail = () => {
   const navigate = useNavigate();
   const [historyKey, setHistoryKey] = useState(0);
   const [activeTab, setActiveTab] = useState("");
-  const [useSvgEngine, setUseSvgEngine] = useState(false);
 
   const { data: report, isLoading, refetch } = useQuery({
     queryKey: ["cost-report", reportId],
@@ -114,40 +109,17 @@ const CostReportDetail = () => {
         <TabsContent value="reports" className="space-y-4">
           <Card>
             <CardContent className="pt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold mb-1">Generate PDF Report</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Export your cost report as a professional PDF document
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="svg-engine-toggle" className="text-sm text-muted-foreground">
-                    Standard
-                  </Label>
-                  <Switch
-                    id="svg-engine-toggle"
-                    checked={useSvgEngine}
-                    onCheckedChange={setUseSvgEngine}
-                  />
-                  <Label htmlFor="svg-engine-toggle" className="text-sm text-muted-foreground flex items-center gap-1">
-                    SVG Engine
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Beta</Badge>
-                  </Label>
-                </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Generate PDF Report</h3>
+                <p className="text-sm text-muted-foreground">
+                  Export your cost report as a professional PDF document
+                </p>
               </div>
 
-              {useSvgEngine ? (
-                <SvgPdfExportButton 
-                  report={report} 
-                  onReportGenerated={() => setHistoryKey(prev => prev + 1)}
-                />
-              ) : (
-                <ExportPDFButton 
-                  report={report} 
-                  onReportGenerated={() => setHistoryKey(prev => prev + 1)}
-                />
-              )}
+              <SvgPdfExportButton 
+                report={report} 
+                onReportGenerated={() => setHistoryKey(prev => prev + 1)}
+              />
             </CardContent>
           </Card>
           <CostReportHistory key={historyKey} reportId={report.id} />

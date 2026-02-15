@@ -26,7 +26,7 @@ import {
   type VariationItem,
   type VariationSheetData,
   type TocEntry,
-} from "@/utils/svg-pdf/costReportSvgBuilder";
+} from "@/utils/svg-pdf/costReportPdfBuilder";
 import { svgPagesToPdfBlob } from "@/utils/svg-pdf/svgToPdfEngine";
 import { Separator } from "@/components/ui/separator";
 
