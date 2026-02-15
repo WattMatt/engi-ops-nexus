@@ -441,6 +441,50 @@ function getBuilderRegistry(): BuilderEntry[] {
         });
       },
     },
+    // Phase 4: pdfmake Migration
+    {
+      reportId: 'roadmap-review',
+      reportName: 'Roadmap Review',
+      load: async () => {
+        const mod = await import('./roadmapReviewPdfBuilder');
+        return mod.buildRoadmapReviewPdf({
+          coverData: MOCK_COVER, projectName: 'Test Project', overallScore: 78, reviewDate: '2026-02-15',
+          focusAreas: ['Electrical Safety', 'Timeline Adherence', 'Budget Control'],
+          categories: [
+            { name: 'Safety', score: 85, maxScore: 100, findings: ['Fire cert pending', 'Earthing OK'] },
+            { name: 'Quality', score: 72, maxScore: 100, findings: ['Minor defects noted'] },
+          ],
+          milestones: [
+            { title: 'Phase 1 Complete', targetDate: '2026-01-15', status: 'completed' },
+            { title: 'Phase 2 Handover', targetDate: '2026-03-01', status: 'in_progress', notes: 'On track' },
+          ],
+          recommendations: ['Expedite fire certificate renewal', 'Review cable schedule for Phase 2'],
+        });
+      },
+    },
+    {
+      reportId: 'tenant-evaluation',
+      reportName: 'Tenant Evaluation',
+      load: async () => {
+        const mod = await import('./tenantEvaluationPdfBuilder');
+        return mod.buildTenantEvaluationPdf({
+          coverData: MOCK_COVER, projectName: 'Test Project',
+          tenantName: 'Coffee Co', shopNumber: 'S05', shopArea: 65, category: 'Food & Beverage',
+          evaluationDate: '2026-02-10', overallScore: 82,
+          electricalRequirements: [
+            { item: 'DB Size', specification: '60A TPN', status: 'met' },
+            { item: 'Earth Leakage', specification: '30mA', status: 'met' },
+            { item: 'Dedicated Circuit', specification: 'Oven 32A', status: 'partial', notes: 'Pending confirmation' },
+          ],
+          complianceChecks: [
+            { category: 'SANS 10142', requirement: 'CoC available', compliant: true, reference: 'Clause 8.1' },
+            { category: 'SANS 10142', requirement: 'Earth continuity', compliant: true },
+            { category: 'Fire', requirement: 'Fire detection installed', compliant: false, reference: 'SANS 10400-T' },
+          ],
+          notes: 'Tenant requires follow-up on fire detection installation before occupancy.',
+        });
+      },
+    },
   ];
 }
 
