@@ -274,6 +274,93 @@ function getBuilderRegistry(): BuilderEntry[] {
         });
       },
     },
+    {
+      reportId: 'cable-schedule',
+      reportName: 'Cable Schedule',
+      load: async () => {
+        const mod = await import('./cableSchedulePdfBuilder');
+        return mod.buildCableSchedulePdf({
+          coverData: MOCK_COVER,
+          entries: [
+            { cable_tag: 'C01', from_location: 'DB-A', to_location: 'Shop 1', voltage: 400, load_amps: 32, cable_type: 'XLPE', cable_size: '16mm²', total_length: 45, volt_drop: 2.1 },
+            { cable_tag: 'C02', from_location: 'DB-A', to_location: 'Shop 2', voltage: 230, load_amps: 20, cable_type: 'PVC', cable_size: '10mm²', total_length: 30, volt_drop: 1.8 },
+          ],
+          scheduleName: 'Test Schedule',
+        });
+      },
+    },
+    {
+      reportId: 'tenant-tracker',
+      reportName: 'Tenant Tracker',
+      load: async () => {
+        const mod = await import('./tenantTrackerPdfBuilder');
+        return mod.buildTenantTrackerPdf({
+          coverData: MOCK_COVER,
+          tenants: [
+            { shop_name: 'Shop A', shop_number: 'S01', shop_category: 'standard', area: 100, db_size_allowance: '60A', sow_received: true, layout_received: true, db_ordered: true, lighting_ordered: false, lighting_cost: null, db_cost: 5000, cost_reported: false },
+            { shop_name: 'Shop B', shop_number: 'S02', shop_category: 'fast_food', area: 80, db_size_allowance: '80A', sow_received: true, layout_received: false, db_ordered: false, lighting_ordered: false, lighting_cost: null, db_cost: null, cost_reported: false },
+          ],
+          projectName: 'Test Project',
+        });
+      },
+    },
+    {
+      reportId: 'legend-card',
+      reportName: 'Legend Card',
+      load: async () => {
+        const mod = await import('./legendCardPdfBuilder');
+        return mod.buildLegendCardPdf({
+          coverData: MOCK_COVER,
+          dbName: 'DB-TEST-01',
+          circuits: [
+            { cb_no: 1, description: 'Lights Circuit 1', amp_rating: '16A' },
+            { cb_no: 2, description: 'Power Circuit 1', amp_rating: '20A' },
+          ],
+          contactors: [{ name: 'C1', amps: '25', controlling: 'Lights', kw: '5.5', coil: '230V', poles: '3' }],
+        });
+      },
+    },
+    {
+      reportId: 'verification-cert',
+      reportName: 'Verification Certificate',
+      load: async () => {
+        const mod = await import('./verificationCertPdfBuilder');
+        return mod.buildVerificationCertPdf({
+          coverData: MOCK_COVER,
+          projectName: 'Test Project', projectNumber: 'TP-001',
+          scheduleName: 'Main Schedule', scheduleRevision: 'R01',
+          electrician: { name: 'John Doe', company: 'Test Electrical', position: 'Senior Electrician' },
+          stats: { total: 10, verified: 8, issues: 1, not_installed: 1 },
+          items: [{ cable_tag: 'C01', from_location: 'DB-A', to_location: 'Shop 1', cable_size: '16mm²', status: 'verified', notes: null, measured_length: 45 }],
+          completedAt: new Date().toISOString(), certId: 'test-cert-001',
+        });
+      },
+    },
+    {
+      reportId: 'electrical-budget',
+      reportName: 'Electrical Budget',
+      load: async () => {
+        const mod = await import('./electricalBudgetPdfBuilder');
+        return mod.buildElectricalBudgetPdf({
+          coverData: MOCK_COVER, budgetName: 'Test Budget', projectName: 'Test Project',
+          sections: [{ section_code: 'A', section_name: 'General', items: [{ description: 'Item 1', total: 10000 }], total: 10000 }],
+          grandTotal: 10000, tenantTotal: 3000, landlordTotal: 7000,
+        });
+      },
+    },
+    {
+      reportId: 'template-pdf',
+      reportName: 'Template PDF',
+      load: async () => {
+        const mod = await import('./templatePdfBuilder');
+        return mod.buildTemplatePdf({
+          coverData: MOCK_COVER, projectName: 'Test Project',
+          categories: [{ code: 'A1', description: 'Category 1' }],
+          variations: [{ code: 'V1', description: 'Variation 1' }],
+          sections: [{ title: 'Notes', content: 'Template notes content.' }],
+        });
+      },
+    },
   ];
 }
 
