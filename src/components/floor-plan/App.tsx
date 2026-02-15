@@ -507,10 +507,15 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       return;
     }
     
-    toast.info("Generating PDF via server... This may take a moment.");
+    toast.info("Generating PDF... This may take a moment.");
     setIsExportModalOpen(false);
     
     try {
+      const { svgPagesToPdfBlob } = await import("@/utils/svg-pdf/svgToPdfEngine");
+      const { buildFloorPlanReportPdf } = await import("@/utils/svg-pdf/floorPlanPdfBuilder");
+      type FloorPlanReportData = import("@/utils/svg-pdf/floorPlanPdfBuilder").FloorPlanReportData;
+      const { imageToBase64 } = await import("@/utils/pdfmake/helpers");
+
       // Get next revision number
       const { data: existingReports } = await supabase
         .from('floor_plan_reports')
@@ -523,72 +528,64 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         ? existingReports[0].report_revision + 1 
         : 1;
 
-      const filename = `${projectName}_Rev${nextRevision}_${Date.now()}.pdf`;
+      // Get company data for cover page
+      const { data: company } = await supabase.from("company_settings").select("company_name, company_logo_url").limit(1).maybeSingle();
+      let companyLogoBase64: string | null = null;
+      if (company?.company_logo_url) { try { companyLogoBase64 = await imageToBase64(company.company_logo_url); } catch {} }
 
-      // Prepare data for edge function - serialize the data
-      const requestBody = {
+      // Capture floor plan image from canvas
+      let floorPlanImageBase64: string | undefined;
+      const canvases = canvasApiRef.current?.getCanvases();
+      if (canvases?.drawing) {
+        try { floorPlanImageBase64 = canvases.drawing.toDataURL('image/png'); } catch {}
+      }
+
+      const pdfData: FloorPlanReportData = {
+        coverData: {
+          reportTitle: "Floor Plan Report",
+          reportSubtitle: currentDesignName || "Floor Plan Layout",
+          projectName,
+          revision: `Rev ${nextRevision}`,
+          date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+          companyName: company?.company_name || undefined,
+          companyLogoBase64,
+        },
         projectName,
-        comments: comments || '',
+        layoutName: currentDesignName || "Floor Plan",
+        floorPlanImageBase64,
         equipment: equipment.map(e => ({
-          id: e.id,
+          tag: e.name || e.id,
           type: e.type,
-          position: e.position,
-          rotation: e.rotation,
-          name: e.name,
+          location: `(${Math.round(e.position.x)}, ${Math.round(e.position.y)})`,
+          quantity: 1,
         })),
-        lines: lines.map(l => ({
-          id: l.id,
-          name: l.name,
-          label: l.label,
-          type: l.type,
-          length: l.length,
-          pathLength: l.pathLength,
-          from: l.from,
-          to: l.to,
-          cableType: l.cableType,
-          terminationCount: l.terminationCount,
-          startHeight: l.startHeight,
-          endHeight: l.endHeight,
-        })),
-        zones: zones.map(z => ({
-          id: z.id,
-          name: z.name,
-          area: z.area,
+        cables: lines.map(l => ({
+          tag: l.name || l.id,
+          from: l.from || '',
+          to: l.to || '',
+          type: l.cableType || '',
+          size: '',
+          length: l.length || l.pathLength || 0,
         })),
         containment: containment.map(c => ({
-          id: c.id,
           type: c.type,
-          size: c.size,
-          length: c.length,
+          size: c.size || '',
+          length: c.length || 0,
+          route: '',
         })),
-        pvPanelConfig: pvPanelConfig ? {
-          width: pvPanelConfig.width,
-          length: pvPanelConfig.length,
-          wattage: pvPanelConfig.wattage,
-        } : null,
-        pvArrays: pvArrays?.map(a => ({
-          id: a.id,
-          rows: a.rows,
-          columns: a.columns,
-          orientation: a.orientation,
-        })),
-        userId: user.id,
-        projectId: currentProjectId,
-        filename,
-        storageBucket: 'floor-plan-reports',
       };
 
-      // Call the edge function
-      console.log('[FloorPlanExport] Calling edge function...');
-      const { data: result, error: fnError } = await supabase.functions.invoke(
-        'generate-floor-plan-pdf',
-        { body: requestBody }
-      );
+      const pages = buildFloorPlanReportPdf(pdfData);
+      const { blob } = await svgPagesToPdfBlob(pages);
 
-      if (fnError) throw fnError;
-      if (!result?.success) throw new Error(result?.error || 'PDF generation failed');
+      // Upload to storage
+      const filename = `${projectName}_Rev${nextRevision}_${Date.now()}.pdf`;
+      const storagePath = `${currentProjectId}/${filename}`;
+      const { error: uploadError } = await supabase.storage
+        .from('floor-plan-reports')
+        .upload(storagePath, blob, { contentType: 'application/pdf' });
 
-      console.log('[FloorPlanExport] PDF generated:', result.filePath);
+      if (uploadError) throw uploadError;
 
       // Save metadata to database
       const { error: dbError } = await supabase
@@ -597,7 +594,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           user_id: user.id,
           project_id: currentProjectId,
           project_name: projectName,
-          file_path: result.filePath,
+          file_path: storagePath,
           report_revision: nextRevision,
           comments: comments || null,
         });
