@@ -3,16 +3,18 @@
  * 
  * Real-time view of migration status and PDF spec compliance for all 20 report types.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   CheckCircle2, XCircle, AlertTriangle, ArrowRight,
-  FileText, Server, Monitor, Search, Clock,
+  FileText, Server, Monitor, Search, Clock, PlayCircle, Loader2,
 } from "lucide-react";
+import { runComplianceChecks, type ComplianceCheckResult } from "@/utils/svg-pdf/complianceChecker";
 
 // ─── Report Registry ───
 
@@ -105,7 +107,22 @@ function FeatureIcon({ value }: { value: boolean }) {
 export default function PdfComplianceDashboard() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [liveResults, setLiveResults] = useState<ComplianceCheckResult[] | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [checkProgress, setCheckProgress] = useState({ completed: 0, total: 0, current: '' });
 
+  const handleRunChecks = useCallback(async () => {
+    setIsRunning(true);
+    setLiveResults(null);
+    try {
+      const results = await runComplianceChecks((completed, total, current) => {
+        setCheckProgress({ completed, total, current });
+      });
+      setLiveResults(results);
+    } finally {
+      setIsRunning(false);
+    }
+  }, []);
   const filtered = useMemo(() => {
     if (!search) return REPORTS;
     const q = search.toLowerCase();
@@ -194,6 +211,10 @@ export default function PdfComplianceDashboard() {
             <TabsTrigger value="overview">All Reports</TabsTrigger>
             <TabsTrigger value="phases">By Phase</TabsTrigger>
             <TabsTrigger value="compliance">Spec Compliance</TabsTrigger>
+            <TabsTrigger value="live-checks">
+              <PlayCircle className="h-3.5 w-3.5 mr-1" />
+              Live Checks
+            </TabsTrigger>
           </TabsList>
           <div className="relative w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -388,6 +409,116 @@ export default function PdfComplianceDashboard() {
                   );
                 })}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Live Compliance Checks */}
+        <TabsContent value="live-checks" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Dynamic Compliance Validator</CardTitle>
+                  <CardDescription>
+                    Runs each SVG builder with mock data and inspects the output for spec compliance markers
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={handleRunChecks}
+                  disabled={isRunning}
+                  size="sm"
+                >
+                  {isRunning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Checking {checkProgress.current}...
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="h-4 w-4" />
+                      Run Compliance Check
+                    </>
+                  )}
+                </Button>
+              </div>
+              {isRunning && (
+                <Progress
+                  value={checkProgress.total ? (checkProgress.completed / checkProgress.total) * 100 : 0}
+                  className="mt-3 h-2"
+                />
+              )}
+            </CardHeader>
+            <CardContent>
+              {!liveResults && !isRunning && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <PlayCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Click "Run Compliance Check" to dynamically validate each SVG builder against the spec</p>
+                  <p className="text-xs mt-1">This imports each builder, generates pages with mock data, and inspects the SVG output</p>
+                </div>
+              )}
+
+              {liveResults && (
+                <div className="space-y-3">
+                  {/* Summary bar */}
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      <span className="text-sm font-medium">{liveResults.filter(r => r.passed).length} passed</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <XCircle className="h-4 w-4 text-destructive" />
+                      <span className="text-sm font-medium">{liveResults.filter(r => !r.passed).length} failed</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      Total: {liveResults.reduce((s, r) => s + r.duration, 0)}ms
+                    </span>
+                  </div>
+
+                  {/* Per-report results */}
+                  {liveResults.map(result => (
+                    <div key={result.reportId} className="border rounded-lg overflow-hidden">
+                      <div className={`flex items-center justify-between p-3 ${result.passed ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
+                        <div className="flex items-center gap-2">
+                          {result.passed
+                            ? <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            : <XCircle className="h-4 w-4 text-destructive" />
+                          }
+                          <span className="font-medium text-sm">{result.reportName}</span>
+                          {result.error && (
+                            <Badge variant="destructive" className="text-xs">Error</Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">{result.duration}ms</span>
+                      </div>
+
+                      {result.error ? (
+                        <div className="p-3 text-xs text-destructive bg-card font-mono">
+                          {result.error}
+                        </div>
+                      ) : (
+                        <div className="divide-y bg-card">
+                          {result.checks.map((check, ci) => (
+                            <div key={ci} className="flex items-center justify-between px-3 py-2 text-xs">
+                              <div className="flex items-center gap-2">
+                                {check.passed
+                                  ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                  : <XCircle className="h-3.5 w-3.5 text-destructive" />
+                                }
+                                <span className="font-medium">{check.name}</span>
+                                <span className="text-muted-foreground hidden sm:inline">— {check.description}</span>
+                              </div>
+                              {check.details && (
+                                <span className="text-muted-foreground text-right max-w-[200px] truncate">{check.details}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

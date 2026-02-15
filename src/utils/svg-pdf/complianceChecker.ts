@@ -1,0 +1,324 @@
+/**
+ * Dynamic SVG Builder Compliance Checker
+ * 
+ * Imports each SVG builder, runs it with mock data, and inspects
+ * the output SVG elements for PDF spec compliance markers.
+ */
+
+import type { StandardCoverPageData } from './sharedSvgHelpers';
+
+export interface ComplianceCheckResult {
+  reportId: string;
+  reportName: string;
+  passed: boolean;
+  timestamp: number;
+  duration: number;
+  checks: ComplianceCheck[];
+  error?: string;
+}
+
+export interface ComplianceCheck {
+  name: string;
+  description: string;
+  passed: boolean;
+  details?: string;
+}
+
+const MOCK_COVER: StandardCoverPageData = {
+  reportTitle: 'Compliance Test Report',
+  reportSubtitle: 'Automated Spec Validation',
+  projectName: 'Test Project',
+  projectNumber: 'TP-001',
+  revision: 'Rev 1',
+  date: new Date().toLocaleDateString('en-ZA'),
+  companyName: 'Test Company',
+};
+
+// ─── Inspector Functions ───
+
+function hasMultiplePages(pages: SVGSVGElement[]): ComplianceCheck {
+  return {
+    name: 'Multi-page output',
+    description: 'Builder produces more than 1 page',
+    passed: pages.length > 1,
+    details: `${pages.length} page(s) generated`,
+  };
+}
+
+function hasCoverPage(pages: SVGSVGElement[]): ComplianceCheck {
+  if (pages.length === 0) {
+    return { name: 'Cover page', description: 'First page is a branded cover', passed: false, details: 'No pages' };
+  }
+  const cover = pages[0];
+  const texts = Array.from(cover.querySelectorAll('text'));
+  const rects = Array.from(cover.querySelectorAll('rect'));
+
+  const hasBrandRect = rects.some(r => {
+    const fill = r.getAttribute('fill') || '';
+    return fill.includes('#1e3a5f') || fill.includes('url(');
+  });
+  const hasReportTitle = texts.some(t =>
+    (t.textContent || '').length > 3 && parseFloat(t.getAttribute('font-size') || '0') >= 7
+  );
+
+  return {
+    name: 'Cover page',
+    description: 'First page has branded cover elements (brand color + title)',
+    passed: hasBrandRect && hasReportTitle,
+    details: `Brand rect: ${hasBrandRect}, Title text: ${hasReportTitle}`,
+  };
+}
+
+function hasRunningFooters(pages: SVGSVGElement[]): ComplianceCheck {
+  if (pages.length < 2) {
+    return { name: 'Running footer (§2)', description: 'Pages 2+ have "Page X of Y" footer', passed: false, details: 'Not enough pages' };
+  }
+  const page2 = pages[1];
+  const texts = Array.from(page2.querySelectorAll('text'));
+  const hasPageNum = texts.some(t => /page\s+\d+\s+of\s+\d+/i.test(t.textContent || ''));
+
+  const coverTexts = Array.from(pages[0].querySelectorAll('text'));
+  const coverHasPageNum = coverTexts.some(t => /page\s+\d+\s+of\s+\d+/i.test(t.textContent || ''));
+
+  return {
+    name: 'Running footer (§2)',
+    description: 'Pages 2+ have "Page X of Y", cover page excluded',
+    passed: hasPageNum && !coverHasPageNum,
+    details: `Page 2 footer: ${hasPageNum}, Cover excluded: ${!coverHasPageNum}`,
+  };
+}
+
+function hasRunningHeaders(pages: SVGSVGElement[]): ComplianceCheck {
+  if (pages.length < 2) {
+    return { name: 'Running header (§1)', description: 'Pages 2+ have running header', passed: false, details: 'Not enough pages' };
+  }
+  const page2 = pages[1];
+  const texts = Array.from(page2.querySelectorAll('text'));
+  const headerTexts = texts.filter(t => {
+    const y = parseFloat(t.getAttribute('y') || '999');
+    const fontSize = parseFloat(t.getAttribute('font-size') || '0');
+    return y < 12 && fontSize <= 3.5;
+  });
+
+  return {
+    name: 'Running header (§1)',
+    description: 'Pages 2+ have header text in top margin area',
+    passed: headerTexts.length >= 1,
+    details: `Found ${headerTexts.length} header text element(s) on page 2`,
+  };
+}
+
+function coverExcludesHeaderFooter(pages: SVGSVGElement[]): ComplianceCheck {
+  if (pages.length === 0) {
+    return { name: 'Cover exclusion (§3)', description: 'Cover page has no header/footer', passed: false, details: 'No pages' };
+  }
+  const cover = pages[0];
+  const texts = Array.from(cover.querySelectorAll('text'));
+  const hasPageNum = texts.some(t => /page\s+\d+\s+of\s+\d+/i.test(t.textContent || ''));
+  const lines = Array.from(cover.querySelectorAll('line'));
+  const hasHeaderLine = lines.some(l => {
+    const y1 = parseFloat(l.getAttribute('y1') || '999');
+    return y1 < 12 && l.getAttribute('stroke') === '#2563eb';
+  });
+
+  return {
+    name: 'Cover exclusion (§3)',
+    description: 'Cover page must NOT show running header or footer',
+    passed: !hasPageNum && !hasHeaderLine,
+    details: `No footer: ${!hasPageNum}, No header line: ${!hasHeaderLine}`,
+  };
+}
+
+function hasCorrectViewBox(pages: SVGSVGElement[]): ComplianceCheck {
+  if (pages.length === 0) {
+    return { name: 'A4 viewBox (§4)', description: 'All pages use 210x297mm viewBox', passed: false, details: 'No pages' };
+  }
+  const allCorrect = pages.every(p => p.getAttribute('viewBox') === '0 0 210 297');
+
+  return {
+    name: 'A4 viewBox (§4)',
+    description: 'All pages use standard 210×297mm viewBox',
+    passed: allCorrect,
+    details: allCorrect ? 'All pages OK' : 'Some pages have non-standard viewBox',
+  };
+}
+
+function runInspections(pages: SVGSVGElement[]): ComplianceCheck[] {
+  return [
+    hasMultiplePages(pages),
+    hasCoverPage(pages),
+    coverExcludesHeaderFooter(pages),
+    hasRunningHeaders(pages),
+    hasRunningFooters(pages),
+    hasCorrectViewBox(pages),
+  ];
+}
+
+// ─── Builder Registry ───
+
+interface BuilderEntry {
+  reportId: string;
+  reportName: string;
+  load: () => Promise<SVGSVGElement[]>;
+}
+
+function getBuilderRegistry(): BuilderEntry[] {
+  return [
+    {
+      reportId: 'site-diary',
+      reportName: 'Site Diary',
+      load: async () => {
+        const mod = await import('./siteDiaryPdfBuilder');
+        return mod.buildSiteDiaryPdf({
+          coverData: MOCK_COVER,
+          tasks: [
+            { title: 'Test Task 1', status: 'completed', priority: 'high', due_date: '2026-01-15', progress: 100 },
+            { title: 'Test Task 2', status: 'in_progress', priority: 'medium', due_date: '2026-02-01', progress: 50 },
+            { title: 'Test Task 3', status: 'pending', priority: 'low', due_date: null, progress: 0 },
+          ],
+          projectName: 'Test Project',
+          filterLabel: 'All Tasks',
+        });
+      },
+    },
+    {
+      reportId: 'tenant-completion',
+      reportName: 'Tenant Completion',
+      load: async () => {
+        const mod = await import('./handoverCompletionPdfBuilder');
+        return mod.buildHandoverCompletionPdf({
+          coverData: MOCK_COVER,
+          tenants: [
+            { id: '1', shop_number: 'S01', shop_name: 'Shop A', completionPercentage: 100, completedCount: 6, totalCount: 6 },
+            { id: '2', shop_number: 'S02', shop_name: 'Shop B', completionPercentage: 50, completedCount: 3, totalCount: 6 },
+          ],
+          stats: { total: 2, complete: 1, inProgress: 1, notStarted: 0, overallPercentage: 75 },
+          allDocuments: [],
+          allExclusions: [],
+        });
+      },
+    },
+    {
+      reportId: 'final-account',
+      reportName: 'Final Account',
+      load: async () => {
+        const mod = await import('./finalAccountPdfBuilder');
+        return mod.buildFinalAccountPdf({
+          coverData: MOCK_COVER,
+          account: { total_contract_value: 100000, total_variations: 5000, final_account_value: 105000, status: 'approved' },
+          bills: [
+            { bill_number: 1, bill_name: 'Electrical', contract_total: 50000, final_total: 52000, variation_total: 2000, sections: [] },
+            { bill_number: 2, bill_name: 'Plumbing', contract_total: 50000, final_total: 53000, variation_total: 3000, sections: [] },
+          ],
+        });
+      },
+    },
+    {
+      reportId: 'specification',
+      reportName: 'Specification',
+      load: async () => {
+        const mod = await import('./specificationPdfBuilder');
+        return mod.buildSpecificationPdf({
+          coverData: MOCK_COVER,
+          specification: {
+            sections: [
+              { title: 'Section 1', content: 'Test content for section one with details.' },
+              { title: 'Section 2', content: 'Test content for section two with more details.' },
+            ],
+          } as any,
+        });
+      },
+    },
+    {
+      reportId: 'project-outline',
+      reportName: 'Project Outline',
+      load: async () => {
+        const mod = await import('./projectOutlinePdfBuilder');
+        return mod.buildProjectOutlinePdf({
+          coverData: MOCK_COVER,
+          outline: { title: 'Test Outline' } as any,
+          sections: [
+            { title: 'Overview', content: 'Project overview content.' },
+            { title: 'Scope', content: 'Project scope details.' },
+          ],
+        });
+      },
+    },
+    {
+      reportId: 'ai-prediction',
+      reportName: 'AI Prediction',
+      load: async () => {
+        const mod = await import('./aiPredictionPdfBuilder');
+        return mod.buildAiPredictionPages({
+          predictionData: {
+            summary: { totalEstimate: 500000, confidenceLevel: 85, currency: 'ZAR' },
+            costBreakdown: [
+              { category: 'Materials', amount: 250000, percentage: 50 },
+              { category: 'Labour', amount: 150000, percentage: 30 },
+              { category: 'Equipment', amount: 100000, percentage: 20 },
+            ],
+            historicalTrend: [
+              { project: 'Project A', budgeted: 400000, actual: 420000 },
+            ],
+            riskFactors: [
+              { risk: 'Supply Chain', probability: 60, impact: 80 },
+              { risk: 'Weather', probability: 40, impact: 50 },
+            ],
+            analysis: 'Detailed analysis of cost prediction model.',
+          },
+          projectName: 'Test Project',
+          projectNumber: 'TP-001',
+          parameters: { projectSize: 'Large', complexity: 'Medium', timeline: '12 months', location: 'Gauteng' },
+          coverData: MOCK_COVER,
+          revision: 'Rev 1',
+        });
+      },
+    },
+  ];
+}
+
+// ─── Public API ───
+
+export type ProgressCallback = (completed: number, total: number, current: string) => void;
+
+export async function runComplianceChecks(
+  onProgress?: ProgressCallback
+): Promise<ComplianceCheckResult[]> {
+  const registry = getBuilderRegistry();
+  const results: ComplianceCheckResult[] = [];
+
+  for (let i = 0; i < registry.length; i++) {
+    const entry = registry[i];
+    onProgress?.(i, registry.length, entry.reportName);
+
+    const start = performance.now();
+    try {
+      const pages = await entry.load();
+      const checks = runInspections(pages);
+      const duration = Math.round(performance.now() - start);
+
+      results.push({
+        reportId: entry.reportId,
+        reportName: entry.reportName,
+        passed: checks.every(c => c.passed),
+        timestamp: Date.now(),
+        duration,
+        checks,
+      });
+    } catch (err) {
+      const duration = Math.round(performance.now() - start);
+      results.push({
+        reportId: entry.reportId,
+        reportName: entry.reportName,
+        passed: false,
+        timestamp: Date.now(),
+        duration,
+        checks: [],
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+    }
+  }
+
+  onProgress?.(registry.length, registry.length, 'Done');
+  return results;
+}
