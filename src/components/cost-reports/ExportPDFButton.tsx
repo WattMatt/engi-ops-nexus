@@ -6,10 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
 import { STANDARD_MARGINS } from "@/utils/pdfExportBase";
-import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
+import { generateStandardizedPDFFilename } from "@/utils/pdfFilenameGenerator";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import { Progress } from "@/components/ui/progress";
-import { executeFallbackChain, type FallbackResult } from "@/utils/pdfmake/costReport/pdfFallbackChain";
+import { DocumentFactory } from "@/services/document-factory/DocumentFactory";
+import { CostReportAdapter } from "@/services/document-factory/adapters/CostReportAdapter";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -51,16 +52,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   }, []);
 
   /**
-   * Single, bulletproof export function
-   * No branches, no quick export, just one reliable path
+   * New Unified Report Handler using DocumentFactory
    */
-  const handleExport = useCallback(async () => {
+  const handleDownloadUnifiedReport = useCallback(async () => {
     // Prevent double-click
     if (isExporting) return;
     
     // Reset state
     setIsExporting(true);
-    setExportStep("Initializing...");
+    setExportStep("Initializing unified report...");
     setExportProgress(0);
     setExportError(null);
     
@@ -69,7 +69,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     const signal = abortControllerRef.current.signal;
     
     try {
-      console.log('[CostReportPDF] Starting export for report:', report.id);
+      console.log('[UnifiedReport] Starting export for report:', report.id);
       
       // ========================================
       // STEP 1: Fetch all data (0-40%)
@@ -98,7 +98,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           )
         ]);
         preparedForContact = (contactResult as any).data;
-        console.log('[CostReportPDF] Loaded preparedFor contact:', preparedForContact?.organization_name);
+        console.log('[UnifiedReport] Loaded preparedFor contact:', preparedForContact?.organization_name);
       }
       
       setExportStep("Loading categories...");
@@ -117,7 +117,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       if (signal.aborted) throw new Error("Export cancelled");
       const categoriesData = (categoriesResult as any).data || [];
-      console.log('[CostReportPDF] Loaded', categoriesData.length, 'categories');
+      console.log('[UnifiedReport] Loaded', categoriesData.length, 'categories');
       
       setExportStep("Loading variations...");
       setExportProgress(25);
@@ -139,7 +139,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         const bMatch = b.code?.match(/\d+/);
         return (aMatch ? parseInt(aMatch[0], 10) : 0) - (bMatch ? parseInt(bMatch[0], 10) : 0);
       });
-      console.log('[CostReportPDF] Loaded', variationsData.length, 'variations');
+      console.log('[UnifiedReport] Loaded', variationsData.length, 'variations');
       
       setExportStep("Calculating totals...");
       setExportProgress(35);
@@ -154,17 +154,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       variationsData.forEach((v: any) => {
         variationLineItemsMap[v.id] = v.variation_line_items || [];
       });
-      console.log('[CostReportPDF] Built variationLineItemsMap for', Object.keys(variationLineItemsMap).length, 'variations');
       
       if (signal.aborted) throw new Error("Export cancelled");
       
       setExportProgress(45);
       
       // ========================================
-      // STEP 2: Generate PDF using Fallback Chain (50-90%)
-      // Tries: pdfmake-server → PDFShift → client-side
+      // STEP 2: Use DocumentFactory (50-100%)
       // ========================================
-      setExportStep("Building PDF document...");
+      setExportStep("Generating unified document...");
       setExportProgress(50);
       
       const companyDetails = {
@@ -195,84 +193,51 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         } : null,
       };
       
-      const useMargins = { ...STANDARD_MARGINS, ...margins };
-      
-      const pdfData = {
+      // Use the Adapter to transform data
+      const adapter = new CostReportAdapter();
+      const documentData = adapter.adapt({
         report,
-        categoriesData,
-        variationsData,
-        variationLineItemsMap,
-        companyDetails,
-        categoryTotals,
-        grandTotals,
-      };
-      
-      const downloadFilename = generateStandardizedPDFFilename({
-        projectNumber: report.project_number || report.project_id?.slice(0, 8),
-        reportType: "CostReport",
-        revision: report.revision || "A",
-        reportNumber: report.report_number,
+        categories: categoriesData,
+        variations: variationsData,
+        company: companyDetails,
+        totals: {
+          categoryTotals,
+          grandTotals
+        }
       });
       
-      const storageFileName = generateStorageFilename({
-        projectNumber: report.project_number || report.project_id?.slice(0, 8),
-        reportType: "CostReport",
-        revision: report.revision || "A",
-        reportNumber: report.report_number,
-      });
-      
-      // Execute the fallback chain
-      console.log('[CostReportPDF] Starting fallback chain...');
-      
-      const result = await executeFallbackChain({
-        reportId: report.id,
-        pdfData,
-        filename: storageFileName,
-        sections: {
-          includeCoverPage: sections.coverPage,
-          includeExecutiveSummary: sections.executiveSummary,
-          includeCategoryDetails: sections.categoryDetails,
-          includeDetailedLineItems: sections.detailedLineItems,
-          includeVariations: sections.variations,
-          // Watermark, theme options, and margins
-          watermark: sections.watermark,
-          colorTheme: sections.colorTheme,
-          margins: useMargins,
-        },
-        onProgress: (step, percent, method) => {
-          setExportStep(step);
-          setExportProgress(percent);
-          setGenerationMethod(method);
-        },
-        signal,
-      });
+      // Use the Factory to generate PDF
+      const factory = new DocumentFactory();
+      const pdfBlob = await factory.createPDF(documentData);
       
       if (signal.aborted) throw new Error("Export cancelled");
-      
-      if (!result.success) {
-        throw new Error(result.error || 'All generation methods failed');
-      }
       
       // ========================================
       // SUCCESS
       // ========================================
-      setExportStep(`Complete! (via ${result.method})`);
+      setExportStep("Complete!");
       setExportProgress(100);
+      setGenerationMethod("DocumentFactory");
       
-      const methodNames: Record<string, string> = {
-        'pdfmake-server': 'Server-side',
-        'pdfshift': 'PDFShift',
-        'pdfmake-client': 'Local browser',
-      };
+      // Download the file
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = generateStandardizedPDFFilename({
+        projectNumber: report.project_number || report.project_id?.slice(0, 8),
+        reportType: "CostReport",
+        revision: report.revision || "A",
+        reportNumber: report.report_number,
+      });
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       toast({
         title: "PDF Generated",
-        description: `Report saved via ${methodNames[result.method] || result.method}. Click to preview and download.`,
+        description: "Unified Cost Report downloaded successfully.",
       });
-      
-      if (result.record) {
-        setPreviewReport(result.record);
-      }
       
       onReportGenerated?.();
       
@@ -284,10 +249,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         setGenerationMethod("");
       }, 1500);
       
-      return;
-    
     } catch (error: any) {
-      console.error('[CostReportPDF] Export failed:', error);
+      console.error('[UnifiedReport] Export failed:', error);
       
       const errorMessage = error.message || "Export failed. Please try again.";
       setExportError(errorMessage);
@@ -307,7 +270,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         setGenerationMethod("");
       }, 3000);
     }
-  }, [isExporting, report, sections, margins, toast, onReportGenerated]);
+  }, [isExporting, report, sections, margins, toast, onReportGenerated, selectedContactId]);
 
   // Cancel export
   const handleCancel = useCallback(() => {
@@ -329,18 +292,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       <div className="space-y-3">
         <div className="flex gap-2">
           <Button 
-            onClick={handleExport} 
+            onClick={handleDownloadUnifiedReport} 
             disabled={isExporting}
           >
             {isExporting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating PDF...
+                Generating Report...
               </>
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Export PDF
+                Download Report
               </>
             )}
           </Button>
@@ -405,7 +368,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         onMarginsChange={setMargins}
         sections={sections}
         onSectionsChange={setSections}
-        onApply={handleExport}
+        onApply={handleDownloadUnifiedReport}
         projectId={report.project_id}
         hasTemplate={false}
         selectedContactId={selectedContactId}
