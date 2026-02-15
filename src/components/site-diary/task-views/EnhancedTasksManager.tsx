@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, LayoutGrid, List, Calendar as CalendarIcon, Link2, Search } from "lucide-react";
+import { Plus, LayoutGrid, List, Calendar as CalendarIcon, Link2, Search, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { KanbanBoard } from "./KanbanBoard";
 import { TableView } from "./TableView";
@@ -18,6 +18,7 @@ import { BulkSyncTasksDialog } from "./BulkSyncTasksDialog";
 import { RoadmapItemSelector } from "./RoadmapItemSelector";
 import { TaskExportPDFButton } from "./TaskExportPDFButton";
 import { useMilestoneNotifications } from "@/hooks/useMilestoneNotifications";
+import { ReportHistoryPanel } from "@/components/shared/ReportHistoryPanel";
 
 interface EnhancedTasksManagerProps {
   projectId: string;
@@ -287,6 +288,10 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
             <CalendarIcon className="h-4 w-4 mr-2" />
             Calendar
           </TabsTrigger>
+          <TabsTrigger value="report-history">
+            <FileText className="h-4 w-4 mr-2" />
+            Reports
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="board" className="mt-6">
@@ -299,6 +304,15 @@ export const EnhancedTasksManager = ({ projectId, diaryEntryId }: EnhancedTasksM
 
         <TabsContent value="calendar" className="mt-6">
           <CalendarView projectId={projectId} />
+        </TabsContent>
+        <TabsContent value="report-history" className="mt-6">
+          <ReportHistoryPanel
+            dbTable="site_diary_reports"
+            foreignKeyColumn="project_id"
+            foreignKeyValue={projectId}
+            storageBucket="site-diary-reports"
+            title="Site Diary Task Reports"
+          />
         </TabsContent>
       </Tabs>
 

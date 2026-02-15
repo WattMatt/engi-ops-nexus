@@ -18,6 +18,7 @@ import {
 import { DocumentTypeChart } from "./DocumentTypeChart";
 import { RecentActivityTimeline } from "./RecentActivityTimeline";
 import { TenantCompletionExportPDFButton } from "./TenantCompletionExportPDFButton";
+import { ReportHistoryPanel } from "@/components/shared/ReportHistoryPanel";
 
 interface HandoverDashboardProps {
   projectId: string;
@@ -383,6 +384,15 @@ export const HandoverDashboard = ({ projectId, projectName }: HandoverDashboardP
           </CardContent>
         </Card>
       </div>
+
+      {/* Report History */}
+      <ReportHistoryPanel
+        dbTable="handover_completion_reports"
+        foreignKeyColumn="project_id"
+        foreignKeyValue={projectId}
+        storageBucket="handover-reports"
+        title="Handover Completion Reports"
+      />
     </div>
   );
 };

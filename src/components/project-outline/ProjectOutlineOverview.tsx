@@ -8,6 +8,7 @@ import { ProjectOutlineHeader } from "./ProjectOutlineHeader";
 import { ProjectOutlineSections } from "./ProjectOutlineSections";
 import { ProjectOutlineExportPDFButton } from "./ProjectOutlineExportPDFButton";
 import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
+import { ReportHistoryPanel } from "@/components/shared/ReportHistoryPanel";
 
 interface ProjectOutlineOverviewProps {
   outlineId: string;
@@ -97,6 +98,14 @@ export const ProjectOutlineOverview = ({ outlineId, onBack }: ProjectOutlineOver
           />
         </CardContent>
       </Card>
+
+      <ReportHistoryPanel
+        dbTable="project_outline_reports"
+        foreignKeyColumn="outline_id"
+        foreignKeyValue={outlineId}
+        storageBucket="project-outline-reports"
+        title="Baseline Document Reports"
+      />
 
       <SaveAsTemplateDialog
         open={saveTemplateOpen}

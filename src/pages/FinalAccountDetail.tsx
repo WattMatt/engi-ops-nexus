@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FinalAccountOverview } from "@/components/final-accounts/FinalAccountOverview";
 import { FinalAccountBillsManager } from "@/components/final-accounts/FinalAccountBillsManager";
 import { PrimeCostManager } from "@/components/final-accounts/PrimeCostManager";
+import { ReportHistoryPanel } from "@/components/shared/ReportHistoryPanel";
 
 const FinalAccountDetail = () => {
   const { accountId } = useParams();
@@ -45,6 +46,7 @@ const FinalAccountDetail = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="bills">Bills & Sections</TabsTrigger>
           <TabsTrigger value="prime-costs">Prime Costs</TabsTrigger>
+          <TabsTrigger value="reports">Report History</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4">
           {account && <FinalAccountOverview account={account} />}
@@ -54,6 +56,17 @@ const FinalAccountDetail = () => {
         </TabsContent>
         <TabsContent value="prime-costs" className="space-y-4">
           {accountId && account && <PrimeCostManager accountId={accountId} projectId={account.project_id} />}
+        </TabsContent>
+        <TabsContent value="reports" className="space-y-4">
+          {accountId && (
+            <ReportHistoryPanel
+              dbTable="final_account_reports"
+              foreignKeyColumn="final_account_id"
+              foreignKeyValue={accountId}
+              storageBucket="final-account-reports"
+              title="Final Account Reports"
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>
