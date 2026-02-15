@@ -22,6 +22,9 @@ export interface ReportTypeConfig {
   iconColor: string;
   bgColor: string;
   edgeFunction: string;
+  /** Storage-first: fetch pre-generated PDF from this bucket instead of calling EF */
+  storageBucket?: string;
+  storageReportTable?: string;
   requiresDocument?: boolean;
   documentType?: string;
   documentLabel?: string;

@@ -15199,6 +15199,50 @@ export type Database = {
           },
         ]
       }
+      template_pdf_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          report_name: string
+          revision: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          report_name: string
+          revision?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          report_name?: string
+          revision?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_pdf_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       template_sections: {
         Row: {
           created_at: string
@@ -16503,6 +16547,60 @@ export type Database = {
             columns: ["variation_id"]
             isOneToOne: false
             referencedRelation: "cost_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verification_certificate_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string | null
+          report_name: string
+          revision: string
+          verification_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          report_name: string
+          revision?: string
+          verification_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          report_name?: string
+          revision?: string
+          verification_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_certificate_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_certificate_reports_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "cable_schedule_verifications"
             referencedColumns: ["id"]
           },
         ]

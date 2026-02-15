@@ -28,10 +28,9 @@ import { format, formatDistanceToNow, isPast } from "date-fns";
 import { CableVerificationStatusBadge } from "./CableVerificationStatusBadge";
 import { VerificationStatus } from "@/types/cableVerification";
 import { EmptyState, LoadingState } from "@/components/common";
-import { svgPagesToPdfBlob } from "@/utils/svg-pdf/svgToPdfEngine";
 import { buildVerificationCertPdf, type VerificationCertPdfData } from "@/utils/svg-pdf/verificationCertPdfBuilder";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
-import { imageToBase64 } from "@/utils/pdfmake/helpers";
+import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
 
 interface TokenWithVerification {
   id: string;
@@ -147,100 +146,94 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
     window.open(url, '_blank');
   };
 
+  const { fetchCompanyData, generateAndPersist } = useSvgPdfReport();
+
   const downloadCertificate = async (verificationId: string) => {
     setDownloadingCertificateId(verificationId);
     try {
-      // Fetch verification data
-      const { data: verification, error: vErr } = await (supabase
-        .from('cable_schedule_verifications') as any)
-        .select('*')
-        .eq('id', verificationId)
-        .single();
-      if (vErr) throw vErr;
+      const buildFn = async () => {
+        // Fetch verification data
+        const { data: verification, error: vErr } = await (supabase
+          .from('cable_schedule_verifications') as any)
+          .select('*')
+          .eq('id', verificationId)
+          .single();
+        if (vErr) throw vErr;
 
-      // Fetch verification items
-      const { data: items } = await (supabase
-        .from('cable_schedule_verification_items' as any) as any)
-        .select('*')
-        .eq('verification_id', verificationId);
+        // Fetch verification items
+        const { data: items } = await (supabase
+          .from('cable_schedule_verification_items' as any) as any)
+          .select('*')
+          .eq('verification_id', verificationId);
 
-      // Fetch schedule info
-      const { data: schedule } = await supabase
-        .from('cable_schedules')
-        .select('*, projects(name, project_number)')
-        .eq('id', scheduleId)
-        .single();
+        // Fetch schedule info
+        const { data: schedule } = await supabase
+          .from('cable_schedules')
+          .select('*, projects(name, project_number)')
+          .eq('id', scheduleId)
+          .single();
 
-      // Company data
-      const { data: company } = await supabase
-        .from('company_settings')
-        .select('company_name, company_logo_url')
-        .limit(1)
-        .maybeSingle();
+        const companyData = await fetchCompanyData();
 
-      let companyLogoBase64: string | null = null;
-      if (company?.company_logo_url) {
-        try { companyLogoBase64 = await imageToBase64(company.company_logo_url); } catch {}
-      }
+        const coverData: StandardCoverPageData = {
+          reportTitle: "Verification Certificate",
+          reportSubtitle: `Schedule: ${(schedule as any)?.schedule_name || 'Cable Schedule'}`,
+          projectName: (schedule as any)?.projects?.name || 'Project',
+          projectNumber: (schedule as any)?.projects?.project_number,
+          date: format(new Date(), "dd MMMM yyyy"),
+          ...companyData,
+        };
 
-      const coverData: StandardCoverPageData = {
-        reportTitle: "Verification Certificate",
-        reportSubtitle: `Schedule: ${(schedule as any)?.schedule_name || 'Cable Schedule'}`,
-        projectName: (schedule as any)?.projects?.name || 'Project',
-        projectNumber: (schedule as any)?.projects?.project_number,
-        date: format(new Date(), "dd MMMM yyyy"),
-        companyName: company?.company_name || undefined,
-        companyLogoBase64,
+        const verifiedItems = (items || []).filter((i: any) => i.status === 'verified').length;
+        const issueItems = (items || []).filter((i: any) => i.status === 'issue').length;
+        const notInstalledItems = (items || []).filter((i: any) => i.status === 'not_installed').length;
+
+        const certData: VerificationCertPdfData = {
+          coverData,
+          projectName: (schedule as any)?.projects?.name || 'Project',
+          projectNumber: (schedule as any)?.projects?.project_number || '',
+          scheduleName: (schedule as any)?.schedule_name || 'Cable Schedule',
+          scheduleRevision: (schedule as any)?.revision,
+          electrician: {
+            name: verification.signoff_name || 'Unknown',
+            company: verification.signoff_company || '',
+            registration: verification.signoff_registration || '',
+          },
+          stats: {
+            total: (items || []).length,
+            verified: verifiedItems,
+            issues: issueItems,
+            not_installed: notInstalledItems,
+          },
+          items: (items || []).map((i: any) => ({
+            cable_tag: i.cable_tag || '',
+            from_location: i.from_location || '',
+            to_location: i.to_location || '',
+            cable_size: i.cable_size || '',
+            status: i.status || 'pending',
+            notes: i.notes,
+            measured_length: i.measured_length,
+          })),
+          completedAt: verification.completed_at || new Date().toISOString(),
+          certId: verificationId,
+        };
+
+        return buildVerificationCertPdf(certData);
       };
 
-      const verifiedItems = (items || []).filter((i: any) => i.status === 'verified').length;
-      const issueItems = (items || []).filter((i: any) => i.status === 'issue').length;
-      const notInstalledItems = (items || []).filter((i: any) => i.status === 'not_installed').length;
-
-      const certData: VerificationCertPdfData = {
-        coverData,
-        projectName: (schedule as any)?.projects?.name || 'Project',
-        projectNumber: (schedule as any)?.projects?.project_number || '',
-        scheduleName: (schedule as any)?.schedule_name || 'Cable Schedule',
-        scheduleRevision: (schedule as any)?.revision,
-        electrician: {
-          name: verification.signoff_name || 'Unknown',
-          company: verification.signoff_company || '',
-          registration: verification.signoff_registration || '',
+      await generateAndPersist(
+        buildFn,
+        {
+          storageBucket: "verification-cert-reports",
+          dbTable: "verification_certificate_reports",
+          foreignKeyColumn: "verification_id",
+          foreignKeyValue: verificationId,
+          projectId: scheduleId,
+          reportName: `VerificationCertificate`,
         },
-        stats: {
-          total: (items || []).length,
-          verified: verifiedItems,
-          issues: issueItems,
-          not_installed: notInstalledItems,
-        },
-        items: (items || []).map((i: any) => ({
-          cable_tag: i.cable_tag || '',
-          from_location: i.from_location || '',
-          to_location: i.to_location || '',
-          cable_size: i.cable_size || '',
-          status: i.status || 'pending',
-          notes: i.notes,
-          measured_length: i.measured_length,
-        })),
-        completedAt: verification.completed_at || new Date().toISOString(),
-        certId: verificationId,
-      };
-
-      const pages = buildVerificationCertPdf(certData);
-      const { blob } = await svgPagesToPdfBlob(pages);
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Verification_Certificate_${format(new Date(), 'yyyyMMdd')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast({ title: "Certificate downloaded" });
+      );
     } catch (err: any) {
-      console.error('Failed to download certificate:', err);
+      console.error('Failed to generate certificate:', err);
       toast({ title: "Failed to generate certificate", description: "Please try again later", variant: "destructive" });
     } finally {
       setDownloadingCertificateId(null);

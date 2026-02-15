@@ -14,7 +14,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Download, Check, X, Search, CircuitBoard, History, ChevronDown, ChevronRight } from "lucide-react";
+import { Download, Check, X, Search, CircuitBoard, History, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
+import { buildLegendCardPdf } from "@/utils/svg-pdf/legendCardPdfBuilder";
 import { LegendCardReportHistory } from "./LegendCardReportHistory";
 import { LegendCardDetailViewer } from "./LegendCardDetailViewer";
 import { toast } from "sonner";
@@ -67,6 +69,7 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
   const [processing, setProcessing] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
+  const { isGenerating: isSvgGenerating, fetchCompanyData, generateAndPersist } = useSvgPdfReport();
   const [historyCard, setHistoryCard] = useState<LegendCard | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -244,22 +247,15 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
     setPdfSizeCard(null);
     setGeneratingPdf(card.id);
     try {
-      const { svgPagesToPdfBlob } = await import("@/utils/svg-pdf/svgToPdfEngine");
-      const { buildLegendCardPdf } = await import("@/utils/svg-pdf/legendCardPdfBuilder");
-      const { imageToBase64 } = await import("@/utils/pdfmake/helpers");
+      const companyData = await fetchCompanyData();
 
-      const { data: company } = await supabase.from("company_settings").select("company_name, company_logo_url").limit(1).maybeSingle();
-      let companyLogoBase64: string | null = null;
-      if (company?.company_logo_url) { try { companyLogoBase64 = await imageToBase64(company.company_logo_url); } catch {} }
-
-      const pages = buildLegendCardPdf({
+      const buildFn = () => buildLegendCardPdf({
         coverData: {
           reportTitle: "DB Legend Card",
           reportSubtitle: card.db_name,
           projectName: project?.name || "Project",
           date: format(new Date(), "dd MMMM yyyy"),
-          companyName: company?.company_name || undefined,
-          companyLogoBase64,
+          ...companyData,
         },
         dbName: card.db_name,
         address: card.address || undefined,
@@ -270,16 +266,20 @@ export function DBLegendCardsDashboard({ projectId }: DBLegendCardsDashboardProp
         contactors: Array.isArray(card.contactors) ? card.contactors : [],
       });
 
-      const { blob } = await svgPagesToPdfBlob(pages);
-      const sizeLabel = pageSize === "A5" ? "_A5" : "";
-      const filename = `${card.db_name.replace(/[^a-zA-Z0-9._-]/g, "_")}${sizeLabel}_Legend_Card.pdf`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(`PDF downloaded (${pageSize})`);
+      await generateAndPersist(
+        buildFn,
+        {
+          storageBucket: "legend-card-reports",
+          dbTable: "legend_card_reports",
+          foreignKeyColumn: "card_id",
+          foreignKeyValue: card.id,
+          projectId,
+          reportName: `LegendCard_${card.db_name.replace(/[^a-zA-Z0-9._-]/g, "_")}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["legend-card-reports", card.id] });
+        },
+      );
     } catch (err: any) {
       toast.error("PDF generation failed: " + err.message);
     } finally {
