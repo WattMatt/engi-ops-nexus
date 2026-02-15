@@ -7,7 +7,8 @@ import { TrendingUp, Loader2, DollarSign, PieChart, BarChart3, TrendingDown, Dow
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
-import { exportPredictionToPDF } from "@/utils/exportPredictionPDF";
+import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
+import { buildAiPredictionPages } from "@/utils/svg-pdf/aiPredictionPdfBuilder";
 import {
   PieChart as RechartsePie,
   Pie,
@@ -56,6 +57,7 @@ export function CostPredictor() {
   const [dataPoints, setDataPoints] = useState(0);
   const [projectName, setProjectName] = useState("");
   const [projectNumber, setProjectNumber] = useState("");
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [parameters, setParameters] = useState({
     projectSize: "",
     complexity: "medium",
@@ -63,18 +65,21 @@ export function CostPredictor() {
     location: "",
   });
 
+  const { isGenerating, fetchCompanyData, generateAndPersist } = useSvgPdfReport();
+
   useEffect(() => {
     loadProjectInfo();
   }, []);
 
   const loadProjectInfo = async () => {
-    const projectId = localStorage.getItem("selectedProjectId");
-    if (!projectId) return;
+    const pid = localStorage.getItem("selectedProjectId");
+    if (!pid) return;
+    setProjectId(pid);
 
     const { data: project } = await supabase
       .from("projects")
       .select("name, project_number")
-      .eq("id", projectId)
+      .eq("id", pid)
       .single();
 
     if (project) {
@@ -95,8 +100,6 @@ export function CostPredictor() {
   const predictCosts = async () => {
     setIsPredicting(true);
     try {
-      const projectId = localStorage.getItem("selectedProjectId");
-
       if (!projectId) {
         toast.error("Please select a project first");
         return;
@@ -124,19 +127,30 @@ export function CostPredictor() {
 
 
   const handleExportPDF = async () => {
-    if (!predictionData) {
+    if (!predictionData || !projectId) {
       toast.error("No prediction data to export");
       return;
     }
 
     try {
-      await exportPredictionToPDF({
-        predictionData,
-        projectName,
-        projectNumber,
-        parameters,
-      });
-      toast.success("PDF exported successfully!");
+      const coverData = await fetchCompanyData();
+      await generateAndPersist(
+        () => buildAiPredictionPages({
+          predictionData,
+          projectName,
+          projectNumber,
+          parameters,
+          coverData,
+        }),
+        {
+          storageBucket: 'ai-prediction-reports',
+          dbTable: 'ai_prediction_reports',
+          foreignKeyColumn: 'project_id',
+          foreignKeyValue: projectId,
+          projectId,
+          reportName: 'AI Cost Prediction',
+        },
+      );
     } catch (error) {
       console.error("Error exporting PDF:", error);
       toast.error("Failed to export PDF. Please try again.");
@@ -237,9 +251,18 @@ export function CostPredictor() {
 
           {predictionData && (
             <div className="flex justify-end mb-4">
-              <Button onClick={handleExportPDF} variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export to PDF
+              <Button onClick={handleExportPDF} variant="outline" disabled={isGenerating}>
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export to PDF
+                  </>
+                )}
               </Button>
             </div>
           )}
