@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_prediction_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          report_name: string
+          revision: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          report_name: string
+          revision?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          report_name?: string
+          revision?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prediction_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_skills: {
         Row: {
           category: string
