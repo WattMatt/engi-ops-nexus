@@ -3,7 +3,7 @@
  */
 import {
   createSvgElement, el, textEl, buildStandardCoverPageSvg,
-  addPageHeader, applyPageFooters, buildTextPages,
+  addPageHeader, applyPageFooters, applyRunningHeaders, buildTextPages,
   MARGIN_LEFT, MARGIN_TOP, PAGE_W, PAGE_H,
   WHITE, TEXT_DARK, TEXT_MUTED, BRAND_LIGHT,
   type StandardCoverPageData,
@@ -47,6 +47,7 @@ export function buildSpecificationPdf(data: SpecificationPdfData): SVGSVGElement
     : [];
 
   const allPages = [coverSvg, overviewPage, ...notesPages];
+  applyRunningHeaders(allPages, 'Technical Specification', coverData.projectName || '');
   applyPageFooters(allPages, 'Technical Specification');
   return allPages;
 }

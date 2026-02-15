@@ -3,7 +3,7 @@
  */
 import {
   createSvgElement, el, textEl, buildStandardCoverPageSvg,
-  buildTablePages, addPageHeader, applyPageFooters, drawStatCards,
+  buildTablePages, addPageHeader, applyPageFooters, applyRunningHeaders, drawStatCards,
   MARGIN_LEFT, MARGIN_TOP, PAGE_W, PAGE_H,
   WHITE, BRAND_PRIMARY, TEXT_DARK, TEXT_MUTED,
   SUCCESS_COLOR, DANGER_COLOR,
@@ -98,6 +98,7 @@ export function buildSiteDiaryPdf(data: SiteDiaryPdfData): SVGSVGElement[] {
   const tablePages = buildTablePages('Task Details', columns, rows);
 
   const allPages = [coverSvg, summaryPage, ...tablePages];
+  applyRunningHeaders(allPages, 'Site Diary Tasks', data.projectName);
   applyPageFooters(allPages, 'Site Diary Tasks');
   return allPages;
 }

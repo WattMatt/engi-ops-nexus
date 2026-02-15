@@ -3,7 +3,7 @@
  */
 import {
   createSvgElement, el, textEl, buildStandardCoverPageSvg,
-  addPageHeader, applyPageFooters, buildTextPages,
+  addPageHeader, applyPageFooters, applyRunningHeaders, buildTextPages,
   buildTableOfContentsSvg,
   MARGIN_LEFT, MARGIN_TOP, PAGE_W, PAGE_H,
   WHITE, TEXT_DARK, TEXT_MUTED, BRAND_PRIMARY,
@@ -59,6 +59,7 @@ export function buildProjectOutlinePdf(data: ProjectOutlinePdfData): SVGSVGEleme
   const tocSvg = buildTableOfContentsSvg(tocEntries);
   const allPages = [coverSvg, tocSvg, indexPage, ...sectionPages];
 
+  applyRunningHeaders(allPages, 'Baseline Document', coverData.projectName || '');
   applyPageFooters(allPages, 'Baseline Document');
   return allPages;
 }
