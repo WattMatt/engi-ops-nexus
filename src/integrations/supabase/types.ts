@@ -5634,6 +5634,45 @@ export type Database = {
           },
         ]
       }
+      final_account_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          final_account_id: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          report_name: string
+          revision: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          final_account_id: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          report_name: string
+          revision?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          final_account_id?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          report_name?: string
+          revision?: string
+        }
+        Relationships: []
+      }
       final_account_section_comments: {
         Row: {
           author_id: string | null
@@ -7204,6 +7243,53 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      handover_completion_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          report_name: string
+          revision: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          report_name: string
+          revision?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          report_name?: string
+          revision?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_completion_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       handover_document_exclusions: {
         Row: {
@@ -12111,6 +12197,45 @@ export type Database = {
           },
         ]
       }
+      project_outline_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          outline_id: string
+          report_name: string
+          revision: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          outline_id: string
+          report_name: string
+          revision?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          outline_id?: string
+          report_name?: string
+          revision?: string
+        }
+        Relationships: []
+      }
       project_outline_sections: {
         Row: {
           content: string | null
@@ -13946,6 +14071,53 @@ export type Database = {
           },
         ]
       }
+      site_diary_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          report_name: string
+          revision: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          report_name: string
+          revision?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          report_name?: string
+          revision?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_diary_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_diary_tasks: {
         Row: {
           actual_hours: number | null
@@ -14052,6 +14224,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      specification_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          report_name: string
+          revision: string
+          specification_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          report_name: string
+          revision?: string
+          specification_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          report_name?: string
+          revision?: string
+          specification_id?: string
+        }
+        Relationships: []
       }
       specification_sections: {
         Row: {
