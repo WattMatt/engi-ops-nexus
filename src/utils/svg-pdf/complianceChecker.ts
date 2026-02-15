@@ -361,6 +361,86 @@ function getBuilderRegistry(): BuilderEntry[] {
         });
       },
     },
+    // Phase 3: Visual Reports
+    {
+      reportId: 'generator-report',
+      reportName: 'Generator Report',
+      load: async () => {
+        const mod = await import('./generatorReportPdfBuilder');
+        return mod.buildGeneratorReportPdf({
+          coverData: MOCK_COVER, projectName: 'Test Project', generatorSize: '500 kVA', fuelType: 'Diesel',
+          zones: [
+            { name: 'Zone A - Critical', totalKw: 120, loads: [{ description: 'UPS Systems', kw: 80, priority: 'Critical' }, { description: 'Emergency Lights', kw: 40, priority: 'High' }] },
+            { name: 'Zone B - Essential', totalKw: 80, loads: [{ description: 'HVAC', kw: 50, priority: 'Medium' }, { description: 'Elevators', kw: 30, priority: 'Medium' }] },
+          ],
+          loadSummary: { totalConnected: 200, totalDemand: 150, diversityFactor: 0.75 },
+          financials: { capitalCost: 850000, monthlyFuel: 15000, maintenanceAnnual: 45000, amortizationYears: 5 },
+        });
+      },
+    },
+    {
+      reportId: 'bulk-services',
+      reportName: 'Bulk Services',
+      load: async () => {
+        const mod = await import('./bulkServicesPdfBuilder');
+        return mod.buildBulkServicesPdf({
+          coverData: MOCK_COVER, projectName: 'Test Project', documentNumber: 'BS-001',
+          supplyAuthority: 'Eskom', connectionSize: '1000A', totalConnectedLoad: 850, maximumDemand: 520,
+          diversityFactor: 0.61, transformerSize: 800,
+          loadSchedule: [
+            { tenant: 'Shop A', shopNumber: 'S01', breakerSize: '60A', connectedLoad: 41.4, demandLoad: 28.5, category: 'Retail' },
+            { tenant: 'Shop B', shopNumber: 'S02', breakerSize: '80A', connectedLoad: 55.2, demandLoad: 38.6, category: 'Fast Food' },
+          ],
+          phases: [
+            { name: 'Application', status: 'completed', tasks: [{ title: 'Submit', completed: true }] },
+            { name: 'Installation', status: 'in_progress', tasks: [{ title: 'Cable', completed: false }] },
+          ],
+          notes: 'All calculations per SANS 10142-1.',
+        });
+      },
+    },
+    {
+      reportId: 'floor-plan',
+      reportName: 'Floor Plan',
+      load: async () => {
+        const mod = await import('./floorPlanPdfBuilder');
+        return mod.buildFloorPlanReportPdf({
+          coverData: MOCK_COVER, projectName: 'Test Project', layoutName: 'Ground Floor - Layout A',
+          equipment: [
+            { tag: 'DB-01', type: 'Distribution Board', location: 'Electrical Room', rating: '400A', quantity: 1 },
+            { tag: 'DB-02', type: 'Sub Distribution Board', location: 'Shop S01', rating: '60A', quantity: 1 },
+          ],
+          cables: [
+            { tag: 'C01', from: 'DB-01', to: 'DB-02', type: 'XLPE', size: '16mm²', length: 45 },
+          ],
+          containment: [
+            { type: 'Cable Tray', size: '300x50', length: 25, route: 'Main corridor' },
+          ],
+          annotations: ['All cable routing via ceiling void', 'Fire stopping at all penetrations'],
+        });
+      },
+    },
+    {
+      reportId: 'cost-report-server',
+      reportName: 'Cost Report (Server)',
+      load: async () => {
+        const mod = await import('./costReportServerPdfBuilder');
+        return mod.buildCostReportServerPdf({
+          coverData: MOCK_COVER, projectName: 'Test Project',
+          budgetTotal: 500000, actualTotal: 480000, variationTotal: 25000,
+          categories: [
+            { name: 'Electrical', budget: 250000, actual: 240000, variance: -10000 },
+            { name: 'Mechanical', budget: 150000, actual: 145000, variance: -5000 },
+            { name: 'Civil', budget: 100000, actual: 95000, variance: -5000 },
+          ],
+          variations: [
+            { reference: 'VO-001', description: 'Additional DB boards', amount: 15000, status: 'Approved' },
+            { reference: 'VO-002', description: 'Extra cabling', amount: 10000, status: 'Pending' },
+          ],
+          notes: 'Report generated for scheduled distribution.',
+        });
+      },
+    },
   ];
 }
 
