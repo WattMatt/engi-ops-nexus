@@ -28,12 +28,12 @@ import {
 import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
 import { Separator } from "@/components/ui/separator";
 
-interface SvgPdfTestButtonProps {
+interface SvgPdfExportButtonProps {
   report: any;
 }
 
 
-export const SvgPdfTestButton = ({ report }: SvgPdfTestButtonProps) => {
+export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
