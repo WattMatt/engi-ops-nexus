@@ -12,7 +12,7 @@ import { ExportPDFButton } from "@/components/cost-reports/ExportPDFButton";
 import { CompareReportsDialog } from "@/components/cost-reports/CompareReportsDialog";
 import { ImportExcelDialog } from "@/components/cost-reports/ImportExcelDialog";
 import { CostReportHistory } from "@/components/cost-reports/CostReportHistory";
-import { SvgPdfTestButton } from "@/components/cost-reports/SvgPdfTestButton";
+import { SvgPdfExportButton } from "@/components/cost-reports/SvgPdfExportButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -138,7 +138,7 @@ const CostReportDetail = () => {
               </div>
 
               {useSvgEngine ? (
-                <SvgPdfTestButton report={report} />
+                <SvgPdfExportButton report={report} />
               ) : (
                 <ExportPDFButton 
                   report={report} 
