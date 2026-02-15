@@ -3,11 +3,10 @@
  * 
  * Supports two PDF generation engines:
  * - jsPDF (client-side): Rich tables with autoTable, local processing
- * - pdfmake (server-side): Declarative API, faster, modern approach
+ * - pdfmake (client-side): Declarative API, modern approach
  */
 
 import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 import {
   generateRoadmapReviewPDF as pdfmakeClientGenerate,
   downloadRoadmapReviewPDF,
@@ -52,10 +51,6 @@ interface RoadmapItem {
 // CHART CONFIGURATIONS
 // ============================================================================
 
-/**
- * Roadmap review chart configurations
- * These match the element IDs in the AdminRoadmapReview component
- */
 export const ROADMAP_REVIEW_CHARTS: ChartConfig[] = [
   {
     elementId: 'priority-heatmap-chart',
@@ -79,9 +74,6 @@ export const ROADMAP_REVIEW_CHARTS: ChartConfig[] = [
   },
 ];
 
-/**
- * Capture roadmap review charts from the DOM
- */
 export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]> => {
   console.log('[RoadmapPDF] Starting chart capture...');
 
@@ -114,9 +106,6 @@ export const captureRoadmapReviewCharts = async (): Promise<CapturedChartData[]>
 // JSPDF GENERATION (Client-Side - Recommended)
 // ============================================================================
 
-/**
- * Generate PDF using jsPDF (client-side, better quality)
- */
 async function generateWithJsPDF(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
@@ -127,16 +116,7 @@ async function generateWithJsPDF(
   console.log('[RoadmapPDF] Using jsPDF engine (client-side)...');
   
   const startTime = Date.now();
-  
-  // Generate PDF document
-  const doc = await generateEnhancedRoadmapPDF(
-    projects,
-    metrics,
-    options,
-    allRoadmapItems
-  );
-  
-  // Get blob from jsPDF
+  const doc = await generateEnhancedRoadmapPDF(projects, metrics, options, allRoadmapItems);
   const blob = doc.output('blob');
   const generatedFilename = filename || `Roadmap_Review_${format(new Date(), "yyyy-MM-dd")}.pdf`;
   
@@ -147,12 +127,9 @@ async function generateWithJsPDF(
 }
 
 // ============================================================================
-// PDFMAKE GENERATION (Server-Side - Experimental)
+// PDFMAKE GENERATION (Client-Side only — server EF removed)
 // ============================================================================
 
-/**
- * Generate PDF using pdfmake via edge function (server-side, faster but experimental)
- */
 async function generateWithPdfmake(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
@@ -161,54 +138,14 @@ async function generateWithPdfmake(
   capturedCharts?: CapturedChartData[],
   filename?: string
 ): Promise<PDFGenerationResult> {
-  console.log('[RoadmapPDF] Using pdfmake engine (server-side)...');
-  
-  try {
-    // Try server-side generation first
-    const { data, error } = await supabase.functions.invoke('generate-roadmap-pdf', {
-      body: {
-        projects,
-        metrics,
-        options,
-        allRoadmapItems,
-        capturedCharts,
-        filename,
-      },
-    });
-
-    if (error) throw error;
-    if (!data?.success || !data?.pdfBase64) throw new Error(data?.error || 'No PDF data returned');
-
-    console.log(`[RoadmapPDF] Server-side pdfmake generation succeeded: ${data.sizeKB}KB in ${data.generationTimeMs}ms`);
-
-    // Convert base64 to blob
-    const binaryString = atob(data.pdfBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-
-    return { blob, filename: data.filename };
-  } catch (serverError) {
-    console.warn('[RoadmapPDF] Server-side pdfmake failed, falling back to client-side pdfmake:', serverError);
-    
-    // Fall back to client-side pdfmake generation
-    return pdfmakeClientGenerate(projects, metrics, options, allRoadmapItems, capturedCharts, filename);
-  }
+  console.log('[RoadmapPDF] Using pdfmake engine (client-side)...');
+  return pdfmakeClientGenerate(projects, metrics, options, allRoadmapItems, capturedCharts, filename);
 }
 
 // ============================================================================
 // MAIN EXPORT FUNCTION (Dual Engine Support)
 // ============================================================================
 
-/**
- * Generate the roadmap review PDF as a blob for storage/preview.
- * Supports two engines: jsPDF (recommended) and pdfmake (experimental).
- * 
- * @param options.pdfEngine - 'jspdf' (default, recommended) or 'pdfmake' (experimental)
- * @returns Promise that resolves with the PDF blob and filename
- */
 export async function generateRoadmapPdfBlob(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
@@ -225,13 +162,9 @@ export async function generateRoadmapPdfBlob(
     return generateWithPdfmake(projects, metrics, options, allRoadmapItems, capturedCharts, filename);
   }
   
-  // Default to jsPDF (recommended)
   return generateWithJsPDF(projects, metrics, options, allRoadmapItems, filename);
 }
 
-/**
- * Quick export - download PDF directly without blob generation
- */
 export async function quickExportRoadmapPdf(
   projects: EnhancedProjectSummary[],
   metrics: PortfolioMetrics,
@@ -245,22 +178,9 @@ export async function quickExportRoadmapPdf(
   console.log(`[RoadmapPDF] Quick export with engine: ${engine}`);
   
   if (engine === 'pdfmake') {
-    await downloadRoadmapReviewPDF(
-      projects,
-      metrics,
-      options,
-      allRoadmapItems,
-      capturedCharts,
-      filename
-    );
+    await downloadRoadmapReviewPDF(projects, metrics, options, allRoadmapItems, capturedCharts, filename);
   } else {
-    // jsPDF direct download
-    const doc = await generateEnhancedRoadmapPDF(
-      projects,
-      metrics,
-      options,
-      allRoadmapItems
-    );
+    const doc = await generateEnhancedRoadmapPDF(projects, metrics, options, allRoadmapItems);
     downloadPDF(doc, filename);
   }
 }

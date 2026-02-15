@@ -1,53 +1,28 @@
 import { Button } from "@/components/ui/button";
 import { Download, FileText, Loader2, CheckCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { generateStorageFilename } from "@/utils/pdfFilenameGenerator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ContactSelector } from "@/components/shared/ContactSelector";
 import { Progress } from "@/components/ui/progress";
+import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
+import { buildCableSchedulePdf, type CableSchedulePdfData, type CableEntry } from "@/utils/svg-pdf/cableSchedulePdfBuilder";
+import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
+import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface CableScheduleExportPDFButtonProps {
   schedule: any;
 }
 
-type GenerationStep = 'idle' | 'fetching' | 'generating' | 'uploading' | 'complete' | 'error';
-
-const stepLabels: Record<GenerationStep, string> = {
-  idle: 'Ready to generate',
-  fetching: 'Fetching cable data...',
-  generating: 'Generating PDF...',
-  uploading: 'Saving report...',
-  complete: 'Report generated!',
-  error: 'Generation failed',
-};
-
-const stepProgress: Record<GenerationStep, number> = {
-  idle: 0,
-  fetching: 20,
-  generating: 50,
-  uploading: 80,
-  complete: 100,
-  error: 0,
-};
-
 export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPDFButtonProps) => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState("");
-  const [step, setStep] = useState<GenerationStep>('idle');
+  const { isGenerating, progress, fetchCompanyData, generateAndPersist } = useSvgPdfReport();
 
   const handleExport = async () => {
-    setStep('fetching');
-    
-    try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
+    const buildFn = async () => {
       // Fetch cable entries
       const { data: entries, error: entriesError } = await supabase
         .from("cable_entries")
@@ -64,126 +39,90 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
         .eq("id", schedule.project_id)
         .single();
 
-      // Fetch company logo
-      let companyLogoBase64: string | undefined;
-      try {
-        const { data: settings } = await supabase
-          .from("company_settings")
-          .select("company_logo_url")
-          .limit(1)
-          .maybeSingle();
-        
-        if (settings?.company_logo_url) {
-          const response = await fetch(settings.company_logo_url);
-          const blob = await response.blob();
-          companyLogoBase64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-        }
-      } catch (logoError) {
-        console.warn("Could not fetch company logo:", logoError);
-      }
-
       // Fetch contact if selected
       let contactName: string | undefined;
       if (selectedContactId) {
         const { data: contact } = await supabase
           .from("project_contacts")
-          .select("*")
+          .select("contact_person_name")
           .eq("id", selectedContactId)
           .maybeSingle();
         contactName = contact?.contact_person_name;
       }
 
-      setStep('generating');
+      const companyData = await fetchCompanyData();
 
-      // Generate filename
-      const storageFilename = generateStorageFilename({
+      const coverData: StandardCoverPageData = {
+        reportTitle: "Cable Schedule",
+        reportSubtitle: schedule.schedule_name || "Cable Schedule Report",
+        projectName: project?.name || "Project",
         projectNumber: project?.project_number,
-        reportType: 'CableSch',
-        reportNumber: schedule.schedule_number,
         revision: schedule.revision,
-      });
+        date: format(new Date(), "dd MMMM yyyy"),
+        contactName,
+        ...companyData,
+      };
 
-      // Call edge function
-      const { data: pdfResult, error: pdfError } = await supabase.functions.invoke(
-        'generate-cable-schedule-pdf',
-        {
-          body: {
-            scheduleName: schedule.schedule_name,
-            scheduleNumber: schedule.schedule_number,
-            revision: schedule.revision,
-            projectName: project?.name,
-            projectNumber: project?.project_number,
-            clientName: project?.client_name,
-            contactName,
-            entries: entries || [],
-            companyLogoBase64,
-            userId: user.id,
-            scheduleId: schedule.id,
-            filename: storageFilename,
-          },
-        }
-      );
+      const cableEntries: CableEntry[] = (entries || []).map((e: any) => ({
+        cable_tag: e.cable_tag,
+        from_location: e.from_location,
+        to_location: e.to_location,
+        voltage: e.voltage,
+        load_amps: e.load_amps,
+        cable_type: e.cable_type,
+        cable_size: e.cable_size,
+        measured_length: e.measured_length,
+        extra_length: e.extra_length,
+        total_length: e.total_length,
+        ohm_per_km: e.ohm_per_km,
+        volt_drop: e.volt_drop,
+        notes: e.notes,
+      }));
 
-      if (pdfError) throw pdfError;
-      if (!pdfResult?.success) throw new Error(pdfResult?.error || 'PDF generation failed');
+      const pdfData: CableSchedulePdfData = {
+        coverData,
+        entries: cableEntries,
+        scheduleName: schedule.schedule_name || "Cable Schedule",
+      };
 
-      setStep('uploading');
+      return buildCableSchedulePdf(pdfData);
+    };
 
-      // Save metadata to database
-      const { error: dbError } = await supabase
-        .from("cable_schedule_reports")
-        .insert({
-          schedule_id: schedule.id,
-          report_name: schedule.schedule_name,
-          revision: schedule.revision,
-          file_path: pdfResult.filePath,
-          file_size: pdfResult.fileSize,
-          generated_by: user.id,
-        });
-
-      if (dbError) throw dbError;
-
-      setStep('complete');
-
-      // Invalidate queries to refresh the list
-      queryClient.invalidateQueries({ queryKey: ["cable-schedule-reports", schedule.id] });
-
-      toast({
-        title: "Success",
-        description: "Cable schedule PDF generated and saved successfully",
-      });
-
-      // Reset after delay
-      setTimeout(() => {
-        setStep('idle');
-        setDialogOpen(false);
-      }, 1500);
-
-    } catch (error) {
-      console.error("PDF export error:", error);
-      setStep('error');
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to export PDF",
-        variant: "destructive",
-      });
-      
-      // Reset after delay
-      setTimeout(() => setStep('idle'), 2000);
-    }
+    await generateAndPersist(
+      buildFn,
+      {
+        storageBucket: "cable-schedule-reports",
+        dbTable: "cable_schedule_reports",
+        foreignKeyColumn: "schedule_id",
+        foreignKeyValue: schedule.id,
+        reportName: `CableSchedule_${schedule.schedule_number || ""}`,
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["cable-schedule-reports", schedule.id] });
+        setTimeout(() => setDialogOpen(false), 1500);
+      },
+    );
   };
 
-  const isGenerating = step !== 'idle' && step !== 'complete' && step !== 'error';
+  const stepLabel = progress === 'building' ? 'Fetching cable data...'
+    : progress === 'converting' ? 'Generating PDF...'
+    : progress === 'uploading' ? 'Uploading...'
+    : progress === 'saving' ? 'Saving report...'
+    : progress === 'complete' ? 'Report generated!'
+    : progress === 'error' ? 'Generation failed'
+    : 'Ready to generate';
+
+  const stepProgress = progress === 'building' ? 20
+    : progress === 'converting' ? 50
+    : progress === 'uploading' ? 70
+    : progress === 'saving' ? 85
+    : progress === 'complete' ? 100
+    : 0;
 
   return (
     <Dialog open={dialogOpen} onOpenChange={(open) => {
       if (!isGenerating) {
         setDialogOpen(open);
-        if (!open) setStep('idle');
       }
     }}>
       <DialogTrigger asChild>
@@ -196,13 +135,12 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
         <DialogHeader>
           <DialogTitle>Generate Cable Schedule Report</DialogTitle>
           <DialogDescription>
-            Create a professional PDF report with cable details, costs, and optimization recommendations.
+            Create a professional PDF report with cable details and optimization recommendations.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6 py-4">
-          {/* Contact Selector */}
-          {step === 'idle' && (
+          {!progress && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Cover Page Contact (Optional)</label>
               <ContactSelector
@@ -216,30 +154,28 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
             </div>
           )}
 
-          {/* Progress Section */}
-          {step !== 'idle' && (
+          {progress && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                {step === 'complete' ? (
+                {progress === 'complete' ? (
                   <CheckCircle className="h-5 w-5 text-primary" />
-                ) : step === 'error' ? (
+                ) : progress === 'error' ? (
                   <div className="h-5 w-5 rounded-full bg-destructive" />
                 ) : (
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 )}
                 <span className={`text-sm font-medium ${
-                  step === 'complete' ? 'text-primary' : 
-                  step === 'error' ? 'text-destructive' : ''
+                  progress === 'complete' ? 'text-primary' : 
+                  progress === 'error' ? 'text-destructive' : ''
                 }`}>
-                  {stepLabels[step]}
+                  {stepLabel}
                 </span>
               </div>
-              <Progress value={stepProgress[step]} className="h-2" />
+              <Progress value={stepProgress} className="h-2" />
             </div>
           )}
 
-          {/* Report Info */}
-          {step === 'idle' && (
+          {!progress && (
             <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
               <h4 className="font-medium text-sm">Report Contents</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
@@ -261,7 +197,7 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
           </Button>
           <Button 
             onClick={handleExport} 
-            disabled={isGenerating || step === 'complete'}
+            disabled={isGenerating || progress === 'complete'}
             className="gap-2"
           >
             {isGenerating ? (
@@ -269,7 +205,7 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Generating...
               </>
-            ) : step === 'complete' ? (
+            ) : progress === 'complete' ? (
               <>
                 <CheckCircle className="h-4 w-4" />
                 Done

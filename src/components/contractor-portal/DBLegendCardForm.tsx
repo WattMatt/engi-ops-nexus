@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -205,28 +206,40 @@ export function DBLegendCardForm({ cardId, projectId, projectName, projectNumber
     if (!form) return;
     setGeneratingPdf(true);
     try {
-      // Save first
       await handleSave();
+      const { svgPagesToPdfBlob } = await import("@/utils/svg-pdf/svgToPdfEngine");
+      const { buildLegendCardPdf } = await import("@/utils/svg-pdf/legendCardPdfBuilder");
+      const { imageToBase64 } = await import("@/utils/pdfmake/helpers");
+
+      const { data: company } = await supabase.from("company_settings").select("company_name, company_logo_url").limit(1).maybeSingle();
+      let companyLogoBase64: string | null = null;
+      if (company?.company_logo_url) { try { companyLogoBase64 = await imageToBase64(company.company_logo_url); } catch {} }
+
+      const pages = buildLegendCardPdf({
+        coverData: {
+          reportTitle: "DB Legend Card",
+          reportSubtitle: form.db_name,
+          projectName: projectName,
+          projectNumber: projectNumber,
+          date: format(new Date(), "dd MMMM yyyy"),
+          companyName: company?.company_name || undefined,
+          companyLogoBase64,
+        },
+        dbName: form.db_name,
+        address: form.address || undefined,
+        cardDate: form.card_date || undefined,
+        phone: form.phone || undefined,
+        email: form.email || undefined,
+        cocNo: form.coc_no || undefined,
+        sectionName: form.section_name || undefined,
+        fedFrom: form.fed_from || undefined,
+        circuits: form.circuits.filter(c => c.description.trim() || c.amp_rating.trim()),
+        contactors: form.contactors,
+      });
+
+      const { blob } = await svgPagesToPdfBlob(pages);
       const sizeLabel = pdfPageSize === "A5" ? "_A5" : "";
       const filename = `${form.db_name.replace(/[^a-zA-Z0-9._-]/g, '_')}${sizeLabel}_Legend_Card.pdf`;
-      const { data, error } = await supabase.functions.invoke("generate-legend-card-pdf", {
-        body: {
-          cardId,
-          projectName,
-          projectNumber,
-          filename,
-          pageSize: pdfPageSize,
-        },
-      });
-      if (error) throw error;
-      if (!data?.filePath) throw new Error("No file path returned");
-
-      // Download from storage
-      const { data: blob, error: dlError } = await supabase.storage
-        .from("legend-card-reports")
-        .download(data.filePath);
-      if (dlError) throw dlError;
-
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

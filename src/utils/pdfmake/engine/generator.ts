@@ -213,7 +213,7 @@ async function generateClientSide(
 // ============================================================================
 
 /**
- * Generate PDF on the server via edge function
+ * Generate PDF on the server — now falls back to client-side only (server EFs removed)
  */
 async function generateServerSide(
   reportType: ReportType,
@@ -222,53 +222,8 @@ async function generateServerSide(
   charts: CapturedChartData[],
   options: GenerationOptions
 ): Promise<GenerationResult> {
-  console.log(`[UnifiedPDF] Server-side generation for: ${reportType}`);
-  
-  const request: UnifiedPDFRequest = {
-    reportType,
-    config,
-    data,
-    charts,
-    storeInStorage: options.storeInStorage,
-    storageBucket: options.storageBucket,
-    storagePath: options.storagePath,
-  };
-  
-  const { data: response, error } = await supabase.functions.invoke<UnifiedPDFResponse>(
-    'generate-unified-pdf',
-    { body: request }
-  );
-  
-  if (error) {
-    console.warn('[UnifiedPDF] Server generation failed, falling back to client:', error);
-    // Fallback to client-side
-    return generateClientSide(reportType, data, config, charts, options);
-  }
-  
-  if (!response?.success || !response.pdfBase64) {
-    console.warn('[UnifiedPDF] Invalid server response, falling back to client');
-    return generateClientSide(reportType, data, config, charts, options);
-  }
-  
-  // Convert base64 to blob
-  const binaryString = atob(response.pdfBase64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  const blob = new Blob([bytes], { type: 'application/pdf' });
-  
-  return {
-    success: true,
-    blob,
-    pdfBase64: response.pdfBase64,
-    filename: response.filename || generateFilename(config),
-    sizeBytes: blob.size,
-    generationTimeMs: response.generationTimeMs,
-    storageUrl: response.storageUrl,
-    engineUsed: 'pdfmake',
-    modeUsed: 'server',
-  };
+  console.warn(`[UnifiedPDF] Server-side EFs removed, falling back to client-side for: ${reportType}`);
+  return generateClientSide(reportType, data, config, charts, options);
 }
 
 // ============================================================================
