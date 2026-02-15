@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   CheckCircle2, XCircle, AlertTriangle, ArrowRight,
   FileText, Server, Monitor, Search, Clock, PlayCircle, Loader2,
@@ -38,6 +39,8 @@ interface ReportSpec {
   hasExecutiveSummary: boolean;
   specCompliant: boolean;
   notes?: string;
+  /** Features are inherited from pre-generated PDFs (storage-first pattern) */
+  inherited?: boolean;
 }
 
 const REPORTS: ReportSpec[] = [
@@ -67,7 +70,7 @@ const REPORTS: ReportSpec[] = [
   { id: 'tenant-evaluation', name: 'Tenant Evaluation', engine: 'svg', location: 'src/utils/svg-pdf/tenantEvaluationPdfBuilder.ts', phase: 4, migrationStatus: 'migrated', hasHistory: true, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false, hasExecutiveSummary: false, specCompliant: true, notes: 'Phase 4 migration complete' },
 
   // Scheduled (not applicable)
-  { id: 'scheduled-reports', name: 'Scheduled Reports', engine: 'svg', location: 'supabase/functions/send-scheduled-report/', phase: 5, migrationStatus: 'migrated', hasHistory: true, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, hasExecutiveSummary: false, specCompliant: true, notes: 'Storage-first pattern — inherits cover page, headers & footers from pre-generated PDFs. Report history tracked via source module tables.' },
+  { id: 'scheduled-reports', name: 'Scheduled Reports', engine: 'svg', location: 'supabase/functions/send-scheduled-report/', phase: 5, migrationStatus: 'migrated', hasHistory: true, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, hasExecutiveSummary: false, specCompliant: true, inherited: true, notes: 'Storage-first pattern — inherits cover page, headers & footers from pre-generated PDFs' },
 ];
 
 // ─── Helpers ───
@@ -96,10 +99,24 @@ function complianceScore(report: ReportSpec): number {
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
 
-function FeatureIcon({ value }: { value: boolean }) {
-  return value
-    ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-    : <XCircle className="h-4 w-4 text-muted-foreground/40" />;
+function FeatureIcon({ value, inherited }: { value: boolean; inherited?: boolean }) {
+  if (!value) return <XCircle className="h-4 w-4 text-muted-foreground/40" />;
+  if (inherited) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="relative inline-flex items-center justify-center">
+            <CheckCircle2 className="h-4 w-4 text-sky-500" />
+            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-1 ring-background" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          Inherited from pre-generated PDF
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
 }
 
 // ─── Component ───
@@ -270,12 +287,12 @@ export default function PdfComplianceDashboard() {
                             </Badge>
                           </td>
                           <td className="p-3 text-center text-muted-foreground">{r.phase}</td>
-                          <td className="p-3 text-center"><FeatureIcon value={r.hasCoverPage} /></td>
-                          <td className="p-3 text-center"><FeatureIcon value={r.hasRunningHeader} /></td>
-                          <td className="p-3 text-center"><FeatureIcon value={r.hasRunningFooter} /></td>
-                          <td className="p-3 text-center"><FeatureIcon value={r.hasToc} /></td>
-                          <td className="p-3 text-center"><FeatureIcon value={r.hasCharts} /></td>
-                          <td className="p-3 text-center"><FeatureIcon value={r.hasHistory} /></td>
+                          <td className="p-3 text-center"><FeatureIcon value={r.hasCoverPage} inherited={r.inherited} /></td>
+                          <td className="p-3 text-center"><FeatureIcon value={r.hasRunningHeader} inherited={r.inherited} /></td>
+                          <td className="p-3 text-center"><FeatureIcon value={r.hasRunningFooter} inherited={r.inherited} /></td>
+                          <td className="p-3 text-center"><FeatureIcon value={r.hasToc} inherited={r.inherited} /></td>
+                          <td className="p-3 text-center"><FeatureIcon value={r.hasCharts} inherited={r.inherited} /></td>
+                          <td className="p-3 text-center"><FeatureIcon value={r.hasHistory} inherited={r.inherited} /></td>
                           <td className="p-3 text-center">
                             <span className={`text-xs font-bold ${score === 100 ? 'text-emerald-600' : score >= 75 ? 'text-amber-600' : 'text-red-500'}`}>
                               {score}%
