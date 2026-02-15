@@ -49,9 +49,9 @@ export function round(value: number | string, decimalPlaces = 2): number {
   return new Decimal(value).toDecimalPlaces(decimalPlaces, Decimal.ROUND_HALF_UP).toNumber();
 }
 
-export function sum(values: (number | string | null | undefined)[]): number {
+export function sum(values: (number | null | undefined)[]): number {
   return values
-    .filter((v): v is number | string => v !== null && v !== undefined && v !== '')
+    .filter((v): v is number => v !== null && v !== undefined)
     .reduce((acc, val) => acc.plus(new Decimal(val)), new Decimal(0))
     .toNumber();
 }

@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { AISuggestionService } from "@/services/AISuggestionService";
 
 interface AddLineItemDialogProps {
   open: boolean;
@@ -28,49 +27,13 @@ export const AddLineItemDialog = ({
     original_budget: "",
     previous_report: "",
     anticipated_final: "",
-    rate: "", // Added rate field
   });
-
-  const handleSuggestRate = () => {
-    if (!formData.description) {
-      toast({
-        title: "Description required",
-        description: "Please enter a description to get a suggestion.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const suggestion = AISuggestionService.suggestCablePrice(formData.description);
-    
-    if (suggestion) {
-      setFormData(prev => ({ ...prev, rate: suggestion.rate.toFixed(2) }));
-      toast({
-        title: "AI Suggestion Applied",
-        description: suggestion.reason,
-      });
-    } else {
-      toast({
-        title: "No suggestion found",
-        description: "Could not find a matching cable specification.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // detailed line items might not support 'rate' column in db yet, 
-      // but assuming we just want to fill the form for now or mapped to a field.
-      // If the DB doesn't have 'rate', this might fail if I try to insert it.
-      // But the prompt says "fill the 'Rate' field". 
-      // I will assume for now I should just add it to the form.
-      // If the user wants it saved, they probably updated the schema or mapped it.
-      // However, usually 'rate' helps calculate 'original_budget' or 'anticipated_final'.
-      
       const { error } = await supabase.from("cost_line_items").insert({
         category_id: categoryId,
         code: formData.code,
@@ -79,7 +42,6 @@ export const AddLineItemDialog = ({
         previous_report: parseFloat(formData.previous_report) || 0,
         anticipated_final: parseFloat(formData.anticipated_final) || 0,
         display_order: 0,
-        // rate: parseFloat(formData.rate) || 0, // Commented out as I don't know if column exists
       });
 
       if (error) throw error;
@@ -96,7 +58,6 @@ export const AddLineItemDialog = ({
         original_budget: "",
         previous_report: "",
         anticipated_final: "",
-        rate: "",
       });
     } catch (error: any) {
       toast({
@@ -139,30 +100,6 @@ export const AddLineItemDialog = ({
                 required
               />
             </div>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Label htmlFor="rate">Rate (R/m)</Label>
-              <Input
-                id="rate"
-                type="number"
-                step="0.01"
-                value={formData.rate}
-                onChange={(e) =>
-                  setFormData({ ...formData, rate: e.target.value })
-                }
-                placeholder="0.00"
-              />
-            </div>
-            <Button 
-              type="button" 
-              variant="secondary" 
-              onClick={handleSuggestRate}
-              className="mb-[2px]"
-            >
-              ⚡ Suggest Rate
-            </Button>
           </div>
 
           <div>
@@ -220,4 +157,3 @@ export const AddLineItemDialog = ({
     </Dialog>
   );
 };
-

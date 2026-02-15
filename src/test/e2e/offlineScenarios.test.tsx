@@ -215,7 +215,7 @@
          cable_number: 'C-FAIL',
        });
  
-       const { result } = renderHook(() => useOfflineSync(), {
+       const { result } = renderHook(() => useOfflineSync({ maxRetries: 1 }), {
          wrapper: createWrapper(),
        });
  
@@ -244,7 +244,7 @@
  
        // Initially no pending
        await waitFor(() => {
-         expect(result.current.queueSize).toBe(0);
+         expect(result.current.pendingCount).toBe(0);
        });
  
        // Add items while offline

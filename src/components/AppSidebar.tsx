@@ -1,5 +1,5 @@
-import { useLocation } from "react-router-dom";
-import { Building2 } from "lucide-react";
+import { NavLink, useLocation } from "react-router-dom";
+import { Building2, User, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,8 +10,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { navItems } from "@/components/sidebar/sidebarConfig";
+import { WorkspaceGroup } from "@/components/sidebar/WorkspaceGroup";
+import { workspaces, settingsItems } from "@/components/sidebar/sidebarConfig";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -25,6 +27,11 @@ export function AppSidebar() {
     }
     return currentPath.startsWith(path);
   };
+
+  const getNavCls = (path: string) =>
+    isActive(path)
+      ? "bg-primary/10 text-primary font-medium hover:bg-primary/20"
+      : "hover:bg-muted/50";
 
   return (
     <Sidebar collapsible="icon" className="border-r">
@@ -46,29 +53,43 @@ export function AppSidebar() {
           </div>
         </div>
 
-        {/* Navigation Items */}
+        {/* Workspace Navigation */}
         <ScrollArea className="flex-1">
           <SidebarGroup>
+            <SidebarGroupContent className="space-y-1 p-2">
+              {workspaces.map((workspace) => (
+                <WorkspaceGroup
+                  key={workspace.id}
+                  title={workspace.title}
+                  icon={workspace.icon}
+                  items={workspace.items}
+                  defaultOpen={workspace.defaultOpen}
+                />
+              ))}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </ScrollArea>
+
+        {/* Settings at bottom */}
+        <div className="shrink-0 border-t">
+          <Separator className="mb-0" />
+          <SidebarGroup>
             <SidebarGroupContent>
-              <SidebarMenu>
-                {navItems.map((item) => (
+              <SidebarMenu className="p-2">
+                {settingsItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(item.url)}
-                      tooltip={collapsed ? item.title : undefined}
-                    >
-                      <a href={item.url}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.url} className={getNavCls(item.url)}>
                         <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </a>
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        </ScrollArea>
+        </div>
       </SidebarContent>
     </Sidebar>
   );

@@ -4,7 +4,6 @@
  */
 
 export * from './common';
-export * from './PDFServiceTypes';
 
 // Re-export database types for convenience
 export type { Database, Json } from '@/integrations/supabase/types';
