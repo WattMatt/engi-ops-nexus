@@ -7,6 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import { imageToBase64 } from "@/utils/pdfmake/helpers";
+import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
+import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import {
   buildCoverPageSvg,
   buildExecutiveSummarySvg,
@@ -25,15 +27,16 @@ import {
   type VariationSheetData,
   type TocEntry,
 } from "@/utils/svg-pdf/costReportSvgBuilder";
-import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
+import { svgPagesToPdfBlob } from "@/utils/svg-pdf/svgToPdfEngine";
 import { Separator } from "@/components/ui/separator";
 
 interface SvgPdfExportButtonProps {
   report: any;
+  onReportGenerated?: () => void;
 }
 
 
-export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
+export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportButtonProps) => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -43,9 +46,10 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [zoom, setZoom] = useState(100);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [previewReport, setPreviewReport] = useState<any>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const buildSvgPages = useCallback(async (): Promise<SVGSVGElement[]> => {
+  const buildSvgPages = useCallback(async () => {
     const { data: company } = await supabase
       .from("company_settings")
       .select("*")
@@ -92,6 +96,7 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
       } catch { console.warn('[SVG-PDF] Client logo conversion failed, skipping'); }
     }
 
+    // Build standardised cover page with PREPARED FOR / PREPARED BY fields
     const coverSvg = buildCoverPageSvg({
       companyName: company?.company_name || "Company Name",
       projectName: report.project_name || "Project",
@@ -101,6 +106,10 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
       projectNumber: report.project_number,
       companyLogoBase64,
       clientLogoBase64,
+      companyAddress: company?.client_address_line1 || "",
+      companyPhone: company?.client_phone || "",
+      contactOrganization: company?.client_name || "",
+      contactPhone: company?.client_phone || "",
     });
 
     const summaryRows = categoryTotals.map((cat: any) => ({
@@ -224,14 +233,14 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
         })
       : [];
 
-    // Build Contractor Summary page
+    // Build Contractor Summary page (no emoji icons — uses role letter abbreviation)
     const contractorSvg = buildContractorSummarySvg({
       projectName: report.project_name,
       contractors: [
-        { role: 'Electrical', name: report.electrical_contractor || null, icon: '⚡', accentColor: '#2563eb' },
-        { role: 'CCTV', name: report.cctv_contractor || null, icon: '📹', accentColor: '#7c3aed' },
-        { role: 'Earthing', name: report.earthing_contractor || null, icon: '⏚', accentColor: '#16a34a' },
-        { role: 'Standby Plants', name: report.standby_plants_contractor || null, icon: '🔋', accentColor: '#ea580c' },
+        { role: 'Electrical', name: report.electrical_contractor || null, icon: 'E', accentColor: '#2563eb' },
+        { role: 'CCTV', name: report.cctv_contractor || null, icon: 'C', accentColor: '#7c3aed' },
+        { role: 'Earthing', name: report.earthing_contractor || null, icon: 'E', accentColor: '#16a34a' },
+        { role: 'Standby Plants', name: report.standby_plants_contractor || null, icon: 'S', accentColor: '#ea580c' },
       ],
     });
 
@@ -273,6 +282,67 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
     return allPages;
   }, [report]);
 
+  /**
+   * Persist the generated PDF blob to storage and create a history record.
+   * Follows the same Generate → Save → DB Record → Preview workflow
+   * as the standard ExportPDFButton.
+   */
+  const persistToHistory = async (blob: Blob): Promise<any | null> => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+
+      const storageFileName = generateStorageFilename({
+        projectNumber: report.project_number || report.project_id?.slice(0, 8),
+        reportType: "CostReport",
+        revision: report.revision || "A",
+        reportNumber: report.report_number,
+      });
+
+      const storagePath = `cost-reports/${report.project_id}/${storageFileName}`;
+
+      // Upload to storage bucket
+      const { error: uploadError } = await supabase.storage
+        .from("cost-report-pdfs")
+        .upload(storagePath, blob, {
+          contentType: 'application/pdf',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('[SVG-PDF] Storage upload failed:', uploadError);
+        return null;
+      }
+
+      // Create database record
+      const { data: record, error: dbError } = await supabase
+        .from("cost_report_pdfs")
+        .insert({
+          cost_report_id: report.id,
+          project_id: report.project_id,
+          file_name: storageFileName,
+          file_path: storagePath,
+          file_size: blob.size,
+          revision: report.revision || "A",
+          generated_by: userId || null,
+          notes: "Generated via SVG engine",
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        console.error('[SVG-PDF] DB record insert failed:', dbError);
+        return null;
+      }
+
+      console.log('[SVG-PDF] Persisted to history:', record.id);
+      return record;
+    } catch (err) {
+      console.error('[SVG-PDF] Persist failed:', err);
+      return null;
+    }
+  };
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     setBenchmarks(null);
@@ -283,20 +353,48 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
       setShowPreview(true);
       setCurrentPage(0);
 
-      const result = await svgPagesToDownload(pages, {
-        filename: `CostReport_${report.report_number}_SVG.pdf`,
-      });
+      // Generate PDF blob (don't auto-download — persist first)
+      const { blob, timeMs } = await svgPagesToPdfBlob(pages);
+      const sizeBytes = blob.size;
 
-      setBenchmarks(result);
-      toast({
-        title: "SVG PDF Generated",
-        description: `Generated in ${result.timeMs}ms (${(result.sizeBytes / 1024).toFixed(1)} KB)`,
-      });
+      setBenchmarks({ timeMs, sizeBytes });
+
+      // Persist to storage + database
+      const record = await persistToHistory(blob);
+
+      if (record) {
+        setPreviewReport(record);
+        onReportGenerated?.();
+        toast({
+          title: "PDF Generated & Saved",
+          description: `Generated in ${timeMs}ms (${(sizeBytes / 1024).toFixed(1)} KB). Report saved to history.`,
+        });
+      } else {
+        // Fallback: direct download if persist fails
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = generateStandardizedPDFFilename({
+          projectNumber: report.project_number || report.project_id?.slice(0, 8),
+          reportType: "CostReport",
+          revision: report.revision || "A",
+          reportNumber: report.report_number,
+        });
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "PDF Generated",
+          description: `Generated in ${timeMs}ms (${(sizeBytes / 1024).toFixed(1)} KB). Downloaded directly.`,
+        });
+      }
     } catch (error: any) {
       console.error("[SVG-PDF] Generation failed:", error);
       toast({
-        title: "SVG PDF Failed",
-        description: error.message || "Failed to generate SVG PDF",
+        title: "PDF Generation Failed",
+        description: error.message || "Failed to generate PDF",
         variant: "destructive",
       });
     } finally {
@@ -338,14 +436,14 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
           {isGenerating ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
           ) : (
-            <><Download className="mr-2 h-4 w-4" />Export SVG PDF</>
+            <><Download className="mr-2 h-4 w-4" />Export PDF</>
           )}
         </Button>
         <Button onClick={handlePreview} variant="ghost" size="sm" disabled={isGenerating}>
           {showPreview ? (
             <><EyeOff className="mr-1 h-4 w-4" />Hide Preview</>
           ) : (
-            <><Eye className="mr-1 h-4 w-4" />Preview SVG</>
+            <><Eye className="mr-1 h-4 w-4" />Preview</>
           )}
         </Button>
         
@@ -370,7 +468,7 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <CardTitle className="text-sm font-medium">
-                  SVG Preview
+                  Preview
                 </CardTitle>
                 <Badge variant="outline" className="text-xs font-normal">
                   {pageLabels[currentPage] || `Page ${currentPage + 1}`}
@@ -470,6 +568,16 @@ export const SvgPdfExportButton = ({ report }: SvgPdfExportButtonProps) => {
         <div
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
           onClick={() => setIsExpanded(false)}
+        />
+      )}
+
+      {/* Standard Report Preview Dialog (for persisted reports) */}
+      {previewReport && (
+        <StandardReportPreview
+          report={previewReport}
+          open={!!previewReport}
+          onOpenChange={(open) => !open && setPreviewReport(null)}
+          storageBucket="cost-report-pdfs"
         />
       )}
     </div>

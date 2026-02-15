@@ -15,9 +15,9 @@
 const PAGE_W = 210;
 const PAGE_H = 297;
 
-// Margins
-const MARGIN_TOP = 15;
-const MARGIN_BOTTOM = 15;
+// Margins — aligned with Hardened PDF Standard (pdfStandards.ts)
+const MARGIN_TOP = 25;
+const MARGIN_BOTTOM = 22;
 const MARGIN_LEFT = 15;
 const MARGIN_RIGHT = 15;
 const CONTENT_W = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT;
@@ -43,6 +43,13 @@ interface CoverPageData {
   projectNumber?: string;
   companyLogoBase64?: string | null;
   clientLogoBase64?: string | null;
+  // Standardised cover page fields (aligned with pdfStandards.ts)
+  companyAddress?: string;
+  companyPhone?: string;
+  contactName?: string;
+  contactOrganization?: string;
+  contactPhone?: string;
+  contactEmail?: string;
 }
 
 interface SummaryRow {
@@ -156,7 +163,7 @@ function addPageFooter(svg: SVGSVGElement, pageNum: number, totalPages: number) 
     x2: PAGE_W - MARGIN_RIGHT, y2: PAGE_H - 10,
     stroke: BORDER_COLOR, 'stroke-width': 0.3,
   }, svg);
-  textEl(svg, MARGIN_LEFT, PAGE_H - 6, 'SVG Engine', {
+  textEl(svg, MARGIN_LEFT, PAGE_H - 6, 'Cost Report', {
     size: 2.5, fill: '#94a3b8',
   });
   textEl(svg, PAGE_W - MARGIN_RIGHT, PAGE_H - 6, `Page ${pageNum} of ${totalPages}`, {
@@ -194,139 +201,145 @@ function addPageHeader(svg: SVGSVGElement, title: string) {
 export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
   const svg = createSvgElement();
 
+  // White background
   el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
-  el('rect', { x: 0, y: 0, width: PAGE_W, height: 8, fill: BRAND_PRIMARY }, svg);
-  el('rect', { x: 0, y: 8, width: PAGE_W, height: 2, fill: BRAND_ACCENT }, svg);
 
-  // Logo(s) — rendered above company name
+  // Left accent bar — gradient effect using two rects (matches pdfStandards.ts cover)
+  el('rect', { x: 0, y: 0, width: 4, height: PAGE_H / 2, fill: BRAND_PRIMARY }, svg);
+  el('rect', { x: 0, y: PAGE_H / 2, width: 4, height: PAGE_H / 2, fill: BRAND_ACCENT }, svg);
+
+  // Logo(s)
   const hasCompanyLogo = !!data.companyLogoBase64;
   const hasClientLogo = !!data.clientLogoBase64;
-  let logoBottomY = 20; // default top position when no logos
+  let logoBottomY = 40;
 
   if (hasCompanyLogo && hasClientLogo) {
-    // Both logos side by side
     el('image', {
-      x: 45, y: 16, width: 30, height: 18,
+      x: 45, y: 30, width: 30, height: 18,
       href: data.companyLogoBase64!,
       preserveAspectRatio: 'xMidYMid meet',
     }, svg);
     el('image', {
-      x: 135, y: 16, width: 30, height: 18,
+      x: 135, y: 30, width: 30, height: 18,
       href: data.clientLogoBase64!,
       preserveAspectRatio: 'xMidYMid meet',
     }, svg);
-    logoBottomY = 38;
+    logoBottomY = 54;
   } else if (hasCompanyLogo) {
     el('image', {
-      x: PAGE_W / 2 - 20, y: 16, width: 40, height: 22,
+      x: PAGE_W / 2 - 20, y: 30, width: 40, height: 22,
       href: data.companyLogoBase64!,
       preserveAspectRatio: 'xMidYMid meet',
     }, svg);
-    logoBottomY = 42;
+    logoBottomY = 58;
   } else if (hasClientLogo) {
     el('image', {
-      x: PAGE_W / 2 - 20, y: 16, width: 40, height: 22,
+      x: PAGE_W / 2 - 20, y: 30, width: 40, height: 22,
       href: data.clientLogoBase64!,
       preserveAspectRatio: 'xMidYMid meet',
     }, svg);
-    logoBottomY = 42;
+    logoBottomY = 58;
   }
 
-  // Auto-scale company name to fit within page width
-  const companyText = data.companyName.toUpperCase();
-  const maxTextWidth = PAGE_W - 20; // 10mm margin each side
-  const charWidthRatio = 0.55; // approximate width-to-size ratio for bold text
-  const idealSize = 8;
+  // Divider line (matches std-cover-divider in pdfStandards.ts)
+  el('rect', { x: PAGE_W / 2 - 25, y: logoBottomY + 4, width: 50, height: 1.2, fill: BRAND_ACCENT, rx: 0.3 }, svg);
+
+  // Report title — "COST REPORT"
+  textEl(svg, PAGE_W / 2, logoBottomY + 20, 'COST REPORT', {
+    size: 14, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
+  });
+
+  // Report badge
+  el('rect', { x: 70, y: logoBottomY + 28, width: 70, height: 12, rx: 2, fill: BRAND_ACCENT }, svg);
+  textEl(svg, PAGE_W / 2, logoBottomY + 36, `Report #${data.reportNumber}  •  Rev ${data.revision}`, {
+    size: 4.5, fill: WHITE, weight: 'bold', anchor: 'middle',
+  });
+
+  // Project name (auto-scaled)
+  const projY = logoBottomY + 52;
+  const companyText = data.projectName;
+  const maxTextWidth = PAGE_W - 40;
+  const charWidthRatio = 0.5;
+  const idealSize = 10;
   const estimatedWidth = companyText.length * idealSize * charWidthRatio;
-  
+
   if (estimatedWidth > maxTextWidth) {
-    // Try to fit on two lines by splitting at a space near the middle
     const midpoint = Math.floor(companyText.length / 2);
     let splitIdx = companyText.lastIndexOf(' ', midpoint + 10);
     if (splitIdx < 5) splitIdx = companyText.indexOf(' ', midpoint - 10);
     if (splitIdx > 0) {
       const line1 = companyText.substring(0, splitIdx);
       const line2 = companyText.substring(splitIdx + 1);
-      // Scale font to fit the longer line
       const longerLine = line1.length > line2.length ? line1 : line2;
       const scaledSize = Math.min(idealSize, maxTextWidth / (longerLine.length * charWidthRatio));
       const finalSize = Math.max(4, scaledSize);
-      textEl(svg, PAGE_W / 2, logoBottomY + 6, line1, {
-        size: finalSize, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
-      });
-      textEl(svg, PAGE_W / 2, logoBottomY + 6 + finalSize * 1.3, line2, {
-        size: finalSize, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
-      });
+      textEl(svg, PAGE_W / 2, projY, line1, { size: finalSize, fill: BRAND_ACCENT, weight: 'bold', anchor: 'middle' });
+      textEl(svg, PAGE_W / 2, projY + finalSize * 1.4, line2, { size: finalSize, fill: BRAND_ACCENT, weight: 'bold', anchor: 'middle' });
     } else {
-      // Single word too long — just scale down
       const scaledSize = Math.max(4, maxTextWidth / (companyText.length * charWidthRatio));
-      textEl(svg, PAGE_W / 2, logoBottomY + 8, companyText, {
-        size: scaledSize, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
-      });
+      textEl(svg, PAGE_W / 2, projY, companyText, { size: scaledSize, fill: BRAND_ACCENT, weight: 'bold', anchor: 'middle' });
     }
   } else {
-    textEl(svg, PAGE_W / 2, logoBottomY + 8, companyText, {
-      size: idealSize, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
-    });
+    textEl(svg, PAGE_W / 2, projY, companyText, { size: idealSize, fill: BRAND_ACCENT, weight: 'bold', anchor: 'middle' });
   }
 
-  const lineY = estimatedWidth > maxTextWidth ? logoBottomY + 6 + idealSize * 2.8 : logoBottomY + 18;
-  el('line', { x1: 60, y1: lineY, x2: 150, y2: lineY, stroke: BRAND_ACCENT, 'stroke-width': 0.5 }, svg);
-
-  textEl(svg, PAGE_W / 2, 90, 'COST REPORT', {
-    size: 14, fill: BRAND_PRIMARY, weight: 'bold', anchor: 'middle',
-  });
-
-  el('rect', { x: 70, y: 100, width: 70, height: 12, rx: 2, fill: BRAND_ACCENT }, svg);
-  textEl(svg, PAGE_W / 2, 108, `Report #${data.reportNumber}  •  Rev ${data.revision}`, {
-    size: 4.5, fill: WHITE, weight: 'bold', anchor: 'middle',
-  });
-
-  const cardY = 135;
-  el('rect', { x: 30, y: cardY, width: 150, height: 50, rx: 3, fill: BRAND_LIGHT, stroke: BORDER_COLOR, 'stroke-width': 0.3 }, svg);
-  textEl(svg, 40, cardY + 12, 'PROJECT', { size: 3, fill: TEXT_MUTED, weight: 'bold' });
-  // Auto-scale/wrap project name to fit within card
-  const cardTextMaxW = 140; // card width (150) minus padding (10)
-  const projNameSize = 5;
-  const projCharW = 0.5; // approximate char width ratio for bold
-  const projEstW = data.projectName.length * projNameSize * projCharW;
-  if (projEstW > cardTextMaxW) {
-    const mid = Math.floor(data.projectName.length / 2);
-    let sp = data.projectName.lastIndexOf(' ', mid + 10);
-    if (sp < 3) sp = data.projectName.indexOf(' ', mid - 10);
-    if (sp > 0) {
-      const l1 = data.projectName.substring(0, sp);
-      const l2 = data.projectName.substring(sp + 1);
-      const longer = Math.max(l1.length, l2.length);
-      const sz = Math.max(3.5, Math.min(projNameSize, cardTextMaxW / (longer * projCharW)));
-      textEl(svg, 40, cardY + 18, l1, { size: sz, fill: TEXT_DARK, weight: 'bold' });
-      textEl(svg, 40, cardY + 18 + sz * 1.4, l2, { size: sz, fill: TEXT_DARK, weight: 'bold' });
-    } else {
-      const sz = Math.max(3.5, cardTextMaxW / (data.projectName.length * projCharW));
-      textEl(svg, 40, cardY + 20, data.projectName, { size: sz, fill: TEXT_DARK, weight: 'bold' });
-    }
-  } else {
-    textEl(svg, 40, cardY + 20, data.projectName, { size: projNameSize, fill: TEXT_DARK, weight: 'bold' });
-  }
   if (data.projectNumber) {
-    const projNumText = `Project No: ${data.projectNumber}`;
-    const projNumSize = 3.5;
-    const projNumCharW = 0.45;
-    const projNumEstW = projNumText.length * projNumSize * projNumCharW;
-    if (projNumEstW > cardTextMaxW) {
-      const scaledSz = Math.max(2.5, cardTextMaxW / (projNumText.length * projNumCharW));
-      textEl(svg, 40, cardY + 28, projNumText, { size: scaledSz, fill: TEXT_MUTED });
-    } else {
-      textEl(svg, 40, cardY + 28, projNumText, { size: projNumSize, fill: TEXT_MUTED });
-    }
+    textEl(svg, PAGE_W / 2, projY + 14, data.projectNumber, { size: 4, fill: TEXT_MUTED, anchor: 'middle' });
   }
-  textEl(svg, 40, cardY + 40, `Date: ${data.date}`, { size: 3.5, fill: TEXT_MUTED });
 
+  // ── PREPARED FOR / PREPARED BY sections (matches pdfStandards.ts cover layout) ──
+  const detailsY = 175;
+  el('line', { x1: 30, y1: detailsY, x2: PAGE_W - 30, y2: detailsY, stroke: BORDER_COLOR, 'stroke-width': 0.3 }, svg);
+
+  const leftX = 30;
+  const rightX = PAGE_W / 2 + 10;
+  const sectionLabelSize = 2.8;
+  const sectionValueSize = 3.2;
+
+  // PREPARED FOR
+  textEl(svg, leftX, detailsY + 8, 'PREPARED FOR', { size: sectionLabelSize, fill: BRAND_ACCENT, weight: 'bold' });
+  let pfY = detailsY + 14;
+  if (data.contactOrganization) {
+    textEl(svg, leftX, pfY, data.contactOrganization, { size: sectionValueSize, fill: TEXT_DARK });
+    pfY += 5;
+  }
+  if (data.contactName) {
+    textEl(svg, leftX, pfY, data.contactName, { size: sectionValueSize, fill: TEXT_DARK });
+    pfY += 5;
+  }
+  if (data.contactPhone) {
+    textEl(svg, leftX, pfY, `Tel: ${data.contactPhone}`, { size: sectionValueSize, fill: TEXT_DARK });
+    pfY += 5;
+  }
+  if (data.contactEmail) {
+    textEl(svg, leftX, pfY, data.contactEmail, { size: sectionValueSize, fill: TEXT_DARK });
+  }
+  if (!data.contactOrganization && !data.contactName) {
+    textEl(svg, leftX, pfY, '—', { size: sectionValueSize, fill: TEXT_MUTED });
+  }
+
+  // PREPARED BY
+  textEl(svg, rightX, detailsY + 8, 'PREPARED BY', { size: sectionLabelSize, fill: BRAND_ACCENT, weight: 'bold' });
+  let pbY = detailsY + 14;
+  textEl(svg, rightX, pbY, data.companyName, { size: sectionValueSize, fill: TEXT_DARK });
+  pbY += 5;
+  if (data.companyAddress) {
+    textEl(svg, rightX, pbY, data.companyAddress, { size: sectionValueSize, fill: TEXT_DARK });
+    pbY += 5;
+  }
+  if (data.companyPhone) {
+    textEl(svg, rightX, pbY, `Tel: ${data.companyPhone}`, { size: sectionValueSize, fill: TEXT_DARK });
+  }
+
+  // Footer with date and revision (absolute bottom)
+  textEl(svg, 30, PAGE_H - 16, `Date: ${data.date}`, { size: 3, fill: TEXT_MUTED });
+  if (data.revision) {
+    textEl(svg, PAGE_W - 30, PAGE_H - 16, `Revision: ${data.revision}`, { size: 3, fill: TEXT_MUTED, anchor: 'end' });
+  }
+
+  // Bottom accent bars
   el('rect', { x: 0, y: PAGE_H - 10, width: PAGE_W, height: 2, fill: BRAND_ACCENT }, svg);
   el('rect', { x: 0, y: PAGE_H - 8, width: PAGE_W, height: 8, fill: BRAND_PRIMARY }, svg);
-  textEl(svg, PAGE_W / 2, PAGE_H - 3, 'Generated via SVG Engine', {
-    size: 2.5, fill: '#94a3b8', anchor: 'middle',
-  });
 
   return svg;
 }
@@ -1602,7 +1615,7 @@ export function buildTableOfContentsSvg(entries: TocEntry[]): SVGSVGElement {
       x2: PAGE_W - MARGIN_RIGHT - 20, y2: y + 8,
       stroke: BRAND_ACCENT, 'stroke-width': 0.3,
     }, svg);
-    textEl(svg, PAGE_W / 2, y + 14, `${entries.length} sections  •  SVG Engine`, {
+    textEl(svg, PAGE_W / 2, y + 14, `${entries.length} sections`, {
       size: 2.5, fill: TEXT_MUTED, anchor: 'middle',
     });
   }

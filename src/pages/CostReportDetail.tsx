@@ -138,7 +138,10 @@ const CostReportDetail = () => {
               </div>
 
               {useSvgEngine ? (
-                <SvgPdfExportButton report={report} />
+                <SvgPdfExportButton 
+                  report={report} 
+                  onReportGenerated={() => setHistoryKey(prev => prev + 1)}
+                />
               ) : (
                 <ExportPDFButton 
                   report={report} 
