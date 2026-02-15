@@ -18,20 +18,13 @@ import {
 } from "@/components/cost-reports/pdf-export/types";
 import { generateExecutiveSummaryTableData } from "@/utils/executiveSummaryTable";
 import { format } from "date-fns";
+import { CostReportData } from "@/types/PDFServiceTypes";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface CostReportData {
-  report: any;
-  categoryTotals: CategoryTotal[];
-  grandTotals: GrandTotals;
-  companyDetails: CompanyDetails;
-  categoriesData: any[];
-  variationsData: any[];
-  detailsData: any[];
-}
+export type { CostReportData };
 
 export interface CostReportOptions {
   includeCoverPage?: boolean;

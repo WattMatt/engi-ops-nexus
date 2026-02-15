@@ -43,7 +43,7 @@ export function calculateCategoryTotals(
     if (isVariationsCategory) {
       // For variations category, sum from variations table using precise arithmetic
       const anticipatedFinal = round(
-        sum(variations.map(v => Number(v.amount || 0))),
+        sum(variations.map(v => v.amount || 0)),
         2
       );
       
@@ -61,9 +61,9 @@ export function calculateCategoryTotals(
     } else {
       // For regular categories, sum line items using precise arithmetic
       const items = lineItems.filter(item => item.category_id === category.id);
-      const originalBudget = round(sum(items.map(item => Number(item.original_budget || 0))), 2);
-      const previousReport = round(sum(items.map(item => Number(item.previous_report || 0))), 2);
-      const anticipatedFinal = round(sum(items.map(item => Number(item.anticipated_final || 0))), 2);
+      const originalBudget = round(sum(items.map(item => item.original_budget || 0)), 2);
+      const previousReport = round(sum(items.map(item => item.previous_report || 0)), 2);
+      const anticipatedFinal = round(sum(items.map(item => item.anticipated_final || 0)), 2);
       
       return {
         id: category.id,

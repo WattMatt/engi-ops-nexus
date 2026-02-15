@@ -4,12 +4,13 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingDown, TrendingUp, Download, Edit2, Check, X } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { DollarSign, TrendingDown, TrendingUp, Download, Edit2, Check, X, FileText } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import html2canvas from "html2canvas";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { PDFService } from "@/services/PDFService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [isGeneratingFullReport, setIsGeneratingFullReport] = useState(false);
   const [editValues, setEditValues] = useState({
     project_number: report.project_number,
     client_name: report.client_name,
@@ -36,6 +38,32 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
     standby_plants_contractor: report.standby_plants_contractor,
     cctv_contractor: report.cctv_contractor,
   });
+
+  const handleDownloadFullReport = async () => {
+    try {
+      setIsGeneratingFullReport(true);
+      toast({
+        title: "Generating Report",
+        description: "Compiling Cost & Compliance data...",
+      });
+      
+      await PDFService.generateProjectCompleteReport(report.project_id);
+      
+      toast({
+        title: "Success",
+        description: "Project Complete Report downloaded.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to generate report.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingFullReport(false);
+    }
+  };
 
   const updateReportMutation = useMutation({
     mutationFn: async (updates: any) => {
@@ -237,6 +265,17 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end mb-2">
+        <Button 
+          onClick={handleDownloadFullReport} 
+          disabled={isGeneratingFullReport}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          {isGeneratingFullReport ? "Generating..." : "Download Full Project Report"}
+        </Button>
+      </div>
+
       {/* KPI Cards - add id for PDF capture */}
       <div id="cost-report-kpi-cards" className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>

@@ -1,233 +1,192 @@
-/**
- * Offline Sync Hook
- * Handles background synchronization of offline changes
- */
-
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import {
-  getSyncQueue,
-  removeSyncQueueItem,
-  updateSyncQueueItem,
-  markRecordSynced,
-  STORES,
-  type StoreName,
-} from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
+import { offlineDB } from '@/services/db';
 
-interface SyncConfig {
-  /** Supabase table name for the store */
-  tableName: string;
-  /** Transform local data to API format (optional) */
-  transformForApi?: (data: unknown) => unknown;
+interface QueuedMutation {
+  id: string;
+  type: string;
+  data: any;
+  timestamp: number;
+  retries: number;
 }
 
-// Map store names to Supabase table names
-const STORE_TABLE_MAP: Record<string, SyncConfig> = {
-  [STORES.SITE_DIARY_ENTRIES]: {
-    tableName: 'site_diary_entries',
-  },
-  [STORES.SITE_DIARY_TASKS]: {
-    tableName: 'site_diary_tasks',
-  },
-  [STORES.HANDOVER_DOCUMENTS]: {
-    tableName: 'handover_documents',
-  },
-  [STORES.HANDOVER_FOLDERS]: {
-    tableName: 'handover_folders',
-  },
-  // Cable schedule stores
-  [STORES.CABLE_ENTRIES]: {
-    tableName: 'cable_entries',
-  },
-  [STORES.CABLE_SCHEDULES]: {
-    tableName: 'cable_schedules',
-  },
-  // Budget stores
-  [STORES.BUDGET_SECTIONS]: {
-    tableName: 'budget_sections',
-  },
-  [STORES.BUDGET_LINE_ITEMS]: {
-    tableName: 'budget_line_items',
-  },
-  // Drawing register
-  [STORES.PROJECT_DRAWINGS]: {
-    tableName: 'project_drawings',
-  },
-  // Project contacts for offline client check
-  [STORES.PROJECT_CONTACTS]: {
-    tableName: 'project_contacts',
-  },
-};
+const QUEUE_KEY = 'offline_mutation_queue';
+const MAX_RETRIES = 3;
 
-interface UseOfflineSyncOptions {
-  /** Max retry attempts per item */
-  maxRetries?: number;
-  /** Sync interval in ms when online */
-  syncIntervalMs?: number;
-  /** Show toast notifications */
-  showNotifications?: boolean;
-}
-
-interface UseOfflineSyncReturn {
-  /** Number of pending sync items */
-  pendingCount: number;
-  /** Whether currently syncing */
-  isSyncing: boolean;
-  /** Whether device is online */
-  isOnline: boolean;
-  /** Last sync timestamp */
-  lastSyncAt: number | null;
-  /** Manually trigger sync */
-  syncNow: () => Promise<void>;
-  /** Last sync error */
-  lastError: string | null;
-}
-
-export function useOfflineSync({
-  maxRetries = 3,
-  syncIntervalMs = 30000, // 30 seconds
-  showNotifications = true,
-}: UseOfflineSyncOptions = {}): UseOfflineSyncReturn {
-  const [pendingCount, setPendingCount] = useState(0);
-  const [isSyncing, setIsSyncing] = useState(false);
+export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
-  const [lastError, setLastError] = useState<string | null>(null);
-  
-  const syncInProgressRef = useRef(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [queueSize, setQueueSize] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Update pending count
-  const updatePendingCount = useCallback(async () => {
+  // Load queue from localStorage
+  const getQueue = useCallback((): QueuedMutation[] => {
     try {
-      const queue = await getSyncQueue();
-      setPendingCount(queue.length);
-    } catch (error) {
-      console.error('Failed to get sync queue:', error);
+      const stored = localStorage.getItem(QUEUE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
     }
   }, []);
 
-  // Perform sync
-  const syncNow = useCallback(async () => {
-    if (syncInProgressRef.current || !navigator.onLine) {
-      return;
-    }
+  // Save queue to localStorage
+  const saveQueue = useCallback((queue: QueuedMutation[]) => {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    setQueueSize(queue.length);
+  }, []);
 
-    syncInProgressRef.current = true;
-    setIsSyncing(true);
-    setLastError(null);
+  // Add mutation to queue
+  const queueMutation = useCallback((type: string, data: any) => {
+    const queue = getQueue();
+    const mutation: QueuedMutation = {
+      id: `${Date.now()}_${Math.random()}`,
+      type,
+      data,
+      timestamp: Date.now(),
+      retries: 0,
+    };
+    queue.push(mutation);
+    saveQueue(queue);
+    toast.info('Action queued. Will sync when online.', { duration: 2000 });
+  }, [getQueue, saveQueue]);
 
-    try {
-      const queue = await getSyncQueue();
-      
-      if (queue.length === 0) {
-        setIsSyncing(false);
-        syncInProgressRef.current = false;
-        return;
-      }
-
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const item of queue) {
-        const config = STORE_TABLE_MAP[item.storeName];
+  // Execute mutation based on type
+  const executeMutation = async (mutation: QueuedMutation) => {
+    console.log('Executing mutation:', mutation.type, mutation.data);
+    switch (mutation.type) {
+      case 'CREATE_INSPECTION': {
+        const { error } = await supabase.from('inspections').insert([mutation.data]);
+        if (error) throw error;
         
-        if (!config) {
-          // Unknown store, remove from queue
-          await removeSyncQueueItem(item.id);
-          continue;
+        // Mark as synced in IndexedDB
+        if (mutation.data.id) {
+          await offlineDB.markInspectionSynced(mutation.data.id);
         }
-
-        try {
-          const data = config.transformForApi 
-            ? config.transformForApi(item.data)
-            : item.data;
-
-          // Remove local-only fields before syncing
-          const cleanData = { ...(data as Record<string, unknown>) };
-          delete cleanData.synced;
-          delete cleanData.localUpdatedAt;
-          delete cleanData.syncedAt;
-
-          if (item.action === 'create' || item.action === 'update') {
-            // Use dynamic table access with type assertion
-            const { error } = await (supabase
-              .from(config.tableName as 'site_diary_entries')
-              .upsert(cleanData as never));
-
-            if (error) throw error;
-          } else if (item.action === 'delete') {
-            const { error } = await (supabase
-              .from(config.tableName as 'site_diary_entries')
-              .delete()
-              .eq('id', item.recordId));
-
-            if (error) throw error;
-          }
-
-          // Success - remove from queue and mark as synced
-          await removeSyncQueueItem(item.id);
-          if (item.action !== 'delete') {
-            await markRecordSynced(item.storeName, item.recordId);
-          }
-          successCount++;
-
-        } catch (error) {
-          console.error(`Sync failed for ${item.recordId}:`, error);
-          
-          if (item.retryCount >= maxRetries) {
-            // Max retries exceeded, remove from queue
-            await removeSyncQueueItem(item.id);
-            failCount++;
-            setLastError(`Failed to sync after ${maxRetries} attempts`);
-          } else {
-            // Update retry count
-            await updateSyncQueueItem({
-              ...item,
-              retryCount: item.retryCount + 1,
-              lastError: error instanceof Error ? error.message : 'Unknown error',
-            });
-          }
-        }
+        break;
       }
 
-      if (showNotifications) {
-        if (successCount > 0) {
-          toast.success(`Synced ${successCount} offline change${successCount > 1 ? 's' : ''}`);
-        }
-        if (failCount > 0) {
-          toast.error(`Failed to sync ${failCount} item${failCount > 1 ? 's' : ''}`);
-        }
+      case 'UPDATE_INSPECTION': {
+        const { id, ...updates } = mutation.data;
+        const { error } = await supabase
+          .from('inspections')
+          .update(updates)
+          .eq('id', id);
+        if (error) throw error;
+        break;
       }
 
-      setLastSyncAt(Date.now());
-      await updatePendingCount();
+      case 'DELETE_INSPECTION': {
+        const { error } = await supabase
+          .from('inspections')
+          .delete()
+          .eq('id', mutation.data.id);
+        if (error) throw error;
+        
+        // Delete from IndexedDB
+        await offlineDB.deleteInspection(mutation.data.id);
+        break;
+      }
 
-    } catch (error) {
-      console.error('Sync error:', error);
-      setLastError(error instanceof Error ? error.message : 'Sync failed');
-    } finally {
-      setIsSyncing(false);
-      syncInProgressRef.current = false;
+      case 'UPLOAD_IMAGE': {
+        const { bucket, path, file, inspectionId, imageId } = mutation.data;
+        
+        // Check if file is Blob/File or base64 (if stored in localStorage, it might need reconversion, 
+        // but here we are likely getting it from memory if just queued, or we need to retrieve from IDB)
+        
+        // Ideally, for large files, we should retrieve the blob from IndexedDB using the imageId 
+        // because localStorage queue shouldn't store large blobs.
+        
+        let fileToUpload = file;
+        
+        // If file is missing in the payload (because we didn't store it in localStorage), fetch from IDB
+        if (!fileToUpload && imageId) {
+             const images = await offlineDB.getUnsyncedImages();
+             const found = images.find(img => img.id === imageId);
+             if (found) {
+                 fileToUpload = found.blob;
+             }
+        }
+
+        if (!fileToUpload) {
+            console.error('File not found for upload', mutation);
+            return; // Skip or fail
+        }
+
+        const { error } = await supabase.storage
+          .from(bucket)
+          .upload(path, fileToUpload);
+        if (error) throw error;
+        
+        // Mark as synced in IndexedDB
+        if (imageId) {
+          const { data: { publicUrl } } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(path);
+          await offlineDB.markImageSynced(imageId, publicUrl);
+        }
+        break;
+      }
+
+      default:
+        console.warn('Unknown mutation type:', mutation.type);
     }
-  }, [maxRetries, showNotifications, updatePendingCount]);
+  };
 
-  // Online/offline detection
+  // Process queue when online
+  const processQueue = useCallback(async () => {
+    if (!isOnline || isSyncing) return;
+
+    const queue = getQueue();
+    if (queue.length === 0) return;
+
+    setIsSyncing(true);
+    const failedMutations: QueuedMutation[] = [];
+
+    // Process sequentially to maintain order
+    for (const mutation of queue) {
+      try {
+        await executeMutation(mutation);
+        console.log('Successfully synced mutation:', mutation.type);
+      } catch (error) {
+        console.error('Failed to process mutation:', error);
+        
+        console.log('DEBUG: Retries check', mutation.retries, '<', MAX_RETRIES);
+        if (mutation.retries < MAX_RETRIES) {
+          failedMutations.push({
+            ...mutation,
+            retries: mutation.retries + 1,
+          });
+          console.log('DEBUG: Pushed to failedMutations', failedMutations.length);
+        } else {
+          toast.error(`Failed to sync ${mutation.type} after ${MAX_RETRIES} attempts`);
+        }
+      }
+    }
+
+    console.log('DEBUG: saving queue with failedMutations:', failedMutations.length);
+    saveQueue(failedMutations);
+    setIsSyncing(false);
+
+    if (failedMutations.length === 0 && queue.length > 0) {
+      toast.success(`Synced ${queue.length} offline action${queue.length > 1 ? 's' : ''}`);
+      queryClient.invalidateQueries();
+    }
+  }, [isOnline, isSyncing, getQueue, saveQueue, queryClient]);
+
+  // Monitor online/offline status
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      if (showNotifications) {
-        toast.info('Back online, syncing changes...');
-      }
-      syncNow();
+      toast.success('Back online! Syncing...', { duration: 2000 });
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      if (showNotifications) {
-        toast.warning('You are offline. Changes will sync when connected.');
-      }
+      toast.warning('You are offline. Changes will be synced when connection is restored.', {
+        duration: 4000,
+      });
     };
 
     window.addEventListener('online', handleOnline);
@@ -237,74 +196,26 @@ export function useOfflineSync({
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [syncNow, showNotifications]);
+  }, []);
 
-  // Periodic sync when online
+  // Process queue when coming back online
   useEffect(() => {
-    if (isOnline && syncIntervalMs > 0) {
-      intervalRef.current = setInterval(() => {
-        syncNow();
-      }, syncIntervalMs);
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
+    if (isOnline) {
+      processQueue();
     }
-  }, [isOnline, syncIntervalMs, syncNow]);
+  }, [isOnline, processQueue]);
 
-  // Initial load
+  // Update queue size on mount
   useEffect(() => {
-    updatePendingCount();
-    
-    // Attempt sync on mount if online
-    if (navigator.onLine) {
-      syncNow();
-    }
-  }, [updatePendingCount, syncNow]);
+    setQueueSize(getQueue().length);
+  }, [getQueue]);
 
-   // Integrate with background sync
-   useEffect(() => {
-     const handleMessage = (event: MessageEvent) => {
-       if (event.data?.type === 'BACKGROUND_SYNC_TRIGGERED') {
-         console.log('[OfflineSync] Background sync triggered');
-         syncNow();
-       }
-     };
- 
-     navigator.serviceWorker?.addEventListener('message', handleMessage);
-     
-     return () => {
-       navigator.serviceWorker?.removeEventListener('message', handleMessage);
-     };
-   }, [syncNow]);
- 
-   // Request background sync when queue has items
-   useEffect(() => {
-     const requestBackgroundSync = async () => {
-       if (pendingCount > 0 && 'serviceWorker' in navigator) {
-         try {
-           const registration = await navigator.serviceWorker.ready;
-           registration.active?.postMessage({
-             type: 'QUEUE_SYNC',
-             pendingCount,
-           });
-         } catch (error) {
-           console.log('[OfflineSync] Background sync request failed:', error);
-         }
-       }
-     };
- 
-     requestBackgroundSync();
-   }, [pendingCount]);
- 
   return {
-    pendingCount,
-    isSyncing,
     isOnline,
-    lastSyncAt,
-    syncNow,
-    lastError,
+    queueSize,
+    isSyncing,
+    queueMutation,
+    processQueue,
+    syncNow: processQueue,
   };
 }

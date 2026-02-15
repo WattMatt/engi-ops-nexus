@@ -1,7 +1,8 @@
 // Cable Calculation Validation Functions
 // CRITICAL: All validations based on SANS 10142-1 requirements
 
-import { CableData, ValidationWarning } from './cableSizing';
+import { CableData } from '../data/cable-specs';
+import { ValidationWarning } from '../types/cableTypes';
 
 /**
  * Validate that the selected cable can actually carry the load
