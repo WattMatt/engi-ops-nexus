@@ -67,7 +67,7 @@ const REPORTS: ReportSpec[] = [
   { id: 'tenant-evaluation', name: 'Tenant Evaluation', engine: 'svg', location: 'src/utils/svg-pdf/tenantEvaluationPdfBuilder.ts', phase: 4, migrationStatus: 'migrated', hasHistory: true, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false, hasExecutiveSummary: false, specCompliant: true, notes: 'Phase 4 migration complete' },
 
   // Scheduled (not applicable)
-  { id: 'scheduled-reports', name: 'Scheduled Reports', engine: 'svg', location: 'supabase/functions/send-scheduled-report/', phase: 5, migrationStatus: 'migrated', hasHistory: false, hasCoverPage: false, hasRunningHeader: false, hasRunningFooter: false, hasToc: false, hasCharts: false, hasExecutiveSummary: false, specCompliant: true, notes: 'Storage-first pattern — fetches pre-generated PDFs' },
+  { id: 'scheduled-reports', name: 'Scheduled Reports', engine: 'svg', location: 'supabase/functions/send-scheduled-report/', phase: 5, migrationStatus: 'migrated', hasHistory: true, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, hasExecutiveSummary: false, specCompliant: true, notes: 'Storage-first pattern — inherits cover page, headers & footers from pre-generated PDFs. Report history tracked via source module tables.' },
 ];
 
 // ─── Helpers ───
