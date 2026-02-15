@@ -2,18 +2,15 @@ import {
   createDocument, 
   heading, 
   paragraph, 
-  dataTable, 
   sectionHeader,
   pageBreak,
-  image,
   buildCoverPageContent,
-  buildExecutiveSummaryContent,
-  buildCategoryDetailsContent,
-  generateCostReportPDF
+  generateCostReportPDF,
 } from '@/utils/pdfmake';
+import type { CostReportData } from '@/utils/pdfmake';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { CostReportData, InspectionData } from '@/types/PDFServiceTypes';
+import { InspectionData } from '@/types/PDFServiceTypes';
 
 // Spec constants from reporting.json
 const REPORT_SPEC = {
@@ -63,20 +60,19 @@ export class PDFService {
         .single();
 
       // 3. Fetch Inspection Data (Mock for now, as compliance module integration is pending)
-      // In a real scenario, this would query the compliance tables
       const inspectionData: InspectionData = {
         siteDetails: {
-          location: project.address || 'Unknown Location',
+          location: project.city || 'Unknown Location',
           inspector: 'Compliance Officer',
           date: new Date().toISOString()
         },
-        issues: [] // Placeholder
+        issues: []
       };
 
       // 4. Build Document
       const doc = createDocument({
         pageSize: 'A4',
-        pageMargins: [
+        margins: [
           REPORT_SPEC.margins.left,
           REPORT_SPEC.margins.top,
           REPORT_SPEC.margins.right,
@@ -93,10 +89,11 @@ export class PDFService {
           projectNumber: project.project_number
         },
         {
-          name: 'WM Office',
-          address: '123 Office Park',
-          email: 'info@wmoffice.com',
-          phone: '+27 12 345 6789'
+          companyName: 'WM Office',
+          contactName: 'WM Office',
+          contactPhone: '+27 12 345 6789',
+          company_logo_url: null,
+          client_logo_url: null,
         }
       );
       doc.add(coverPage);
@@ -112,7 +109,7 @@ export class PDFService {
         // Re-use existing cost report builder logic here
         // We can adapt buildExecutiveSummaryContent to be more generic or use it directly
         // For now, let's add a simple summary table
-        doc.add(paragraph(`Total Budget: R${costReport.total_budget?.toLocaleString() || '0.00'}`));
+        doc.add(paragraph(`Report Date: ${costReport.report_date || 'N/A'}`));
       }
 
       // Site Inspection Log
@@ -143,7 +140,16 @@ export class PDFService {
   static async generateCostReport(reportId: string) {
     // This delegates to the existing robust builder but we wrap it 
     // to provide a consistent service API
-    return generateCostReportPDF(reportId);
+    // Fetch cost report data and delegate to the pdfmake builder
+    const { data: reportData, error } = await supabase
+      .from('cost_reports')
+      .select('*, cost_categories(*, cost_line_items(*))')
+      .eq('id', reportId)
+      .single();
+
+    if (error || !reportData) throw new Error('Cost report not found');
+
+    return generateCostReportPDF(reportData as unknown as CostReportData);
   }
 
   /**

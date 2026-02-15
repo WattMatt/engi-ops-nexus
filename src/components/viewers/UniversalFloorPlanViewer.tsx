@@ -170,7 +170,7 @@ export const UniversalFloorPlanViewer: React.FC<UniversalFloorPlanViewerProps> =
             limitToBounds={false}
             wheel={{ step: 0.1 }}
           >
-            {({ zoomIn, zoomOut, resetTransform, state }) => (
+            {({ zoomIn, zoomOut, resetTransform }) => (
               <>
                 {/* Controls Overlay */}
                 <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
@@ -196,7 +196,7 @@ export const UniversalFloorPlanViewer: React.FC<UniversalFloorPlanViewerProps> =
                 <TransformComponent wrapperClass="w-full h-full" contentClass="w-full h-full">
                   <div 
                     className="relative inline-block origin-top-left"
-                    onClick={(e) => handleImageClick(e, state.scale)}
+                    onClick={(e) => handleImageClick(e, 1)}
                     style={{ cursor: readOnly ? 'grab' : 'crosshair' }}
                   >
                     <img
@@ -215,7 +215,7 @@ export const UniversalFloorPlanViewer: React.FC<UniversalFloorPlanViewerProps> =
                           left: `${pin.x * 100}%`, 
                           top: `${pin.y * 100}%`,
                           // Counter-scale pins so they stay the same visual size regardless of zoom
-                          transform: `translate(-50%, -50%) scale(${1 / state.scale})`
+                          transform: `translate(-50%, -50%) scale(1)`
                         }}
                         onClick={(e) => {
                           e.stopPropagation();

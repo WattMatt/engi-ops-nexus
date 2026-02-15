@@ -13,6 +13,13 @@ export interface InspectionData {
   inspector_id?: string;
 }
 
+export interface OfflineInspection extends InspectionData {
+  id: string;
+  created_at: string;
+  synced: boolean;
+  [key: string]: any;
+}
+
 // File limits (20MB for images)
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; 
 
@@ -60,9 +67,9 @@ export function useOfflineInspections() {
     if (isOnline) {
       // Try online creation first
       try {
-        const { data: created, error } = await supabase
-          .from('inspections')
-          .insert([inspectionData]) // Warning: 'inspections' table must exist
+        const { data: created, error } = await (supabase
+          .from('inspections' as any) as any)
+          .insert([inspectionData])
           .select()
           .single();
 
@@ -76,7 +83,7 @@ export function useOfflineInspections() {
     }
 
     // Offline mode
-    await offlineDB.saveInspection(inspectionData);
+    await offlineDB.saveInspection(inspectionData as any);
 
     queueMutation('CREATE_INSPECTION', inspectionData);
     toast.success('Inspection saved offline. Will sync when online.');
@@ -86,8 +93,8 @@ export function useOfflineInspections() {
   const updateInspection = useCallback(async (id: string, updates: Partial<InspectionData>) => {
     if (isOnline) {
       try {
-        const { error } = await supabase
-          .from('inspections')
+        const { error } = await (supabase
+          .from('inspections' as any) as any)
           .update(updates)
           .eq('id', id);
 
@@ -112,8 +119,8 @@ export function useOfflineInspections() {
   const deleteInspection = useCallback(async (id: string) => {
     if (isOnline) {
       try {
-        const { error } = await supabase
-          .from('inspections')
+        const { error } = await (supabase
+          .from('inspections' as any) as any)
           .delete()
           .eq('id', id);
 

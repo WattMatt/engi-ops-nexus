@@ -14,7 +14,8 @@ const toFixed = (value: number, precision: number = 2): number =>
 
 // Re-export CableData interface and tables for backward compatibility if needed
 export type { CableData };
-export { COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE, CABLE_SIZING_TABLE, ValidationWarning };
+export { COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE, CABLE_SIZING_TABLE };
+export type { ValidationWarning };
 
 export interface CableCalculationResult {
   recommendedSize: string;

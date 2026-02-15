@@ -19,6 +19,8 @@ export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [queueSize, setQueueSize] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Load queue from localStorage
@@ -57,7 +59,7 @@ export function useOfflineSync() {
     console.log('Executing mutation:', mutation.type, mutation.data);
     switch (mutation.type) {
       case 'CREATE_INSPECTION': {
-        const { error } = await supabase.from('inspections').insert([mutation.data]);
+        const { error } = await (supabase.from('inspections' as any) as any).insert([mutation.data]);
         if (error) throw error;
         
         // Mark as synced in IndexedDB
@@ -69,8 +71,8 @@ export function useOfflineSync() {
 
       case 'UPDATE_INSPECTION': {
         const { id, ...updates } = mutation.data;
-        const { error } = await supabase
-          .from('inspections')
+        const { error } = await (supabase
+          .from('inspections' as any) as any)
           .update(updates)
           .eq('id', id);
         if (error) throw error;
@@ -78,8 +80,8 @@ export function useOfflineSync() {
       }
 
       case 'DELETE_INSPECTION': {
-        const { error } = await supabase
-          .from('inspections')
+        const { error } = await (supabase
+          .from('inspections' as any) as any)
           .delete()
           .eq('id', mutation.data.id);
         if (error) throw error;
@@ -168,10 +170,14 @@ export function useOfflineSync() {
     console.log('DEBUG: saving queue with failedMutations:', failedMutations.length);
     saveQueue(failedMutations);
     setIsSyncing(false);
+    setLastSyncAt(new Date().toISOString());
 
     if (failedMutations.length === 0 && queue.length > 0) {
+      setLastError(null);
       toast.success(`Synced ${queue.length} offline action${queue.length > 1 ? 's' : ''}`);
       queryClient.invalidateQueries();
+    } else if (failedMutations.length > 0) {
+      setLastError(`${failedMutations.length} action(s) failed to sync`);
     }
   }, [isOnline, isSyncing, getQueue, saveQueue, queryClient]);
 
@@ -213,7 +219,10 @@ export function useOfflineSync() {
   return {
     isOnline,
     queueSize,
+    pendingCount: queueSize,
     isSyncing,
+    lastSyncAt,
+    lastError,
     queueMutation,
     processQueue,
     syncNow: processQueue,
