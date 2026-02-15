@@ -81,6 +81,7 @@ const HandoverDocuments = lazy(() => import("./pages/HandoverDocuments"));
 const Procurement = lazy(() => import("./pages/Procurement"));
 const Inspections = lazy(() => import("./pages/Inspections"));
 const DBLegendCards = lazy(() => import("./pages/DBLegendCards"));
+const PdfComplianceDashboard = lazy(() => import("./pages/PdfComplianceDashboard"));
 
 // External/client portals
 const HandoverClient = lazy(() => import("./pages/HandoverClient"));
@@ -182,6 +183,7 @@ const queryClient = new QueryClient({
                     <Route path="prd-manager" element={<PRDManager />} />
                     <Route path="email-templates" element={<EmailTemplatesAdmin />} />
                     <Route path="email-templates/:id" element={<EmailTemplateEditor />} />
+                    <Route path="pdf-compliance" element={<PdfComplianceDashboard />} />
                   </Route>
                   
                   {/* Dashboard routes */}
