@@ -11,8 +11,8 @@ import {
 import { Download, FileText, FileJson, File } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import pdfMake from "pdfmake/build/pdfmake";
-import type { TDocumentDefinitions, Content } from "pdfmake/interfaces";
+import { buildConversationPdf } from "@/utils/svg-pdf/conversationPdfBuilder";
+import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
 
 interface ExportConversationProps {
   conversationId: string;
@@ -43,7 +43,6 @@ export function ExportConversation({ conversationId, conversationTitle }: Export
 
       if (error) throw error;
 
-      // Fetch sender profiles separately
       const senderIds = [...new Set(data.map(m => m.sender_id))];
       const { data: profiles } = await supabase
         .from("profiles")
@@ -125,62 +124,22 @@ export function ExportConversation({ conversationId, conversationTitle }: Export
     setIsExporting(true);
 
     try {
-      const messageContent: Content[] = [];
-      
-      messages.forEach((msg) => {
-        messageContent.push({
-          columns: [
-            {
-              text: getSenderName(msg),
-              bold: true,
-              width: "auto",
-            },
-            {
-              text: format(new Date(msg.created_at), "PPpp"),
-              color: "#666",
-              alignment: "right",
-              fontSize: 9,
-            },
-          ],
-          margin: [0, 10, 0, 5] as [number, number, number, number],
-        } as Content);
-        
-        messageContent.push({
-          text: msg.content,
-          margin: [0, 0, 0, 10] as [number, number, number, number],
-        } as Content);
+      const pdfMessages = messages.map((msg) => ({
+        sender: getSenderName(msg),
+        content: msg.content,
+        timestamp: format(new Date(msg.created_at), "PPpp"),
+      }));
+
+      const svgPages = buildConversationPdf({
+        title: conversationTitle,
+        exportDate: format(new Date(), "PPpp"),
+        messages: pdfMessages,
       });
 
-      const docDefinition: TDocumentDefinitions = {
-        content: [
-          {
-            text: conversationTitle,
-            style: "header",
-            margin: [0, 0, 0, 10] as [number, number, number, number],
-          },
-          {
-            text: `Exported: ${format(new Date(), "PPpp")}`,
-            style: "subheader",
-            margin: [0, 0, 0, 20] as [number, number, number, number],
-          },
-          ...messageContent,
-        ],
-        styles: {
-          header: {
-            fontSize: 18,
-            bold: true,
-          },
-          subheader: {
-            fontSize: 11,
-            color: "#666",
-          },
-        },
-        defaultStyle: {
-          fontSize: 10,
-        },
-      };
+      await svgPagesToDownload(svgPages, {
+        filename: `${conversationTitle}-export.pdf`,
+      });
 
-      pdfMake.createPdf(docDefinition).download(`${conversationTitle}-export.pdf`);
       toast.success("Exported as PDF");
     } catch (error) {
       console.error("PDF export error:", error);

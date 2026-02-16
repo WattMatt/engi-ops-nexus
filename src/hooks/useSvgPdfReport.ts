@@ -5,7 +5,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { svgPagesToPdfBlob } from '@/utils/svg-pdf/svgToPdfEngine';
-import { imageToBase64 } from '@/utils/pdfmake/helpers';
+import { imageToBase64 } from '@/utils/svg-pdf/imageUtils';
 import { useToast } from '@/hooks/use-toast';
 import type { StandardCoverPageData } from '@/utils/svg-pdf/sharedSvgHelpers';
 
