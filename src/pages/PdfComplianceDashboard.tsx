@@ -52,10 +52,10 @@ interface ReportTelemetry {
 const REPORT_DEFINITIONS: ReportDefinition[] = [
   // ── Phase 0: SVG Engine Baseline (migrated early) ──
   { id: 'cost-report', name: 'Cost Report', dbTable: 'cost_report_pdfs', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: true },
-  { id: 'final-account', name: 'Final Account', dbTable: 'final_account_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false },
+  { id: 'final-account', name: 'Final Account', dbTable: 'final_account_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false },
   { id: 'specification', name: 'Specification', dbTable: 'specification_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false },
-  { id: 'tenant-completion', name: 'Tenant Completion', dbTable: 'handover_completion_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false },
-  { id: 'project-outline', name: 'Project Outline', dbTable: 'project_outline_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false },
+  { id: 'tenant-completion', name: 'Tenant Completion', dbTable: 'handover_completion_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false },
+  { id: 'project-outline', name: 'Project Outline', dbTable: 'project_outline_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false },
   { id: 'site-diary', name: 'Site Diary', dbTable: 'site_diary_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false },
 
   // ── Phase 1: Simple Client-Side Migrations ──
@@ -67,11 +67,11 @@ const REPORT_DEFINITIONS: ReportDefinition[] = [
   { id: 'legend-card', name: 'Legend Card', dbTable: 'legend_card_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false },
   { id: 'verification-cert', name: 'Verification Certificate', dbTable: 'verification_certificate_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false },
   { id: 'electrical-budget', name: 'Electrical Budget', dbTable: 'electrical_budget_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false },
-  { id: 'template-pdf', name: 'Template PDF', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'No history table — download only' },
+  { id: 'template-pdf', name: 'Template PDF', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false, notes: 'No history table — download only' },
 
   // ── Phase 3: Server-to-Client — Visual Reports ──
   { id: 'generator-report', name: 'Generator Report', dbTable: 'generator_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: true },
-  { id: 'bulk-services', name: 'Bulk Services', dbTable: 'bulk_services_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: true },
+  { id: 'bulk-services', name: 'Bulk Services', dbTable: 'bulk_services_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false },
   { id: 'floor-plan', name: 'Floor Plan', dbTable: 'floor_plan_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false },
   { id: 'cost-report-server', name: 'Cost Report (Server)', dbTable: 'cost_report_pdfs', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: true, notes: 'Shares table with Cost Report' },
 
@@ -80,14 +80,15 @@ const REPORT_DEFINITIONS: ReportDefinition[] = [
   { id: 'tenant-evaluation', name: 'Tenant Evaluation', dbTable: 'tenant_evaluation_reports', hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false },
 
   // ── Additional Report Types (SVG builders exist) ──
-  { id: 'payslip', name: 'Payslip', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'No history table — download only' },
-  { id: 'lighting-report', name: 'Lighting Report', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'No history table — download only' },
+  { id: 'payslip', name: 'Payslip', dbTable: null, hasCoverPage: false, hasRunningHeader: false, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'No cover page — single-page payslip layout' },
+  { id: 'lighting-report', name: 'Lighting Report', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: false, notes: 'No history table — download only' },
   { id: 'warranty-schedule', name: 'Warranty Schedule', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'No history table — download only' },
   { id: 'deadline-report', name: 'Deadline Report', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'No history table — download only' },
   { id: 'conversation', name: 'Conversation Export', dbTable: null, hasCoverPage: false, hasRunningHeader: false, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'Simple export — no cover page' },
   { id: 'comparison', name: 'Lighting Comparison', dbTable: null, hasCoverPage: false, hasRunningHeader: false, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'Landscape layout — no cover' },
   { id: 'report-builder', name: 'Analytics Report', dbTable: null, hasCoverPage: false, hasRunningHeader: false, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'Custom report — no cover' },
-  { id: 'roadmap-export', name: 'Roadmap Export', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'No history table — download only' },
+  { id: 'roadmap-export', name: 'Roadmap Export', dbTable: null, hasCoverPage: true, hasRunningHeader: false, hasRunningFooter: true, hasToc: false, hasCharts: false, notes: 'No history table — download only' },
+  { id: 'tenant-report', name: 'Tenant Report', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: true, hasCharts: true, notes: 'Full tenant report with KPIs, donut/bar charts, floor plan' },
 
   // ── Infrastructure ──
   { id: 'scheduled-reports', name: 'Scheduled Reports', dbTable: null, hasCoverPage: true, hasRunningHeader: true, hasRunningFooter: true, hasToc: false, hasCharts: false, inherited: true, notes: 'Inherits from pre-generated PDFs in storage' },
