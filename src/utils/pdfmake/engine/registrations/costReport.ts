@@ -188,10 +188,10 @@ function buildSummarySection(data: CostReportData): Content[] {
       table: {
         headerRows: 1,
         widths: [40, '*', 90, 90, 90, 80],
-        body: tableBody,
+        body: tableBody as any,
       },
       layout: tableLayouts.professional,
-    }
+    } as any
   ];
 }
 

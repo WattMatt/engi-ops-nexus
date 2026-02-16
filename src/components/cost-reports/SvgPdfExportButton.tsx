@@ -80,7 +80,7 @@ export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportBu
           variancePercent: cat.originalBudget > 0 
             ? (cat.originalVariance / cat.originalBudget) * 100 
             : 0,
-          items: cat.items?.map((item: any) => ({
+          items: (cats.find((c: any) => c.id === cat.id)?.cost_line_items || []).map((item: any) => ({
             description: item.description,
             quantity: Number(item.quantity) || undefined,
             unit: item.unit || undefined,
