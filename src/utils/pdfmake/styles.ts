@@ -396,6 +396,17 @@ export const tableLayouts = {
     paddingTop: () => 4,
     paddingBottom: () => 4,
   },
+
+  // Light horizontal lines only (no vertical borders)
+  lightHorizontalLines: {
+    hLineWidth: (i: number, node: any) => (i === 0 || i === node.table.body.length) ? 1 : 0.5,
+    vLineWidth: () => 0,
+    hLineColor: (i: number) => i <= 1 ? PDF_COLORS.primary : PDF_COLORS.border,
+    paddingLeft: () => 6,
+    paddingRight: () => 6,
+    paddingTop: () => 4,
+    paddingBottom: () => 4,
+  },
 };
 
 // ============================================================================

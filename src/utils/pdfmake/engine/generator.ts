@@ -270,11 +270,13 @@ function getSubtitleForType(reportType: ReportType): string {
     'cost-report': 'Cost Analysis Report',
     'tenant-evaluation': 'Tenant Evaluation Report',
     'tenant-schedule': 'Tenant Schedule Report',
+    'tenant-completion': 'Tenant Completion Report',
     'cable-schedule': 'Cable Schedule',
     'lighting-report': 'Lighting Design Report',
     'project-outline': 'Project Outline Document',
     'floor-plan': 'Floor Plan Export',
     'generator-report': 'Generator Sizing Report',
+    'payslip': 'Employee Payslip',
     'section-export': 'Section Export',
     'custom': 'Custom Report',
   };

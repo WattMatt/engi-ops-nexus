@@ -85,7 +85,8 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
           report_name: fileName,
           file_path: filePath,
           file_size: result.blob.size,
-          created_by: user?.id
+          generated_by: user?.id,
+          revision: schedule.revision || "Rev.0",
         });
 
         // 7. Trigger Download

@@ -8,7 +8,7 @@ import type { Content, Margins } from 'pdfmake/interfaces';
 import { registerReportType, createReportRegistration } from '../registry';
 import type { ReportConfig } from '../types';
 import { PDF_COLORS, SPACING, tableLayouts, FONT_SIZES } from '../../styles';
-import { buildPanel, buildMetricCard, dataTable, spacer, pageBreak, horizontalLine, formatCurrency, buildInfoBox } from '../../helpers';
+import { buildPanel, buildMetricCard, dataTable, spacer, pageBreak, horizontalLine, formatCurrency, buildInfoBox, keyValue } from '../../helpers';
 
 // ============================================================================
 // DATA TYPES
@@ -225,16 +225,16 @@ function buildTenantSchedule(data: GeneratorReportData): Content[] {
 
   // Totals row
   body.push([
-    { text: '', border: [false, false, false, false] },
-    { text: 'OVERALL TOTALS', bold: true, fillColor: PDF_COLORS.backgroundAlt },
-    { text: data.totals.area.toLocaleString(), bold: true, alignment: 'right', fillColor: PDF_COLORS.backgroundAlt },
-    { text: '', fillColor: PDF_COLORS.backgroundAlt },
-    { text: '', fillColor: PDF_COLORS.backgroundAlt },
-    { text: data.totals.loading.toFixed(2), bold: true, alignment: 'right', fillColor: PDF_COLORS.backgroundAlt },
-    { text: '100.00%', bold: true, alignment: 'right', fillColor: PDF_COLORS.backgroundAlt },
-    { text: formatCurrency(data.totals.monthlyRental), bold: true, alignment: 'right', fillColor: PDF_COLORS.backgroundAlt },
-    { text: '', fillColor: PDF_COLORS.backgroundAlt }
-  ]);
+    { text: '', style: 'tableCell', fillColor: PDF_COLORS.backgroundAlt, color: 'black' },
+    { text: 'OVERALL TOTALS', style: 'tableCell', fillColor: PDF_COLORS.backgroundAlt, color: 'black' },
+    { text: data.totals.area.toLocaleString(), style: 'tableCell', alignment: 'right' as const, fillColor: PDF_COLORS.backgroundAlt, color: 'black' },
+    { text: '', style: 'tableCell', fillColor: PDF_COLORS.backgroundAlt, color: 'black' },
+    { text: '', style: 'tableCell', fillColor: PDF_COLORS.backgroundAlt, color: 'black' },
+    { text: data.totals.loading.toFixed(2), style: 'tableCell', alignment: 'right' as const, fillColor: PDF_COLORS.backgroundAlt, color: 'black' },
+    { text: '100.00%', style: 'tableCell', alignment: 'right' as const, fillColor: PDF_COLORS.backgroundAlt, color: 'black' },
+    { text: formatCurrency(data.totals.monthlyRental), style: 'tableCell', alignment: 'right' as const, fillColor: PDF_COLORS.backgroundAlt, color: 'black' },
+    { text: '', style: 'tableCell', fillColor: PDF_COLORS.backgroundAlt, color: 'black' }
+  ] as any);
 
   return [
     pageBreak(),
@@ -244,10 +244,10 @@ function buildTenantSchedule(data: GeneratorReportData): Content[] {
       table: {
         headerRows: 1,
         widths: [35, '*', 35, 30, 40, 35, 35, 55, 40],
-        body: [headers, ...body]
+        body: [headers, ...body] as any,
       },
-      layout: tableLayouts.zebra
-    }
+      layout: tableLayouts.zebra,
+    } as any
   ];
 }
 
@@ -290,21 +290,21 @@ function buildCapitalRecovery(data: GeneratorReportData): Content[] {
         body: [
           [
             { text: 'Year', style: 'tableHeader' },
-            { text: 'Beginning', style: 'tableHeader', alignment: 'right' },
-            { text: 'Payment', style: 'tableHeader', alignment: 'right' },
-            { text: 'Interest', style: 'tableHeader', alignment: 'right' },
-            { text: 'Principal', style: 'tableHeader', alignment: 'right' },
-            { text: 'Ending', style: 'tableHeader', alignment: 'right' }
+            { text: 'Beginning', style: 'tableHeader', alignment: 'right' as const },
+            { text: 'Payment', style: 'tableHeader', alignment: 'right' as const },
+            { text: 'Interest', style: 'tableHeader', alignment: 'right' as const },
+            { text: 'Principal', style: 'tableHeader', alignment: 'right' as const },
+            { text: 'Ending', style: 'tableHeader', alignment: 'right' as const }
           ],
           ...scheduleRows.map(row => row.map((cell, i) => ({ 
-            text: cell, 
-            alignment: i === 0 ? 'left' : 'right',
+            text: String(cell), 
+            alignment: (i === 0 ? 'left' : 'right') as any,
             style: 'tableCell'
           })))
-        ]
+        ] as any,
       },
       layout: tableLayouts.zebra
-    }
+    } as any
   ];
 }
 
@@ -354,19 +354,19 @@ function buildRunningRecovery(data: GeneratorReportData): Content[] {
       table: {
         headerRows: 0,
         widths: [100, ...gens.map(() => '*')],
-        body: tableBody
+        body: tableBody as any,
       },
       layout: {
-        hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 1 : 0.5,
-        vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 1 : 0.5,
-        hLineColor: PDF_COLORS.border,
-        vLineColor: PDF_COLORS.border,
+        hLineWidth: (i: number, node: any) => (i === 0 || i === node.table.body.length) ? 1 : 0.5,
+        vLineWidth: (i: number, node: any) => (i === 0 || i === node.table.widths.length) ? 1 : 0.5,
+        hLineColor: () => PDF_COLORS.border,
+        vLineColor: () => PDF_COLORS.border,
         paddingLeft: () => 8,
         paddingRight: () => 8,
         paddingTop: () => 6,
         paddingBottom: () => 6,
       }
-    }
+    } as any
   ];
 }
 

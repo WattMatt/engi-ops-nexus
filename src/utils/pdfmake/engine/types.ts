@@ -21,11 +21,13 @@ export type ReportType =
   | 'cost-report'
   | 'tenant-evaluation'
   | 'tenant-schedule'
+  | 'tenant-completion'
   | 'cable-schedule'
   | 'lighting-report'
   | 'project-outline'
   | 'floor-plan'
   | 'generator-report'
+  | 'payslip'
   | 'section-export'
   | 'custom';
 
