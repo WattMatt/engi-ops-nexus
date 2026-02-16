@@ -13,8 +13,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileText, Download, Loader2 } from "lucide-react";
-import { generatePDF } from "@/utils/pdfmake/engine";
-import type { PayslipData } from "@/utils/pdfmake/engine/registrations/payslip";
+import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
+import { buildPayslipPdf, type PayslipPdfData } from "@/utils/svg-pdf/payslipPdfBuilder";
+import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 
 interface GeneratePayslipDialogProps {
   open: boolean;
@@ -30,8 +31,8 @@ export function GeneratePayslipDialog({
   onSuccess 
 }: GeneratePayslipDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
+  const { isGenerating, fetchCompanyData, generateAndPersist } = useSvgPdfReport();
   const [deductions, setDeductions] = useState({
     paye: 0,
     uif: 0,
@@ -56,99 +57,125 @@ export function GeneratePayslipDialog({
     }).format(amount);
   };
 
-  const prepareData = (): PayslipData => {
-    const employee = payrollRecord?.employees;
-    return {
-      employee: {
-        name: `${employee?.first_name} ${employee?.last_name}`,
-        number: employee?.employee_number || '-'
-      },
-      payPeriod: {
-        start: new Date(payPeriod.start).toLocaleDateString(),
-        end: new Date(payPeriod.end).toLocaleDateString(),
-        paymentDate: new Date(payPeriod.paymentDate).toLocaleDateString(),
-        frequency: payrollRecord?.payment_frequency || 'Monthly'
-      },
-      earnings: {
-        basic: grossPay
-      },
-      deductions: deductions,
-      totals: {
-        gross: grossPay,
-        deductions: totalDeductions,
-        net: netPay
-      },
-      currency: payrollRecord?.salary_currency || "ZAR"
-    };
-  };
-
   const handleDownload = async () => {
-    setGenerating(true);
+    const employee = payrollRecord?.employees;
+    
+    const buildFn = async () => {
+      const companyData = await fetchCompanyData();
+
+      const coverData: StandardCoverPageData = {
+        reportTitle: "Payslip",
+        reportSubtitle: `${employee?.first_name} ${employee?.last_name}`,
+        projectName: companyData.companyName || "Company",
+        date: new Date(payPeriod.paymentDate).toLocaleDateString(),
+        ...companyData,
+      };
+
+      const pdfData: PayslipPdfData = {
+        coverData,
+        employee: {
+          name: `${employee?.first_name} ${employee?.last_name}`,
+          number: employee?.employee_number || '-',
+        },
+        payPeriod: {
+          start: new Date(payPeriod.start).toLocaleDateString(),
+          end: new Date(payPeriod.end).toLocaleDateString(),
+          paymentDate: new Date(payPeriod.paymentDate).toLocaleDateString(),
+          frequency: payrollRecord?.payment_frequency || 'Monthly',
+        },
+        earnings: { basic: grossPay },
+        deductions,
+        totals: { gross: grossPay, deductions: totalDeductions, net: netPay },
+        currency: payrollRecord?.salary_currency || "ZAR",
+      };
+
+      return buildPayslipPdf(pdfData);
+    };
+
+    // For payslips, use direct blob generation without persistence
     try {
-      const data = prepareData();
-      const employee = payrollRecord?.employees;
-      const filename = `payslip_${employee?.employee_number}_${payPeriod.end}`;
-
-      const result = await generatePDF('payslip', { data }, {
-        filename,
-        title: 'Payslip'
-      });
-
-      if (result.success && result.blob) {
-        const url = URL.createObjectURL(result.blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${filename}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast({ title: "Payslip downloaded successfully" });
-      } else {
-        throw new Error(result.error || "Generation failed");
-      }
+      const { svgPagesToPdfBlob } = await import('@/utils/svg-pdf/svgToPdfEngine');
+      const pages = await buildFn();
+      const { blob } = await svgPagesToPdfBlob(pages);
+      
+      const filename = `payslip_${employee?.employee_number}_${payPeriod.end}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Payslip downloaded successfully" });
     } catch (error) {
       console.error("Download error:", error);
       toast({ title: "Failed to download payslip", variant: "destructive" });
-    } finally {
-      setGenerating(false);
     }
   };
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const data = prepareData();
       const employee = payrollRecord?.employees;
+
+      const buildFn = async () => {
+        const companyData = await fetchCompanyData();
+
+        const coverData: StandardCoverPageData = {
+          reportTitle: "Payslip",
+          reportSubtitle: `${employee?.first_name} ${employee?.last_name}`,
+          projectName: companyData.companyName || "Company",
+          date: new Date(payPeriod.paymentDate).toLocaleDateString(),
+          ...companyData,
+        };
+
+        const pdfData: PayslipPdfData = {
+          coverData,
+          employee: {
+            name: `${employee?.first_name} ${employee?.last_name}`,
+            number: employee?.employee_number || '-',
+          },
+          payPeriod: {
+            start: new Date(payPeriod.start).toLocaleDateString(),
+            end: new Date(payPeriod.end).toLocaleDateString(),
+            paymentDate: new Date(payPeriod.paymentDate).toLocaleDateString(),
+            frequency: payrollRecord?.payment_frequency || 'Monthly',
+          },
+          earnings: { basic: grossPay },
+          deductions,
+          totals: { gross: grossPay, deductions: totalDeductions, net: netPay },
+          currency: payrollRecord?.salary_currency || "ZAR",
+        };
+
+        return buildPayslipPdf(pdfData);
+      };
+
+      // Generate blob directly for storage
+      const { svgPagesToPdfBlob } = await import('@/utils/svg-pdf/svgToPdfEngine');
+      const pages = await buildFn();
+      const { blob } = await svgPagesToPdfBlob(pages);
+
       const filename = `payslip_${employee?.employee_number}_${payPeriod.end}.pdf`;
       
-      const result = await generatePDF('payslip', { data });
-      
-      if (!result.success || !result.blob) {
-        throw new Error(result.error || "Generation failed");
-      }
-
       // Upload to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("payslips")
-        .upload(`${payrollRecord.employee_id}/${filename}`, result.blob, {
+        .upload(`${payrollRecord.employee_id}/${filename}`, blob, {
           contentType: "application/pdf",
           upsert: true,
         });
       
       if (uploadError) {
-        // If bucket doesn't exist, just download the file
         console.warn("Storage upload failed, downloading instead:", uploadError);
         handleDownload();
         return;
       }
       
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("payslips")
         .getPublicUrl(uploadData.path);
       
-      // Save payslip record
       const { error: insertError } = await supabase.from("pay_slips").insert({
         employee_id: payrollRecord.employee_id,
         payroll_record_id: payrollRecord.id,
@@ -168,7 +195,6 @@ export function GeneratePayslipDialog({
       onSuccess?.();
     } catch (error: any) {
       console.error("Error saving payslip:", error);
-      // Fall back to download
       handleDownload();
     } finally {
       setLoading(false);
@@ -233,58 +259,23 @@ export function GeneratePayslipDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="paye">PAYE Tax</Label>
-                <Input
-                  id="paye"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={deductions.paye || ""}
-                  onChange={(e) => setDeductions({ ...deductions, paye: parseFloat(e.target.value) || 0 })}
-                />
+                <Input id="paye" type="number" min="0" step="0.01" value={deductions.paye || ""} onChange={(e) => setDeductions({ ...deductions, paye: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="uif">UIF</Label>
-                <Input
-                  id="uif"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={deductions.uif || ""}
-                  onChange={(e) => setDeductions({ ...deductions, uif: parseFloat(e.target.value) || 0 })}
-                />
+                <Input id="uif" type="number" min="0" step="0.01" value={deductions.uif || ""} onChange={(e) => setDeductions({ ...deductions, uif: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pension">Pension</Label>
-                <Input
-                  id="pension"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={deductions.pension || ""}
-                  onChange={(e) => setDeductions({ ...deductions, pension: parseFloat(e.target.value) || 0 })}
-                />
+                <Input id="pension" type="number" min="0" step="0.01" value={deductions.pension || ""} onChange={(e) => setDeductions({ ...deductions, pension: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="medical">Medical Aid</Label>
-                <Input
-                  id="medical"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={deductions.medical || ""}
-                  onChange={(e) => setDeductions({ ...deductions, medical: parseFloat(e.target.value) || 0 })}
-                />
+                <Input id="medical" type="number" min="0" step="0.01" value={deductions.medical || ""} onChange={(e) => setDeductions({ ...deductions, medical: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="space-y-2 col-span-2">
                 <Label htmlFor="other">Other Deductions</Label>
-                <Input
-                  id="other"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={deductions.other || ""}
-                  onChange={(e) => setDeductions({ ...deductions, other: parseFloat(e.target.value) || 0 })}
-                />
+                <Input id="other" type="number" min="0" step="0.01" value={deductions.other || ""} onChange={(e) => setDeductions({ ...deductions, other: parseFloat(e.target.value) || 0 })} />
               </div>
             </div>
           </div>
@@ -310,14 +301,14 @@ export function GeneratePayslipDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" variant="secondary" onClick={handleDownload} disabled={generating || loading}>
-            {generating ? (
+          <Button type="button" variant="secondary" onClick={handleDownload} disabled={isGenerating || loading}>
+            {isGenerating ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
             ) : (
               <><Download className="mr-2 h-4 w-4" /> Download PDF</>
             )}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={loading || generating}>
+          <Button type="button" onClick={handleSave} disabled={loading || isGenerating}>
             {loading ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
             ) : "Save & Generate"}
