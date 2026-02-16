@@ -17,6 +17,7 @@ export type Database = {
       ai_prediction_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_by: string | null
@@ -28,6 +29,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_by?: string | null
@@ -39,6 +41,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_by?: string | null
@@ -1517,6 +1520,7 @@ export type Database = {
         Row: {
           comments: string | null
           document_id: string
+          engine_version: string | null
           file_path: string
           generated_at: string
           id: string
@@ -1526,6 +1530,7 @@ export type Database = {
         Insert: {
           comments?: string | null
           document_id: string
+          engine_version?: string | null
           file_path: string
           generated_at?: string
           id?: string
@@ -1535,6 +1540,7 @@ export type Database = {
         Update: {
           comments?: string | null
           document_id?: string
+          engine_version?: string | null
           file_path?: string
           generated_at?: string
           id?: string
@@ -2125,6 +2131,7 @@ export type Database = {
       cable_schedule_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_at: string
@@ -2137,6 +2144,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_at?: string
@@ -2149,6 +2157,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_at?: string
@@ -3455,6 +3464,7 @@ export type Database = {
       cost_report_pdfs: {
         Row: {
           cost_report_id: string
+          engine_version: string | null
           file_name: string
           file_path: string
           file_size: number | null
@@ -3468,6 +3478,7 @@ export type Database = {
         }
         Insert: {
           cost_report_id: string
+          engine_version?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
@@ -3481,6 +3492,7 @@ export type Database = {
         }
         Update: {
           cost_report_id?: string
+          engine_version?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null
@@ -4522,6 +4534,7 @@ export type Database = {
         Row: {
           budget_id: string
           created_at: string
+          engine_version: string | null
           file_name: string
           file_path: string
           file_size: number | null
@@ -4535,6 +4548,7 @@ export type Database = {
         Insert: {
           budget_id: string
           created_at?: string
+          engine_version?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
@@ -4548,6 +4562,7 @@ export type Database = {
         Update: {
           budget_id?: string
           created_at?: string
+          engine_version?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null
@@ -5681,6 +5696,7 @@ export type Database = {
       final_account_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           final_account_id: string
@@ -5693,6 +5709,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           final_account_id: string
@@ -5705,6 +5722,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           final_account_id?: string
@@ -6699,6 +6717,7 @@ export type Database = {
         Row: {
           comments: string | null
           created_at: string
+          engine_version: string | null
           file_path: string
           id: string
           project_id: string | null
@@ -6709,6 +6728,7 @@ export type Database = {
         Insert: {
           comments?: string | null
           created_at?: string
+          engine_version?: string | null
           file_path: string
           id?: string
           project_id?: string | null
@@ -6719,6 +6739,7 @@ export type Database = {
         Update: {
           comments?: string | null
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           id?: string
           project_id?: string | null
@@ -7044,6 +7065,7 @@ export type Database = {
       generator_reports: {
         Row: {
           created_at: string | null
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_at: string | null
@@ -7057,6 +7079,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_at?: string | null
@@ -7070,6 +7093,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_at?: string | null
@@ -7291,6 +7315,7 @@ export type Database = {
       handover_completion_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_at: string
@@ -7303,6 +7328,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_at?: string
@@ -7315,6 +7341,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_at?: string
@@ -8372,6 +8399,7 @@ export type Database = {
         Row: {
           card_id: string
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_at: string
@@ -8385,6 +8413,7 @@ export type Database = {
         Insert: {
           card_id: string
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_at?: string
@@ -8398,6 +8427,7 @@ export type Database = {
         Update: {
           card_id?: string
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_at?: string
@@ -12244,6 +12274,7 @@ export type Database = {
       project_outline_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_at: string
@@ -12256,6 +12287,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_at?: string
@@ -12268,6 +12300,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_at?: string
@@ -14118,6 +14151,7 @@ export type Database = {
       site_diary_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_at: string
@@ -14130,6 +14164,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_at?: string
@@ -14142,6 +14177,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_at?: string

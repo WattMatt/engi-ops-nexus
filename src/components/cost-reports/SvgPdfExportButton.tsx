@@ -184,6 +184,7 @@ export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportBu
           revision: report.revision || "A",
           generated_by: user?.id,
           notes: "Generated via Unified Engine (pdfmake)",
+          engine_version: "pdfmake-unified",
         });
 
         toast({

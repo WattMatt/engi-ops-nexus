@@ -87,6 +87,7 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
           file_size: result.blob.size,
           generated_by: user?.id,
           revision: schedule.revision || "Rev.0",
+          engine_version: "pdfmake-unified",
         });
 
         // 7. Trigger Download
