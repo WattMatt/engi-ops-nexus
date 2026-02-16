@@ -24,8 +24,7 @@
  * @see src/utils/pdfmake/styles.ts for the new styling system
  */
 
-import type { StyleDictionary, Margins } from 'pdfmake/interfaces';
-import { PDF_COLORS, FONT_SIZES, defaultStyles as pdfmakeDefaultStyles, tableLayouts } from './pdfmake';
+import { PDF_COLORS, FONT_SIZES } from './pdfConstants';
 import jsPDF from "jspdf";
 
 export interface ElementPosition {
@@ -170,26 +169,25 @@ export class PDFStyleManager {
   /**
    * Get pdfmake-compatible styles dictionary
    */
-  getPdfmakeStyles(): StyleDictionary {
+  getPdfmakeStyles(): Record<string, any> {
     return {
-      ...pdfmakeDefaultStyles,
       h1: {
         fontSize: this.settings.typography.h1Size,
         bold: true,
         color: rgbToHex(this.settings.colors.primary),
-        margin: [0, 15, 0, 8] as Margins,
+        margin: [0, 15, 0, 8] as [number, number, number, number],
       },
       h2: {
         fontSize: this.settings.typography.h2Size,
         bold: true,
         color: rgbToHex(this.settings.colors.text),
-        margin: [0, 12, 0, 6] as Margins,
+        margin: [0, 12, 0, 6] as [number, number, number, number],
       },
       h3: {
         fontSize: this.settings.typography.h3Size,
         bold: true,
         color: rgbToHex(this.settings.colors.neutral),
-        margin: [0, 10, 0, 4] as Margins,
+        margin: [0, 10, 0, 4] as [number, number, number, number],
       },
       body: {
         fontSize: this.settings.typography.bodySize,
@@ -235,7 +233,7 @@ export class PDFStyleManager {
   /**
    * Get pdfmake-compatible margins
    */
-  getPdfmakeMargins(): Margins {
+  getPdfmakeMargins(): [number, number, number, number] {
     const m = this.settings.layout.margins;
     return [m.left, m.top, m.right, m.bottom];
   }

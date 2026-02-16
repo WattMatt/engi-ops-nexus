@@ -16,7 +16,7 @@
 
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { QUALITY_PRESETS as PDFMAKE_QUALITY_PRESETS } from './pdfmake';
+import { QUALITY_PRESETS as PDFMAKE_QUALITY_PRESETS } from './pdfConstants';
 
 export type QualityPreset = 'draft' | 'standard' | 'high';
 

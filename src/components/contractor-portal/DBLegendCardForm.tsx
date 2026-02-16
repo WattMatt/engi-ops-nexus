@@ -209,7 +209,7 @@ export function DBLegendCardForm({ cardId, projectId, projectName, projectNumber
       await handleSave();
       const { svgPagesToPdfBlob } = await import("@/utils/svg-pdf/svgToPdfEngine");
       const { buildLegendCardPdf } = await import("@/utils/svg-pdf/legendCardPdfBuilder");
-      const { imageToBase64 } = await import("@/utils/pdfmake/helpers");
+      const { imageToBase64 } = await import("@/utils/svg-pdf/imageUtils");
 
       const { data: company } = await supabase.from("company_settings").select("company_name, company_logo_url").limit(1).maybeSingle();
       let companyLogoBase64: string | null = null;

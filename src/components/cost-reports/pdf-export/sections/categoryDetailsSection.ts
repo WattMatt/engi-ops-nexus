@@ -1,5 +1,4 @@
 import jsPDF from "jspdf";
-import type { Content, TableCell } from "pdfmake/interfaces";
 import { PDFGenerationContext, PdfmakeGenerationContext, PdfmakeSectionResult, CATEGORY_COLORS, CATEGORY_COLORS_HEX, PDF_COLORS_HEX } from "../types";
 
 // ============================================================================
@@ -126,7 +125,7 @@ export async function generateCategoryDetailsSection(
 function buildCategoryCard(
   cat: { code: string; description: string; originalBudget: number; anticipatedFinal: number; originalVariance: number },
   colorHex: string
-): Content {
+): any {
   const isNegative = cat.originalVariance < 0;
   const varianceColor = isNegative ? PDF_COLORS_HEX.success : PDF_COLORS_HEX.danger;
   const varianceBgColor = isNegative ? '#dcfce7' : '#fee2e2';
@@ -192,7 +191,7 @@ function buildCategoryCard(
     // Border styling
     border: [true, true, true, true],
     borderColor: [colorHex, colorHex, colorHex, colorHex],
-  } as Content;
+  } as any;
 }
 
 /**
@@ -204,9 +203,9 @@ export function buildCategoryDetailsContent(
   const { categoryTotals } = context;
 
   // Build category cards in a 2-column layout
-  const cardRows: Content[][] = [];
+  const cardRows: any[][] = [];
   for (let i = 0; i < categoryTotals.length; i += 2) {
-    const row: Content[] = [];
+    const row: any[] = [];
     
     const cat1 = categoryTotals[i];
     const color1 = CATEGORY_COLORS_HEX[i % CATEGORY_COLORS_HEX.length];
@@ -223,7 +222,7 @@ export function buildCategoryDetailsContent(
     cardRows.push(row);
   }
 
-  const content: Content[] = [
+  const content: any[] = [
     // Header
     {
       text: 'CATEGORY PERFORMANCE DETAILS',

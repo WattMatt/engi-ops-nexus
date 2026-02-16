@@ -1,5 +1,4 @@
 import jsPDF from "jspdf";
-import type { Content, TDocumentDefinitions, StyleDictionary } from "pdfmake/interfaces";
 import { PDFMargins, PDFSectionOptions } from "../PDFExportSettings";
 
 // ============================================================================
@@ -54,7 +53,7 @@ export interface PdfmakeGenerationContext {
 }
 
 export interface PdfmakeSectionResult {
-  content: Content[];
+  content: any[];
   pageBreakBefore?: boolean;
 }
 
@@ -195,7 +194,7 @@ export function rgbToHex(rgb: [number, number, number]): string {
 /**
  * Get default pdfmake styles for cost reports
  */
-export function getCostReportStyles(): StyleDictionary {
+export function getCostReportStyles(): Record<string, any> {
   return {
     header: {
       fontSize: 16,
