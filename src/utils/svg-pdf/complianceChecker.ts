@@ -606,6 +606,22 @@ function getBuilderRegistry(): BuilderEntry[] {
       },
     },
     {
+      reportId: 'tenant-report',
+      reportName: 'Tenant Report',
+      load: async () => {
+        const mod = await import('./tenantReportPdfBuilder');
+        return mod.buildTenantReportPdf({
+          coverData: MOCK_COVER,
+          projectName: 'Test Project',
+          tenants: [
+            { shopNumber: 'S01', shopName: 'Shop A', category: 'standard', area: 100, dbAllowance: '60A', dbScopeOfWork: null, sowReceived: true, layoutReceived: true, dbOrdered: true, dbCost: 5000, lightingOrdered: true, lightingCost: 3000, costReported: true },
+            { shopNumber: 'S02', shopName: 'Shop B', category: 'fast_food', area: 80, dbAllowance: '80A', dbScopeOfWork: null, sowReceived: true, layoutReceived: false, dbOrdered: false, dbCost: null, lightingOrdered: false, lightingCost: null, costReported: false },
+          ],
+          options: { includeCoverPage: true, includeTableOfContents: true, includeKPIPage: true, includeFloorPlan: false, includeTenantSchedule: true },
+        });
+      },
+    },
+    {
       reportId: 'cost-report-main',
       reportName: 'Cost Report (Full)',
       load: async () => {
