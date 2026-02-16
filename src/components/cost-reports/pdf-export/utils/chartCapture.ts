@@ -1,6 +1,5 @@
-import type { Content } from "pdfmake/interfaces";
 import { captureChartAsCanvas, canvasToDataUrl } from "@/utils/pdfQualitySettings";
-import { QUALITY_PRESETS, type QualityPreset } from "@/utils/pdfmake/styles";
+import { QUALITY_PRESETS, type QualityPreset } from "@/utils/pdfConstants";
 
 // ============================================================================
 // Types
@@ -108,13 +107,13 @@ export async function captureCostReportCharts(): Promise<CapturedChart[]> {
 export async function buildChartsContent(
   charts: CapturedChart[],
   options: ChartContentOptions = {}
-): Promise<Content[]> {
+): Promise<any[]> {
   const { quality = 'standard', maxWidth = 400 } = options;
   const qualitySettings = QUALITY_PRESETS[quality];
   
   if (charts.length === 0) return [];
 
-  const content: Content[] = [
+  const content: any[] = [
     // Header
     {
       text: 'VISUAL SUMMARY',

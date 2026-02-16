@@ -7,7 +7,7 @@
  * @see PDF_DESIGN_STANDARDS.md for the complete standards reference
  */
 
-import { PDF_COLORS, FONT_SIZES, STANDARD_MARGINS } from './pdfmake';
+import { PDF_COLORS, FONT_SIZES, STANDARD_MARGINS } from './pdfConstants';
 
 // Types for compliance checking
 export interface ComplianceRule {

@@ -514,7 +514,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       const { svgPagesToPdfBlob } = await import("@/utils/svg-pdf/svgToPdfEngine");
       const { buildFloorPlanReportPdf } = await import("@/utils/svg-pdf/floorPlanPdfBuilder");
       type FloorPlanReportData = import("@/utils/svg-pdf/floorPlanPdfBuilder").FloorPlanReportData;
-      const { imageToBase64 } = await import("@/utils/pdfmake/helpers");
+      const { imageToBase64 } = await import("@/utils/svg-pdf/imageUtils");
 
       // Get next revision number
       const { data: existingReports } = await supabase

@@ -1,6 +1,5 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { Content, TableCell } from "pdfmake/interfaces";
 import { PDFGenerationContext, PdfmakeGenerationContext, PdfmakeSectionResult, PDF_COLORS, PDF_COLORS_HEX } from "../types";
 import { generateExecutiveSummaryTableData } from "@/utils/executiveSummaryTable";
 
@@ -140,7 +139,7 @@ export function buildExecutiveSummaryContent(
   const { categoryTotals, grandTotals } = context;
   const tableData = generateExecutiveSummaryTableData(categoryTotals, grandTotals);
 
-  const content: Content[] = [
+  const content: any[] = [
     // Header
     {
       text: 'EXECUTIVE SUMMARY',
@@ -181,7 +180,7 @@ export function buildExecutiveSummaryContent(
             text: h,
             style: 'tableHeader',
             alignment: h === 'Code' ? 'center' : (h === 'Description' ? 'left' : 'right'),
-          } as TableCell)),
+          } as any)),
           // Data rows
           ...tableData.categoryRows.map(row => [
             { text: row.code, bold: true, alignment: 'center' as const, fontSize: 8 },
@@ -202,7 +201,7 @@ export function buildExecutiveSummaryContent(
               fontSize: 8,
               color: row.originalVariance < 0 ? PDF_COLORS_HEX.success : (row.originalVariance > 0 ? PDF_COLORS_HEX.danger : undefined),
             },
-          ] as TableCell[]),
+          ] as any[]),
           // Grand total row
           [
             { text: '', fontSize: 8 },
@@ -225,7 +224,7 @@ export function buildExecutiveSummaryContent(
               fontSize: 8,
               color: tableData.grandTotalRow.originalVariance < 0 ? PDF_COLORS_HEX.success : (tableData.grandTotalRow.originalVariance > 0 ? PDF_COLORS_HEX.danger : undefined),
             },
-          ] as TableCell[],
+          ] as any[],
         ],
       },
       layout: {

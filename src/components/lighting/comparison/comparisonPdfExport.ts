@@ -1,21 +1,8 @@
 /**
- * Comparison Matrix PDF Export - Migrated to pdfmake canonical pattern
- * 
- * Replaces legacy jsPDF implementation with pdfmake.
+ * Comparison Matrix PDF Export — SVG engine
  */
-
-import {
-  createDocument,
-  heading,
-  paragraph,
-  dataTable,
-  spacer,
-  formatCurrency,
-  PDF_COLORS,
-  SPACING,
-  type TableColumn,
-} from '@/utils/pdfmake';
-import { format } from 'date-fns';
+import { svgPagesToDownload } from '@/utils/svg-pdf/svgToPdfEngine';
+import { buildComparisonPdf, type ComparisonPdfData } from '@/utils/svg-pdf/comparisonPdfBuilder';
 import { LightingFitting } from '../lightingTypes';
 
 interface ComparisonRow {
@@ -32,105 +19,22 @@ interface ComparisonExportData {
   physicalRows: ComparisonRow[];
 }
 
-/**
- * Format a cell value for display
- */
-function formatValue(value: string | number | null, fmt?: string): string {
-  if (value === null || value === '-') return '-';
-  if (fmt === 'currency' && typeof value === 'number') {
-    return formatCurrency(value);
-  }
-  return String(value);
-}
-
-/**
- * Build table data from comparison rows
- */
-function buildTableData(
-  rows: ComparisonRow[],
-  fittingCount: number
-): Record<string, string>[] {
-  return rows.map((row) => {
-    const rowData: Record<string, string> = { property: row.property };
-    row.values.forEach((value, idx) => {
-      rowData[`col${idx}`] = formatValue(value, row.format);
-    });
-    return rowData;
-  });
-}
-
-/**
- * Build columns definition for the table
- */
-function buildColumns(fittings: LightingFitting[]): TableColumn[] {
-  const columns: TableColumn[] = [
-    { header: 'Property', field: 'property', width: 120 },
-  ];
-  
-  fittings.forEach((f, idx) => {
-    columns.push({
-      header: f.fitting_code,
-      field: `col${idx}`,
-      width: '*',
-      align: 'center',
-    });
-  });
-  
-  return columns;
-}
-
-/**
- * Generate comparison matrix PDF
- */
 export async function generateComparisonPDF(data: ComparisonExportData): Promise<void> {
-  const { fittings, generalRows, performanceRows, costRows, physicalRows } = data;
+  console.log('[ComparisonPDF] Starting SVG generation...');
   
-  console.log('[ComparisonPDF] Starting generation...');
-  
-  const doc = createDocument({
-    orientation: 'landscape',
-    pageSize: 'A4',
+  const svgPages = buildComparisonPdf({
+    fittings: data.fittings.map(f => ({ fitting_code: f.fitting_code })),
+    generalRows: data.generalRows,
+    performanceRows: data.performanceRows,
+    costRows: data.costRows,
+    physicalRows: data.physicalRows,
+  });
+
+  await svgPagesToDownload(svgPages, {
+    filename: 'lighting-comparison.pdf',
+    pageWidth: 297,
+    pageHeight: 210,
   });
   
-  // Title
-  doc.add(heading('Lighting Fitting Comparison', 1));
-  doc.add(paragraph(`Generated: ${format(new Date(), 'dd MMMM yyyy')}`));
-  doc.add(spacer(SPACING.md));
-  
-  const columns = buildColumns(fittings);
-  
-  // General section
-  doc.add(heading('General Information', 2));
-  doc.add(dataTable(columns, buildTableData(generalRows, fittings.length), { 
-    layout: 'zebraCompact',
-  }));
-  doc.add(spacer(SPACING.md));
-  
-  // Performance section
-  doc.add(heading('Performance', 2));
-  doc.add(dataTable(columns, buildTableData(performanceRows, fittings.length), { 
-    layout: 'zebraCompact',
-  }));
-  doc.add(spacer(SPACING.md));
-  
-  // Costs section
-  doc.add(heading('Costs', 2));
-  doc.add(dataTable(columns, buildTableData(costRows, fittings.length), { 
-    layout: 'zebraCompact',
-  }));
-  doc.add(spacer(SPACING.md));
-  
-  // Physical section
-  doc.add(heading('Physical Specifications', 2));
-  doc.add(dataTable(columns, buildTableData(physicalRows, fittings.length), { 
-    layout: 'zebraCompact',
-  }));
-  
-  // Header and footer
-  doc.withStandardHeader('Lighting Comparison');
-  doc.withStandardFooter(false);
-  
-  // Download directly (most reliable)
-  console.log('[ComparisonPDF] Downloading...');
-  await doc.download('lighting-comparison.pdf');
+  console.log('[ComparisonPDF] Download complete');
 }
