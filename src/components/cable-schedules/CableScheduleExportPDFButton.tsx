@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { Download, FileText, Loader2, CheckCircle } from "lucide-react";
+import { Download, FileText, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ContactSelector } from "@/components/shared/ContactSelector";
-import { generatePDF } from "@/utils/pdfmake/engine";
-import type { CableScheduleData } from "@/utils/pdfmake/engine/registrations/cableSchedule";
+import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
+import { buildCableSchedulePdf, type CableSchedulePdfData, type CableEntry } from "@/utils/svg-pdf/cableSchedulePdfBuilder";
+import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -18,11 +19,12 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { isGenerating, fetchCompanyData, generateAndPersist } = useSvgPdfReport();
 
   const handleExport = async () => {
-    setIsGenerating(true);
-    try {
+    setDialogOpen(false);
+
+    const buildFn = async () => {
       // 1. Fetch cable entries
       const { data: entries, error: entriesError } = await supabase
         .from("cable_entries")
@@ -39,78 +41,55 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
         .eq("id", schedule.project_id)
         .single();
 
-      // 3. Prepare Report Data
-      const reportData: CableScheduleData = {
-        scheduleName: schedule.schedule_name || "Cable Schedule",
+      // 3. Fetch company data for cover page
+      const companyData = await fetchCompanyData();
+
+      const coverData: StandardCoverPageData = {
+        reportTitle: "Cable Schedule",
+        reportSubtitle: schedule.schedule_name || "Cable Schedule",
+        projectName: project?.name || "Project",
+        projectNumber: project?.project_number || undefined,
         revision: schedule.revision || "Rev.0",
-        entries: (entries || []).map((e: any) => ({
-          tag: e.cable_tag || "-",
-          from: e.from_location || "-",
-          to: e.to_location || "-",
-          voltage: e.voltage || "",
-          load: Number(e.load_amps) || 0,
-          type: e.cable_type || "-",
-          size: e.cable_size || "-",
-          length: Number(e.measured_length) || 0,
-          voltDrop: Number(e.volt_drop) || 0,
-          notes: e.notes
-        }))
+        date: format(new Date(), "dd MMMM yyyy"),
+        ...companyData,
       };
 
-      // 4. Generate PDF
-      const result = await generatePDF('cable-schedule', {
-        data: reportData
-      }, {
-        projectName: project?.name || "Project",
-        projectNumber: project?.project_number,
-        // Contact details will be fetched by the engine's cover page handler
-        // We could pass selectedContactId logic here if we extended the config
-      });
+      const cableEntries: CableEntry[] = (entries || []).map((e: any) => ({
+        cable_tag: e.cable_tag || "-",
+        from_location: e.from_location || "-",
+        to_location: e.to_location || "-",
+        voltage: e.voltage || 0,
+        load_amps: Number(e.load_amps) || undefined,
+        cable_type: e.cable_type || undefined,
+        cable_size: e.cable_size || undefined,
+        measured_length: Number(e.measured_length) || undefined,
+        extra_length: Number(e.extra_length) || undefined,
+        total_length: Number(e.total_length) || undefined,
+        ohm_per_km: Number(e.ohm_per_km) || undefined,
+        volt_drop: Number(e.volt_drop) || undefined,
+        notes: e.notes || undefined,
+      }));
 
-      if (result.success && result.blob) {
-        // 5. Upload to Storage
-        const fileName = `CableSchedule_${schedule.schedule_number || "Draft"}_${new Date().getTime()}.pdf`;
-        const filePath = `${schedule.project_id}/${fileName}`;
+      const pdfData: CableSchedulePdfData = {
+        coverData,
+        entries: cableEntries,
+        scheduleName: schedule.schedule_name || "Cable Schedule",
+      };
 
-        const { error: uploadError } = await supabase.storage
-          .from("cable-schedule-reports")
-          .upload(filePath, result.blob, { contentType: "application/pdf" });
+      return buildCableSchedulePdf(pdfData);
+    };
 
-        if (uploadError) throw uploadError;
-
-        // 6. Save Record
-        const { data: { user } } = await supabase.auth.getUser();
-        await supabase.from("cable_schedule_reports").insert({
-          schedule_id: schedule.id,
-          report_name: fileName,
-          file_path: filePath,
-          file_size: result.blob.size,
-          generated_by: user?.id,
-          revision: schedule.revision || "Rev.0",
-          engine_version: "pdfmake-unified",
-        });
-
-        // 7. Trigger Download
-        const url = URL.createObjectURL(result.blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        toast.success("Report generated and saved!");
-        queryClient.invalidateQueries({ queryKey: ["cable-schedule-reports", schedule.id] });
-        setTimeout(() => setDialogOpen(false), 500);
-      } else {
-        throw new Error(result.error || "Generation failed");
-      }
-
-    } catch (error) {
-      console.error("Export error:", error);
-      toast.error("Failed to generate report");
-    } finally {
-      setIsGenerating(false);
-    }
+    await generateAndPersist(buildFn, {
+      storageBucket: "cable-schedule-reports",
+      dbTable: "cable_schedule_reports",
+      foreignKeyColumn: "schedule_id",
+      foreignKeyValue: schedule.id,
+      projectId: schedule.project_id,
+      revision: schedule.revision || "Rev.0",
+      reportName: `CableSchedule_${schedule.schedule_number || "Draft"}`,
+    }, () => {
+      queryClient.invalidateQueries({ queryKey: ["cable-schedule-reports", schedule.id] });
+    });
   };
 
   return (
@@ -125,7 +104,7 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
         <DialogHeader>
           <DialogTitle>Generate Cable Schedule</DialogTitle>
           <DialogDescription>
-            Create a professional PDF report with the new Unified Engine.
+            Create a professional PDF report for this cable schedule.
           </DialogDescription>
         </DialogHeader>
         
@@ -137,16 +116,6 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
               value={selectedContactId}
               onValueChange={setSelectedContactId}
             />
-          </div>
-          
-          <div className="rounded-lg border bg-muted/50 p-4">
-            <h4 className="font-medium text-sm mb-1">New Engine Features</h4>
-            <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
-              <li>High-quality vector text (selectable)</li>
-              <li>Landscape orientation for maximum width</li>
-              <li>Standardized "Cost Report" branding style</li>
-              <li>Small file size</li>
-            </ul>
           </div>
         </div>
 

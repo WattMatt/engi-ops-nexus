@@ -1,11 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { generatePDF } from "@/utils/pdfmake/engine";
-import type { TenantCompletionData } from "@/utils/pdfmake/engine/registrations/tenantCompletion";
-import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
+import { buildHandoverCompletionPdf, type HandoverPdfData } from "@/utils/svg-pdf/handoverCompletionPdfBuilder";
+import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 
 interface TenantData {
   id: string;
@@ -54,86 +52,38 @@ export const TenantCompletionExportPDFButton = ({
   allExclusions,
   stats,
 }: ExportProps) => {
-  const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { isGenerating, fetchCompanyData, generateAndPersist } = useSvgPdfReport();
 
   const handleExport = async () => {
-    setIsGenerating(true);
-    try {
-      // 1. Prepare Data
-      const reportData: TenantCompletionData = {
+    const buildFn = async () => {
+      const companyData = await fetchCompanyData();
+
+      const coverData: StandardCoverPageData = {
+        reportTitle: "Handover Completion",
+        reportSubtitle: `${stats.overallPercentage}% Complete`,
         projectName,
-        reportDate: new Date().toISOString(),
-        stats,
-        tenants,
-        documents: allDocuments.map(d => ({
-          document_type: d.document_type,
-          file_name: d.file_name,
-          uploaded_at: d.uploaded_at || new Date().toISOString()
-        })),
-        exclusions: allExclusions.map(e => ({
-          document_type: e.document_type,
-          notes: e.notes,
-          created_at: e.created_at || new Date().toISOString()
-        }))
+        date: format(new Date(), "dd MMMM yyyy"),
+        ...companyData,
       };
 
-      // 2. Generate PDF
-      const result = await generatePDF('tenant-completion', {
-        data: reportData
-      }, {
-        projectName: projectName,
-        // Branding automatically handled by engine
-      });
+      const pdfData: HandoverPdfData = {
+        coverData,
+        tenants,
+        stats,
+        allDocuments,
+        allExclusions,
+      };
 
-      if (result.success && result.blob) {
-        // 3. Upload to Storage
-        const fileName = `Handover_Completion_${projectName.replace(/\s+/g, "_")}_${format(new Date(), "yyyyMMdd")}.pdf`;
-        const filePath = `${projectId}/${fileName}`;
+      return buildHandoverCompletionPdf(pdfData);
+    };
 
-        const { error: uploadError } = await supabase.storage
-          .from("handover-reports")
-          .upload(filePath, result.blob, { contentType: "application/pdf", upsert: false });
-
-        if (uploadError) throw uploadError;
-
-        // 4. Save DB Record
-        const { data: { user } } = await supabase.auth.getUser();
-        await supabase.from("handover_completion_reports").insert({
-          project_id: projectId,
-          report_name: fileName,
-          file_path: filePath,
-          file_size: result.blob.size,
-          generated_by: user?.id,
-          completion_percentage: stats.overallPercentage
-        });
-
-        // 5. Download
-        const url = URL.createObjectURL(result.blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        toast({
-          title: "Success",
-          description: "Report generated and saved successfully",
-        });
-      } else {
-        throw new Error(result.error || "Generation failed");
-      }
-
-    } catch (error: any) {
-      console.error("Export failed:", error);
-      toast({
-        title: "Export Failed",
-        description: error.message || "Failed to generate report",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
+    await generateAndPersist(buildFn, {
+      storageBucket: "handover-reports",
+      dbTable: "handover_completion_reports",
+      foreignKeyColumn: "project_id",
+      foreignKeyValue: projectId,
+      reportName: `Handover_Completion_${projectName.replace(/\s+/g, "_")}`,
+    });
   };
 
   return (
