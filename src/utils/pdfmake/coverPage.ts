@@ -169,7 +169,25 @@ export async function generateCoverPageContent(
 
   content.push(spacer(20));
 
-  // Prepared By section
+  // Prepared By section with background card
+  const preparedByY = 175;
+  content.push({
+    canvas: [
+      {
+        type: 'rect',
+        x: 22,
+        y: 0,
+        w: PAGE_SIZES.A4.width - 44,
+        h: 60, // Approximate height for content
+        r: 3,
+        color: '#f1f5f9', // Slate 50
+        lineColor: '#e2e8f0', // Slate 200 border
+        lineWidth: 0.5
+      },
+    ],
+    absolutePosition: { x: 0, y: preparedByY - 10 },
+  });
+
   content.push({
     stack: [
       {
@@ -228,6 +246,24 @@ export async function generateCoverPageContent(
   // Prepared For section (if contact details provided)
   if (contactDetails?.organization_name || companyDetails.clientName) {
     const clientName = contactDetails?.organization_name || companyDetails.clientName;
+    const preparedForY = preparedByY + 70; // Approximation based on stack height
+
+    content.push({
+      canvas: [
+        {
+          type: 'rect',
+          x: 22,
+          y: 0,
+          w: PAGE_SIZES.A4.width - 44,
+          h: 50,
+          r: 3,
+          color: '#f1f5f9',
+          lineColor: '#e2e8f0',
+          lineWidth: 0.5
+        },
+      ],
+      absolutePosition: { x: 0, y: preparedForY },
+    });
     
     content.push({
       stack: [
@@ -254,7 +290,7 @@ export async function generateCoverPageContent(
           ? [{ text: `Tel: ${contactDetails?.phone || companyDetails.clientPhone}`, fontSize: FONT_SIZES.small, color: PDF_COLORS.textMuted }] 
           : []),
       ],
-      margin: [60, 0, 0, 30] as Margins,
+      margin: [60, 20, 0, 30] as Margins, // Adjusted top margin to push down
     });
   }
 

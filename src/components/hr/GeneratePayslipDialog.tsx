@@ -12,10 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Download } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import { addRunningFooter } from "@/utils/pdf/jspdfStandards";
+import { FileText, Download, Loader2 } from "lucide-react";
+import { generatePDF } from "@/utils/pdfmake/engine";
+import type { PayslipData } from "@/utils/pdfmake/engine/registrations/payslip";
 
 interface GeneratePayslipDialogProps {
   open: boolean;
@@ -31,6 +30,7 @@ export function GeneratePayslipDialog({
   onSuccess 
 }: GeneratePayslipDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
   const [deductions, setDeductions] = useState({
     paye: 0,
@@ -56,105 +56,82 @@ export function GeneratePayslipDialog({
     }).format(amount);
   };
 
-  const generatePDF = () => {
-    const doc = new jsPDF();
+  const prepareData = (): PayslipData => {
     const employee = payrollRecord?.employees;
-    
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(30, 64, 175);
-    doc.text("PAYSLIP", 105, 20, { align: "center" });
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Pay Period: ${new Date(payPeriod.start).toLocaleDateString()} - ${new Date(payPeriod.end).toLocaleDateString()}`, 105, 28, { align: "center" });
-    
-    // Employee Details
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.text("Employee Details", 14, 45);
-    
-    doc.setFontSize(10);
-    doc.text(`Name: ${employee?.first_name} ${employee?.last_name}`, 14, 55);
-    doc.text(`Employee Number: ${employee?.employee_number}`, 14, 62);
-    doc.text(`Payment Date: ${new Date(payPeriod.paymentDate).toLocaleDateString()}`, 14, 69);
-    doc.text(`Payment Frequency: ${payrollRecord?.payment_frequency}`, 120, 55);
-    
-    // Earnings Table
-    autoTable(doc, {
-      startY: 80,
-      head: [["Earnings", "Amount"]],
-      body: [
-        ["Basic Salary", formatCurrency(grossPay)],
-      ],
-      foot: [["Gross Pay", formatCurrency(grossPay)]],
-      headStyles: { fillColor: [30, 64, 175] },
-      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-      theme: "striped",
-    });
-    
-    // Deductions Table
-    const deductionRows: [string, string][] = [];
-    if (deductions.paye > 0) deductionRows.push(["PAYE Tax", formatCurrency(deductions.paye)]);
-    if (deductions.uif > 0) deductionRows.push(["UIF", formatCurrency(deductions.uif)]);
-    if (deductions.pension > 0) deductionRows.push(["Pension", formatCurrency(deductions.pension)]);
-    if (deductions.medical > 0) deductionRows.push(["Medical Aid", formatCurrency(deductions.medical)]);
-    if (deductions.other > 0) deductionRows.push(["Other Deductions", formatCurrency(deductions.other)]);
-    
-    if (deductionRows.length > 0) {
-      autoTable(doc, {
-        startY: (doc as any).lastAutoTable.finalY + 10,
-        head: [["Deductions", "Amount"]],
-        body: deductionRows,
-        foot: [["Total Deductions", formatCurrency(totalDeductions)]],
-        headStyles: { fillColor: [220, 38, 38] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        theme: "striped",
-      });
-    }
-    
-    // Net Pay
-    const finalY = (doc as any).lastAutoTable.finalY + 15;
-    doc.setFillColor(30, 64, 175);
-    doc.rect(14, finalY, 182, 12, "F");
-    doc.setTextColor(255);
-    doc.setFontSize(14);
-    doc.text("NET PAY", 20, finalY + 8);
-    doc.text(formatCurrency(netPay), 190, finalY + 8, { align: "right" });
-    
-    // Footer
-    doc.setTextColor(150);
-    doc.setFontSize(8);
-    doc.text("This is a computer-generated payslip and does not require a signature.", 105, 280, { align: "center" });
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, 285, { align: "center" });
-    
-    // Add page numbers
-    addRunningFooter(doc, new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), 1);
-    
-    return doc;
+    return {
+      employee: {
+        name: `${employee?.first_name} ${employee?.last_name}`,
+        number: employee?.employee_number || '-'
+      },
+      payPeriod: {
+        start: new Date(payPeriod.start).toLocaleDateString(),
+        end: new Date(payPeriod.end).toLocaleDateString(),
+        paymentDate: new Date(payPeriod.paymentDate).toLocaleDateString(),
+        frequency: payrollRecord?.payment_frequency || 'Monthly'
+      },
+      earnings: {
+        basic: grossPay
+      },
+      deductions: deductions,
+      totals: {
+        gross: grossPay,
+        deductions: totalDeductions,
+        net: netPay
+      },
+      currency: payrollRecord?.salary_currency || "ZAR"
+    };
   };
 
-  const handleDownload = () => {
-    const doc = generatePDF();
-    const employee = payrollRecord?.employees;
-    const filename = `payslip_${employee?.employee_number}_${payPeriod.end}.pdf`;
-    doc.save(filename);
-    
-    toast({ title: "Payslip downloaded successfully" });
+  const handleDownload = async () => {
+    setGenerating(true);
+    try {
+      const data = prepareData();
+      const employee = payrollRecord?.employees;
+      const filename = `payslip_${employee?.employee_number}_${payPeriod.end}`;
+
+      const result = await generatePDF('payslip', { data }, {
+        filename,
+        title: 'Payslip'
+      });
+
+      if (result.success && result.blob) {
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filename}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({ title: "Payslip downloaded successfully" });
+      } else {
+        throw new Error(result.error || "Generation failed");
+      }
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({ title: "Failed to download payslip", variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const doc = generatePDF();
-      const pdfBlob = doc.output("blob");
+      const data = prepareData();
       const employee = payrollRecord?.employees;
       const filename = `payslip_${employee?.employee_number}_${payPeriod.end}.pdf`;
       
+      const result = await generatePDF('payslip', { data });
+      
+      if (!result.success || !result.blob) {
+        throw new Error(result.error || "Generation failed");
+      }
+
       // Upload to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("payslips")
-        .upload(`${payrollRecord.employee_id}/${filename}`, pdfBlob, {
+        .upload(`${payrollRecord.employee_id}/${filename}`, result.blob, {
           contentType: "application/pdf",
           upsert: true,
         });
@@ -333,12 +310,17 @@ export function GeneratePayslipDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" variant="secondary" onClick={handleDownload}>
-            <Download className="mr-2 h-4 w-4" />
-            Download PDF
+          <Button type="button" variant="secondary" onClick={handleDownload} disabled={generating || loading}>
+            {generating ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
+            ) : (
+              <><Download className="mr-2 h-4 w-4" /> Download PDF</>
+            )}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={loading}>
-            {loading ? "Saving..." : "Save & Generate"}
+          <Button type="button" onClick={handleSave} disabled={loading || generating}>
+            {loading ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+            ) : "Save & Generate"}
           </Button>
         </DialogFooter>
       </DialogContent>

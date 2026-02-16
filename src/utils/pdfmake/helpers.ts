@@ -229,6 +229,8 @@ export const imageToBase64 = async (url: string): Promise<string> => {
     if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
     
     const blob = await response.blob();
+    if (blob.size === 0) throw new Error('Image blob is empty');
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -244,7 +246,8 @@ export const imageToBase64 = async (url: string): Promise<string> => {
     });
   } catch (error) {
     console.error('Failed to convert image to base64:', error);
-    throw error;
+    // Return a 1x1 transparent pixel to prevent PDF crash if image fails
+    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
   }
 };
 

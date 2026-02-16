@@ -239,11 +239,28 @@ export async function generateCoverPage(
   // Add company logo
   if (companyDetails.logoUrl) {
     try {
+      console.log('Attempting to load logo from:', companyDetails.logoUrl);
       const logoResponse = await fetch(companyDetails.logoUrl);
+      
+      if (!logoResponse.ok) {
+        throw new Error(`Failed to fetch logo: ${logoResponse.status} ${logoResponse.statusText}`);
+      }
+
       const logoBlob = await logoResponse.blob();
-      const logoDataUrl = await new Promise<string>((resolve) => {
+      if (logoBlob.size === 0) {
+        throw new Error('Logo blob is empty');
+      }
+
+      const logoDataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string' && reader.result.length > 100) {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Invalid data URL result'));
+          }
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
         reader.readAsDataURL(logoBlob);
       });
       
@@ -253,9 +270,16 @@ export async function generateCoverPage(
       const logoY = 152;
       
       doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+      console.log('Logo added successfully');
     } catch (error) {
       console.error("Failed to add logo to PDF:", error);
+      // Add a placeholder or error text if logo fails, so we know it tried
+      doc.setFontSize(8);
+      doc.setTextColor(255, 0, 0);
+      doc.text("Logo Error", pageWidth - 50, 160);
     }
+  } else {
+    console.warn('No logoUrl provided in companyDetails');
   }
   
   // Modern divider

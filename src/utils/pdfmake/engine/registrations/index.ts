@@ -9,6 +9,10 @@
 import './roadmapReview';
 import './costReport';
 import './tenantEvaluation';
+import './generatorReport';
+import './cableSchedule';
+import './tenantCompletion';
+import './payslip';
 import './custom';
 
 console.log('[PDFRegistry] All built-in report types registered');
