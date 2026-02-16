@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { runComplianceChecks, type ComplianceCheckResult } from "@/utils/svg-pdf/complianceChecker";
 import { supabase } from "@/integrations/supabase/client";
+import { TestPdfGeneratorPanel } from "@/components/admin/TestPdfGeneratorPanel";
 
 // ─── Types ───
 
@@ -639,6 +640,9 @@ export default function PdfComplianceDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Test PDF Generator */}
+      <TestPdfGeneratorPanel />
     </div>
   );
 }
