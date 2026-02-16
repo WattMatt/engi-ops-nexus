@@ -1,38 +1,39 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { captureRoadmapReviewCharts } from '@/utils/roadmapReviewPdfMake';
-import type { CapturedChartData } from '@/utils/pdfmake/chartUtils';
+import html2canvas from 'html2canvas';
 
 export type PreCaptureStatus = 'idle' | 'capturing' | 'ready' | 'error';
 
+export interface CapturedChartData {
+  elementId: string;
+  title: string;
+  description: string;
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
 interface UseChartPreCaptureResult {
-  /** Current status of the pre-capture process */
   status: PreCaptureStatus;
-  /** Pre-captured chart images (null if not ready) */
   charts: CapturedChartData[] | null;
-  /** Number of charts successfully captured */
   chartCount: number;
-  /** Manually trigger a re-capture */
   recapture: () => Promise<void>;
-  /** Clear cached charts */
   clearCache: () => void;
-  /** Whether charts are ready for instant export */
   isReady: boolean;
-  /** Timestamp when charts were last captured */
   capturedAt: Date | null;
-  /** How long ago charts were captured (formatted string) */
   capturedAgo: string;
-  /** Whether the cached charts are considered stale (>5 mins old) */
   isStale: boolean;
 }
 
-/**
- * Format elapsed time as a human-readable string
- */
+const CHART_IDS = [
+  { elementId: 'priority-heatmap-chart', title: 'Priority Distribution Heatmap', description: 'Task priority distribution' },
+  { elementId: 'project-comparison-chart', title: 'Project Progress Comparison', description: 'Progress across projects' },
+  { elementId: 'team-workload-chart', title: 'Team Workload Analysis', description: 'Team member distribution' },
+  { elementId: 'portfolio-health-gauge', title: 'Portfolio Health Score', description: 'Overall health indicator' },
+];
+
 function formatTimeAgo(date: Date | null): string {
   if (!date) return '';
-  
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  
   if (seconds < 60) return 'just now';
   if (seconds < 120) return '1m ago';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -40,16 +41,9 @@ function formatTimeAgo(date: Date | null): string {
   return `${Math.floor(seconds / 3600)}h ago`;
 }
 
-/**
- * Hook to pre-capture charts in the background for instant PDF export
- * Captures charts after a delay to ensure they're fully rendered
- */
 export function useChartPreCapture(
-  /** Delay before starting capture (ms) - allows charts to render */
   captureDelay: number = 2000,
-  /** Whether to auto-capture on mount */
   autoCapture: boolean = true,
-  /** Time in ms after which charts are considered stale (default 5 mins) */
   staleThreshold: number = 5 * 60 * 1000
 ): UseChartPreCaptureResult {
   const [status, setStatus] = useState<PreCaptureStatus>('idle');
@@ -59,51 +53,50 @@ export function useChartPreCapture(
   const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
-  // Update "X ago" string periodically
   useEffect(() => {
-    if (!capturedAt) {
-      setCapturedAgo('');
-      return;
-    }
-
-    // Update immediately
+    if (!capturedAt) { setCapturedAgo(''); return; }
     setCapturedAgo(formatTimeAgo(capturedAt));
-
-    // Then update every 30 seconds
-    const interval = setInterval(() => {
-      setCapturedAgo(formatTimeAgo(capturedAt));
-    }, 30000);
-
+    const interval = setInterval(() => setCapturedAgo(formatTimeAgo(capturedAt)), 30000);
     return () => clearInterval(interval);
   }, [capturedAt]);
 
   const capture = useCallback(async () => {
     if (!isMountedRef.current) return;
-    
     setStatus('capturing');
-    
+
     try {
-      const capturedCharts = await captureRoadmapReviewCharts();
-      
+      const results: CapturedChartData[] = [];
+      for (const config of CHART_IDS) {
+        const el = document.getElementById(config.elementId);
+        if (!el) continue;
+        try {
+          const canvas = await html2canvas(el, {
+            scale: 1.0,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+          });
+          results.push({
+            elementId: config.elementId,
+            title: config.title,
+            description: config.description,
+            dataUrl: canvas.toDataURL('image/jpeg', 0.7),
+            width: canvas.width,
+            height: canvas.height,
+          });
+        } catch { /* skip failed chart */ }
+      }
+
       if (!isMountedRef.current) return;
-      
+
       const now = new Date();
       setCapturedAt(now);
       setCapturedAgo(formatTimeAgo(now));
-      
-      if (capturedCharts.length > 0) {
-        setCharts(capturedCharts);
-        setStatus('ready');
-        console.log(`Pre-captured ${capturedCharts.length} charts for instant export`);
-      } else {
-        // No charts found - this is okay, just mark as ready with no charts
-        setCharts([]);
-        setStatus('ready');
-        console.log('No charts found to pre-capture');
-      }
+      setCharts(results);
+      setStatus('ready');
+      console.log(`Pre-captured ${results.length} charts for instant export`);
     } catch (error) {
       if (!isMountedRef.current) return;
-      
       console.error('Chart pre-capture failed:', error);
       setStatus('error');
       setCharts(null);
@@ -112,11 +105,7 @@ export function useChartPreCapture(
   }, []);
 
   const recapture = useCallback(async () => {
-    // Clear any pending capture
-    if (captureTimeoutRef.current) {
-      clearTimeout(captureTimeoutRef.current);
-    }
-    
+    if (captureTimeoutRef.current) clearTimeout(captureTimeoutRef.current);
     setCharts(null);
     setCapturedAt(null);
     await capture();
@@ -128,49 +117,30 @@ export function useChartPreCapture(
     setCapturedAt(null);
   }, []);
 
-  // Auto-capture on mount with delay
   useEffect(() => {
     isMountedRef.current = true;
-    
     if (autoCapture) {
-      captureTimeoutRef.current = setTimeout(() => {
-        capture();
-      }, captureDelay);
+      captureTimeoutRef.current = setTimeout(() => capture(), captureDelay);
     }
-    
     return () => {
       isMountedRef.current = false;
-      if (captureTimeoutRef.current) {
-        clearTimeout(captureTimeoutRef.current);
-      }
+      if (captureTimeoutRef.current) clearTimeout(captureTimeoutRef.current);
     };
   }, [autoCapture, captureDelay, capture]);
 
-  // Auto-recapture when tab becomes visible after being hidden
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && status === 'ready') {
-        // Small delay to ensure DOM is fully rendered after tab switch
         captureTimeoutRef.current = setTimeout(() => {
-          if (isMountedRef.current) {
-            console.log('Tab visible again - recapturing charts');
-            capture();
-          }
+          if (isMountedRef.current) capture();
         }, 500);
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [status, capture]);
 
-  // Calculate if charts are stale
-  const isStale = capturedAt 
-    ? (Date.now() - capturedAt.getTime()) > staleThreshold 
-    : false;
+  const isStale = capturedAt ? (Date.now() - capturedAt.getTime()) > staleThreshold : false;
 
   return {
     status,

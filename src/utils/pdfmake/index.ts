@@ -174,12 +174,8 @@ export type {
   ChartSectionOptions,
 } from './chartUtils';
 
-// Roadmap Review Builder
-export {
-  generateRoadmapReviewPDF,
-  downloadRoadmapReviewPDF,
-} from './roadmapReviewBuilder';
-export type { PDFGenerationResult } from './roadmapReviewBuilder';
+// Roadmap Review Builder - migrated to SVG engine (src/utils/svg-pdf/roadmapReviewPdfBuilder.ts)
+export type PDFGenerationResult = { blob: Blob; filename: string };
 
 // HR Export utilities
 export {

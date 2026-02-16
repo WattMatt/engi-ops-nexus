@@ -48,11 +48,12 @@ import {
   calculatePortfolioMetrics,
 } from "@/utils/roadmapReviewCalculations";
 
-// Import PDF export utilities
-import { generateRoadmapPdfBlob, captureRoadmapReviewCharts } from "@/utils/roadmapReviewPdfMake";
-import { RoadmapPDFExportOptions } from "@/utils/roadmapReviewPdfStyles";
+// Import SVG PDF engine
+import { buildRoadmapReviewPdf, type RoadmapReviewData } from "@/utils/svg-pdf/roadmapReviewPdfBuilder";
+import { svgPagesToPdfBlob } from "@/utils/svg-pdf/svgToPdfEngine";
+import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 
-// Import pre-capture hook
+// Import pre-capture hook (chart images embedded as base64 in future iterations)
 import { useChartPreCapture } from "@/hooks/useChartPreCapture";
 
 interface SavedPdfExport {
@@ -245,7 +246,7 @@ export function RoadmapReviewContent() {
     return calculatePortfolioMetrics(filteredSummaries);
   }, [filteredSummaries]);
 
-  const generatePDFReport = useCallback(async (options?: RoadmapPDFExportOptions) => {
+  const generatePDFReport = useCallback(async (options?: Record<string, any>) => {
     if (filteredSummaries.length === 0) {
       toast.error("No project data available to export");
       return;
@@ -257,54 +258,65 @@ export function RoadmapReviewContent() {
     setExportStep('capturing');
     
     try {
-      let capturedCharts = undefined;
-      
-      if (options?.includeCharts !== false) {
-        if (chartsPreCaptured && preCapturedCharts && preCapturedCharts.length > 0) {
-          capturedCharts = preCapturedCharts;
-        } else {
-          toast.info("Charts will be skipped - refresh page first for chart capture");
-        }
-      }
-
       if (cancelExportRef.current) throw new Error('Export cancelled');
 
       setExportStep('building');
       if (cancelExportRef.current) throw new Error('Export cancelled');
 
       setExportStep('generating');
-      
-      const exportOptions = {
-        includeCharts: capturedCharts ? (options?.includeCharts ?? true) : false,
-        includeAnalytics: options?.includeAnalytics ?? true,
-        includeDetailedProjects: options?.includeDetailedProjects ?? true,
-        includeMeetingNotes: options?.includeMeetingNotes ?? false,
-        includeSummaryMinutes: options?.includeSummaryMinutes ?? false,
-        includeTableOfContents: options?.includeTableOfContents ?? true,
-        includeCoverPage: options?.includeCoverPage ?? true,
-        includeFullRoadmapItems: options?.includeFullRoadmapItems ?? false,
-        companyLogo: options?.companyLogo,
+
+      // Map enhanced summaries to SVG builder data
+      const coverData: StandardCoverPageData = {
+        reportTitle: 'ROADMAP REVIEW',
+        reportSubtitle: 'Portfolio Analysis',
+        projectName: 'All Projects',
+        date: format(new Date(), 'dd MMMM yyyy'),
         companyName: options?.companyName,
-        confidentialNotice: options?.confidentialNotice ?? true,
-        reportType: options?.reportType ?? 'standard',
-        chartLayout: options?.chartLayout ?? 'stacked',
       };
 
-      const filterDesc = getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries);
-      const customFilename = filterDesc
-        ? `Roadmap_Review_${filterDesc.replace(/\s+/g, '_')}_${format(new Date(), "yyyy-MM-dd")}.pdf`
-        : undefined;
-
-      const { blob, filename } = await generateRoadmapPdfBlob(
-        filteredSummaries,
-        portfolioMetrics,
-        exportOptions,
-        queryData?.allRoadmapItems?.filter(item => 
-          filteredSummaries.some(p => p.projectId === item.project_id)
+      const reviewData: RoadmapReviewData = {
+        coverData,
+        projectName: 'Portfolio',
+        overallScore: Math.round(portfolioMetrics.totalHealthScore),
+        reviewDate: format(new Date(), 'dd MMM yyyy'),
+        focusAreas: filteredSummaries
+          .filter(s => s.riskLevel === 'high' || s.riskLevel === 'critical')
+          .map(s => `${s.projectName}: ${s.riskLevel} risk (${s.overdueCount} overdue)`),
+        categories: filteredSummaries.map(s => ({
+          name: s.projectName,
+          score: s.completedItems,
+          maxScore: s.totalItems,
+          findings: s.criticalMilestones.map(m => `${m.title} due in ${m.daysUntil} days`),
+        })),
+        milestones: filteredSummaries.flatMap(s =>
+          s.upcomingItems.slice(0, 3).map(item => ({
+            title: `${s.projectName}: ${item.title}`,
+            targetDate: item.dueDate || 'TBD',
+            status: item.isCompleted ? 'completed' as const :
+              (item.dueDate && new Date(item.dueDate) < new Date()) ? 'overdue' as const : 'pending' as const,
+            notes: item.priority || undefined,
+          }))
         ),
-        capturedCharts,
-        customFilename,
-      );
+        recommendations: [
+          ...filteredSummaries
+            .filter(s => s.riskLevel === 'critical')
+            .map(s => `Urgent: ${s.projectName} has ${s.overdueCount} overdue items requiring immediate attention.`),
+          ...filteredSummaries
+            .filter(s => s.riskLevel === 'high')
+            .map(s => `${s.projectName} health score is ${s.healthScore}% — review resource allocation.`),
+          portfolioMetrics.totalOverdueItems > 0
+            ? `${portfolioMetrics.totalOverdueItems} items are overdue across the portfolio.`
+            : 'All portfolio items are on track.',
+        ],
+      };
+
+      const svgPages = buildRoadmapReviewPdf(reviewData);
+      const { blob, timeMs } = await svgPagesToPdfBlob(svgPages);
+
+      const filterDesc = getFilterDescription(groupBy, selectedProject, selectedRole, selectedUser, enhancedSummaries);
+      const filename = filterDesc
+        ? `Roadmap_Review_${filterDesc.replace(/\s+/g, '_')}_${format(new Date(), "yyyy-MM-dd")}.pdf`
+        : `Roadmap_Review_${format(new Date(), "yyyy-MM-dd")}.pdf`;
 
       if (cancelExportRef.current) throw new Error('Export cancelled');
 
@@ -328,9 +340,10 @@ export function RoadmapReviewContent() {
           file_name: filename,
           file_path: storagePath,
           file_size: blob.size,
-          report_type: options?.reportType ?? 'standard',
+          report_type: 'standard',
           exported_by: user?.id || null,
           options: options || {},
+          engine_version: 'svg-engine',
         })
         .select()
         .single();

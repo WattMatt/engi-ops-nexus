@@ -6,13 +6,25 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FileText, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { RoadmapPDFExportOptions, DEFAULT_EXPORT_OPTIONS } from "@/utils/roadmapReviewPdfStyles";
 import type { PreCaptureStatus } from "@/hooks/useChartPreCapture";
+
+export interface RoadmapExportOptions {
+  reportType: 'standard' | 'meeting-review' | 'executive-summary';
+  includeCharts: boolean;
+  includeDetailedProjects: boolean;
+  includeMeetingNotes: boolean;
+  includeSummaryMinutes: boolean;
+  includeTableOfContents: boolean;
+  includeCoverPage: boolean;
+  companyLogo?: string | null;
+  companyName?: string;
+  confidentialNotice?: boolean;
+}
 
 interface PDFExportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onExport: (options: RoadmapPDFExportOptions) => Promise<void>;
+  onExport: (options: RoadmapExportOptions) => Promise<void>;
   isExporting: boolean;
   preCaptureStatus?: PreCaptureStatus;
   preCapturedChartCount?: number;
@@ -21,16 +33,24 @@ interface PDFExportDialogProps {
   isStale?: boolean;
 }
 
+const DEFAULT_OPTIONS: RoadmapExportOptions = {
+  reportType: 'standard',
+  includeCharts: true,
+  includeDetailedProjects: true,
+  includeMeetingNotes: false,
+  includeSummaryMinutes: false,
+  includeTableOfContents: true,
+  includeCoverPage: true,
+  confidentialNotice: true,
+};
+
 export function PDFExportDialog({ 
   open, 
   onOpenChange, 
   onExport, 
   isExporting,
 }: PDFExportDialogProps) {
-  const [options, setOptions] = useState<RoadmapPDFExportOptions>({
-    ...DEFAULT_EXPORT_OPTIONS,
-    pdfEngine: 'pdfmake',
-  });
+  const [options, setOptions] = useState<RoadmapExportOptions>({ ...DEFAULT_OPTIONS });
   const [companySettings, setCompanySettings] = useState<{
     companyName: string;
     companyLogo: string | null;
@@ -57,9 +77,7 @@ export function PDFExportDialog({
       }
     };
     
-    if (open) {
-      fetchCompanySettings();
-    }
+    if (open) fetchCompanySettings();
   }, [open]);
 
   const handleExport = async () => {
@@ -67,10 +85,7 @@ export function PDFExportDialog({
     onOpenChange(false);
   };
 
-  const updateOption = <K extends keyof RoadmapPDFExportOptions>(
-    key: K, 
-    value: RoadmapPDFExportOptions[K]
-  ) => {
+  const updateOption = <K extends keyof RoadmapExportOptions>(key: K, value: RoadmapExportOptions[K]) => {
     setOptions(prev => ({ ...prev, [key]: value }));
   };
 
@@ -94,10 +109,9 @@ export function PDFExportDialog({
         </DialogHeader>
 
         <div className="space-y-5 py-3">
-          {/* Report Type - Compact */}
           <RadioGroup 
             value={options.reportType} 
-            onValueChange={(v) => updateOption('reportType', v as RoadmapPDFExportOptions['reportType'])}
+            onValueChange={(v) => updateOption('reportType', v as RoadmapExportOptions['reportType'])}
             className="space-y-2"
           >
             {reportTypes.map(type => (
@@ -118,7 +132,6 @@ export function PDFExportDialog({
             ))}
           </RadioGroup>
 
-          {/* Sections - 2 Column Grid */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground uppercase tracking-wide">Sections</Label>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -131,8 +144,8 @@ export function PDFExportDialog({
                 <label key={item.id} className="flex items-center gap-2 cursor-pointer">
                   <Checkbox 
                     id={item.id}
-                    checked={options[item.key as keyof RoadmapPDFExportOptions] as boolean}
-                    onCheckedChange={(checked) => updateOption(item.key as keyof RoadmapPDFExportOptions, !!checked)}
+                    checked={options[item.key as keyof RoadmapExportOptions] as boolean}
+                    onCheckedChange={(checked) => updateOption(item.key as keyof RoadmapExportOptions, !!checked)}
                   />
                   <span className="text-sm">{item.label}</span>
                 </label>
@@ -161,7 +174,6 @@ export function PDFExportDialog({
             </div>
           </div>
 
-          {/* Branding - Inline */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground uppercase tracking-wide">Branding</Label>
             <div className="flex flex-wrap gap-x-6 gap-y-2">
