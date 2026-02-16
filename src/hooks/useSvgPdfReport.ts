@@ -190,6 +190,7 @@ export function useSvgPdfReport() {
         file_size: sizeBytes,
         generated_by: userId || null,
         notes: 'Generated via SVG engine',
+        engine_version: 'svg-engine',
       };
       if (config.projectId) {
         insertData.project_id = config.projectId;
