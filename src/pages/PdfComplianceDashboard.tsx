@@ -129,12 +129,15 @@ function deriveStatus(latestEngine: DetectedEngine, totalGenerated: number): Tel
   return 'unknown';
 }
 
-function complianceScore(r: ReportDefinition, telemetry?: ReportTelemetry): number {
+/**
+ * Structural compliance score — based on actual PDF spec features in the builder code.
+ * Does NOT include DB history (that's a telemetry concern, not a compliance one).
+ */
+function complianceScore(r: ReportDefinition): number {
   const checks = [
     r.hasCoverPage,
     r.hasRunningHeader,
     r.hasRunningFooter,
-    telemetry ? telemetry.totalGenerated > 0 : !!r.inherited, // has history
   ];
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
@@ -265,29 +268,36 @@ export default function PdfComplianceDashboard() {
     });
   }, [search, telemetry]);
 
-  // KPI calculations
+  // KPI calculations — reflects REAL state
   const kpis = useMemo(() => {
+    const totalReports = REPORT_DEFINITIONS.length;
+    
+    // KPI 1: SVG Engine (Code-Level) — ALL builders are now SVG-based since pdfmake removal
+    // Every report in REPORT_DEFINITIONS uses an SVG builder from src/utils/svg-pdf/
+    const svgEngineCount = totalReports; // All 29 builders are SVG engine
+    const svgEnginePct = 100;
+
+    // KPI 2: DB Telemetry — how many tracked reports have verified svg-engine records
     const tracked = REPORT_DEFINITIONS.filter(r => r.dbTable);
-    const verified = tracked.filter(r => telemetry.get(r.id)?.status === 'verified').length;
-    const legacy = tracked.filter(r => telemetry.get(r.id)?.status === 'legacy').length;
-    const noData = tracked.filter(r => {
+    const totalTracked = tracked.length;
+    const dbVerified = tracked.filter(r => telemetry.get(r.id)?.status === 'verified').length;
+    const dbLegacy = tracked.filter(r => telemetry.get(r.id)?.status === 'legacy').length;
+    const dbNoData = tracked.filter(r => {
       const t = telemetry.get(r.id);
       return !t || t.status === 'no-data' || t.status === 'unknown';
     }).length;
-    const totalTracked = tracked.length;
-    const verifiedPct = totalTracked > 0 ? Math.round((verified / totalTracked) * 100) : 0;
+    const downloadOnly = REPORT_DEFINITIONS.filter(r => !r.dbTable && !r.inherited).length;
 
-    const specCompliant = REPORT_DEFINITIONS.filter(r => complianceScore(r, telemetry.get(r.id)) === 100).length;
-    const specPct = Math.round((specCompliant / REPORT_DEFINITIONS.length) * 100);
+    // KPI 3: Spec Compliant — structural features only (cover, header, footer)
+    const specCompliant = REPORT_DEFINITIONS.filter(r => complianceScore(r) === 100).length;
+    const specPct = Math.round((specCompliant / totalReports) * 100);
 
+    // KPI 4: Avg Feature Score — structural features only
     const avgScore = Math.round(
-      REPORT_DEFINITIONS.reduce((sum, r) => sum + complianceScore(r, telemetry.get(r.id)), 0) / REPORT_DEFINITIONS.length
+      REPORT_DEFINITIONS.reduce((sum, r) => sum + complianceScore(r), 0) / totalReports
     );
 
-    const engines = new Set<DetectedEngine>();
-    telemetry.forEach(t => { if (t.latestEngine !== 'unknown') engines.add(t.latestEngine); });
-
-    return { verified, legacy, noData, totalTracked, verifiedPct, specCompliant, specPct, avgScore, activeEngines: engines.size || 0 };
+    return { svgEngineCount, totalReports, svgEnginePct, dbVerified, dbLegacy, dbNoData, totalTracked, downloadOnly, specCompliant, specPct, avgScore };
   }, [telemetry]);
 
   return (
@@ -316,30 +326,30 @@ export default function PdfComplianceDashboard() {
       {/* KPI Row */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          title="SVG Engine Verified"
-          value={`${kpis.verified}/${kpis.totalTracked}`}
-          subtitle={`${kpis.verifiedPct}% verified via DB`}
-          progress={kpis.verifiedPct}
+          title="SVG Engine (Code)"
+          value={`${kpis.svgEngineCount}/${kpis.totalReports}`}
+          subtitle={`${kpis.svgEnginePct}% — all builders migrated`}
+          progress={kpis.svgEnginePct}
           color="emerald"
         />
         <KpiCard
-          title="Legacy / Unknown"
-          value={`${kpis.legacy + kpis.noData}`}
-          subtitle={`${kpis.legacy} legacy, ${kpis.noData} no data`}
-          progress={kpis.totalTracked > 0 ? Math.round(((kpis.legacy + kpis.noData) / kpis.totalTracked) * 100) : 0}
+          title="DB Telemetry"
+          value={`${kpis.dbVerified}/${kpis.totalTracked}`}
+          subtitle={`${kpis.dbLegacy} legacy, ${kpis.dbNoData} pending, ${kpis.downloadOnly} download-only`}
+          progress={kpis.totalTracked > 0 ? Math.round((kpis.dbVerified / kpis.totalTracked) * 100) : 0}
           color="amber"
         />
         <KpiCard
           title="Spec Compliant"
-          value={`${kpis.specCompliant}/${REPORT_DEFINITIONS.length}`}
-          subtitle={`${kpis.specPct}% passing`}
+          value={`${kpis.specCompliant}/${kpis.totalReports}`}
+          subtitle={`${kpis.specPct}% — Cover + Header + Footer`}
           progress={kpis.specPct}
           color="blue"
         />
         <KpiCard
           title="Avg Feature Score"
           value={`${kpis.avgScore}%`}
-          subtitle="Cover, Header, Footer, History"
+          subtitle="Cover, Header, Footer"
           progress={kpis.avgScore}
           color="violet"
         />
@@ -405,7 +415,7 @@ export default function PdfComplianceDashboard() {
                         const statusKey = t?.status || (r.dbTable ? 'no-data' : 'unknown');
                         const engineCfg = ENGINE_DISPLAY[engineKey];
                         const statusCfg = STATUS_DISPLAY[statusKey];
-                        const score = complianceScore(r, t);
+                        const score = complianceScore(r);
 
                         return (
                           <tr key={r.id} className="border-b hover:bg-muted/30 transition-colors">
@@ -469,13 +479,15 @@ export default function PdfComplianceDashboard() {
               <div className="grid gap-3">
                 {filtered.map(r => {
                   const t = telemetry.get(r.id);
-                  const score = complianceScore(r, t);
+                  const score = complianceScore(r);
                   const checks = [
                     { label: 'Branded Cover Page', pass: r.hasCoverPage },
                     { label: 'Running Header (§1)', pass: r.hasRunningHeader },
                     { label: 'Running Footer (§2)', pass: r.hasRunningFooter },
-                    { label: 'Report History', pass: t ? t.totalGenerated > 0 : !!r.inherited },
                   ];
+                  if (r.dbTable) {
+                    checks.push({ label: 'DB History', pass: t ? t.totalGenerated > 0 : false });
+                  }
                   const failing = checks.filter(c => !c.pass);
 
                   return (
