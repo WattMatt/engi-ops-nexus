@@ -13,7 +13,10 @@ import { SpecificationSummarySection } from './SpecificationSummarySection';
 import { ApprovalTrackingSection } from './ApprovalTrackingSection';
 import { ReportTemplateManager } from './ReportTemplateManager';
 import { RegulatoryComplianceSection } from './RegulatoryComplianceSection';
-import { generateLightingReportPDF } from '@/utils/lightingReportPDF';
+import { useSvgPdfReport } from '@/hooks/useSvgPdfReport';
+import { buildLightingReportPdf, type LightingReportPdfData, type LightingTenantSchedule, type LightingFittingSpec } from '@/utils/svg-pdf/lightingReportPdfBuilder';
+import type { StandardCoverPageData } from '@/utils/svg-pdf/sharedSvgHelpers';
+import { format } from 'date-fns';
 
 export interface LightingReportConfig {
   includesCoverPage: boolean;
@@ -61,11 +64,11 @@ const defaultConfig: LightingReportConfig = {
 
 export const LightingReportTab: React.FC<LightingReportTabProps> = ({ projectId }) => {
   const { toast } = useToast();
+  const { isGenerating, generateAndPersist, fetchCompanyData } = useSvgPdfReport();
   const [reportType, setReportType] = useState<string>('full');
   const [config, setConfig] = useState<LightingReportConfig>(defaultConfig);
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [activeTab, setActiveTab] = useState('generate');
 
@@ -115,33 +118,123 @@ export const LightingReportTab: React.FC<LightingReportTabProps> = ({ projectId 
     }));
   };
 
+  const fetchScheduleData = async (): Promise<LightingTenantSchedule[]> => {
+    if (!projectId) return [];
+    const { data: tenants } = await supabase
+      .from('tenants')
+      .select('id, shop_name, shop_number, area')
+      .eq('project_id', projectId);
+
+    const { data: schedules } = await supabase
+      .from('project_lighting_schedules')
+      .select(`id, tenant_id, quantity, approval_status, lighting_fittings (manufacturer, model_number, wattage, supply_cost, install_cost)`)
+      .eq('project_id', projectId);
+
+    return (tenants || []).map(tenant => {
+      const tenantItems = (schedules || [])
+        .filter(s => s.tenant_id === tenant.id)
+        .map(s => {
+          const fitting = s.lighting_fittings as any;
+          const wattage = fitting?.wattage || 0;
+          const quantity = s.quantity || 1;
+          return {
+            fittingCode: fitting?.model_number || 'N/A',
+            description: fitting ? `${fitting.manufacturer} ${fitting.model_number}` : 'Unknown',
+            quantity,
+            wattage,
+            totalWattage: wattage * quantity,
+            status: s.approval_status || 'pending',
+            supplyCost: (fitting?.supply_cost || 0) * quantity,
+            installCost: (fitting?.install_cost || 0) * quantity,
+          };
+        });
+
+      return {
+        shopNumber: tenant.shop_number || '',
+        shopName: tenant.shop_name || 'Unnamed',
+        area: tenant.area || 0,
+        items: tenantItems,
+      };
+    }).filter(t => t.items.length > 0);
+  };
+
+  const fetchSpecifications = async (): Promise<LightingFittingSpec[]> => {
+    if (!projectId) return [];
+    const { data: schedules } = await supabase
+      .from('project_lighting_schedules')
+      .select(`quantity, lighting_fittings (id, manufacturer, model_number, wattage, lumens, color_temperature, cri, ip_rating, fitting_type)`)
+      .eq('project_id', projectId);
+
+    const fittingMap = new Map<string, LightingFittingSpec>();
+    (schedules || []).forEach(schedule => {
+      const fitting = schedule.lighting_fittings as any;
+      if (!fitting) return;
+      const existing = fittingMap.get(fitting.id);
+      if (existing) {
+        existing.quantityUsed += schedule.quantity || 1;
+      } else {
+        fittingMap.set(fitting.id, {
+          manufacturer: fitting.manufacturer,
+          modelNumber: fitting.model_number,
+          wattage: fitting.wattage,
+          lumens: fitting.lumens,
+          colorTemperature: fitting.color_temperature,
+          cri: fitting.cri,
+          ipRating: fitting.ip_rating,
+          fittingType: fitting.fitting_type || 'General',
+          quantityUsed: schedule.quantity || 1,
+        });
+      }
+    });
+    return Array.from(fittingMap.values());
+  };
+
   const handleGenerateReport = async () => {
     if (!projectId) {
-      toast({
-        title: "No Project Selected",
-        description: "Please select a project first.",
-        variant: "destructive",
-      });
+      toast({ title: "No Project Selected", description: "Please select a project first.", variant: "destructive" });
       return;
     }
 
-    setIsGenerating(true);
-    try {
-      await generateLightingReportPDF(projectId, config);
-      toast({
-        title: "Report Generated",
-        description: "Your lighting report has been downloaded.",
-      });
-    } catch (error) {
-      console.error('Error generating report:', error);
-      toast({
-        title: "Generation Failed",
-        description: "Failed to generate the report. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
+    const { data: project } = await supabase.from('projects').select('name, project_number').eq('id', projectId).single();
+
+    const buildFn = async () => {
+      const companyData = await fetchCompanyData();
+      const schedules = await fetchScheduleData();
+      const specifications = await fetchSpecifications();
+
+      const pdfData: LightingReportPdfData = {
+        coverData: {
+          ...companyData,
+          reportTitle: 'LIGHTING REPORT',
+          reportSubtitle: 'Comprehensive Lighting Analysis',
+          projectName: project?.name || 'Untitled Project',
+          projectNumber: project?.project_number || '',
+          date: format(new Date(), 'dd MMMM yyyy'),
+        } as StandardCoverPageData,
+        projectName: project?.name || 'Untitled Project',
+        sections: {
+          executiveSummary: config.sections.executiveSummary,
+          scheduleByTenant: config.sections.scheduleByTenant,
+          specificationSheets: config.sections.specificationSheets,
+          costSummary: config.sections.costSummary,
+          energyAnalysis: config.sections.energyAnalysis,
+        },
+        schedules,
+        specifications,
+      };
+
+      return buildLightingReportPdf(pdfData);
+    };
+
+    await generateAndPersist(buildFn, {
+      storageBucket: 'lighting-reports',
+      dbTable: 'lighting_report_history',
+      foreignKeyColumn: 'project_id',
+      foreignKeyValue: projectId,
+      reportName: `Lighting_Report_${project?.project_number || 'Report'}`,
+    });
+
+    toast({ title: "Report Generated", description: "Your lighting report has been generated." });
   };
 
   const handlePreviewReport = () => {

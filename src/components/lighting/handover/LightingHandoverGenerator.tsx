@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,10 +12,12 @@ import {
   Shield, Clock, Upload, Check, AlertCircle, FileCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateLightingReportPDF } from '@/utils/lightingReportPDF';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import { useSvgPdfReport } from '@/hooks/useSvgPdfReport';
+import { buildLightingReportPdf, type LightingReportPdfData, type LightingTenantSchedule, type LightingFittingSpec } from '@/utils/svg-pdf/lightingReportPdfBuilder';
+import { buildWarrantySchedulePdf, type WarrantySchedulePdfData, type WarrantyFitting } from '@/utils/svg-pdf/warrantySchedulePdfBuilder';
+import { svgPagesToPdfBlob } from '@/utils/svg-pdf/svgToPdfEngine';
+import type { StandardCoverPageData } from '@/utils/svg-pdf/sharedSvgHelpers';
 
 interface LightingHandoverGeneratorProps {
   projectId: string | null;
@@ -36,6 +38,7 @@ interface FittingWithSchedule {
 
 export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps> = ({ projectId }) => {
   const queryClient = useQueryClient();
+  const { fetchCompanyData } = useSvgPdfReport();
   const [isGenerating, setIsGenerating] = useState(false);
   const [includeSchedule, setIncludeSchedule] = useState(true);
   const [includeSpecSheets, setIncludeSpecSheets] = useState(true);
@@ -85,28 +88,25 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
 
       if (error) throw error;
 
-      // Aggregate by fitting
       const fittingMap = new Map<string, FittingWithSchedule>();
       const tenantSets = new Map<string, Set<string>>();
 
-      (schedules || []).forEach((schedule: any) => {
-        const fitting = schedule.lighting_fittings;
+      (schedules || []).forEach(schedule => {
+        const fitting = schedule.lighting_fittings as any;
         if (!fitting) return;
 
-        const existing = fittingMap.get(fitting.id);
-        const tenantSet = tenantSets.get(fitting.id) || new Set();
-        
-        if (schedule.tenant_id) {
-          tenantSet.add(schedule.tenant_id);
+        const fittingId = fitting.id;
+        if (!tenantSets.has(fittingId)) {
+          tenantSets.set(fittingId, new Set());
         }
-        tenantSets.set(fitting.id, tenantSet);
+        tenantSets.get(fittingId)!.add(schedule.tenant_id);
 
+        const existing = fittingMap.get(fittingId);
         if (existing) {
-          existing.total_quantity += schedule.quantity || 0;
-          existing.tenant_count = tenantSet.size;
+          existing.total_quantity += schedule.quantity || 1;
         } else {
-          fittingMap.set(fitting.id, {
-            fitting_id: fitting.id,
+          fittingMap.set(fittingId, {
+            fitting_id: fittingId,
             fitting_code: fitting.fitting_code,
             model_name: fitting.model_name,
             manufacturer: fitting.manufacturer,
@@ -114,19 +114,23 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
             warranty_years: fitting.warranty_years,
             warranty_terms: fitting.warranty_terms,
             spec_sheet_url: fitting.spec_sheet_url,
-            total_quantity: schedule.quantity || 0,
-            tenant_count: tenantSet.size,
+            total_quantity: schedule.quantity || 1,
+            tenant_count: 0,
           });
         }
       });
 
-      return Array.from(fittingMap.values());
+      const results = Array.from(fittingMap.values());
+      results.forEach(f => {
+        f.tenant_count = tenantSets.get(f.fitting_id)?.size || 0;
+      });
+
+      return results;
     },
     enabled: !!projectId,
   });
 
-  // Select all fittings on load
-  React.useEffect(() => {
+  useEffect(() => {
     if (fittings.length > 0 && selectedFittings.size === 0) {
       setSelectedFittings(new Set(fittings.map(f => f.fitting_id)));
     }
@@ -142,82 +146,14 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
     setSelectedFittings(newSet);
   };
 
-  const selectAll = () => {
-    setSelectedFittings(new Set(fittings.map(f => f.fitting_id)));
-  };
-
-  const selectNone = () => {
-    setSelectedFittings(new Set());
-  };
-
-  // Generate warranty schedule PDF
-  const generateWarrantySchedulePDF = async () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Header
-    doc.setFillColor(30, 41, 59);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.text('LIGHTING WARRANTY SCHEDULE', pageWidth / 2, 20, { align: 'center' });
-    doc.setFontSize(12);
-    doc.text(project?.name || 'Project', pageWidth / 2, 30, { align: 'center' });
-    
-    doc.setTextColor(0, 0, 0);
-    
-    // Project info
-    let yPos = 55;
-    doc.setFontSize(10);
-    doc.text(`Project Number: ${project?.project_number || 'N/A'}`, 20, yPos);
-    doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy')}`, pageWidth - 70, yPos);
-    
-    yPos += 15;
-
-    // Warranty table
-    const selectedFittingsList = fittings.filter(f => selectedFittings.has(f.fitting_id));
-    
-    const tableData = selectedFittingsList.map(f => [
-      f.fitting_code,
-      f.model_name,
-      f.manufacturer || '-',
-      f.total_quantity.toString(),
-      `${f.warranty_years || 3} years`,
-      f.warranty_terms || 'Standard manufacturer warranty',
-    ]);
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Code', 'Model', 'Manufacturer', 'Qty', 'Warranty', 'Terms']],
-      body: tableData,
-      theme: 'striped',
-      headStyles: { fillColor: [30, 41, 59] },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 15 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 'auto' },
-      },
-      styles: { fontSize: 8 },
-    });
-
-    // Footer note
-    const finalY = (doc as any).lastAutoTable?.finalY || yPos + 50;
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text('Note: Warranty periods commence from date of installation. Contact supplier for warranty claims.', 20, finalY + 15);
-
-    return doc;
-  };
+  const selectAll = () => setSelectedFittings(new Set(fittings.map(f => f.fitting_id)));
+  const selectNone = () => setSelectedFittings(new Set());
 
   // Save document to handover
   const saveToHandover = useMutation({
     mutationFn: async ({ blob, fileName, documentType }: { blob: Blob; fileName: string; documentType: string }) => {
       if (!projectId) throw new Error('No project selected');
 
-      // Upload to storage
       const filePath = `handover/${projectId}/${fileName}`;
       const { error: uploadError } = await supabase.storage
         .from('handover-documents')
@@ -225,14 +161,11 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
 
       if (uploadError) throw uploadError;
 
-      // For private buckets, store the authenticated URL pattern
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/handover-documents/${filePath}`;
 
-      // Get user
       const { data: userData } = await supabase.auth.getUser();
 
-      // Insert record
       const { error: insertError } = await supabase
         .from('handover_documents' as any)
         .insert({
@@ -266,39 +199,94 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
 
     setIsGenerating(true);
     try {
+      const companyData = await fetchCompanyData();
       const generatedDocs: string[] = [];
 
-      // Generate lighting schedule
+      // Generate lighting schedule via SVG engine
       if (includeSchedule) {
-        await generateLightingReportPDF(projectId, {
-          includesCoverPage: true,
-          includeTableOfContents: false,
+        const { data: tenants } = await supabase.from('tenants').select('id, shop_name, shop_number, area').eq('project_id', projectId);
+        const { data: schedules } = await supabase
+          .from('project_lighting_schedules')
+          .select(`id, tenant_id, quantity, approval_status, lighting_fittings (manufacturer, model_number, wattage, supply_cost, install_cost)`)
+          .eq('project_id', projectId);
+
+        const scheduleData: LightingTenantSchedule[] = (tenants || []).map(tenant => {
+          const tenantItems = (schedules || [])
+            .filter(s => s.tenant_id === tenant.id)
+            .map(s => {
+              const fitting = s.lighting_fittings as any;
+              const wattage = fitting?.wattage || 0;
+              const quantity = s.quantity || 1;
+              return {
+                fittingCode: fitting?.model_number || 'N/A',
+                description: fitting ? `${fitting.manufacturer} ${fitting.model_number}` : 'Unknown',
+                quantity, wattage,
+                totalWattage: wattage * quantity,
+                status: s.approval_status || 'pending',
+                supplyCost: (fitting?.supply_cost || 0) * quantity,
+                installCost: (fitting?.install_cost || 0) * quantity,
+              };
+            });
+          return { shopNumber: tenant.shop_number || '', shopName: tenant.shop_name || 'Unnamed', area: tenant.area || 0, items: tenantItems };
+        }).filter(t => t.items.length > 0);
+
+        const lightingPdfData: LightingReportPdfData = {
+          coverData: {
+            ...companyData,
+            reportTitle: 'LIGHTING SCHEDULE',
+            reportSubtitle: 'Handover Document',
+            projectName: project?.name || 'Project',
+            projectNumber: project?.project_number || '',
+            date: format(new Date(), 'dd MMMM yyyy'),
+          } as StandardCoverPageData,
+          projectName: project?.name || 'Project',
           sections: {
             executiveSummary: false,
             scheduleByTenant: true,
-            scheduleByZone: false,
             specificationSheets: includeSpecSheets,
             costSummary: false,
             energyAnalysis: false,
-            approvalStatus: false,
-            comparisons: false,
-            regulatoryCompliance: false,
           },
-        });
+          schedules: scheduleData,
+          specifications: [],
+        };
+
+        const svgPages = buildLightingReportPdf(lightingPdfData);
+        const { blob } = await svgPagesToPdfBlob(svgPages);
+        const fileName = `${project?.project_number || 'Project'}_Lighting_Schedule.pdf`;
+        await saveToHandover.mutateAsync({ blob, fileName, documentType: 'lighting' });
         generatedDocs.push('Lighting Schedule');
       }
 
-      // Generate warranty schedule and save to handover
+      // Generate warranty schedule via SVG engine
       if (includeWarranty) {
-        const warrantyDoc = await generateWarrantySchedulePDF();
-        const warrantyBlob = warrantyDoc.output('blob');
+        const selectedFittingsList = fittings.filter(f => selectedFittings.has(f.fitting_id));
+        const warrantyFittings: WarrantyFitting[] = selectedFittingsList.map(f => ({
+          fittingCode: f.fitting_code,
+          modelName: f.model_name,
+          manufacturer: f.manufacturer || '-',
+          quantity: f.total_quantity,
+          warrantyYears: f.warranty_years || 3,
+          warrantyTerms: f.warranty_terms || 'Standard manufacturer warranty',
+        }));
+
+        const warrantyData: WarrantySchedulePdfData = {
+          coverData: {
+            ...companyData,
+            reportTitle: 'WARRANTY SCHEDULE',
+            reportSubtitle: 'Lighting Fittings',
+            projectName: project?.name || 'Project',
+            projectNumber: project?.project_number || '',
+            date: format(new Date(), 'dd MMMM yyyy'),
+          } as StandardCoverPageData,
+          projectName: project?.name || 'Project',
+          fittings: warrantyFittings,
+        };
+
+        const svgPages = buildWarrantySchedulePdf(warrantyData);
+        const { blob } = await svgPagesToPdfBlob(svgPages);
         const warrantyFileName = `${project?.project_number || 'Project'}_Lighting_Warranty_Schedule.pdf`;
-        
-        await saveToHandover.mutateAsync({
-          blob: warrantyBlob,
-          fileName: warrantyFileName,
-          documentType: 'warranties',
-        });
+        await saveToHandover.mutateAsync({ blob, fileName: warrantyFileName, documentType: 'warranties' });
         generatedDocs.push('Warranty Schedule');
       }
 
@@ -336,56 +324,37 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Document Options */}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="flex items-start space-x-3 p-4 rounded-lg border bg-muted/30">
-              <Checkbox
-                id="includeSchedule"
-                checked={includeSchedule}
-                onCheckedChange={(checked) => setIncludeSchedule(checked as boolean)}
-              />
+              <Checkbox id="includeSchedule" checked={includeSchedule} onCheckedChange={(checked) => setIncludeSchedule(checked as boolean)} />
               <div className="space-y-1">
                 <Label htmlFor="includeSchedule" className="font-medium flex items-center gap-2">
                   <FileText className="h-4 w-4 text-blue-500" />
                   Lighting Schedule
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Complete schedule by tenant with quantities and specifications
-                </p>
+                <p className="text-xs text-muted-foreground">Complete schedule by tenant with quantities and specifications</p>
               </div>
             </div>
 
             <div className="flex items-start space-x-3 p-4 rounded-lg border bg-muted/30">
-              <Checkbox
-                id="includeSpecSheets"
-                checked={includeSpecSheets}
-                onCheckedChange={(checked) => setIncludeSpecSheets(checked as boolean)}
-              />
+              <Checkbox id="includeSpecSheets" checked={includeSpecSheets} onCheckedChange={(checked) => setIncludeSpecSheets(checked as boolean)} />
               <div className="space-y-1">
                 <Label htmlFor="includeSpecSheets" className="font-medium flex items-center gap-2">
                   <FileCheck className="h-4 w-4 text-green-500" />
                   Specification Sheets
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Technical data sheets for each fitting type
-                </p>
+                <p className="text-xs text-muted-foreground">Technical data sheets for each fitting type</p>
               </div>
             </div>
 
             <div className="flex items-start space-x-3 p-4 rounded-lg border bg-muted/30">
-              <Checkbox
-                id="includeWarranty"
-                checked={includeWarranty}
-                onCheckedChange={(checked) => setIncludeWarranty(checked as boolean)}
-              />
+              <Checkbox id="includeWarranty" checked={includeWarranty} onCheckedChange={(checked) => setIncludeWarranty(checked as boolean)} />
               <div className="space-y-1">
                 <Label htmlFor="includeWarranty" className="font-medium flex items-center gap-2">
                   <Shield className="h-4 w-4 text-amber-500" />
                   Warranty Schedule
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Warranty periods and terms for all fittings
-                </p>
+                <p className="text-xs text-muted-foreground">Warranty periods and terms for all fittings</p>
               </div>
             </div>
           </div>
@@ -398,9 +367,7 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Fittings to Include</CardTitle>
-              <CardDescription>
-                {selectedFittings.size} of {fittings.length} fittings selected
-              </CardDescription>
+              <CardDescription>{selectedFittings.size} of {fittings.length} fittings selected</CardDescription>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={selectAll}>Select All</Button>
@@ -417,9 +384,7 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
             <div className="text-center py-8">
               <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground">No lighting fittings found for this project</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Add fittings to the lighting schedule first
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Add fittings to the lighting schedule first</p>
             </div>
           ) : (
             <div className="rounded-md border overflow-hidden">
@@ -437,21 +402,13 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
                 </TableHeader>
                 <TableBody>
                   {fittings.map((fitting) => (
-                    <TableRow 
-                      key={fitting.fitting_id}
-                      className={selectedFittings.has(fitting.fitting_id) ? 'bg-primary/5' : ''}
-                    >
+                    <TableRow key={fitting.fitting_id} className={selectedFittings.has(fitting.fitting_id) ? 'bg-primary/5' : ''}>
                       <TableCell>
-                        <Checkbox
-                          checked={selectedFittings.has(fitting.fitting_id)}
-                          onCheckedChange={() => toggleFitting(fitting.fitting_id)}
-                        />
+                        <Checkbox checked={selectedFittings.has(fitting.fitting_id)} onCheckedChange={() => toggleFitting(fitting.fitting_id)} />
                       </TableCell>
                       <TableCell className="font-mono text-sm">{fitting.fitting_code}</TableCell>
                       <TableCell className="font-medium">{fitting.model_name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {fitting.manufacturer || '-'}
-                      </TableCell>
+                      <TableCell className="text-muted-foreground">{fitting.manufacturer || '-'}</TableCell>
                       <TableCell className="text-right font-medium">{fitting.total_quantity}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant="outline" className="gap-1">
@@ -487,9 +444,7 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="font-medium">Ready to generate</p>
-              <p className="text-sm text-muted-foreground">
-                Documents will be saved to Handover Documents → Lighting & Warranties
-              </p>
+              <p className="text-sm text-muted-foreground">Documents will be saved to Handover Documents</p>
             </div>
             <Button 
               size="lg" 
