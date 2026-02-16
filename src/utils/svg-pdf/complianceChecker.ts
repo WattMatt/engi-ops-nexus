@@ -485,6 +485,148 @@ function getBuilderRegistry(): BuilderEntry[] {
         });
       },
     },
+    // ── Additional SVG Builders ──
+    {
+      reportId: 'payslip',
+      reportName: 'Payslip',
+      load: async () => {
+        const mod = await import('./payslipPdfBuilder');
+        return mod.buildPayslipPdf({
+          coverData: MOCK_COVER,
+          employee: { name: 'John Doe', number: 'EMP-001' },
+          payPeriod: { start: '2026-01-01', end: '2026-01-31', paymentDate: '2026-01-25', frequency: 'Monthly' },
+          earnings: { basic: 25000 },
+          deductions: { tax: 5000, uif: 375 },
+          totals: { gross: 25000, deductions: 5375, net: 19625 },
+          currency: 'ZAR',
+        });
+      },
+    },
+    {
+      reportId: 'lighting-report',
+      reportName: 'Lighting Report',
+      load: async () => {
+        const mod = await import('./lightingReportPdfBuilder');
+        return mod.buildLightingReportPdf({
+          coverData: MOCK_COVER,
+          projectName: 'Test Project',
+          sections: { executiveSummary: true, scheduleByTenant: true, specificationSheets: true, costSummary: true, energyAnalysis: true },
+          schedules: [{
+            shopNumber: 'S01', shopName: 'Shop A', area: 100,
+            items: [{ fittingCode: 'F01', description: 'LED Panel', quantity: 10, wattage: 40, totalWattage: 400, status: 'Ordered', supplyCost: 500, installCost: 200 }],
+          }],
+          specifications: [{ manufacturer: 'Philips', modelNumber: 'RC132V', wattage: 40, lumens: 3600, colorTemperature: 4000, cri: 80, ipRating: 'IP20', fittingType: 'Panel', quantityUsed: 10 }],
+        });
+      },
+    },
+    {
+      reportId: 'warranty-schedule',
+      reportName: 'Warranty Schedule',
+      load: async () => {
+        const mod = await import('./warrantySchedulePdfBuilder');
+        return mod.buildWarrantySchedulePdf({
+          coverData: MOCK_COVER,
+          projectName: 'Test Project',
+          fittings: [
+            { fittingCode: 'F01', modelName: 'RC132V', manufacturer: 'Philips', quantity: 10, warrantyYears: 5, warrantyTerms: 'Standard manufacturer warranty' },
+            { fittingCode: 'F02', modelName: 'DN130B', manufacturer: 'Philips', quantity: 20, warrantyYears: 3, warrantyTerms: 'Limited warranty' },
+          ],
+        });
+      },
+    },
+    {
+      reportId: 'deadline-report',
+      reportName: 'Deadline Report',
+      load: async () => {
+        const mod = await import('./deadlineReportPdfBuilder');
+        return mod.buildDeadlineReportPdf({
+          coverData: MOCK_COVER,
+          projectName: 'Test Project',
+          tenants: [
+            { shopNumber: 'S01', tenantName: 'Coffee Co', dbOrderDeadline: '2026-02-01', dbStatus: 'Overdue', lightingOrderDeadline: '2026-02-15', lightingStatus: 'Approaching' },
+            { shopNumber: 'S02', tenantName: 'Fashion Store', dbOrderDeadline: '2026-03-01', dbStatus: 'On Track', lightingOrderDeadline: '2026-03-15', lightingStatus: 'On Track' },
+          ],
+        });
+      },
+    },
+    {
+      reportId: 'conversation',
+      reportName: 'Conversation Export',
+      load: async () => {
+        const mod = await import('./conversationPdfBuilder');
+        return mod.buildConversationPdf({
+          title: 'Test Conversation',
+          exportDate: '2026-02-16',
+          messages: [
+            { sender: 'User', content: 'Hello, can you check the cable schedule?', timestamp: '2026-02-16 09:00' },
+            { sender: 'AI', content: 'Sure, I have reviewed the cable schedule and found 3 items that need attention.', timestamp: '2026-02-16 09:01' },
+          ],
+        });
+      },
+    },
+    {
+      reportId: 'comparison',
+      reportName: 'Lighting Comparison',
+      load: async () => {
+        const mod = await import('./comparisonPdfBuilder');
+        return mod.buildComparisonPdf({
+          fittings: [{ fitting_code: 'F01' }, { fitting_code: 'F02' }],
+          generalRows: [{ property: 'Type', values: ['Panel', 'Downlight'] }],
+          performanceRows: [{ property: 'Lumens', values: [3600, 1200], format: 'number' }],
+          costRows: [{ property: 'Unit Cost', values: [500, 300], format: 'currency' }],
+          physicalRows: [{ property: 'IP Rating', values: ['IP20', 'IP44'] }],
+        });
+      },
+    },
+    {
+      reportId: 'report-builder',
+      reportName: 'Analytics Report',
+      load: async () => {
+        const mod = await import('./reportBuilderPdfBuilder');
+        return mod.buildAnalyticsReportPdf(
+          { name: 'Test Report', timeframe: 'all', metrics: { portfolio: true, benchmarks: true, trends: false, manufacturers: false, efficiency: false, costs: false } },
+          { fittings: [{ fitting_code: 'F01', wattage: 40, supply_cost: 500 }], schedules: [], projects: [{ id: '1', name: 'Test' }] },
+        );
+      },
+    },
+    {
+      reportId: 'roadmap-export',
+      reportName: 'Roadmap Export',
+      load: async () => {
+        const mod = await import('./roadmapExportPdfBuilder');
+        return mod.buildRoadmapExportPdf({
+          coverData: MOCK_COVER,
+          project: { id: '1', name: 'Test Project', client_name: 'Test Client', status: 'active' },
+          items: [
+            { id: '1', title: 'Phase 1 Planning', phase: 'Planning & Preparation', priority: 'high', start_date: '2026-01-01', due_date: '2026-02-01', is_completed: true },
+            { id: '2', title: 'Budget Review', phase: 'Budget & Assessment', priority: 'medium', start_date: '2026-02-01', due_date: '2026-03-01', is_completed: false },
+          ],
+          options: { includeCompleted: true, includePending: true, includeActionItems: true, includeMeetingHeader: false, includeCoverPage: true },
+        });
+      },
+    },
+    {
+      reportId: 'cost-report-main',
+      reportName: 'Cost Report (Full)',
+      load: async () => {
+        const mod = await import('./costReportPdfBuilder');
+        const cover = mod.buildCoverPageSvg({
+          companyName: 'Test Company', projectName: 'Test Project', projectNumber: 'TP-001',
+          reportNumber: 1, revision: 'R01', date: '16 February 2026',
+        });
+        const exec = mod.buildExecutiveSummarySvg({
+          rows: [{ code: 'A', description: 'Electrical', originalBudget: 250000, anticipatedFinal: 240000, currentVariance: -10000 }],
+          grandTotal: { code: '', description: 'Grand Total', originalBudget: 500000, anticipatedFinal: 480000, currentVariance: -20000 },
+        });
+        const pages = [cover, exec];
+        mod.buildCategoryDetailsSvg([{
+          code: 'A', description: 'Electrical',
+          lineItems: [{ description: 'Cable Supply', original_budget: 100000, previous_report: 98000, anticipated_final: 95000 }],
+          subtotals: { originalBudget: 250000, previousReport: 245000, anticipatedFinal: 240000, variance: -10000 },
+        }]).forEach(p => pages.push(p));
+        return pages;
+      },
+    },
   ];
 }
 

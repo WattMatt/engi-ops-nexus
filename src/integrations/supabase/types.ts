@@ -14308,6 +14308,7 @@ export type Database = {
       specification_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_at: string
@@ -14320,6 +14321,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_at?: string
@@ -14332,6 +14334,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_at?: string
@@ -15530,6 +15533,7 @@ export type Database = {
       tenant_evaluation_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           evaluation_id: string
           file_path: string
           file_size: number | null
@@ -15544,6 +15548,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           evaluation_id: string
           file_path: string
           file_size?: number | null
@@ -15558,6 +15563,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           evaluation_id?: string
           file_path?: string
           file_size?: number | null
@@ -16006,6 +16012,7 @@ export type Database = {
       tenant_tracker_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_at: string
@@ -16022,6 +16029,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_at?: string
@@ -16038,6 +16046,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_at?: string
@@ -16590,6 +16599,7 @@ export type Database = {
       verification_certificate_reports: {
         Row: {
           created_at: string
+          engine_version: string | null
           file_path: string
           file_size: number | null
           generated_by: string | null
@@ -16602,6 +16612,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engine_version?: string | null
           file_path: string
           file_size?: number | null
           generated_by?: string | null
@@ -16614,6 +16625,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engine_version?: string | null
           file_path?: string
           file_size?: number | null
           generated_by?: string | null
