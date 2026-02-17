@@ -175,11 +175,13 @@ export function ReportConfigModal({
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Merge portal contacts with manually added emails
+      const allRecipients = [...new Set([...recipientEmails, ...(reportType.id === 'portal_summary' ? portalContacts : [])])];
       await onSave({
         schedule_type: scheduleType,
         schedule_day: startDate ? startDate.getDay() : 1,
         schedule_time: scheduleTime,
-        recipient_emails: recipientEmails,
+        recipient_emails: allRecipients,
         document_id: documentId || null,
         contact_id: contactId || null,
         report_config: { ...reportConfig, end_date: endDate?.toISOString() || null },

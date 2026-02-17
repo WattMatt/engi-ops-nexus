@@ -40,6 +40,7 @@ export function ReportTypeCard({
     if (!scheduleType) return 'Not configured';
     switch (scheduleType) {
       case 'weekly': return 'Weekly';
+      case 'bi_weekly': return 'Bi-Weekly';
       case 'monthly': return 'Monthly';
       case 'specific_date': return 'Specific Date';
       default: return scheduleType;
@@ -85,7 +86,7 @@ export function ReportTypeCard({
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Schedule:</span>
               <Badge variant={isEnabled && scheduleType ? 'default' : 'secondary'} className="text-xs">
-                {getScheduleLabel()}{scheduleTime ? ` at ${scheduleTime}` : ''}
+                {getScheduleLabel()}{scheduleTime ? ` at ${scheduleTime.substring(0, 5)}` : ''}
               </Badge>
             </div>
           </InfoTooltip>
