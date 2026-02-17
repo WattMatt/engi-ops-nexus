@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import { ChevronDown, Share2 } from "lucide-react";
 
 const GeneratorReport = () => {
   const projectId = localStorage.getItem("selectedProjectId");
+  const queryClient = useQueryClient();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -262,7 +263,11 @@ const GeneratorReport = () => {
             </Button>
             <GeneratorReportExportPDFButton 
               projectId={projectId} 
-              onReportSaved={() => setReportsRefreshTrigger(prev => prev + 1)}
+              onReportSaved={() => {
+                queryClient.invalidateQueries({ queryKey: ["generator-reports", projectId] });
+                queryClient.invalidateQueries({ queryKey: ["generator-reports-versions", projectId] });
+                setReportsRefreshTrigger(prev => prev + 1);
+              }}
             />
           </div>
         )}
