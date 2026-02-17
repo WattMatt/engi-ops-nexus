@@ -41,11 +41,12 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     enabled: !!projectId,
   });
 
-  // Get zone IDs for dependent query
+  // Get zone IDs for dependent query - use a stable string key
   const zoneIds = zones.map(z => z.id);
+  const zoneIdsKey = zoneIds.sort().join(",");
 
   const { data: zoneGenerators = [], refetch: refetchZoneGenerators } = useQuery({
-    queryKey: ["zone-generators-costing", projectId, zoneIds],
+    queryKey: ["zone-generators-costing", projectId, zoneIdsKey],
     queryFn: async () => {
       if (!zoneIds.length) return [];
       
@@ -329,7 +330,7 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                                 onChange={(e) => {
                                   const newCost = parseFloat(e.target.value) || 0;
                                   queryClient.setQueryData(
-                                    ["zone-generators-costing", projectId, zoneIds],
+                                    ["zone-generators-costing", projectId, zoneIdsKey],
                                     (old: any[]) => old?.map(g => 
                                       g.id === gen.id ? { ...g, generator_cost: newCost } : g
                                     )
