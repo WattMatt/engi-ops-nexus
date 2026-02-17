@@ -650,7 +650,7 @@ export function buildGeneratorReportPdf(data: GeneratorReportData): SVGSVGElemen
 
   // Insert TOC at position 1 (after cover)
   const tocEntries: TocEntry[] = [];
-  let pageOffset = 3; // Cover=1, Terms=2, TOC=3
+  let pageOffset = 4; // Cover=1, Terms=2, TOC=3, first section=4
   tocEntries.push({ label: 'List of Terms', pageNumber: 2 });
   tocEntries.push({ label: '1. Introduction and Background', pageNumber: pageOffset });
   pageOffset += sec1.length;
