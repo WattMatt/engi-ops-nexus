@@ -31,13 +31,18 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ["generator-reports", projectId],
     queryFn: async () => {
+      console.log("[GeneratorSavedReportsList] Fetching reports for projectId:", projectId);
       const { data, error } = await supabase
         .from("generator_reports")
         .select("*")
         .eq("project_id", projectId)
         .order("generated_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[GeneratorSavedReportsList] Query error:", error);
+        throw error;
+      }
+      console.log("[GeneratorSavedReportsList] Reports fetched:", data?.length, data);
       return data || [];
     },
     enabled: !!projectId,
