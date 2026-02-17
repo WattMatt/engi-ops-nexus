@@ -7122,15 +7122,21 @@ export type Database = {
           capital_recovery_rate_percent: number | null
           control_wiring_cost: number | null
           created_at: string | null
+          diesel_cost_per_litre: number | null
           fast_food_kw_per_sqm: number | null
           id: string
+          maintenance_contingency_percent: number | null
+          maintenance_cost_annual: number | null
           national_kw_per_sqm: number | null
           num_main_boards: number | null
           num_tenant_dbs: number | null
+          power_factor: number | null
           project_id: string
           rate_per_main_board: number | null
           rate_per_tenant_db: number | null
           restaurant_kw_per_sqm: number | null
+          running_hours_per_month: number | null
+          running_load_percentage: number | null
           standard_kw_per_sqm: number | null
           tenant_rate: number | null
           updated_at: string | null
@@ -7141,15 +7147,21 @@ export type Database = {
           capital_recovery_rate_percent?: number | null
           control_wiring_cost?: number | null
           created_at?: string | null
+          diesel_cost_per_litre?: number | null
           fast_food_kw_per_sqm?: number | null
           id?: string
+          maintenance_contingency_percent?: number | null
+          maintenance_cost_annual?: number | null
           national_kw_per_sqm?: number | null
           num_main_boards?: number | null
           num_tenant_dbs?: number | null
+          power_factor?: number | null
           project_id: string
           rate_per_main_board?: number | null
           rate_per_tenant_db?: number | null
           restaurant_kw_per_sqm?: number | null
+          running_hours_per_month?: number | null
+          running_load_percentage?: number | null
           standard_kw_per_sqm?: number | null
           tenant_rate?: number | null
           updated_at?: string | null
@@ -7160,15 +7172,21 @@ export type Database = {
           capital_recovery_rate_percent?: number | null
           control_wiring_cost?: number | null
           created_at?: string | null
+          diesel_cost_per_litre?: number | null
           fast_food_kw_per_sqm?: number | null
           id?: string
+          maintenance_contingency_percent?: number | null
+          maintenance_cost_annual?: number | null
           national_kw_per_sqm?: number | null
           num_main_boards?: number | null
           num_tenant_dbs?: number | null
+          power_factor?: number | null
           project_id?: string
           rate_per_main_board?: number | null
           rate_per_tenant_db?: number | null
           restaurant_kw_per_sqm?: number | null
+          running_hours_per_month?: number | null
+          running_load_percentage?: number | null
           standard_kw_per_sqm?: number | null
           tenant_rate?: number | null
           updated_at?: string | null

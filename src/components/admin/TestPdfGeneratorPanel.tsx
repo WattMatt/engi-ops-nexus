@@ -110,43 +110,60 @@ function getReportGenerators(): ReportGenerator[] {
         ]);
         const zonesData = zones.data || [];
         const tenants = tenantResult.data || [];
-        const genSettings = settings.data;
+        const gs = settings.data as any;
         const zoneIds = zonesData.map(z => z.id);
         const { data: zoneGens } = zoneIds.length > 0
           ? await supabase.from('zone_generators').select('*').in('zone_id', zoneIds)
           : { data: [] };
 
-        const svgZones = zonesData.map(z => {
-          const zoneTenants = tenants.filter((t: any) => t.generator_zone_id === z.id && !t.own_generator_provided);
-          const loads = zoneTenants.map((t: any) => {
-            let kw = 0;
-            if (t.manual_kw_override != null) kw = Number(t.manual_kw_override);
-            else {
-              const rates: Record<string, number> = {
-                standard: genSettings?.standard_kw_per_sqm || 0.03,
-                fast_food: genSettings?.fast_food_kw_per_sqm || 0.045,
-                restaurant: genSettings?.restaurant_kw_per_sqm || 0.045,
-                national: genSettings?.national_kw_per_sqm || 0.03,
-              };
-              kw = (t.area || 0) * (rates[t.shop_category] || 0.03);
-            }
-            return { description: `${t.shop_number} - ${t.shop_name}`, kw, priority: t.shop_category || 'standard' };
-          });
-          return { name: z.zone_name, color: z.zone_color || '#3b82f6', loads, totalKw: loads.reduce((s: number, l: any) => s + l.kw, 0) };
+        const zoneData = zonesData.map(z => ({
+          id: z.id, name: z.zone_name, color: z.zone_color || '#3b82f6', zoneNumber: z.zone_number,
+        }));
+
+        const generators = (zoneGens || []).map((g: any) => ({
+          zoneId: g.zone_id, generatorNumber: g.generator_number,
+          generatorSize: g.generator_size || '250 kVA', generatorCost: Number(g.generator_cost) || 0,
+        }));
+
+        const settingsObj = {
+          standardKwPerSqm: gs?.standard_kw_per_sqm || 0.03,
+          fastFoodKwPerSqm: gs?.fast_food_kw_per_sqm || 0.045,
+          restaurantKwPerSqm: gs?.restaurant_kw_per_sqm || 0.045,
+          capitalRecoveryYears: gs?.capital_recovery_period_years || 10,
+          capitalRecoveryRate: gs?.capital_recovery_rate_percent || 12,
+          additionalCablingCost: gs?.additional_cabling_cost || 0,
+          controlWiringCost: gs?.control_wiring_cost || 0,
+          numMainBoards: gs?.num_main_boards || 0,
+          ratePerMainBoard: gs?.rate_per_main_board || 0,
+          ratePerTenantDb: gs?.rate_per_tenant_db || 0,
+          dieselCostPerLitre: gs?.diesel_cost_per_litre || 23,
+          runningHoursPerMonth: gs?.running_hours_per_month || 100,
+          maintenanceCostAnnual: gs?.maintenance_cost_annual || 18800,
+          powerFactor: gs?.power_factor || 0.95,
+          runningLoadPercentage: gs?.running_load_percentage || 75,
+          maintenanceContingencyPercent: gs?.maintenance_contingency_percent || 10,
+        };
+
+        const tenantInfos = tenants.map((t: any) => {
+          const zone = zonesData.find(z => z.id === t.generator_zone_id);
+          const isRestaurant = t.shop_category === 'restaurant' || t.shop_category === 'fast_food';
+          let loadingKw = 0;
+          if (!t.own_generator_provided) {
+            if (t.manual_kw_override != null) loadingKw = Number(t.manual_kw_override);
+            else loadingKw = (t.area || 0) * (isRestaurant ? settingsObj.restaurantKwPerSqm : settingsObj.standardKwPerSqm);
+          }
+          return {
+            shopNumber: t.shop_number, shopName: t.shop_name, area: t.area || 0,
+            ownGenerator: t.own_generator_provided || false, isRestaurant,
+            zoneId: t.generator_zone_id || '', zoneName: zone?.zone_name || '',
+            zoneNumber: zone?.zone_number || 0, loadingKw,
+          };
         });
 
-        const totalLoading = svgZones.reduce((s, z) => s + z.totalKw, 0);
-        const totalGeneratorCost = (zoneGens || []).reduce((s: number, g: any) => s + (Number(g.generator_cost) || 0), 0);
-        const coverData = await makeCover('Generator Report', 'Capital & Running Cost Analysis');
+        const coverData = await makeCover('Standby System Implementation', '(Subject to Approval)');
         return buildGeneratorReportPdf({
           coverData, projectName: project.name,
-          generatorSize: (zoneGens || [])[0]?.generator_size || undefined, fuelType: 'Diesel',
-          zones: svgZones,
-          loadSummary: { totalConnected: Math.round(totalLoading), totalDemand: Math.round(totalLoading * 0.7), diversityFactor: 0.7 },
-          financials: totalGeneratorCost > 0 ? {
-            capitalCost: totalGeneratorCost, monthlyFuel: 0, maintenanceAnnual: 0,
-            amortizationYears: genSettings?.capital_recovery_period_years || 10,
-          } : undefined,
+          zones: zoneData, generators, tenants: tenantInfos, settings: settingsObj,
         });
       },
     },

@@ -368,13 +368,27 @@ function getBuilderRegistry(): BuilderEntry[] {
       load: async () => {
         const mod = await import('./generatorReportPdfBuilder');
         return mod.buildGeneratorReportPdf({
-          coverData: MOCK_COVER, projectName: 'Test Project', generatorSize: '500 kVA', fuelType: 'Diesel',
+          coverData: MOCK_COVER, projectName: 'Test Project',
           zones: [
-            { name: 'Zone A - Critical', totalKw: 120, loads: [{ description: 'UPS Systems', kw: 80, priority: 'Critical' }, { description: 'Emergency Lights', kw: 40, priority: 'High' }] },
-            { name: 'Zone B - Essential', totalKw: 80, loads: [{ description: 'HVAC', kw: 50, priority: 'Medium' }, { description: 'Elevators', kw: 30, priority: 'Medium' }] },
+            { id: 'z1', name: 'Zone A - Critical', color: '#3b82f6', zoneNumber: 1 },
+            { id: 'z2', name: 'Zone B - Essential', color: '#10b981', zoneNumber: 2 },
           ],
-          loadSummary: { totalConnected: 200, totalDemand: 150, diversityFactor: 0.75 },
-          financials: { capitalCost: 850000, monthlyFuel: 15000, maintenanceAnnual: 45000, amortizationYears: 5 },
+          generators: [
+            { zoneId: 'z1', generatorNumber: 1, generatorSize: '250 kVA', generatorCost: 715000 },
+            { zoneId: 'z2', generatorNumber: 2, generatorSize: '250 kVA', generatorCost: 715000 },
+          ],
+          tenants: [
+            { shopNumber: '1', shopName: 'Shop A', area: 200, ownGenerator: false, isRestaurant: false, zoneId: 'z1', zoneName: 'Zone A', zoneNumber: 1, loadingKw: 6 },
+            { shopNumber: '2', shopName: 'Restaurant B', area: 150, ownGenerator: false, isRestaurant: true, zoneId: 'z2', zoneName: 'Zone B', zoneNumber: 2, loadingKw: 6.75 },
+          ],
+          settings: {
+            standardKwPerSqm: 0.03, fastFoodKwPerSqm: 0.045, restaurantKwPerSqm: 0.045,
+            capitalRecoveryYears: 10, capitalRecoveryRate: 12, additionalCablingCost: 55000,
+            controlWiringCost: 66000, numMainBoards: 2, ratePerMainBoard: 88000,
+            ratePerTenantDb: 0, dieselCostPerLitre: 23, runningHoursPerMonth: 100,
+            maintenanceCostAnnual: 18800, powerFactor: 0.95, runningLoadPercentage: 75,
+            maintenanceContingencyPercent: 10,
+          },
         });
       },
     },
