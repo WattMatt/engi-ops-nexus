@@ -16,6 +16,7 @@ import { ContractorInspectionRequests } from "@/components/contractor-portal/Con
 import { ContractorFloorPlanView } from "@/components/contractor-portal/ContractorFloorPlanView";
 import { ContractorDBLegendCards } from "@/components/contractor-portal/ContractorDBLegendCards";
 import { PortalHeader } from "@/components/portal/PortalHeader";
+import { ContractorPortalExportButton } from "@/components/contractor-portal/ContractorPortalExportButton";
 import { PortalUserIdentityDialog, PortalUserIdentity } from "@/components/contractor-portal/PortalUserIdentityDialog";
 import { InfoTooltip } from "@/components/ui/rich-tooltip";
 
@@ -294,6 +295,13 @@ export default function ContractorPortal() {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-6">
+        <div className="flex items-center justify-end mb-4">
+          <ContractorPortalExportButton
+            projectId={project.id}
+            projectName={project.name}
+            contractorName={activeUserName}
+          />
+        </div>
         <Tabs defaultValue="drawings" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full overflow-x-auto">
             <InfoTooltip
