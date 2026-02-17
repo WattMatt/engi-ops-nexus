@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { createRoot } from "react-dom/client";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,32 +6,8 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
-import { buildGeneratorReportPdf, type GeneratorReportData as SvgGeneratorReportData } from "@/utils/svg-pdf/generatorReportPdfBuilder";
+import { buildGeneratorReportPdf, type GeneratorReportData, type TenantInfo, type GeneratorSettings } from "@/utils/svg-pdf/generatorReportPdfBuilder";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
-import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
-
-/**
- * Get fuel consumption rate from sizing table based on generator size and load percentage.
- */
-function getFuelConsumption(generatorSize: string, loadPercentage: number): number {
-  const sizingData = GENERATOR_SIZING_TABLE.find(g => g.rating === generatorSize);
-  if (!sizingData) return 0;
-
-  if (loadPercentage <= 25) return sizingData.load25;
-  if (loadPercentage <= 50) {
-    const ratio = (loadPercentage - 25) / 25;
-    return sizingData.load25 + ratio * (sizingData.load50 - sizingData.load25);
-  }
-  if (loadPercentage <= 75) {
-    const ratio = (loadPercentage - 50) / 25;
-    return sizingData.load50 + ratio * (sizingData.load75 - sizingData.load50);
-  }
-  if (loadPercentage <= 100) {
-    const ratio = (loadPercentage - 75) / 25;
-    return sizingData.load75 + ratio * (sizingData.load100 - sizingData.load75);
-  }
-  return sizingData.load100;
-}
 
 interface GeneratorReportExportPDFButtonProps {
   projectId: string;
@@ -42,7 +17,6 @@ interface GeneratorReportExportPDFButtonProps {
 export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: GeneratorReportExportPDFButtonProps) {
   const { isGenerating, fetchCompanyData, generateAndPersist } = useSvgPdfReport();
 
-  // Fetch project details
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
     queryFn: async () => {
@@ -53,7 +27,6 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     enabled: !!projectId,
   });
 
-  // Fetch generator zones
   const { data: zones = [] } = useQuery({
     queryKey: ["generator-zones-pdf", projectId],
     queryFn: async () => {
@@ -64,7 +37,6 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     enabled: !!projectId,
   });
 
-  // Fetch zone generators
   const { data: zoneGenerators = [] } = useQuery({
     queryKey: ["zone-generators-pdf", projectId],
     queryFn: async () => {
@@ -77,7 +49,6 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     enabled: !!projectId && zones.length > 0,
   });
 
-  // Fetch generator settings
   const { data: generatorSettings } = useQuery({
     queryKey: ["generator-settings-pdf", projectId],
     queryFn: async () => {
@@ -88,7 +59,6 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     enabled: !!projectId,
   });
 
-  // Fetch tenants
   const { data: tenants = [] } = useQuery({
     queryKey: ["tenants-pdf", projectId],
     queryFn: async () => {
@@ -115,87 +85,85 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     const buildFn = async () => {
       const companyData = await fetchCompanyData();
 
-      // Calculate financials
-      const totalGeneratorCost = zoneGenerators.reduce((sum, gen) => sum + (Number(gen.generator_cost) || 0), 0);
-      const numTenantDBs = tenants.filter(t => !t.own_generator_provided).length;
-      const ratePerTenantDB = generatorSettings?.rate_per_tenant_db || 0;
-      const tenantDBsCost = numTenantDBs * ratePerTenantDB;
-      const numMainBoards = generatorSettings?.num_main_boards || 0;
-      const ratePerMainBoard = generatorSettings?.rate_per_main_board || 0;
-      const mainBoardsCost = numMainBoards * ratePerMainBoard;
-      const additionalCablingCost = generatorSettings?.additional_cabling_cost || 0;
-      const controlWiringCost = generatorSettings?.control_wiring_cost || 0;
-      const totalCapitalCost = totalGeneratorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
+      // Map settings with defaults
+      const gs = generatorSettings;
+      const settings: GeneratorSettings = {
+        standardKwPerSqm: gs?.standard_kw_per_sqm || 0.03,
+        fastFoodKwPerSqm: gs?.fast_food_kw_per_sqm || 0.045,
+        restaurantKwPerSqm: gs?.restaurant_kw_per_sqm || 0.045,
+        capitalRecoveryYears: gs?.capital_recovery_period_years || 10,
+        capitalRecoveryRate: gs?.capital_recovery_rate_percent || 12,
+        additionalCablingCost: gs?.additional_cabling_cost || 0,
+        controlWiringCost: gs?.control_wiring_cost || 0,
+        numMainBoards: gs?.num_main_boards || 0,
+        ratePerMainBoard: gs?.rate_per_main_board || 0,
+        ratePerTenantDb: gs?.rate_per_tenant_db || 0,
+        dieselCostPerLitre: (gs as any)?.diesel_cost_per_litre || 23,
+        runningHoursPerMonth: (gs as any)?.running_hours_per_month || 100,
+        maintenanceCostAnnual: (gs as any)?.maintenance_cost_annual || 18800,
+        powerFactor: (gs as any)?.power_factor || 0.95,
+        runningLoadPercentage: (gs as any)?.running_load_percentage || 75,
+        maintenanceContingencyPercent: (gs as any)?.maintenance_contingency_percent || 10,
+      };
 
-      const years = generatorSettings?.capital_recovery_period_years || 10;
+      // Map generators
+      const generators = zoneGenerators.map(g => ({
+        zoneId: g.zone_id,
+        generatorNumber: g.generator_number,
+        generatorSize: g.generator_size || '250 kVA',
+        generatorCost: Number(g.generator_cost) || 0,
+      }));
 
-      // Calculate total connected load
-      const totalLoading = tenants.reduce((sum, t) => {
-        if (t.own_generator_provided) return sum;
-        if (t.manual_kw_override != null) return sum + Number(t.manual_kw_override);
-        const kwPerSqm = {
-          standard: generatorSettings?.standard_kw_per_sqm || 0.03,
-          fast_food: generatorSettings?.fast_food_kw_per_sqm || 0.045,
-          restaurant: generatorSettings?.restaurant_kw_per_sqm || 0.045,
-          national: generatorSettings?.national_kw_per_sqm || 0.03,
-        };
-        return sum + ((t.area || 0) * (kwPerSqm[t.shop_category as keyof typeof kwPerSqm] || 0.03));
-      }, 0);
-
-      // Build zone data for SVG builder
-      const svgZones = zones.map(z => {
-        const zoneGens = zoneGenerators.filter(g => g.zone_id === z.id);
-        const zoneTenants = tenants.filter(t => t.generator_zone_id === z.id && !t.own_generator_provided);
-        const loads = zoneTenants.map(t => {
-          let kw = 0;
-          if (t.manual_kw_override != null) kw = Number(t.manual_kw_override);
-          else {
-            const kwPerSqm = {
-              standard: generatorSettings?.standard_kw_per_sqm || 0.03,
-              fast_food: generatorSettings?.fast_food_kw_per_sqm || 0.045,
-              restaurant: generatorSettings?.restaurant_kw_per_sqm || 0.045,
-              national: generatorSettings?.national_kw_per_sqm || 0.03,
-            };
-            kw = (t.area || 0) * (kwPerSqm[t.shop_category as keyof typeof kwPerSqm] || 0.03);
+      // Map tenants with loading calculations
+      const tenantInfos: TenantInfo[] = tenants.map(t => {
+        const zone = zones.find(z => z.id === t.generator_zone_id);
+        const isRestaurant = t.shop_category === 'restaurant' || t.shop_category === 'fast_food';
+        let loadingKw = 0;
+        if (!t.own_generator_provided) {
+          if (t.manual_kw_override != null) {
+            loadingKw = Number(t.manual_kw_override);
+          } else {
+            const rate = isRestaurant ? settings.restaurantKwPerSqm : settings.standardKwPerSqm;
+            loadingKw = (t.area || 0) * rate;
           }
-          return { description: `${t.shop_number} - ${t.shop_name}`, kw, priority: t.shop_category || 'standard' };
-        });
+        }
         return {
-          name: z.zone_name,
-          color: z.zone_color || '#3b82f6',
-          loads,
-          totalKw: loads.reduce((s, l) => s + l.kw, 0),
+          shopNumber: t.shop_number,
+          shopName: t.shop_name,
+          area: t.area || 0,
+          ownGenerator: t.own_generator_provided || false,
+          isRestaurant,
+          zoneId: t.generator_zone_id || '',
+          zoneName: zone?.zone_name || '',
+          zoneNumber: zone?.zone_number || 0,
+          loadingKw,
         };
       });
 
-      const totalDemand = totalLoading * 0.7; // diversity factor
+      // Map zones
+      const zoneData = zones.map(z => ({
+        id: z.id,
+        name: z.zone_name,
+        color: z.zone_color || '#3b82f6',
+        zoneNumber: z.zone_number,
+      }));
 
       const coverData: StandardCoverPageData = {
-        reportTitle: "Generator Report",
-        reportSubtitle: `Capital & Running Cost Analysis`,
+        reportTitle: "Standby System Implementation",
+        reportSubtitle: "(Subject to Approval)",
         projectName: project.name || "Project",
         projectNumber: project.project_number || undefined,
-        date: format(new Date(), "dd MMMM yyyy"),
+        date: format(new Date(), "EEEE, d MMMM yyyy"),
         ...companyData,
       };
 
-      const reportData: SvgGeneratorReportData = {
+      const reportData: GeneratorReportData = {
         coverData,
         projectName: project.name || "Project",
-        generatorSize: zoneGenerators[0]?.generator_size || undefined,
-        fuelType: 'Diesel',
-        zones: svgZones,
-        loadSummary: {
-          totalConnected: Math.round(totalLoading),
-          totalDemand: Math.round(totalDemand),
-          diversityFactor: 0.7,
-        },
-        financials: totalCapitalCost > 0 ? {
-          capitalCost: totalCapitalCost,
-          monthlyFuel: 0,
-          maintenanceAnnual: 0,
-          amortizationYears: years,
-        } : undefined,
+        zones: zoneData,
+        generators,
+        tenants: tenantInfos,
+        settings,
       };
 
       return buildGeneratorReportPdf(reportData);
