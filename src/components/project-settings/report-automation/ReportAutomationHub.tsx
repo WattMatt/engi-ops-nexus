@@ -163,21 +163,27 @@ export function ReportAutomationHub({ projectId }: ReportAutomationHubProps) {
       updated_at: new Date().toISOString(),
     };
 
-    if (existing?.id) {
-      const { error } = await supabase
-        .from('report_automation_settings')
-        .update(settingsData)
-        .eq('id', existing.id);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from('report_automation_settings')
-        .insert({ ...settingsData, created_by: user?.id });
-      if (error) throw error;
-    }
+    try {
+      if (existing?.id) {
+        const { error } = await supabase
+          .from('report_automation_settings')
+          .update(settingsData)
+          .eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('report_automation_settings')
+          .insert({ ...settingsData, created_by: user?.id });
+        if (error) throw error;
+      }
 
-    await loadAllSettings();
-    toast.success('Configuration saved');
+      await loadAllSettings();
+      toast.success('Configuration saved successfully');
+    } catch (error: any) {
+      console.error('Failed to save config:', error);
+      toast.error(error?.message || 'Failed to save configuration');
+      throw error; // Re-throw so modal knows it failed
+    }
   };
 
   const handleSendTest = async (reportType: ReportTypeId) => {
@@ -261,6 +267,8 @@ export function ReportAutomationHub({ projectId }: ReportAutomationHubProps) {
                   config={config}
                   isEnabled={setting?.enabled ?? false}
                   scheduleType={setting?.schedule_type}
+                  scheduleTime={setting?.schedule_time}
+                  recipientEmails={setting?.recipient_emails}
                   lastRunAt={setting?.last_run_at}
                   nextRunAt={setting?.next_run_at}
                   onToggle={(enabled) => handleToggle(config.id, enabled)}

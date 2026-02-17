@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Send, Clock, Calendar, CheckCircle2 } from "lucide-react";
+import { Settings, Send, Clock, Calendar, CheckCircle2, Mail, Users } from "lucide-react";
 import { format } from "date-fns";
 import { InfoTooltip } from "@/components/ui/rich-tooltip";
 import type { ReportTypeConfig } from "./reportTypes";
@@ -11,6 +11,8 @@ interface ReportTypeCardProps {
   config: ReportTypeConfig;
   isEnabled: boolean;
   scheduleType?: string | null;
+  scheduleTime?: string | null;
+  recipientEmails?: string[] | null;
   lastRunAt?: string | null;
   nextRunAt?: string | null;
   onToggle: (enabled: boolean) => void;
@@ -23,6 +25,8 @@ export function ReportTypeCard({
   config,
   isEnabled,
   scheduleType,
+  scheduleTime,
+  recipientEmails,
   lastRunAt,
   nextRunAt,
   onToggle,
@@ -81,10 +85,23 @@ export function ReportTypeCard({
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Schedule:</span>
               <Badge variant={isEnabled && scheduleType ? 'default' : 'secondary'} className="text-xs">
-                {getScheduleLabel()}
+                {getScheduleLabel()}{scheduleTime ? ` at ${scheduleTime}` : ''}
               </Badge>
             </div>
           </InfoTooltip>
+
+          {/* Recipients */}
+          <div className="flex items-center gap-2 text-sm">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Recipients:</span>
+            {recipientEmails && recipientEmails.length > 0 ? (
+              <span className="text-xs text-foreground">
+                {recipientEmails.length} {recipientEmails.length === 1 ? 'recipient' : 'recipients'}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground italic">None configured</span>
+            )}
+          </div>
 
           {lastRunAt && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
