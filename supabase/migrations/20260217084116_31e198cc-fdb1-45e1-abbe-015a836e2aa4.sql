@@ -1,0 +1,2 @@
+ALTER TABLE public.report_automation_settings DROP CONSTRAINT report_automation_settings_schedule_type_check;
+ALTER TABLE public.report_automation_settings ADD CONSTRAINT report_automation_settings_schedule_type_check CHECK (schedule_type = ANY (ARRAY['weekly'::text, 'bi_weekly'::text, 'monthly'::text, 'specific_date'::text]));
