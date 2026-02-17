@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -184,7 +185,10 @@ export function ReportConfigModal({
         report_config: { ...reportConfig, end_date: endDate?.toISOString() || null },
         start_date: startDate?.toISOString() || null,
       });
+      toast.success("Configuration saved successfully");
       onOpenChange(false);
+    } catch {
+      toast.error("Failed to save configuration");
     } finally {
       setSaving(false);
     }
