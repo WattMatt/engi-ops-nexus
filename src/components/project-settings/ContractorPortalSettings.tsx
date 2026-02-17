@@ -13,7 +13,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Building2, Copy, Trash2, Plus, Link2, ExternalLink, Users, RefreshCw, Send, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Mail, User, Bell, Link } from "lucide-react";
+import { Building2, Copy, Trash2, Plus, Link2, ExternalLink, Users, RefreshCw, Send, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Mail, User, Bell, Link, FileText } from "lucide-react";
+import { ContractorPortalExportButton } from "@/components/contractor-portal/ContractorPortalExportButton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format, formatDistanceToNow } from "date-fns";
 import { TokenNotificationContacts } from "./TokenNotificationContacts";
@@ -56,6 +57,20 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
   });
 
   const queryClient = useQueryClient();
+
+  // Fetch project name
+  const { data: project } = useQuery({
+    queryKey: ['project-name', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('name')
+        .eq('id', projectId)
+        .single();
+      if (error) throw error;
+      return data;
+    }
+  });
 
   // Fetch existing tokens
   const { data: tokens, isLoading } = useQuery({
@@ -217,6 +232,7 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
   }
 
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -564,5 +580,26 @@ export function ContractorPortalSettings({ projectId }: ContractorPortalSettings
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+
+      {/* Report Generation Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Contractor Portal Report
+          </CardTitle>
+          <CardDescription>
+            Generate a comprehensive PDF report of all contractor portal data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ContractorPortalExportButton
+            projectId={projectId}
+            projectName={project?.name || 'Project'}
+            contractorName="Admin Export"
+          />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
