@@ -290,6 +290,9 @@ export function buildTablePages(
 
   let y = startY;
 
+  // Character width factor for truncation (mm per character at given font size)
+  const CHAR_WIDTH_FACTOR = 0.6;
+
   // Table header
   const drawHeader = (svg: SVGSVGElement, yPos: number) => {
     el('rect', { x: MARGIN_LEFT, y: yPos - 3.5, width: CONTENT_W, height: rowHeight, fill: BRAND_PRIMARY }, svg);
@@ -297,7 +300,8 @@ export function buildTablePages(
     for (const col of columns) {
       const anchor = col.align === 'right' ? 'end' : col.align === 'center' ? 'middle' : 'start';
       const textX = col.align === 'right' ? xOffset + col.width - 1 : col.align === 'center' ? xOffset + col.width / 2 : xOffset;
-      textEl(svg, textX, yPos, col.header, {
+      const maxChars = Math.floor((col.width - 2) / (headerFontSize * CHAR_WIDTH_FACTOR));
+      textEl(svg, textX, yPos, truncate(col.header, maxChars), {
         size: headerFontSize, fill: WHITE, weight: 'bold', anchor,
       });
       xOffset += col.width;
@@ -328,7 +332,7 @@ export function buildTablePages(
       const value = String(row[col.key] ?? '');
       const anchor = col.align === 'right' ? 'end' : col.align === 'center' ? 'middle' : 'start';
       const textX = col.align === 'right' ? xOffset + col.width - 1 : col.align === 'center' ? xOffset + col.width / 2 : xOffset;
-      const displayValue = truncate(value, Math.floor(col.width / (fontSize * 0.45)));
+      const displayValue = truncate(value, Math.floor((col.width - 2) / (fontSize * CHAR_WIDTH_FACTOR)));
       textEl(currentPage, textX, y, displayValue, {
         size: fontSize,
         fill: TEXT_DARK,
