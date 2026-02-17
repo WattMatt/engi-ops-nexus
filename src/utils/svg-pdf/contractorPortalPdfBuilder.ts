@@ -165,103 +165,103 @@ export function buildContractorPortalPdf(data: ContractorPortalPdfData): SVGSVGE
 
   // ── Tenant Status Table ──
   const tenantCols: TableColumn[] = [
-    { header: 'Shop #', width: 18, key: 'shop_number' },
-    { header: 'Tenant', width: 42, key: 'shop_name' },
-    { header: 'SOW', width: 18, key: 'sow_status' },
-    { header: 'Layout', width: 18, key: 'layout_status' },
-    { header: 'DB', width: 18, key: 'db_status' },
-    { header: 'Lighting', width: 18, key: 'lighting_status' },
+    { header: 'Shop #', width: 25, key: 'shop_number' },
+    { header: 'Tenant', width: 55, key: 'shop_name' },
+    { header: 'SOW', width: 25, align: 'center', key: 'sow_status' },
+    { header: 'Layout', width: 25, align: 'center', key: 'layout_status' },
+    { header: 'DB', width: 25, align: 'center', key: 'db_status' },
+    { header: 'Lighting', width: 25, align: 'center', key: 'lighting_status' },
   ];
   const tenantRows = tenants.map(t => ({
     shop_number: t.shop_number,
-    shop_name: t.shop_name || '—',
-    sow_status: t.sow_received ? '✓' : '—',
-    layout_status: t.layout_received ? '✓' : '—',
-    db_status: t.db_ordered ? '✓' : '—',
-    lighting_status: t.lighting_ordered ? '✓' : '—',
+    shop_name: t.shop_name || '-',
+    sow_status: t.sow_received ? 'Yes' : '-',
+    layout_status: t.layout_received ? 'Yes' : '-',
+    db_status: t.db_ordered ? 'Yes' : '-',
+    lighting_status: t.lighting_ordered ? 'Yes' : '-',
   }));
   pages.push(...buildTablePages('Tenant Status', tenantCols, tenantRows as any));
 
   // ── Drawing Register Table ──
   const drawingCols: TableColumn[] = [
-    { header: 'Number', width: 25, key: 'drawing_number' },
-    { header: 'Title', width: 55, key: 'drawing_title' },
-    { header: 'Discipline', width: 25, key: 'discipline' },
-    { header: 'Rev', width: 12, key: 'current_revision' },
-    { header: 'Status', width: 20, key: 'status' },
+    { header: 'Number', width: 30, key: 'drawing_number' },
+    { header: 'Title', width: 70, key: 'drawing_title' },
+    { header: 'Discipline', width: 30, key: 'discipline' },
+    { header: 'Rev', width: 15, align: 'center', key: 'current_revision' },
+    { header: 'Status', width: 35, key: 'status' },
   ];
   const drawingRows = drawings.map(d => ({
-    drawing_number: d.drawing_number || '—',
-    drawing_title: d.drawing_title || '—',
-    discipline: d.discipline || '—',
-    current_revision: d.current_revision || '—',
-    status: d.status || '—',
+    drawing_number: d.drawing_number || '-',
+    drawing_title: d.drawing_title || '-',
+    discipline: d.discipline || '-',
+    current_revision: d.current_revision || '-',
+    status: d.status || '-',
   }));
   pages.push(...buildTablePages('Drawing Register', drawingCols, drawingRows as any));
 
   // ── Cable Status Table ──
   const cableCols: TableColumn[] = [
-    { header: 'Tag', width: 22, key: 'cable_tag' },
-    { header: 'From', width: 30, key: 'from_location' },
-    { header: 'To', width: 30, key: 'to_location' },
-    { header: 'Type', width: 25, key: 'cable_type' },
-    { header: 'Confirmed', width: 16, key: 'confirmed' },
-    { header: 'Installed', width: 16, key: 'installed' },
+    { header: 'Tag', width: 35, key: 'cable_tag' },
+    { header: 'From', width: 40, key: 'from_location' },
+    { header: 'To', width: 40, key: 'to_location' },
+    { header: 'Type', width: 30, key: 'cable_type' },
+    { header: 'Confirmed', width: 18, align: 'center', key: 'confirmed' },
+    { header: 'Installed', width: 17, align: 'center', key: 'installed' },
   ];
   const cableRows = cables.map(c => ({
-    cable_tag: c.cable_tag || '—',
-    from_location: c.from_location || '—',
-    to_location: c.to_location || '—',
-    cable_type: c.cable_type || '—',
-    confirmed: c.contractor_confirmed ? '✓' : '—',
-    installed: c.contractor_installed ? '✓' : '—',
+    cable_tag: c.cable_tag || '-',
+    from_location: c.from_location || '-',
+    to_location: c.to_location || '-',
+    cable_type: c.cable_type || '-',
+    confirmed: c.contractor_confirmed ? 'Yes' : '-',
+    installed: c.contractor_installed ? 'Yes' : '-',
   }));
   pages.push(...buildTablePages('Cable Status', cableCols, cableRows as any));
 
   // ── Procurement Table ──
   const procCols: TableColumn[] = [
-    { header: 'Item', width: 45, key: 'item_name' },
-    { header: 'Supplier', width: 30, key: 'supplier' },
-    { header: 'Status', width: 22, key: 'status' },
-    { header: 'Order Date', width: 22, key: 'order_date' },
-    { header: 'Delivery', width: 22, key: 'delivery_date' },
+    { header: 'Item', width: 50, key: 'item_name' },
+    { header: 'Supplier', width: 40, key: 'supplier' },
+    { header: 'Status', width: 30, key: 'status' },
+    { header: 'Order Date', width: 30, key: 'order_date' },
+    { header: 'Delivery', width: 30, key: 'delivery_date' },
   ];
   const procRows = procurement.map(p => ({
-    item_name: p.item_name || '—',
-    supplier: p.supplier || '—',
-    status: p.status || '—',
-    order_date: p.order_date || '—',
-    delivery_date: p.delivery_date || '—',
+    item_name: p.item_name || '-',
+    supplier: p.supplier || '-',
+    status: p.status || '-',
+    order_date: p.order_date || '-',
+    delivery_date: p.delivery_date || '-',
   }));
   pages.push(...buildTablePages('Procurement Status', procCols, procRows as any));
 
   // ── Inspections Table ──
   const inspCols: TableColumn[] = [
-    { header: 'Location', width: 40, key: 'location' },
-    { header: 'Type', width: 35, key: 'inspection_type' },
-    { header: 'Status', width: 25, key: 'status' },
-    { header: 'Date', width: 25, key: 'scheduled_date' },
+    { header: 'Location', width: 50, key: 'location' },
+    { header: 'Type', width: 45, key: 'inspection_type' },
+    { header: 'Status', width: 40, key: 'status' },
+    { header: 'Date', width: 45, key: 'scheduled_date' },
   ];
   const inspRows = inspections.map(i => ({
-    location: i.location || '—',
-    inspection_type: i.inspection_type || '—',
-    status: i.status || '—',
-    scheduled_date: i.scheduled_date || '—',
+    location: i.location || '-',
+    inspection_type: i.inspection_type || '-',
+    status: i.status || '-',
+    scheduled_date: i.scheduled_date || '-',
   }));
   pages.push(...buildTablePages('Inspections', inspCols, inspRows as any));
 
   // ── RFI Table ──
   const rfiCols: TableColumn[] = [
-    { header: 'RFI #', width: 18, key: 'rfi_number' },
-    { header: 'Subject', width: 60, key: 'subject' },
-    { header: 'Status', width: 25, key: 'status' },
-    { header: 'Submitted', width: 25, key: 'submitted_date' },
+    { header: 'RFI #', width: 25, key: 'rfi_number' },
+    { header: 'Subject', width: 75, key: 'subject' },
+    { header: 'Status', width: 35, key: 'status' },
+    { header: 'Submitted', width: 45, key: 'submitted_date' },
   ];
   const rfiRows = rfis.map(r => ({
-    rfi_number: r.rfi_number || '—',
-    subject: r.subject || '—',
-    status: r.status || '—',
-    submitted_date: r.submitted_date || '—',
+    rfi_number: r.rfi_number || '-',
+    subject: r.subject || '-',
+    status: r.status || '-',
+    submitted_date: r.submitted_date || '-',
   }));
   pages.push(...buildTablePages('RFI Register', rfiCols, rfiRows as any));
 
