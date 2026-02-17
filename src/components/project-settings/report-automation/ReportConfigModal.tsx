@@ -128,7 +128,11 @@ export function ReportConfigModal({
       .in('token_id', tokenIds);
 
     const emails = (contacts || []).map(c => c.email).filter(Boolean);
-    setPortalContacts([...new Set(emails)]);
+    const uniqueEmails = [...new Set(emails)];
+    setPortalContacts(uniqueEmails);
+    
+    // Auto-add portal contacts to recipient list if not already there
+    setRecipientEmails(prev => [...new Set([...prev, ...uniqueEmails])]);
   };
 
   const loadDocuments = async () => {
