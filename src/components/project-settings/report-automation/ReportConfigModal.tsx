@@ -185,10 +185,11 @@ export function ReportConfigModal({
         report_config: { ...reportConfig, end_date: endDate?.toISOString() || null },
         start_date: startDate?.toISOString() || null,
       });
-      toast.success("Configuration saved successfully");
+      // Toast is shown by the parent (ReportAutomationHub)
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to save configuration");
+    } catch (error: any) {
+      console.error('Failed to save configuration:', error);
+      toast.error(error?.message || "Failed to save configuration");
     } finally {
       setSaving(false);
     }
