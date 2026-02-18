@@ -209,3 +209,6 @@ verify_jwt = false
 
 [functions.sync-drawings]
 verify_jwt = false
+
+[functions.agent-gateway]
+verify_jwt = false
