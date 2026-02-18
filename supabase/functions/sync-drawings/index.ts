@@ -234,8 +234,15 @@ serve(async (req) => {
       };
 
       // Step 3: Navigate to drawings subfolder
-      const drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`;
-      const pdfEntries = await listDropboxFolder(accessToken, drawingsPath);
+      // Try both "LATEST" and "LATEST PDF'S"
+      let drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST PDF'S`;
+      let pdfEntries = await listDropboxFolder(accessToken, drawingsPath);
+      
+      // Fallback to "LATEST" if the first one failed or returned empty
+      if (pdfEntries.length === 0) {
+         drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`;
+         pdfEntries = await listDropboxFolder(accessToken, drawingsPath);
+      }
       const pdfFiles = pdfEntries.filter((e: any) => 
         e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.pdf')
       );
