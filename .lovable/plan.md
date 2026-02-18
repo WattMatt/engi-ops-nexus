@@ -1,97 +1,68 @@
 
 
-# Database API Gateway for External Agent Access
+# Dropbox Drawing Sync
 
 ## Overview
-Build a secure edge function that serves as an API gateway, giving an external AI agent full read/write access to your project data. The agent authenticates with an API key and can query any public table.
+Build an edge function and UI component that scans Dropbox for project drawing PDFs and syncs them into the `project_drawings` table and Supabase Storage.
 
-## Architecture
+## Key Design Decision: Authentication
+Your existing Dropbox integration uses **per-user OAuth** (tokens stored in `user_storage_connections`), not a global access token. The new `sync-drawings` edge function will reuse this same pattern -- the logged-in user's Dropbox credentials are used to scan folders. No new secret is needed.
 
-The gateway will be a single edge function (`agent-gateway`) that accepts:
-- **GET** requests to read/list data from any table
-- **POST** requests to insert data
-- **PATCH** requests to update data
-- **DELETE** requests to delete data
+## Implementation
 
-Authentication is via a secret API key you generate, passed as a Bearer token.
+### 1. Edge Function: `sync-drawings`
 
-## Security Model
+**Auth**: Validates the user's JWT, then fetches their Dropbox access token from `user_storage_connections` (same pattern as `dropbox-api`).
 
-- A dedicated API key (stored as a secret) gates all access
-- The edge function uses the **service role** internally to bypass RLS (since the agent is a trusted system, not a browser user)
-- Optional: restrict which tables the agent can access via an allowlist
-- All requests are logged to a new `agent_access_log` table for audit
+**Scanning logic**:
+- Lists folders at `/OFFICE/PROJECTS/`
+- Parses folder names matching `(NUMBER) NAME` pattern using regex `\((\d+)\)`
+- Queries `projects` table matching `project_number`
 
-## Implementation Steps
+**File processing** (per matched project):
+- Navigates to `[folder]/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`
+- Lists all `.pdf` files
 
-### Step 1: Generate and Store API Key
-- Create a secure random API key
-- Store it as a secret (`AGENT_API_KEY`) in the project
-- Share this key (and the function URL) with the external agent
+**Sync logic** (per PDF):
+- Checks `project_drawings` for existing record with same `file_name` and `project_id`
+- If new:
+  1. Downloads file content from Dropbox via API
+  2. Uploads to `project-drawings` storage bucket
+  3. Inserts into `project_drawings` with: `project_id`, `drawing_title` (filename without extension), `drawing_number` (derived from filename), `category` = 'electrical', `status` = 'draft', `current_revision` = '0', `file_url`, `file_path`, `file_name`
 
-### Step 2: Create Audit Log Table
-```text
-agent_access_log
-- id (uuid, PK)
-- method (text) -- GET, POST, PATCH, DELETE
-- table_name (text)
-- query_params (jsonb)
-- response_status (int)
-- created_at (timestamptz)
-```
+**Response**: Returns a JSON summary with scanned projects, new drawings imported, skipped drawings, and any errors.
 
-### Step 3: Build the `agent-gateway` Edge Function
-Single endpoint that handles:
+### 2. Frontend: DropboxDrawingSync Component
 
-**Reading data:**
-```text
-GET /agent-gateway?table=projects&select=id,name&limit=50
-GET /agent-gateway?table=project_drawings&project_id=eq.xxx&select=*
-```
+A card-based UI placed in the Drawings section:
+- "Sync Drawings from Dropbox" button that invokes the edge function
+- Progress/loading state during sync
+- Results display showing:
+  - Projects scanned (with names)
+  - New drawings imported (count per project)
+  - Skipped (already existed)
+  - Errors (if any)
+- Requires Dropbox to be connected (shows connect prompt if not)
 
-**Inserting data:**
-```text
-POST /agent-gateway
-Body: { "table": "project_drawings", "data": { ... } }
-```
+### 3. Config Update
 
-**Updating data:**
-```text
-PATCH /agent-gateway
-Body: { "table": "project_drawings", "match": { "id": "xxx" }, "data": { ... } }
-```
+Add `[functions.sync-drawings]` with `verify_jwt = false` to `supabase/config.toml` (JWT validated in code per existing pattern).
 
-**Deleting data:**
-```text
-DELETE /agent-gateway
-Body: { "table": "project_drawings", "match": { "id": "xxx" } }
-```
+### Files to Create/Modify
 
-### Step 4: Table Allowlist (Safety)
-The function will include a configurable allowlist of tables the agent can access. Initially this includes all major operational tables (projects, tenants, drawings, generator data, cable schedules, etc.) but excludes sensitive tables like `user_roles`, `profiles`, `client_portal_tokens`, etc.
+| File | Action |
+|------|--------|
+| `supabase/functions/sync-drawings/index.ts` | Create -- the edge function |
+| `src/components/drawings/DropboxDrawingSync.tsx` | Create -- the sync UI component |
+| `src/components/drawings/index.ts` | Modify -- export new component |
+| `supabase/config.toml` | Modify -- add function config |
 
-### Step 5: Share Credentials
-Once deployed, you share two things with the agent:
-1. **Endpoint URL**: `https://rsdisaisxdglmdmzmkyw.supabase.co/functions/v1/agent-gateway`
-2. **API Key**: The generated `AGENT_API_KEY` value
+### Technical Notes
 
-## Technical Details
+- The edge function reuses the `getValidAccessToken` pattern from `dropbox-api` (refresh token handling, expiry checks)
+- `drawing_number` is derived from the PDF filename by stripping the `.pdf` extension
+- The `category` field is set to `'electrical'` since the path is within the ELECTRICAL folder
+- `created_by` is set to the authenticated user's ID
+- Storage path: `{project_id}/{filename}`
+- The Dropbox download uses the `files/download` endpoint with the file path
 
-- The edge function uses `SUPABASE_SERVICE_ROLE_KEY` to perform queries (bypassing RLS)
-- PostgREST-style filtering is supported (`eq`, `gt`, `lt`, `like`, `in`, `is`)
-- Responses are JSON with standard pagination (`limit`, `offset`)
-- The `verify_jwt` is set to `false` in config.toml since auth is handled via the custom API key
-- Sensitive tables are excluded from the allowlist to prevent accidental exposure of credentials, tokens, or PII
-
-## Excluded Tables (Security)
-These tables will NOT be accessible via the gateway:
-- `user_roles`, `profiles` (auth/identity)
-- `client_portal_tokens`, `contractor_portal_tokens` (secrets)
-- `client_portal_access_log`, `contractor_portal_access_log` (internal logs)
-- `backup_files`, `backup_history` (infrastructure)
-
-## Files to Create/Modify
-1. **New**: `supabase/functions/agent-gateway/index.ts` -- the gateway function
-2. **Modify**: `supabase/config.toml` -- add `[functions.agent-gateway]` with `verify_jwt = false`
-3. **New migration**: Create `agent_access_log` table
-4. **Secret**: `AGENT_API_KEY` -- you'll be prompted to set this
