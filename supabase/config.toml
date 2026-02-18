@@ -206,3 +206,6 @@ verify_jwt = false
 
 [functions.notify-expiring-portal-tokens]
 verify_jwt = false
+
+[functions.sync-drawings]
+verify_jwt = false
