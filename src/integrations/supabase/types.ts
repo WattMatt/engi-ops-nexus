@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_access_log: {
+        Row: {
+          created_at: string
+          id: string
+          method: string
+          query_params: Json | null
+          response_status: number
+          table_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          method: string
+          query_params?: Json | null
+          response_status: number
+          table_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          method?: string
+          query_params?: Json | null
+          response_status?: number
+          table_name?: string
+        }
+        Relationships: []
+      }
       ai_prediction_reports: {
         Row: {
           created_at: string
