@@ -196,11 +196,58 @@ serve(async (req) => {
       errors: []
     };
 
-    // Step 1: List project folders at /OFFICE/PROJECTS/
-    console.log('Listing project folders at /OFFICE/PROJECTS/...');
-    const projectFolders = await listDropboxFolder(accessToken, '/OFFICE/PROJECTS');
-    const folders = projectFolders.filter((e: any) => e['.tag'] === 'folder');
-    console.log(`Found ${folders.length} folders in /OFFICE/PROJECTS/`);
+    // Step 1: Try multiple possible base paths for the projects folder
+    const possibleBasePaths = [
+      '/OFFICE/PROJECTS',
+      '/Office/Projects',
+      '/office/projects',
+      '/PROJECTS',
+      '/Projects',
+    ];
+
+    let folders: any[] = [];
+    let usedBasePath = '';
+
+    for (const basePath of possibleBasePaths) {
+      console.log(`Trying base path: ${basePath}`);
+      const entries = await listDropboxFolder(accessToken, basePath);
+      const folderEntries = entries.filter((e: any) => e['.tag'] === 'folder');
+      if (folderEntries.length > 0) {
+        folders = folderEntries;
+        usedBasePath = basePath;
+        console.log(`Found ${folders.length} folders at ${basePath}`);
+        break;
+      }
+    }
+
+    // If none found, try listing root to discover structure
+    if (folders.length === 0) {
+      console.log('No project folders found in standard paths. Listing root...');
+      const rootEntries = await listDropboxFolder(accessToken, '');
+      const rootFolders = rootEntries.filter((e: any) => e['.tag'] === 'folder').map((f: any) => f.name);
+      console.log(`Root folders: ${rootFolders.join(', ')}`);
+      
+      // Try /root_folder/PROJECTS pattern
+      for (const rootFolder of rootEntries.filter((e: any) => e['.tag'] === 'folder')) {
+        const subEntries = await listDropboxFolder(accessToken, rootFolder.path_display + '/PROJECTS');
+        const subFolders = subEntries.filter((e: any) => e['.tag'] === 'folder');
+        if (subFolders.length > 0) {
+          folders = subFolders;
+          usedBasePath = rootFolder.path_display + '/PROJECTS';
+          console.log(`Found ${folders.length} folders at ${usedBasePath}`);
+          break;
+        }
+      }
+    }
+
+    if (folders.length === 0) {
+      result.errors.push('Could not find project folders in Dropbox. Tried paths: ' + possibleBasePaths.join(', ') + ' and root subfolders.');
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log(`Using base path: ${usedBasePath}, scanning ${folders.length} folders`);
 
     // Step 2: Parse folder names and match to projects
     const projectNumberRegex = /\((\d+)\)/;
