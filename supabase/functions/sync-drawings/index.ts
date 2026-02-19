@@ -236,13 +236,17 @@ serve(async (req) => {
       // Step 3: Navigate to drawings subfolder
       // Try both "LATEST" and "LATEST PDF'S"
       let drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST PDF'S`;
+      console.log(`Checking path: ${drawingsPath}`);
       let pdfEntries = await listDropboxFolder(accessToken, drawingsPath);
       
       // Fallback to "LATEST" if the first one failed or returned empty
       if (pdfEntries.length === 0) {
+         console.log(`Path empty or not found, trying fallback: ${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`);
          drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`;
          pdfEntries = await listDropboxFolder(accessToken, drawingsPath);
       }
+
+      console.log(`Scan result for ${project.name}: Found ${pdfEntries.length} entries.`);
       const pdfFiles = pdfEntries.filter((e: any) => 
         e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.pdf')
       );
