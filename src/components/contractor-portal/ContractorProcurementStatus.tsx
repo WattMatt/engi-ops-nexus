@@ -85,7 +85,7 @@ export function ContractorProcurementStatus({
       // Determine new status - if order_date is set, mark as ordered
       const newStatus = updates.order_date ? 'ordered' : 'instructed';
 
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('project_procurement_items')
         .update({
           order_date: updates.order_date || null,
@@ -93,7 +93,8 @@ export function ContractorProcurementStatus({
           status: newStatus,
           updated_at: new Date().toISOString()
         })
-        .eq('id', itemId);
+        .eq('id', itemId)
+        .select();
 
       if (error) throw error;
       return itemId;
