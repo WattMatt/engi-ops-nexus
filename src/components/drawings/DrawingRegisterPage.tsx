@@ -37,6 +37,9 @@ import { DrawingFilters } from '@/types/drawings';
 import { OfflineSyncStatusBar } from '@/components/pwa/OfflineSyncStatusBar';
 import { useDrawingOfflineSync } from '@/hooks/useDrawingOfflineSync';
 
+import { DropboxDrawingSync } from './DropboxDrawingSync';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+
 export function DrawingRegisterPage() {
   const navigate = useNavigate();
   const [projectId, setProjectId] = useState<string | null>(
@@ -49,6 +52,7 @@ export function DrawingRegisterPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+  const [isDropboxDialogOpen, setIsDropboxDialogOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   
@@ -117,6 +121,14 @@ export function DrawingRegisterPage() {
         
         {activeMainTab === 'drawings' && (
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDropboxDialogOpen(true)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Dropbox Sync
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -285,6 +297,12 @@ export function DrawingRegisterPage() {
         projectId={projectId}
         drawings={drawings}
       />
+
+      <Dialog open={isDropboxDialogOpen} onOpenChange={setIsDropboxDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DropboxDrawingSync />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
