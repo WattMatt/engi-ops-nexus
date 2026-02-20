@@ -23,7 +23,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-y-auto" style={{ background: 'var(--gradient-hero)' }}>
+    <div className="min-h-screen relative overflow-y-auto" style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #064e3b 100%)' }}>
       <FloatingShapes />
       
       <div className="container mx-auto px-6 py-16 relative z-10">
