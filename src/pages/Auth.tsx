@@ -168,7 +168,7 @@ const Auth = () => {
             {companySettings?.company_name || "WM Consulting"}
           </CardTitle>
           <CardDescription>
-            {companySettings?.company_tagline || "Engineering Operations Platform"}
+            {companySettings?.company_tagline || "Spud Operations Platform 🥔"}
           </CardDescription>
         </CardHeader>
         <CardContent>
