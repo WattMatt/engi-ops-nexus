@@ -325,13 +325,21 @@ serve(async (req) => {
     }
 
     console.log(`Using base path: ${usedBasePath}, scanning ${folders.length} folders`);
+    
+    // Log ALL folder names for debugging
+    const allFolderNames = folders.map((f: any) => f.name);
+    console.log(`All folder names: ${JSON.stringify(allFolderNames)}`);
 
     // Step 2: Parse folder names and match to projects
+    // Support both (636) and plain number prefixes, plus alphanumeric like P91.1
     const projectNumberRegex = /\((\d+)\)/;
 
     for (const folder of folders) {
       const match = folder.name.match(projectNumberRegex);
-      if (!match) continue;
+      if (!match) {
+        console.log(`Skipped (no number pattern): ${folder.name}`);
+        continue;
+      }
 
       const projectNumber = match[1];
       
