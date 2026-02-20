@@ -60,6 +60,35 @@ async function logActivity(supabase: any, entry: ActivityLogEntry): Promise<void
     console.error('Error logging activity:', e);
   }
 }
+// Get root namespace ID for team/shared folder access
+async function getRootNamespaceId(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      }
+    });
+    if (!response.ok) return null;
+    const account = await response.json();
+    return account?.root_info?.root_namespace_id || null;
+  } catch (e) {
+    console.error('Failed to get root namespace:', e);
+    return null;
+  }
+}
+
+// Build headers including root namespace for team/shared folder access
+function buildDropboxHeaders(accessToken: string, rootNamespaceId: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  };
+  if (rootNamespaceId) {
+    headers['Dropbox-API-Path-Root'] = JSON.stringify({ ".tag": "root", "root": rootNamespaceId });
+  }
+  return headers;
+}
 
 // Extract file info from path
 function extractFileInfo(path: string): { name: string; extension: string | null } {
@@ -204,6 +233,12 @@ serve(async (req) => {
     const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
+    // Get root namespace for team/shared folder access
+    const rootNamespaceId = await getRootNamespaceId(accessToken);
+    if (rootNamespaceId) {
+      console.log('Using root namespace:', rootNamespaceId);
+    }
+
     // List folder contents
     if (action === 'list-folder') {
       const { path = '' } = await req.json();
@@ -211,10 +246,7 @@ serve(async (req) => {
 
       const response = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: buildDropboxHeaders(accessToken, rootNamespaceId),
         body: JSON.stringify({
           path: dropboxPath,
           include_mounted_folders: true,
@@ -280,10 +312,7 @@ serve(async (req) => {
 
       const response = await fetch('https://api.dropboxapi.com/2/files/create_folder_v2', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: buildDropboxHeaders(accessToken, rootNamespaceId),
         body: JSON.stringify({ path, autorename: false })
       });
 
@@ -349,18 +378,23 @@ serve(async (req) => {
         fileSize = content.length;
       }
 
+      const uploadHeaders: Record<string, string> = {
+        'Authorization': `Bearer ${accessToken}`,
+        'Dropbox-API-Arg': JSON.stringify({
+          path: path,
+          mode: 'overwrite',
+          autorename: true,
+          mute: false
+        }),
+        'Content-Type': 'application/octet-stream'
+      };
+      if (rootNamespaceId) {
+        uploadHeaders['Dropbox-API-Path-Root'] = JSON.stringify({ ".tag": "root", "root": rootNamespaceId });
+      }
+
       const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Dropbox-API-Arg': JSON.stringify({
-            path: path,
-            mode: 'overwrite',
-            autorename: true,
-            mute: false
-          }),
-          'Content-Type': 'application/octet-stream'
-        },
+        headers: uploadHeaders,
         body: fileData
       });
 
@@ -420,10 +454,7 @@ serve(async (req) => {
 
       const response = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: buildDropboxHeaders(accessToken, rootNamespaceId),
         body: JSON.stringify({ path })
       });
 
@@ -480,10 +511,7 @@ serve(async (req) => {
 
       const response = await fetch('https://api.dropboxapi.com/2/files/delete_v2', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: buildDropboxHeaders(accessToken, rootNamespaceId),
         body: JSON.stringify({ path })
       });
 
