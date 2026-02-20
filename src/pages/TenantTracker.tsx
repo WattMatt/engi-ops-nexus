@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantList } from "@/components/tenant/TenantList";
 import { TenantDialog } from "@/components/tenant/TenantDialog";
+import { ImportTenantsDialog } from "@/components/tenant/ImportTenantsDialog";
 import { ImportTenantsFromBudget } from "@/components/tenant/ImportTenantsFromBudget";
 import { DBSizingRulesSettings } from "@/components/tenant/DBSizingRulesSettings";
 import { FloorPlanMasking } from "@/components/tenant/FloorPlanMasking";
@@ -121,6 +122,7 @@ const TenantTracker = () => {
             <p className="text-muted-foreground mt-1">{projectName || "No project selected"}</p>
           </div>
           <div className="flex gap-2">
+            <ImportTenantsDialog projectId={projectId || ""} onSuccess={handleUpdate} />
             <ImportTenantsFromBudget projectId={projectId || ""} onSuccess={handleUpdate} />
             <TenantReportGenerator 
               tenants={tenants} 
