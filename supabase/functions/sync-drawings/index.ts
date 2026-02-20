@@ -167,14 +167,35 @@ async function getGlobalAccessToken(supabase: any, userId: string): Promise<stri
   return newTokens.access_token;
 }
 
-async function listDropboxFolder(accessToken: string, path: string): Promise<any[]> {
+// Get root namespace ID for team/shared folder access
+async function getRootNamespaceId(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    if (!response.ok) return null;
+    const account = await response.json();
+    return account?.root_info?.root_namespace_id || null;
+  } catch (e) {
+    console.error('Failed to get root namespace:', e);
+    return null;
+  }
+}
+
+async function listDropboxFolder(accessToken: string, path: string, rootNamespaceId: string | null): Promise<any[]> {
   const dropboxPath = path === '' || path === '/' ? '' : path;
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  };
+  if (rootNamespaceId) {
+    headers['Dropbox-API-Path-Root'] = JSON.stringify({ ".tag": "root", "root": rootNamespaceId });
+  }
+
   const response = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
+    headers,
     body: JSON.stringify({
       path: dropboxPath,
       include_mounted_folders: true,
@@ -213,13 +234,18 @@ async function listDropboxFolder(accessToken: string, path: string): Promise<any
   return entries;
 }
 
-async function downloadDropboxFile(accessToken: string, path: string): Promise<Uint8Array | null> {
+async function downloadDropboxFile(accessToken: string, path: string, rootNamespaceId: string | null): Promise<Uint8Array | null> {
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${accessToken}`,
+    'Dropbox-API-Arg': JSON.stringify({ path })
+  };
+  if (rootNamespaceId) {
+    headers['Dropbox-API-Path-Root'] = JSON.stringify({ ".tag": "root", "root": rootNamespaceId });
+  }
+
   const response = await fetch('https://content.dropboxapi.com/2/files/download', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Dropbox-API-Arg': JSON.stringify({ path })
-    }
+    headers
   });
 
   if (!response.ok) {
@@ -266,6 +292,10 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Get root namespace for team/shared folder access
+    const rootNamespaceId = await getRootNamespaceId(accessToken);
+    console.log('Root namespace ID:', rootNamespaceId);
+
     const result: SyncResult = {
       projectsScanned: [],
       totalNewDrawings: 0,
@@ -287,7 +317,7 @@ serve(async (req) => {
 
     for (const basePath of possibleBasePaths) {
       console.log(`Trying base path: ${basePath}`);
-      const entries = await listDropboxFolder(accessToken, basePath);
+      const entries = await listDropboxFolder(accessToken, basePath, rootNamespaceId);
       const folderEntries = entries.filter((e: any) => e['.tag'] === 'folder');
       if (folderEntries.length > 0) {
         folders = folderEntries;
@@ -300,13 +330,13 @@ serve(async (req) => {
     // If none found, try listing root to discover structure
     if (folders.length === 0) {
       console.log('No project folders found in standard paths. Listing root...');
-      const rootEntries = await listDropboxFolder(accessToken, '');
+      const rootEntries = await listDropboxFolder(accessToken, '', rootNamespaceId);
       const rootFolders = rootEntries.filter((e: any) => e['.tag'] === 'folder').map((f: any) => f.name);
       console.log(`Root folders: ${rootFolders.join(', ')}`);
       
       // Try /root_folder/PROJECTS pattern
       for (const rootFolder of rootEntries.filter((e: any) => e['.tag'] === 'folder')) {
-        const subEntries = await listDropboxFolder(accessToken, rootFolder.path_display + '/PROJECTS');
+        const subEntries = await listDropboxFolder(accessToken, rootFolder.path_display + '/PROJECTS', rootNamespaceId);
         const subFolders = subEntries.filter((e: any) => e['.tag'] === 'folder');
         if (subFolders.length > 0) {
           folders = subFolders;
@@ -369,13 +399,13 @@ serve(async (req) => {
       // Try both "LATEST" and "LATEST PDF'S"
       let drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST PDF'S`;
       console.log(`Checking path: ${drawingsPath}`);
-      let pdfEntries = await listDropboxFolder(accessToken, drawingsPath);
+      let pdfEntries = await listDropboxFolder(accessToken, drawingsPath, rootNamespaceId);
       
       // Fallback to "LATEST" if the first one failed or returned empty
       if (pdfEntries.length === 0) {
          console.log(`Path empty or not found, trying fallback: ${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`);
          drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`;
-         pdfEntries = await listDropboxFolder(accessToken, drawingsPath);
+         pdfEntries = await listDropboxFolder(accessToken, drawingsPath, rootNamespaceId);
       }
 
       console.log(`Scan result for ${project.name}: Found ${pdfEntries.length} entries.`);
@@ -412,7 +442,7 @@ serve(async (req) => {
         try {
           // Download from Dropbox
           console.log(`Downloading: ${fileName}`);
-          const fileData = await downloadDropboxFile(accessToken, pdfFile.path_display);
+          const fileData = await downloadDropboxFile(accessToken, pdfFile.path_display, rootNamespaceId);
           if (!fileData) {
             result.errors.push(`Failed to download: ${fileName}`);
             continue;
