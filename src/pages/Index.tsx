@@ -38,7 +38,7 @@ const Index = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">WM Consulting</h1>
-              <p className="text-sm text-white/80">Engineering Excellence</p>
+              <p className="text-sm text-white/80">Spud Operations Platform 🥔</p>
             </div>
           </div>
           <div className="flex gap-3">
