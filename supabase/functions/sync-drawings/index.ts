@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const DROPBOX_APP_KEY = Deno.env.get('DROPBOX_APP_KEY');
 const DROPBOX_APP_SECRET = Deno.env.get('DROPBOX_APP_SECRET');
+const DROPBOX_REFRESH_TOKEN = Deno.env.get('DROPBOX_REFRESH_TOKEN');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -99,6 +100,73 @@ async function getValidAccessToken(supabase: any, userId: string): Promise<strin
   return credentials.access_token;
 }
 
+async function getGlobalAccessToken(supabase: any, userId: string): Promise<string | null> {
+  if (!DROPBOX_REFRESH_TOKEN || !DROPBOX_APP_KEY || !DROPBOX_APP_SECRET) {
+    console.error('Global Dropbox credentials not configured');
+    return null;
+  }
+
+  console.log('Using global DROPBOX_REFRESH_TOKEN fallback for user:', userId);
+  const tokenResponse = await fetch('https://api.dropboxapi.com/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${btoa(`${DROPBOX_APP_KEY}:${DROPBOX_APP_SECRET}`)}`
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: DROPBOX_REFRESH_TOKEN
+    })
+  });
+
+  if (!tokenResponse.ok) {
+    const errText = await tokenResponse.text();
+    console.error('Global token refresh failed:', errText);
+    return null;
+  }
+
+  const newTokens = await tokenResponse.json();
+  console.log('Global token refresh successful');
+
+  // Update or create the user connection so future calls use this token
+  const credentials = {
+    access_token: newTokens.access_token,
+    refresh_token: DROPBOX_REFRESH_TOKEN,
+    expires_at: new Date(Date.now() + newTokens.expires_in * 1000).toISOString()
+  };
+
+  const { data: existing } = await supabase
+    .from('user_storage_connections')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('provider', 'dropbox')
+    .single();
+
+  if (existing) {
+    await supabase
+      .from('user_storage_connections')
+      .update({
+        credentials,
+        status: 'connected',
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existing.id);
+  } else {
+    await supabase
+      .from('user_storage_connections')
+      .insert({
+        user_id: userId,
+        provider: 'dropbox',
+        credentials,
+        status: 'connected',
+        connected_at: new Date().toISOString()
+      });
+  }
+
+  return newTokens.access_token;
+}
+
 async function listDropboxFolder(accessToken: string, path: string): Promise<any[]> {
   const dropboxPath = path === '' || path === '/' ? '' : path;
   const response = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
@@ -187,8 +255,12 @@ serve(async (req) => {
 
     const userId = user.id;
 
-    // Get Dropbox access token
-    const accessToken = await getValidAccessToken(supabase, userId);
+    // Get Dropbox access token - try per-user first, then global fallback
+    let accessToken = await getValidAccessToken(supabase, userId);
+    if (!accessToken) {
+      console.log('Per-user token failed, trying global fallback...');
+      accessToken = await getGlobalAccessToken(supabase, userId);
+    }
     if (!accessToken) {
       return new Response(JSON.stringify({ error: 'Dropbox not connected. Please connect your Dropbox account first.' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
