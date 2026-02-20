@@ -13,7 +13,8 @@ import {
   Users,
   Building2,
   FileCheck,
-  ClipboardCheck
+  ClipboardCheck,
+  Cloud
 } from 'lucide-react';
 import {
   Table,
@@ -56,6 +57,7 @@ import { DrawingPreviewDialog } from './DrawingPreviewDialog';
 import { format } from 'date-fns';
  import { useToast } from '@/hooks/use-toast';
  import { downloadFile } from '@/lib/fileViewer';
+ import { useDropboxTempLink } from '@/hooks/useDropboxTempLink';
 
 interface DrawingTableProps {
   drawings: ProjectDrawing[];
@@ -73,6 +75,7 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
   const { toast } = useToast();
   const deleteDrawing = useDeleteDrawing();
   const updateVisibility = useUpdateDrawingVisibility();
+  const { getTempLink, isLoading: isLoadingTempLink } = useDropboxTempLink();
  
    // Fetch review statuses for all drawings
    const drawingIds = drawings.map(d => d.id);
@@ -98,6 +101,42 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
          });
        },
      });
+   };
+
+   // Handle viewing/downloading Dropbox files
+   const handleDropboxPreview = async (drawing: ProjectDrawing) => {
+     const dropboxPath = drawing.dropbox_path;
+     if (!dropboxPath) return;
+     
+     toast({ title: 'Loading from Dropbox...', description: 'Generating preview link' });
+     const link = await getTempLink(dropboxPath);
+     if (link) {
+       // Set a temporary file_url for the preview dialog
+       setPreviewingDrawing({ ...drawing, file_url: link });
+     } else {
+       toast({
+         title: 'Preview Failed',
+         description: 'Could not get Dropbox link. Make sure your Dropbox is connected.',
+         variant: 'destructive',
+       });
+     }
+   };
+
+   const handleDropboxDownload = async (drawing: ProjectDrawing) => {
+     const dropboxPath = drawing.dropbox_path;
+     if (!dropboxPath) return;
+     
+     toast({ title: 'Preparing download...', description: 'Getting Dropbox link' });
+     const link = await getTempLink(dropboxPath);
+     if (link) {
+       window.open(link, '_blank');
+     } else {
+       toast({
+         title: 'Download Failed',
+         description: 'Could not get Dropbox link.',
+         variant: 'destructive',
+       });
+     }
    };
   
   const handleSelectAll = (checked: boolean) => {
@@ -304,6 +343,20 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
+                  ) : drawing.dropbox_path ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDropboxPreview(drawing)}
+                          disabled={isLoadingTempLink}
+                        >
+                          <Cloud className="h-4 w-4 text-primary" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>View from Dropbox</TooltipContent>
+                    </Tooltip>
                   ) : (
                     <span className="text-xs text-muted-foreground">No file</span>
                   )}
@@ -340,6 +393,18 @@ export function DrawingTable({ drawings, isLoading, projectId }: DrawingTablePro
                           <Eye className="h-4 w-4 mr-2" />
                           View
                         </DropdownMenuItem>
+                      )}
+                      {drawing.dropbox_path && (
+                        <>
+                          <DropdownMenuItem onClick={() => handleDropboxPreview(drawing)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View from Dropbox
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDropboxDownload(drawing)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download from Dropbox
+                          </DropdownMenuItem>
+                        </>
                       )}
                       <DropdownMenuItem onClick={() => setEditingDrawing(drawing)}>
                         <Pencil className="h-4 w-4 mr-2" />

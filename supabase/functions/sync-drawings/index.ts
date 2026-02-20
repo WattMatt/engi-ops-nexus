@@ -234,28 +234,7 @@ async function listDropboxFolder(accessToken: string, path: string, rootNamespac
   return entries;
 }
 
-async function downloadDropboxFile(accessToken: string, path: string, rootNamespaceId: string | null): Promise<Uint8Array | null> {
-  const headers: Record<string, string> = {
-    'Authorization': `Bearer ${accessToken}`,
-    'Dropbox-API-Arg': JSON.stringify({ path })
-  };
-  if (rootNamespaceId) {
-    headers['Dropbox-API-Path-Root'] = JSON.stringify({ ".tag": "root", "root": rootNamespaceId });
-  }
-
-  const response = await fetch('https://content.dropboxapi.com/2/files/download', {
-    method: 'POST',
-    headers
-  });
-
-  if (!response.ok) {
-    console.error(`Failed to download file ${path}:`, await response.text());
-    return null;
-  }
-
-  const buffer = await response.arrayBuffer();
-  return new Uint8Array(buffer);
-}
+// downloadDropboxFile removed — we no longer download files to storage
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -440,38 +419,10 @@ serve(async (req) => {
         }
 
         try {
-          // Download from Dropbox
-          console.log(`Downloading: ${fileName}`);
-          const fileData = await downloadDropboxFile(accessToken, pdfFile.path_display, rootNamespaceId);
-          if (!fileData) {
-            result.errors.push(`Failed to download: ${fileName}`);
-            continue;
-          }
-
-          // Upload to Supabase Storage
-          const storagePath = `${project.id}/${fileName}`;
-          const { error: uploadError } = await supabase.storage
-            .from('project-drawings')
-            .upload(storagePath, fileData, {
-              contentType: 'application/pdf',
-              upsert: false
-            });
-
-          if (uploadError) {
-            console.error(`Storage upload failed for ${fileName}:`, uploadError);
-            result.errors.push(`Upload failed: ${fileName} - ${uploadError.message}`);
-            continue;
-          }
-
-          // Get public URL
-          const { data: urlData } = supabase.storage
-            .from('project-drawings')
-            .getPublicUrl(storagePath);
-
           const drawingTitle = fileName.replace(/\.pdf$/i, '');
-          const drawingNumber = drawingTitle; // Use filename without extension as drawing number
+          const drawingNumber = drawingTitle;
 
-          // Insert into project_drawings
+          // Store metadata with Dropbox path — no file download/upload
           const { error: insertError } = await supabase
             .from('project_drawings')
             .insert({
@@ -481,23 +432,20 @@ serve(async (req) => {
               category: 'electrical',
               status: 'draft',
               current_revision: '0',
-              file_url: urlData.publicUrl,
-              file_path: storagePath,
               file_name: fileName,
+              dropbox_path: pdfFile.path_display,
               created_by: userId
             });
 
           if (insertError) {
             console.error(`DB insert failed for ${fileName}:`, insertError);
             result.errors.push(`DB insert failed: ${fileName} - ${insertError.message}`);
-            // Clean up uploaded file
-            await supabase.storage.from('project-drawings').remove([storagePath]);
             continue;
           }
 
           projectResult.newImported++;
           result.totalNewDrawings++;
-          console.log(`Synced: ${fileName} -> project ${project.name}`);
+          console.log(`Registered: ${fileName} -> project ${project.name}`);
         } catch (fileError) {
           const msg = fileError instanceof Error ? fileError.message : String(fileError);
           result.errors.push(`Error processing ${fileName}: ${msg}`);
