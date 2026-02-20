@@ -26,12 +26,15 @@ interface SyncResult {
 }
 
 async function getValidAccessToken(supabase: any, userId: string): Promise<string | null> {
+  // Also try expired connections - we may be able to refresh them
   const { data: connection, error } = await supabase
     .from('user_storage_connections')
-    .select('id, credentials')
+    .select('id, credentials, status')
     .eq('user_id', userId)
     .eq('provider', 'dropbox')
-    .eq('status', 'connected')
+    .in('status', ['connected', 'expired'])
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .single();
 
   if (error || !connection) {
@@ -40,50 +43,52 @@ async function getValidAccessToken(supabase: any, userId: string): Promise<strin
   }
 
   const credentials = connection.credentials as DropboxCredentials;
-  if (!credentials?.access_token) return null;
+  if (!credentials?.refresh_token) return null;
 
-  // Check if token needs refresh
-  if (credentials.expires_at) {
-    const expiresAt = new Date(credentials.expires_at);
-    const now = new Date();
-    if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-      console.log('Refreshing Dropbox token for user:', userId);
-      const tokenResponse = await fetch('https://api.dropboxapi.com/oauth2/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${btoa(`${DROPBOX_APP_KEY}:${DROPBOX_APP_SECRET}`)}`
-        },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: credentials.refresh_token
-        })
-      });
+  // Check if token needs refresh (expired status, no access token, or token expiring soon)
+  const needsRefresh = connection.status === 'expired' || !credentials.access_token || 
+    (credentials.expires_at && new Date(credentials.expires_at).getTime() - Date.now() < 5 * 60 * 1000);
+  
+  if (needsRefresh) {
+    console.log('Refreshing Dropbox token for user:', userId);
+    const tokenResponse = await fetch('https://api.dropboxapi.com/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${btoa(`${DROPBOX_APP_KEY}:${DROPBOX_APP_SECRET}`)}`
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: credentials.refresh_token
+      })
+    });
 
-      if (!tokenResponse.ok) {
-        await supabase
-          .from('user_storage_connections')
-          .update({ status: 'expired', updated_at: new Date().toISOString() })
-          .eq('id', connection.id);
-        return null;
-      }
-
-      const newTokens = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+      const errText = await tokenResponse.text();
+      console.error('Token refresh failed:', errText);
       await supabase
         .from('user_storage_connections')
-        .update({
-          credentials: {
-            ...credentials,
-            access_token: newTokens.access_token,
-            expires_at: new Date(Date.now() + newTokens.expires_in * 1000).toISOString()
-          },
-          last_used_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: 'expired', updated_at: new Date().toISOString() })
         .eq('id', connection.id);
-
-      return newTokens.access_token;
+      return null;
     }
+
+    const newTokens = await tokenResponse.json();
+    await supabase
+      .from('user_storage_connections')
+      .update({
+        credentials: {
+          ...credentials,
+          access_token: newTokens.access_token,
+          expires_at: new Date(Date.now() + newTokens.expires_in * 1000).toISOString()
+        },
+        status: 'connected',
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', connection.id);
+
+    return newTokens.access_token;
   }
 
   await supabase
