@@ -11813,6 +11813,7 @@ export type Database = {
           current_revision: string | null
           drawing_number: string
           drawing_title: string
+          dropbox_path: string | null
           file_name: string | null
           file_path: string | null
           file_size: number | null
@@ -11842,6 +11843,7 @@ export type Database = {
           current_revision?: string | null
           drawing_number: string
           drawing_title: string
+          dropbox_path?: string | null
           file_name?: string | null
           file_path?: string | null
           file_size?: number | null
@@ -11871,6 +11873,7 @@ export type Database = {
           current_revision?: string | null
           drawing_number?: string
           drawing_title?: string
+          dropbox_path?: string | null
           file_name?: string | null
           file_path?: string | null
           file_size?: number | null

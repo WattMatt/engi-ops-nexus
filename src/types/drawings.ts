@@ -35,6 +35,7 @@ export interface ProjectDrawing {
   visible_to_contractor: boolean;
   included_in_handover: boolean;
   roadmap_item_id?: string;
+  dropbox_path?: string;
   sort_order: number;
   notes?: string;
   created_by?: string;
