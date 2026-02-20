@@ -400,18 +400,25 @@ serve(async (req) => {
         continue;
       }
 
-      // Step 4: Check existing drawings for this project
+      // Step 4: Check existing drawings for this project (by normalized drawing number)
       const { data: existingDrawings } = await supabase
         .from('project_drawings')
-        .select('file_name')
+        .select('drawing_number, file_name')
         .eq('project_id', project.id);
 
-      const existingFileNames = new Set((existingDrawings || []).map((d: any) => d.file_name));
+      // Build sets for dedup: normalized drawing numbers AND file names
+      const existingNormalized = new Set(
+        (existingDrawings || []).map((d: any) => d.drawing_number?.replace(/\./g, '/'))
+      );
+      const existingFileNames = new Set(
+        (existingDrawings || []).map((d: any) => d.file_name).filter(Boolean)
+      );
 
       // Step 5: Sync new drawings
       for (const pdfFile of pdfFiles) {
         const fileName = pdfFile.name;
 
+        // Skip if exact filename already exists
         if (existingFileNames.has(fileName)) {
           projectResult.skipped++;
           result.totalSkipped++;
@@ -420,18 +427,55 @@ serve(async (req) => {
 
         try {
           const drawingTitle = fileName.replace(/\.pdf$/i, '');
-          const drawingNumber = drawingTitle;
+          
+          // Parse drawing number from filename: "636.E.800 - SIGNAGE LAYOUT - REV. 0" → "636/E/800"
+          // Also handles suffix patterns like "636.E.407.L - ..." → "636/E/407/L"
+          const firstPart = drawingTitle.split(' - ')[0].trim(); // e.g. "636.E.800" or "636.E.407.L"
+          const drawingNumber = firstPart.replace(/\./g, '/');   // normalize to "/"
+          
+          // Parse title: everything after the first " - " up to " - REV." or ". REV."
+          const afterNumber = drawingTitle.substring(drawingTitle.indexOf(' - ') + 3);
+          const titleClean = afterNumber
+            .replace(/[\s-]*REV\.?\s*\w*\s*$/i, '')  // strip trailing "- REV. 0" or ". REV.0"
+            .replace(/\.\s*REV\.?\s*\w*\s*$/i, '')
+            .trim();
+          
+          // Parse revision from filename
+          const revMatch = drawingTitle.match(/REV\.?\s*(\w+)\s*$/i);
+          const revision = revMatch ? revMatch[1] : '0';
+
+          // Skip if normalized drawing number already exists
+          if (existingNormalized.has(drawingNumber)) {
+            // Update the existing record with dropbox_path if missing
+            const existing = (existingDrawings || []).find(
+              (d: any) => d.drawing_number?.replace(/\./g, '/') === drawingNumber
+            );
+            if (existing) {
+              await supabase
+                .from('project_drawings')
+                .update({ 
+                  dropbox_path: pdfFile.path_display, 
+                  file_name: fileName,
+                  current_revision: revision
+                })
+                .eq('project_id', project.id)
+                .eq('drawing_number', existing.drawing_number);
+            }
+            projectResult.skipped++;
+            result.totalSkipped++;
+            continue;
+          }
 
           // Store metadata with Dropbox path — no file download/upload
           const { error: insertError } = await supabase
             .from('project_drawings')
             .insert({
               project_id: project.id,
-              drawing_title: drawingTitle,
+              drawing_title: titleClean || drawingTitle,
               drawing_number: drawingNumber,
               category: 'electrical',
               status: 'draft',
-              current_revision: '0',
+              current_revision: revision,
               file_name: fileName,
               dropbox_path: pdfFile.path_display,
               created_by: userId
