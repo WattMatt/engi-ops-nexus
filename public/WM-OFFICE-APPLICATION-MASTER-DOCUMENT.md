@@ -658,27 +658,80 @@ Defined in `src/components/sidebar/sidebarConfig.ts` — organized into **5 work
 **Offline:** `useOfflineSiteDiary` → IndexedDB offline queue
 
 ### 5.14 Floor Plan Markup (`/dashboard/floor-plan`)
-**File:** `src/pages/FloorPlan.tsx`
-**Purpose:** Interactive floor plan annotation and cable route visualization.
-**Components:**
-| Directory | Purpose |
-|-----------|---------|
-| `components/` | Floor plan sub-components (toolbar, layers, equipment palette) |
-| `hooks/` | Floor plan hooks (canvas state, zoom, selection) |
-| `utils/` | Floor plan utilities (coordinate math, export) |
-| `App.tsx` | Main floor plan application component |
-| `constants.ts` | Equipment symbols, colors, sizes |
-| `types.ts` | TypeScript interfaces for floor plan data |
-| `purpose.config.ts` | Configuration for floor plan purpose |
-**Features:**
-- Fabric.js canvas for drawing/annotation
-- Standard electrical equipment symbols (lights, switches, outlets, DBs)
-- Cable route drawing with path tools
-- Tenant area masking (highlight per tenant)
-- Scale calibration (set pixels-to-meters ratio)
-- Pan/zoom controls (react-zoom-pan-pinch)
-- Import cables from floor plan into cable schedules
-- Export as image (html2canvas)
+**File:** `src/pages/FloorPlan.tsx` → lazy-loads `src/components/floor-plan/App.tsx`
+**Purpose:** World-class browser-based electrical markup tool — load PDFs, set scale, place symbols, draw cables, quantify components.
+**Architecture:** Self-contained sub-application with its own state management, modals, and canvas engine.
+
+#### Core Architecture Files
+| File | Purpose |
+|------|---------|
+| `App.tsx` | Root component — receives `user` and `projectId` props, orchestrates canvas + panels |
+| `types.ts` | All TypeScript interfaces: `SupplyLine`, `Equipment`, `Zone`, `RoofMask`, `PVArray`, `ScaleInfo`, `DesignPurpose` |
+| `constants.ts` | Equipment symbol definitions, colors, sizes, containment types |
+| `purpose.config.ts` | Maps `DesignPurpose` → available toolsets (Budget, Line Shop, PV Design) |
+
+#### Hooks (`src/components/floor-plan/hooks/`)
+| Hook | File | Purpose |
+|------|------|---------|
+| `useDesignHistory` | `useDesignHistory.ts` | Full undo/redo state management — tracks all markup changes as `DesignState` snapshots |
+| `useFloorPlanModals` | `useFloorPlanModals.ts` | Centralizes 40+ modal states (line detail, containment size, roof pitch, PV config, scale entry) |
+| `useTakeoffCounts` | `useTakeoffCounts.ts` | Real-time quantification — counts equipment, sums cable lengths, calculates zone areas |
+| `useFolders` | `useFolders.ts` | Floor plan project folder management |
+| `useRoomBounds` | `useRoomBounds.ts` | Room boundary detection and area calculation |
+| `useOptimisticUpdate` | `useOptimisticUpdate.ts` | Optimistic UI updates for canvas operations |
+| `useCircuitTemplates` | `useCircuitTemplates.ts` | Pre-defined circuit templates for quick placement |
+| `useDebouncedCallback` | `useDebouncedCallback.ts` | Debounced callbacks for canvas events |
+| `useThrottledCallback` | `useThrottledCallback.ts` | Throttled callbacks for performance |
+
+#### User Workflow (Step by Step)
+1. **Load PDF:** User uploads a PDF file → rendered as canvas background via `pdfjs-dist`
+2. **Select Design Purpose:** Modal prompts for purpose (Budget / Line Shop / PV Design) → configures available tools
+3. **Set Scale:** User activates Scale tool → draws line between two known-distance points → enters real-world length in meters → calculates `scaleInfo.ratio` (pixels/meter) → **no measurement tools available until scale is set**
+4. **Place Equipment:** Select equipment type from palette → preview follows cursor → press 'R' to rotate 45° → click to place → symbol rendered at real-world scale
+5. **Draw Lines:** Select line type (MV/LV/DC) → click to add polyline points → double-click to finish
+   - **LV Cable Detail Modal:** On completion → captures: Supply From, Supply To, Cable Type, Line Label, Start Height, End Height → total length = pathLength + startHeight + endHeight
+6. **Draw Zones:** Select Zone tool → click to define polygon vertices → close polygon → area auto-calculated in m²
+7. **Draw Containment:** Select containment type (Cable Tray, Powerskirting, etc.) → draw route → some types prompt for size
+8. **Select & Edit:** Click any placed item → properties shown in right panel → editable fields → Delete button
+9. **PV Design Module** (when purpose = "PV Design"):
+   a. Configure panel specs (length, width, wattage)
+   b. Draw `RoofMask` polygons on valid roof areas
+   c. Enter roof pitch (degrees) per mask
+   d. Define roof direction: click highest point → lowest point → arrow rendered
+   e. Place PV Array: define rows/columns/orientation → click on roof mask → snapping to existing arrays
+10. **Save/Load:** Authenticated users save entire state + PDF to cloud → view/load saved designs
+11. **Export:** Export as PDF report or image (html2canvas)
+
+#### Equipment Panel (Right Side)
+| Tab | Content |
+|-----|---------|
+| **Summary** | High-level quantities tailored to `DesignPurpose` |
+| **Equipment** | All placed equipment grouped by type with counts |
+| **Cables** | Unified view: DB `cable_entries` filtered by `floorPlanId` + visual `SupplyLine` objects with real-time metrics |
+| **Containment/Zones** | All containment routes with measured lengths, zones with areas |
+| **Tasks** | Task management linked to equipment/zone items |
+
+#### Canvas Engine
+| Feature | Implementation |
+|---------|---------------|
+| **Rendering** | Fabric.js 6.7 canvas with custom object types |
+| **Pan/Zoom** | Mouse wheel zoom + middle-button drag + Pan tool |
+| **Undo/Redo** | `useDesignHistory` — snapshot-based state stack |
+| **Symbol Library** | Standard electrical symbols: lights, switches, outlets, DBs, isolators, generators, transformers |
+| **Line Types** | MV (red), LV (blue), DC (green) — distinct colors per voltage |
+| **Measurements** | All lengths/areas calculated using `scaleInfo.ratio` |
+
+#### Cloud Persistence
+| Table | Purpose |
+|-------|---------|
+| `floor_plan_projects` | id, user_id, project_id, name, design_purpose, scale_info, created_at |
+| `floor_plan_designs` | id, floor_plan_id, design_data (JSON), pdf_path, created_at |
+| Storage bucket: `floor-plans` | PDF files stored as `base.pdf` per project |
+
+#### Related Modules
+- **Cable Import:** `ImportFloorPlanCablesDialog` in Cable Schedules → imports drawn `SupplyLine` objects as cable entries
+- **Tenant Masking:** `FloorPlanMasking` in Tenant Tracker → draws tenant zone polygons over floor plan
+- **Contractor Portal:** `ContractorFloorPlanView` renders the marked-up PDF with SVG overlay for tenant zones
 
 ### 5.15 BOQ (Bill of Quantities)
 **Routes:** `/dashboard/boqs`, `/dashboard/boqs/:boqId`, `/dashboard/boq/:uploadId`
@@ -1681,9 +1734,277 @@ Every report type with its builder file — see Section 10 above.
 
 ---
 
-## 16–20: (Same as v1 with no changes needed)
+## 16. Messaging & Notifications
 
-Sections 16 (Messaging), 17 (AI Integration), 18 (Walkthrough), 19 (Inter-Page Communication), and 20 (Security) remain as documented in v1.
+### Messaging Page (`/dashboard/messages`)
+**File:** `src/pages/Messages.tsx`
+**Purpose:** Internal team messaging with real-time updates, threads, reactions, and file sharing.
+
+#### Components (37 total in `src/components/messaging/`)
+| Component | Purpose |
+|-----------|---------|
+| `ConversationsList` | Left panel — list of conversations with unread badges, last message preview |
+| `NewConversationDialog` | Create conversation: select participants from project members |
+| `ChatWindow` | Main chat area — message list with auto-scroll, realtime subscription |
+| `MessageBubble` | Individual message display with sender avatar, timestamp, read receipts |
+| `MessageComposer` | Rich text input with TipTap editor, file attachments, emoji picker, @mentions |
+| `RichTextEditor` | TipTap-based editor with heading, bold, italic, underline, text-align |
+| `EmojiPicker` | Emoji selection grid |
+| `MentionsAutocomplete` | @mention suggestions from project members |
+| `FilePreview` | Preview attached files (images, PDFs, documents) |
+| `LinkPreview` | URL metadata preview (title, description, image) |
+| `MessageActions` | Context menu: reply, forward, edit, delete, pin, star, remind |
+| `EditMessageDialog` | Edit sent message (within time window) |
+| `ForwardMessageDialog` | Forward message to another conversation |
+| `MessageReactions` | Add/view emoji reactions on messages |
+| `ReactionsAnalytics` | Reaction usage analytics |
+| `ThreadView` | Threaded replies view — shows parent message + replies |
+| `PinnedMessages` | List of pinned messages in conversation |
+| `StarredMessages` | User's starred/bookmarked messages |
+| `MessageSearch` | Full-text search across messages |
+| `MessageTemplates` | Quick-reply message templates |
+| `MessageTranslation` | AI-powered message translation |
+| `MessageReminder` | Set reminder for a message |
+| `MessageRemindersList` | List of active reminders |
+| `ScheduleMessageDialog` | Schedule message for future delivery |
+| `ScheduledMessagesList` | View/manage scheduled messages |
+| `VoiceRecorder` | Record voice messages (browser MediaRecorder API) |
+| `ReadReceipts` | Per-message read status for each participant |
+| `DeliveryStatus` | Message delivery status (sent/delivered/read) |
+| `MessageStatusIndicator` | Visual indicator for delivery status |
+| `TypingIndicator` | "X is typing..." indicator (realtime presence) |
+| `ConversationLabels` | Tag conversations with labels (urgent, follow-up, etc.) |
+| `ConversationArchive` | Archive/unarchive conversations |
+| `MuteConversation` | Mute notifications for a conversation |
+| `ExportConversation` | Export conversation as PDF via `conversationPdfBuilder.ts` |
+| `MessageNotificationBell` | Header notification bell with unread count |
+| `PushNotificationToggle` | Enable/disable browser push notifications |
+| `OfflineQueueStatus` | Shows count of messages queued for offline sync |
+
+#### Data Flow
+1. **Create Conversation:** Insert into `conversations` table + `conversation_participants` for each member
+2. **Send Message:** Insert into `messages` table (content, sender_id, conversation_id, attachments) → realtime broadcast via `postgres_changes` → `send-message-notification` edge function if @mention detected → `send-push-notification` for browser push
+3. **Reactions:** Insert into `message_reactions` table → realtime broadcast
+4. **Threads:** Messages with `parent_message_id` form threads → `update_message_reply_count()` trigger updates parent's `reply_count`
+5. **Read Receipts:** `message_read_receipts` table updated on scroll-into-view → realtime broadcast
+6. **Typing:** `useTypingIndicator` hook uses Supabase Realtime presence channel
+7. **Offline:** `useOfflineMessageQueue` → stores in IndexedDB → syncs on reconnect
+
+#### Related Hooks
+| Hook | Purpose |
+|------|---------|
+| `useConversations` | Conversations CRUD with participant management |
+| `useMessages` | Message CRUD with realtime subscription |
+| `useDraftMessage` | Auto-save drafts to localStorage (24h expiry) |
+| `useTypingIndicator` | Realtime typing presence |
+| `useUnreadMessages` | Per-conversation unread counts |
+| `useOfflineMessageQueue` | Offline queue management |
+
+---
+
+## 17. AI Integration
+
+### AI Tools Page (`/dashboard/ai-tools`)
+**File:** `src/pages/AITools.tsx`
+**Purpose:** Suite of AI-powered engineering tools.
+**Components (7 in `src/components/ai-tools/`):**
+| Component | Purpose | Edge Function |
+|-----------|---------|---------------|
+| `EngineeringChatbot` | Conversational engineering Q&A — uses project context, custom AI skills | `ai-chat` |
+| `DataAnalyzer` | Analyze project data patterns (cable usage, cost trends, completion rates) | `ai-analyze-data` |
+| `CostPredictor` | Forecast costs based on historical data | `ai-predict-costs` |
+| `DocumentGenerator` | Auto-generate documents (reports, specifications, letters) from templates | `ai-generate-document` |
+| `KnowledgeBaseManager` | Upload documents → chunk → embed (pgvector) for RAG retrieval | `embed-document` |
+| `KnowledgeSearchTester` | Test semantic search queries against knowledge base | `search-knowledge` |
+| `DocumentChunkPreview` | Preview how documents are chunked for embedding |  |
+
+#### AI Skills Page (`/dashboard/ai-skills`)
+**File:** `src/pages/AISkills.tsx`
+**Purpose:** Create and manage custom AI skill definitions that configure the chatbot's behavior.
+**Data Table:** `ai_skills` — fields: `name`, `description`, `category`, `instructions` (system prompt), `icon`, `is_active`, `is_system`, `version`
+**Hook:** `useAISkills` — CRUD operations on `ai_skills` table
+
+#### RAG Architecture
+```
+1. Upload Document → KnowledgeBaseManager
+2. embed-document edge function:
+   a. Chunk document into ~500 token segments
+   b. Generate vector embeddings via AI model
+   c. Store in knowledge_chunks table (content + embedding vector)
+3. User asks question → ai-chat edge function:
+   a. Generate query embedding
+   b. match_knowledge_chunks(query_embedding) → pgvector similarity search
+   c. Inject matched chunks as context into AI prompt
+   d. Return AI response with source citations
+```
+
+#### AI Models Available (via Lovable AI)
+All AI edge functions use Lovable AI supported models — no external API keys required:
+- `google/gemini-2.5-pro` — Complex reasoning, image+text
+- `google/gemini-2.5-flash` — Balanced speed/quality
+- `openai/gpt-5` — High accuracy reasoning
+- `openai/gpt-5-mini` — Cost-efficient
+
+---
+
+## 18. Walkthrough & Onboarding System
+
+### Architecture
+| File | Purpose |
+|------|---------|
+| `WalkthroughContext.tsx` | React context: active tour, current step, `startTour()`, `nextStep()`, `endTour()` |
+| `WalkthroughController.tsx` | Renders active walkthrough steps, manages state transitions |
+| `WalkthroughOverlay.tsx` | Semi-transparent overlay highlighting target element |
+| `SpotlightOverlay.tsx` | Spotlight effect on target element |
+| `WalkthroughStep.tsx` | Individual step content renderer |
+| `WalkthroughControls.tsx` | Navigation controls (Next, Previous, Skip) |
+| `WalkthroughProgress.tsx` | Step progress indicator |
+| `WalkthroughModal.tsx` | Modal-style step display |
+| `WalkthroughTooltip.tsx` | Tooltip-style step display anchored to element |
+| `WalkthroughSettings.tsx` | User preferences for walkthroughs |
+| `HelpButton.tsx` | Global help button (bottom-right) — triggers available tours |
+| `FeatureHighlight.tsx` | Highlight new features with pulse animation |
+| `FormFieldTooltip.tsx` | Contextual field-level help |
+| `NavTooltip.tsx` | Navigation item tooltips |
+| `SearchTooltips.tsx` | Search usage hints |
+| `TooltipHint.tsx` | Generic tooltip hint |
+| `tooltipConfig.ts` | All tooltip text definitions |
+| `types.ts` | Tour step interfaces |
+
+### Tour Definitions (10 tours in `tours/`)
+| Tour File | Target Page | Steps |
+|-----------|------------|-------|
+| `DashboardTour.ts` | Dashboard | Overview widgets, navigation, quick actions |
+| `ProjectsTour.ts` | Projects | Create project, select project, member management |
+| `CableScheduleTour.ts` | Cable Schedules | Create schedule, add entries, sizing, verification |
+| `GeneratorTour.ts` | Generator Report | Load settings, sizing table, cost analysis |
+| `FloorPlanTour.ts` | Floor Plan | PDF loading, scale setting, tool palette, drawing |
+| `ReportsTour.ts` | Reports | Report generation, PDF export, history |
+| `LibrariesTour.ts` | Master Library | Materials, rates, categories, BOQ uploads |
+| `SettingsTour.ts` | Settings | Profile, notifications, templates, security |
+| `AdminPortalTour.ts` | Admin | User management, finance, backups |
+| `ClientPortalTour.ts` | Client Portal | Token entry, navigation, approval workflow |
+
+### Trigger Mechanism
+`useWalkthroughTrigger` hook → checks if user has completed each tour (stored in `localStorage`) → auto-triggers on first visit to relevant page → user can also manually trigger via `HelpButton`
+
+---
+
+## 19. Inter-Page Communication & Data Flow
+
+### State Sharing Mechanisms
+| Mechanism | Usage | Example |
+|-----------|-------|---------|
+| **localStorage** | `selectedProjectId` — persists across sessions, read by all dashboard pages | Project selection → stored in localStorage → DashboardLayout reads it → passes to all child routes |
+| **URL params** | Route parameters for entity IDs | `/dashboard/cable-schedules/:scheduleId` → `useParams()` → fetch schedule |
+| **Query keys** | TanStack Query cache invalidation chains | Edit tenant → invalidate `['tenants', projectId]` → Dashboard widget auto-refreshes |
+| **Realtime** | Supabase postgres_changes subscriptions | Message sent → realtime broadcast → all connected clients update |
+| **Context** | React Context for cross-cutting concerns | `ConflictContext` — any component can trigger conflict dialog |
+
+### Key Cross-Page Data Flows
+
+#### Tenant → Generator Report
+```
+1. User edits tenant kW in Tenant Tracker
+2. tenants table updated → log_tenant_change() trigger fires
+3. Generator Report queries tenants table → recalculates sizing
+4. Dashboard GeneratorWidget shows updated demand
+```
+
+#### Floor Plan → Cable Schedules
+```
+1. User draws cable routes on Floor Plan canvas
+2. User clicks "Import to Cable Schedule" → ImportFloorPlanCablesDialog
+3. SupplyLine objects converted → cable_entries inserted
+4. Cable Schedule page shows imported cables
+```
+
+#### BOQ → Final Accounts
+```
+1. User creates BOQ with bills/sections/items
+2. User creates Final Account → "Import from BOQ" button
+3. ImportBOQDialog → copies BOQ structure into final_account_bills/sections/items
+4. User adds final quantities → variance auto-calculated
+```
+
+#### Tenant Tracker → Budget
+```
+1. Tenant created with shop_number, area
+2. Budget page → "Sync from Tenant Schedule" → AreaScheduleSync
+3. Creates budget line items linked to tenant_id with area-based calculations
+```
+
+#### Drawing Register → Roadmap
+```
+1. Drawings imported/synced from Dropbox
+2. User clicks "Sync to Roadmap" → SyncToRoadmapDialog
+3. Creates roadmap items for each drawing requiring action
+4. Roadmap shows drawing-linked tasks
+```
+
+#### Procurement → Roadmap
+```
+1. Procurement item created → create_procurement_roadmap_item() trigger
+2. Auto-creates roadmap item in "Procurement" phase
+3. When procurement status = "delivered" → sync_procurement_to_roadmap() marks roadmap item complete
+```
+
+#### Bulk Services → Cable Schedules / BOQ
+```
+1. Phase 1 load estimation completed → load profiles calculated
+2. sync-load-profiles edge function → syncs to cable schedule sizing inputs
+3. Phase tasks link to Cable Schedule and BOQ via StepContentRegistry
+```
+
+### Storage Buckets
+| Bucket | Purpose | Access |
+|--------|---------|--------|
+| `project-drawings` | Drawing PDFs (uploaded and Dropbox-synced) | Project members via RLS |
+| `cable-verification-photos` | Verification photo evidence | Verification token holders |
+| `tenant-documents` | Per-tenant documents (13 types) | Project members via RLS |
+| `handover-documents` | Handover package files | Project members + client portal |
+| `budget-reference-drawings` | Budget reference drawings | Project members via RLS |
+| `invoice-pdfs` | Scanned/uploaded invoices | Admin + project members |
+| `floor-plans` | Floor plan PDFs (`base.pdf`) | Project members + contractor portal |
+| `knowledge-documents` | RAG knowledge base files | Authenticated users |
+| `profile-avatars` | User profile pictures | Public read, user write |
+| `company-logos` | Company logos | Authenticated users |
+| `report-pdfs` | Generated PDF reports | Project members via RLS |
+
+---
+
+## 20. Security Model
+
+### Row Level Security (RLS)
+Every table has RLS enabled. Key patterns:
+
+| Pattern | Implementation | Tables |
+|---------|---------------|--------|
+| **Project-scoped** | `user_has_project_access(_project_id)` — checks `project_members` OR `is_admin()` | `tenants`, `cable_entries`, `cable_schedules`, `project_roadmap_items`, `budget_sections`, etc. |
+| **User-owned** | `auth.uid() = user_id` | `profiles`, `notification_preferences`, `user_activity_logs` |
+| **Token-based** | `has_valid_client_portal_token(project_id)` / `has_valid_contractor_portal_token(project_id)` | Portal-accessible tables |
+| **Admin-only** | `is_admin(auth.uid())` | `user_roles`, `backup_jobs`, `application_reviews` |
+| **Public read** | `SELECT` open, write restricted | `boq_section_templates`, `material_categories` |
+
+### Auth Security
+| Measure | Implementation |
+|---------|---------------|
+| **Password policy** | 12+ chars, uppercase, lowercase, number, special character — enforced by `set-user-password` edge function |
+| **First login** | `must_change_password` flag → `FirstLoginModal` forces password change |
+| **Session monitoring** | `useSessionMonitor` → auto-redirect to `/auth` on session expiry |
+| **Idle tracking** | `useIdleTracker` → configurable timeout |
+| **Portal tokens** | Time-limited (default 168h), access-counted, IP-logged |
+| **Short codes** | 8-char alphanumeric codes for contractor portal — `generate_short_token_code()` trigger |
+
+### Data Integrity
+| Mechanism | Purpose |
+|-----------|---------|
+| `validate_cable_entry()` trigger | Rejects malformed cable tags and locations |
+| `check_unique_engineer_position()` trigger | Enforces one primary + one secondary engineer per project |
+| `check_unique_position()` trigger | Enforces unique admin/owner positions |
+| `ensure_single_default_cover()` trigger | Only one default cover page template |
+| Cascading total triggers | BOQ: item → section → bill → project totals stay consistent |
+| Audit logging | `log_tenant_change()`, `log_final_account_item_change()`, `log_material_price_change()`, `log_variation_change()`, `log_kw_override_change()`, `log_rate_change()`, `log_procurement_status_change()` |
 
 ---
 
@@ -1708,43 +2029,275 @@ Sections 16 (Messaging), 17 (AI Integration), 18 (Walkthrough), 19 (Inter-Page C
 | Gamification | `gamification/` | Gamification admin components |
 | Roadmap review | `roadmap-review/` | Admin roadmap review components |
 
-### Admin Pages
-| Page | Purpose |
-|------|---------|
-| **Finance** | Financial overview: project list, cash flow charts, expense tracking, aging reports, monthly KPI cards, heatmap calendar |
-| **Invoicing** | Invoice management: schedule, bulk import, notifications, cash flow projection, monthly summary |
-| **Staff Management** | Employee records, attendance tracking, benefits management |
-| **User Management** | User accounts: invite, set password, reset password, role assignment, status management |
-| **Backup Management** | Database backups: create, restore, schedule, health checks |
-| **Gamification** | Streak settings, leaderboards, achievements |
-| **AI Review** | Automated application review: trigger, history, comparison, scheduled reviews |
-| **Feedback** | User feedback management: view, respond, analytics |
-| **PRD Manager** | Product requirement documents: CRUD, versioning |
-| **PDF Compliance** | Check PDF outputs against design standards |
+### Admin Pages — Detailed
+| Page | Components | Key Features |
+|------|-----------|--------------|
+| **Finance** (`/admin/finance`) | `FinanceProjectList`, `FinanceProjectDialog`, `CashFlowChart`, `CashFlowDashboard`, `NetCashFlowChart`, `ExpenseManager`, `AgingReport`, `MonthlyKPICards`, `MonthlyHeatmapCalendar`, `MonthlyCharts`, `InvoicePDFUploader`, `InvoicePDFPreviewDialog`, `InvoiceHistoryTab`, `InvoiceHistoryImporter`, `InvoiceHistoryEditDialog`, `InvoiceFolderBrowser`, `AppointmentLetterExtractor`, `ExcelScheduleImporter`, `FinanceProjectDocuments` | Multi-project financial dashboard, cash flow forecasting, expense tracking, aging analysis, monthly KPI cards, calendar heatmap, invoice PDF scanning |
+| **Invoicing** (`/admin/invoicing`) | `InvoicesList`, `InvoiceScheduleManager`, `BulkInvoiceImport`, `InvoiceNotificationSettings`, `CashFlowProjection`, `MonthlySummary` | Invoice lifecycle management, bulk import, payment reminders via `send-invoice-reminder`, cash flow projections |
+| **Staff Management** (`/admin/staff`) | `HRDashboard`, `EmployeeList`, `AddEmployeeDialog`, `EditEmployeeDialog`, `EmployeeDocuments`, `AttendanceManager`, `AddAttendanceDialog`, `PayrollManager`, `AddPayrollDialog`, `GeneratePayslipDialog`, `PayslipHistory`, `SalaryHistoryDialog`, `EditSalaryDialog`, `LeaveManager`, `AddLeaveRequestDialog`, `PerformanceManager`, `AddPerformanceGoalDialog`, `BenefitsManager`, `AddBenefitDialog`, `DepartmentsManager`, `OnboardingManager`, `UploadDocumentDialog` | Full HR suite: employee records, attendance (clock in/out/break), payroll with payslip PDF generation, leave management, performance goals, benefits tracking, department management, onboarding workflows |
+| **User Management** (`/admin/users`) | User list, invite dialog, password management | Invite users (`invite-user`), set passwords (`set-user-password`), reset passwords (`reset-user-password`), role assignment, status management (active/inactive/suspended) |
+| **Backup** (`/admin/backup`) | Backup dashboard, job scheduler, restore dialog, health checks | Create/restore backups via `backup-database`/`restore-backup`, scheduled backup jobs with cron, backup file management in storage, health check monitoring |
+| **Gamification** (`/admin/gamification`) | Streak settings, leaderboards, achievements | Configure completion streak rules, view team leaderboards, manage achievement badges, weekly summaries via `send-weekly-streak-summary` |
+| **AI Review** (`/admin/ai-review`) | Review dialog, history, comparison, scheduled settings | Trigger AI code review via `ai-review-application`, view review history with scores, compare reviews side-by-side, schedule automated reviews via `run-scheduled-review` |
+| **Feedback** (`/admin/feedback`, `/admin/feedback-analytics`) | Feedback list, response form, analytics dashboard | View user feedback, respond (triggers `send-feedback-response`), analytics with charts (satisfaction trends, category breakdown) |
+| **PRD Manager** (`/admin/prd-manager`) | PRD list, editor, version history | Product requirement documents CRUD with versioning, hook: `usePRDs` |
+| **Email Templates** (`/admin/email-templates`) | Template list, template editor | Manage email templates for all notification types, preview with variable substitution |
+| **PDF Compliance** (`/admin/pdf-compliance`) | Compliance dashboard, checker | Run `pdfComplianceChecker.ts` against generated PDFs, validate against design standards |
 
 ---
 
 ## 22. Settings — Full Breakdown
 
-### User Settings Components
+### User Settings (`/settings`)
+**File:** `src/pages/Settings.tsx`
+**Components (15 in `src/components/settings/`):**
 | Component | Purpose |
 |-----------|---------|
-| `AvatarUpload` | Upload/change profile picture |
-| `CompanySettings` | Company name, address, logo, registration details |
-| `CloudStorageSettings` | Connect/disconnect Dropbox, manage folder mappings |
-| `InvoiceSettings` | Invoice numbering, payment terms, bank details |
-| `NotificationPreferencesSettings` | Enable/disable notification channels (email, push, in-app) per category |
-| `PDFExportSettings` | Default PDF quality, include cover page, template selection |
-| `PWASettings` | Install app, check for updates, clear cache |
-| `SessionSecuritySettings` | Session timeout duration, auto-logout preferences |
-| `ProjectContacts` | Project-specific contact management |
-| `ProjectMembers` | Add/remove project members, change positions |
-| `GlobalContactsManager` | Global contact directory |
-| `TemplateManager` | Document template CRUD |
-| `TemplatePlaceholderReference` | Reference guide for available placeholders |
-| `CostReportTemplateGenerator` | Generate Word template for cost reports |
-| `WordDocumentEditor` | Edit Word document templates |
+| `AvatarUpload` | Upload/change profile picture → stored in `profile-avatars` bucket |
+| `CompanySettings` | Company name, address, logo, registration details → stored in `company_settings` table |
+| `CloudStorageSettings` | Connect/disconnect Dropbox OAuth (`useDropbox` hook), manage project folder mappings (`useProjectDropboxFolder`) |
+| `InvoiceSettings` | Invoice numbering format, payment terms, bank details |
+| `NotificationPreferencesSettings` | Enable/disable per-category: email roadmap reminders, push notifications, in-app alerts → `notification_preferences` table |
+| `PDFExportSettings` | Default PDF quality (DPI), include cover page toggle, template selection → `pdfUserPreferences.ts` |
+| `PWASettings` | Install app prompt, check for updates, clear service worker cache |
+| `SessionSecuritySettings` | Session timeout duration (15min–4hr), auto-logout toggle → `useIdleTracker` config |
+| `ProjectContacts` | Project-specific contact directory |
+| `ProjectMembers` | Add/remove project members, change positions (owner/admin/primary/secondary/member) |
+| `GlobalContactsManager` | Workspace-wide contact directory → `global_contacts` table |
+| `TemplateManager` | Document template CRUD → `document_templates` table |
+| `TemplatePlaceholderReference` | Reference guide for all available template placeholders |
+| `CostReportTemplateGenerator` | Generate Word template for cost reports with placeholders |
+| `WordDocumentEditor` | Edit Word document templates (mammoth.js import → edit → docx export) |
+
+### Project Settings (`/dashboard/project-settings`)
+**File:** `src/pages/ProjectSettings.tsx`
+**Components (7 in `src/components/project-settings/`):**
+| Component | Purpose |
+|-----------|---------|
+| `ContractorPortalSettings` | Manage contractor portal tokens: create, revoke, set expiry, configure document categories, manage notification contacts |
+| `TokenNotificationContacts` | Configure email recipients for portal notifications |
+| `ProcurementTrackingSettings` | Configure procurement items for the project → `AddProcurementItemDialog`, `EditProcurementItemDialog` |
+| `ReportAutomationSettings` | Schedule automated report delivery → `report-automation/` subdirectory → `send-scheduled-report` edge function |
+| `AddProcurementItemDialog` | Add procurement item form |
+| `EditProcurementItemDialog` | Edit procurement item form |
 
 ---
 
-*End of Master Document v2.0 — Every component, hook, function, trigger, and workflow explicitly documented.*
+## 23. Additional Pages Not Previously Documented
+
+### Lighting Report (`/dashboard/projects-report/lighting`)
+**File:** `src/pages/LightingReport.tsx`
+**Purpose:** Comprehensive lighting design and scheduling tool.
+**Components (19+ across 14 subdirectories in `src/components/lighting/`):**
+| Component/Directory | Purpose |
+|---------------------|---------|
+| `LightingOverview` | Dashboard with total fittings, total wattage, cost summary |
+| `AddFittingDialog` | Add lighting fitting: type, wattage, quantity, supplier, price |
+| `ImportFittingsDialog` | Import fittings from Excel |
+| `LightingLibraryTab` | Browse standard fitting library |
+| `lightingTypes.ts` | TypeScript interfaces for lighting data |
+| `schedule/` | `LightingScheduleTab`, `FittingSelector`, `ScheduleDashboard`, `ZoneManager` — zone-based fitting assignment |
+| `analytics/` | Lighting analytics charts and metrics |
+| `comparison/` | Compare lighting options side-by-side |
+| `data/` | Lighting data management |
+| `floorplan/` | Floor plan integration for lighting layout |
+| `handover/` | Lighting handover documentation |
+| `photometric/` | Photometric calculations and visualization |
+| `recommendations/` | AI-powered fitting recommendations via `lighting-recommendations` edge function |
+| `reports/` | Lighting report generation |
+| `specsheets/` | Manufacturer spec sheet management, AI extraction via `extract-lighting-specs` |
+| `suppliers/` | Supplier management and pricing |
+| `sustainability/` | Energy efficiency and sustainability metrics |
+| `visualization/` | Lighting layout visualization |
+| `advanced/` | `AdvancedFeaturesTab` — advanced lighting features |
+
+### Generator Report (`/dashboard/projects-report/generator`)
+**File:** `src/pages/GeneratorReport.tsx`
+**Purpose:** Generator sizing, costing, and capital/running recovery analysis — data sourced from Tenant Tracker.
+**Components:** Rendered via Tenant Tracker's generator sub-components (see Section 5.7) + sharing components:
+| Component | File | Purpose |
+|-----------|------|---------|
+| `ShareGeneratorReportDialog` | `src/components/generator/ShareGeneratorReportDialog.tsx` | Share report via email link → `send-generator-report-share` |
+| `GeneratorShareHistory` | `src/components/generator/GeneratorShareHistory.tsx` | History of shared reports |
+**External Access:** `/generator-report/:token` — `ClientGeneratorReportView.tsx` — read-only shared view
+
+### Procurement (`/dashboard/procurement`)
+**File:** `src/pages/Procurement.tsx`
+**Purpose:** Track procurement items across the project lifecycle.
+**Components:**
+| Component | Purpose |
+|-----------|---------|
+| `ProcurementItemsTable` | Table of all procurement items with status, supplier, dates, costs |
+**Data Table:** `procurement_items` — fields: `name`, `description`, `status` (pending/ordered/shipped/delivered), `priority` (low/normal/high/urgent), `supplier`, `cost`, `quantity`, `source_type`, `project_id`, `roadmap_item_id`
+**Triggers:**
+- `create_procurement_roadmap_item()` — auto-creates linked roadmap item on insert
+- `sync_procurement_to_roadmap()` — syncs status to roadmap item on update
+- `log_procurement_status_change()` — audit log of status transitions
+
+### Inspections (`/dashboard/inspections`)
+**File:** `src/pages/Inspections.tsx`
+**Purpose:** Quality control inspection tracking and reporting.
+**Components:**
+| Component | Purpose |
+|-----------|---------|
+| `ProjectInspectionItems` | `src/components/procurement/inspections/ProjectInspectionItems.tsx` — inspection items table with status, findings, photos |
+**Related:** Contractor portal `ContractorInspectionRequests` for external submission
+
+### DB Legend Cards (`/dashboard/db-legend-cards`)
+**File:** `src/pages/DBLegendCards.tsx`
+**Purpose:** Distribution board legend card management — standardized labeling for electrical panels.
+**Components (3 in `src/components/db-legend-cards/`):**
+| Component | Purpose |
+|-----------|---------|
+| `DBLegendCardsDashboard` | Overview of all legend cards by status (draft/submitted/approved/rejected) |
+| `LegendCardDetailViewer` | Detailed view of a single legend card with circuit list |
+| `LegendCardReportHistory` | History of legend card report exports |
+**Contractor Access:** Contractors submit legend cards via `ContractorDBLegendCards` → `DBLegendCardForm` + `DBLegendCardSubmitDialog` → triggers `send-legend-card-notification`
+**PDF Export:** `legendCardPdfBuilder.ts` generates legend card PDF
+
+### Handover Documents (`/dashboard/projects-report/handover`)
+**File:** `src/pages/HandoverDocuments.tsx`
+**Purpose:** Organize and track handover documentation packages for project completion.
+**Components (17 + folders/ subdirectory in `src/components/handover/`):**
+| Component | Purpose |
+|-----------|---------|
+| `HandoverDashboard` | Overview: completion percentage, document counts by category, recent activity |
+| `HandoverDocumentsList` | All handover documents list with filters |
+| `HandoverTenantsList` | Per-tenant handover progress |
+| `TenantProgressIndicator` | Visual progress bar per tenant |
+| `TenantDocumentUpload` | Upload documents for specific tenant |
+| `UploadHandoverDocumentDialog` | Upload general handover document |
+| `LinkHandoverDocumentDialog` | Link existing document to handover package |
+| `DocumentSearchFilters` | Search and filter documents |
+| `DocumentTypeChart` | Chart showing document distribution by type |
+| `RecentActivityTimeline` | Timeline of recent document uploads/changes |
+| `AsBuiltDrawingsView` | As-built drawing management |
+| `BulkUploadAsBuiltDialog` | Bulk upload as-built drawings |
+| `EquipmentDocumentsView` | Equipment-specific documents (manuals, warranties) |
+| `GeneralDocumentsView` | General project documents |
+| `SANS10142ComplianceChecklist` | SANS 10142-1 compliance verification checklist |
+| `TenantCompletionExportPDFButton` | Export tenant completion as PDF via `handoverCompletionPdfBuilder.ts` |
+| `ClientDocumentPreview` | Preview documents for client portal |
+**Folder System (`folders/` — 15 files):**
+| Component | Purpose |
+|-----------|---------|
+| `FolderBrowser` | Hierarchical folder navigation |
+| `FolderItem` | Individual folder display |
+| `FolderBreadcrumb` | Breadcrumb navigation |
+| `CreateFolderDialog` | Create new folder |
+| `InitializeFoldersDialog` | Initialize standard folder structure from templates |
+| `FolderTemplates.ts` | Pre-defined folder structures (SANS 10142, General, Custom) |
+| `DocumentItem` | Document display within folder |
+| `DraggableDocumentItem` | Drag-enabled document (for reorganizing) |
+| `DroppableFolderItem` | Drop target folder |
+| `DroppableRootZone` | Root-level drop zone |
+| `DragOverlay` | Visual drag feedback |
+| `UploadToFolderDialog` | Upload directly to specific folder |
+| `useFolders` | Hook for folder CRUD and navigation |
+| `types.ts` | Folder/document type definitions |
+**Trigger:** `update_folder_path()` — auto-computes full folder path from parent hierarchy
+**External Access:**
+- `/handover-client` — Client handover portal (token-based)
+- `/handover-client-management` — Admin management of client handover access
+**Hook:** `useTenantHandoverProgress` — calculates per-tenant document completion percentage
+
+### Master Library (`/master-library`, `/dashboard/master-library`)
+**File:** `src/pages/MasterLibrary.tsx`
+**Purpose:** Central repository for materials, rates, categories, BOQ templates, and retailer pricing.
+**Components (14 + `development-phases/` in `src/components/master-library/`):**
+| Component | Purpose |
+|-----------|---------|
+| `MaterialsLibraryTab` | CRUD for master materials (name, description, unit, category, supply cost, install cost) |
+| `MaterialDialog` | Add/edit material form |
+| `MaterialPriceHistory` | Price change history (from `log_material_price_change()` trigger) |
+| `MaterialCategoriesTab` | Manage material categories (hierarchical) |
+| `MaterialAnalyticsTab` | Material usage analytics, price trends, cross-project comparison |
+| `RetailerRatesTab` | Retailer-specific rates for materials |
+| `RetailerRateDialog` | Add/edit retailer rate |
+| `BOQUploadTab` | Upload BOQ documents for AI extraction → `extract-boq-rates` → `match-boq-rates` |
+| `BOQPreviewDialog` | Preview extracted BOQ items |
+| `BOQReviewDialog` | Review and approve/reject extracted items → add to master materials |
+| `LineShopTemplatesTab` | Line shop BOQ templates |
+| `LineShopTemplateEditor` | Edit template sections and items |
+| `LineShopTemplateImport` | Import templates from Excel |
+| `DevelopmentPhasesTab` | Development phase tracking components |
+**Data Tables:**
+- `master_materials` — id, name, description, unit, category_id, standard_supply_cost, standard_install_cost, usage_count
+- `material_categories` — id, name, parent_id (hierarchical)
+- `material_rate_sources` — Material rates from different sources (BOQ uploads, manual entry)
+- `material_price_audit` — Price change history (trigger-populated)
+- `master_rate_library` — Benchmark rates
+- `bill_structure_templates` — BOQ template structures
+**DB Function:** `calculate_recommended_rate(material_id)` — weighted average from all rate sources with confidence scoring
+
+### Contact Library (`/contact-library`, `/dashboard/contact-library`)
+**File:** `src/pages/ContactLibrary.tsx` / `src/pages/DashboardContactLibrary.tsx`
+**Purpose:** Global and project-specific contact directory.
+**Data Table:** `global_contacts` — name, email, phone, company, role, category
+**Trigger:** `update_global_contacts_updated_at()` — auto-update timestamp
+
+### Offline Page (`/offline`)
+**File:** `src/pages/Offline.tsx`
+**Purpose:** Displayed when PWA detects no network connectivity — shows offline message with sync queue status.
+
+### Not Found (`*`)
+**File:** `src/pages/NotFound.tsx`
+**Purpose:** 404 page for unmatched routes — shows message with link back to dashboard.
+
+---
+
+## 24. Complete Dependency Map
+
+### All npm Dependencies with Purpose
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `react` / `react-dom` | 18.3.1 | Core UI framework |
+| `react-router-dom` | 6.30.1 | Client-side routing |
+| `@tanstack/react-query` | 5.83.0 | Server state management, caching |
+| `@tanstack/react-virtual` | 3.13.12 | Virtual scrolling for large lists |
+| `@supabase/supabase-js` | 2.75.1 | Backend client (auth, DB, storage, realtime) |
+| `zod` | 3.25.76 | Schema validation |
+| `react-hook-form` | 7.61.1 | Form state management |
+| `@hookform/resolvers` | 3.10.0 | Zod resolver for react-hook-form |
+| `tailwind-merge` / `clsx` / `class-variance-authority` | Latest | CSS class utilities |
+| `tailwindcss-animate` | 1.0.7 | Tailwind animation utilities |
+| `lucide-react` | 0.462.0 | Icon library |
+| `recharts` | 2.15.4 | Charts and data visualization |
+| `next-themes` | 0.3.0 | Theme management (light/dark/system) |
+| `sonner` | 1.7.4 | Toast notifications |
+| `cmdk` | 1.1.1 | Command palette |
+| `date-fns` | 3.6.0 | Date formatting and manipulation |
+| `decimal.js` | 10.6.0 | Precise decimal arithmetic |
+| `fabric` | 6.7.1 | Floor plan canvas engine |
+| `pdfjs-dist` | 5.4.296 | PDF rendering in canvas |
+| `react-pdf` | 10.2.0 | PDF document viewer component |
+| `jspdf` | 2.5.2 | PDF generation (legacy engine) |
+| `jspdf-autotable` | 3.8.4 | PDF table generation (legacy) |
+| `svg2pdf.js` | 2.7.0 | SVG-to-PDF conversion (primary engine) |
+| `pdf-lib` | 1.17.1 | PDF manipulation and merging |
+| `xlsx` | 0.18.5 | Excel import/export |
+| `mammoth` | 1.11.0 | Word document import |
+| `docx` | 9.5.1 | Word document generation |
+| `jszip` | 3.10.1 | ZIP file handling |
+| `html2canvas` | 1.4.1 | DOM-to-image capture |
+| `browser-image-compression` | 2.0.2 | Client-side image compression |
+| `mapbox-gl` | 3.16.0 | Map rendering |
+| `@mapbox/mapbox-gl-geocoder` | 5.1.2 | Map geocoding |
+| `react-zoom-pan-pinch` | 3.7.0 | Pan/zoom for images and floor plans |
+| `react-resizable-panels` | 2.1.9 | Resizable split views |
+| `react-draggable` | 4.5.0 | Draggable elements |
+| `@dnd-kit/core` / `sortable` / `utilities` | 6.3.1+ | Drag-and-drop for Kanban board |
+| `embla-carousel-react` | 8.6.0 | Carousel component |
+| `vaul` | 0.9.9 | Drawer component |
+| `input-otp` | 1.4.2 | OTP input component |
+| `react-day-picker` | 8.10.1 | Date picker component |
+| `react-markdown` | 10.1.0 | Markdown rendering |
+| `canvas-confetti` | 1.9.4 | Celebration animations |
+| `@tiptap/*` | 3.x | Rich text editing |
+| `vite-plugin-pwa` | 1.2.0 | PWA service worker |
+| `@capacitor/*` | 8.x | Native mobile capabilities |
+| 20+ `@radix-ui/*` packages | Latest | UI primitive components |
+
+---
+
+*End of Master Document v2.1 — Every page, component, hook, edge function, trigger, data flow, storage bucket, dependency, and workflow exhaustively documented. No section left as assumed.*
