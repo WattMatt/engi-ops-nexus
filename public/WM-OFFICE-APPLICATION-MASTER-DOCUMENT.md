@@ -1,6 +1,6 @@
 # WM Office (Engi-Ops Nexus) — Master Application Document
 ## Comprehensive Technical & Functional Reference
-**Version:** 2.0 | **Generated:** 2026-02-21 | **Platform:** React 18 / Vite / TypeScript / Supabase
+**Version:** 2.2 | **Generated:** 2026-02-21 | **Platform:** React 18 / Vite / TypeScript / Supabase
 
 ---
 
@@ -313,14 +313,37 @@ Defined in `src/components/sidebar/sidebarConfig.ts` — organized into **5 work
 **File:** `src/pages/ProjectSelect.tsx`
 **Purpose:** List and select projects the user is a member of.
 **Data Query:** `project_members` table joined to `projects` table, filtered by `auth.uid()`
-**Components:**
+**Components (9 in `src/components/projects/`):**
 | Component | File | Purpose |
 |-----------|------|---------|
-| `CreateProjectDialog` | `src/components/CreateProjectDialog.tsx` | Create new project form (name, number, description, type, status) |
-**User Actions:**
-1. View list of projects with name, number, status
-2. Click "Create Project" → dialog → fills form → inserts into `projects` table + adds current user as `project_members` with position 'owner'
-3. Click a project card → stores `selectedProjectId` in `localStorage` → navigates to `/dashboard`
+| `ProjectCard` | `ProjectCard.tsx` | Individual project card — displays name, number, status badge, member count, creation date |
+| `ProjectCardMenu` | `ProjectCardMenu.tsx` | Context menu on project card — Edit, Archive, Delete, Duplicate |
+| `ProjectFilters` | `ProjectFilters.tsx` | Search bar + status filter (Active/Completed/On Hold/All) + sort options |
+| `ProjectSkeleton` | `ProjectSkeleton.tsx` | Loading skeleton placeholder for project cards |
+| `ProjectsSidebar` | `ProjectsSidebar.tsx` | Sidebar with project list and quick navigation |
+| `ProjectsMap` | `ProjectsMap.tsx` | Mapbox GL map showing project locations (from `projects.location` field) |
+| `GlobalAnalytics` | `GlobalAnalytics.tsx` | Cross-project analytics dashboard — project count by status, team workload distribution |
+| `RoadmapReviewContent` | `RoadmapReviewContent.tsx` | Embedded roadmap review content |
+| `RoadmapReviewFilters` | `RoadmapReviewFilters.tsx` | Filter controls for roadmap review |
+| `CreateProjectDialog` | `src/components/CreateProjectDialog.tsx` | Create new project form |
+
+#### Project Creation Flow (Step by Step)
+1. User clicks "Create Project" button → `CreateProjectDialog` opens
+2. **Form Fields:**
+   - `name` (required) — Project display name
+   - `project_number` (required) — Unique identifier (e.g., "PRJ-001")
+   - `description` (optional) — Free-text description
+   - `project_type` (required) — dropdown: Residential, Commercial, Industrial, Mixed-Use, Infrastructure
+   - `status` (default: "active") — Active, On Hold, Completed, Archived
+   - `location` (optional) — Address string (geocoded for map display)
+   - `client_name` (optional) — Primary client
+   - `start_date` / `end_date` (optional) — Project timeline
+3. **On Submit:**
+   a. Insert into `projects` table with all fields
+   b. Insert into `project_members` table: `{ user_id: auth.uid(), project_id: new_id, position: 'owner' }`
+   c. Toast notification "Project created successfully"
+4. User clicks newly created project card → `selectedProjectId` stored in `localStorage` → navigates to `/dashboard`
+5. **First Time in Dashboard:** `useProjectClientCheck` hook fires → if no client contact → prompts to assign one via settings
 
 ### 5.4 Dashboard (`/dashboard`)
 **File:** `src/pages/Dashboard.tsx`
@@ -727,6 +750,67 @@ Defined in `src/components/sidebar/sidebarConfig.ts` — organized into **5 work
 | `floor_plan_projects` | id, user_id, project_id, name, design_purpose, scale_info, created_at |
 | `floor_plan_designs` | id, floor_plan_id, design_data (JSON), pdf_path, created_at |
 | Storage bucket: `floor-plans` | PDF files stored as `base.pdf` per project |
+
+#### UI Components (42 files in `src/components/floor-plan/components/`)
+| Component | Purpose |
+|-----------|---------|
+| `Canvas.tsx` | Core Fabric.js canvas — PDF background rendering, object placement, event handling |
+| `Toolbar.tsx` | Left toolbar — tool selection (Select, Pan, Scale, Zone, Line MV/LV/DC, Containment, Equipment), undo/redo, export |
+| `EquipmentPanel.tsx` | Right panel — tabbed overview (Summary, Equipment, Cables, Containment/Zones, Tasks) |
+| `DesignPurposeSelector.tsx` | Modal to select design purpose (Budget / Line Shop / PV Design) after PDF load |
+| `ScaleModal.tsx` | Modal to enter known real-world distance after drawing scale reference line |
+| `CableDetailsModal.tsx` | LV cable detail modal — Supply From/To, Cable Type, Label, Start/End Height |
+| `ContainmentDetailsModal.tsx` | Containment detail modal — type, size, label |
+| `PVConfigModal.tsx` | PV panel configuration — length, width, wattage |
+| `PVArrayModal.tsx` | PV array placement — rows, columns, orientation, spacing |
+| `RoofMaskModal.tsx` | Roof mask configuration — pitch angle |
+| `TaskModal.tsx` | Task creation/edit linked to equipment/zone items |
+| `EquipmentIcon.tsx` | SVG renderer for electrical equipment symbols |
+| `ProjectSelector.tsx` | Select/switch between floor plan projects |
+| `FolderManagementPanel.tsx` | Folder tree for organizing floor plan projects |
+| `MoveToFolderDialog.tsx` | Move project to different folder |
+| `LoadDesignModal.tsx` | Load saved design from cloud storage |
+| `SavedDesignsGallery.tsx` | Gallery view of all saved designs |
+| `ExportPreviewModal.tsx` | Preview before PDF/image export |
+| `ReportPreviewDialog.tsx` | Preview generated floor plan report |
+| `SavedReportsList.tsx` | List of exported reports |
+| `CableSchedule.tsx` | In-context cable schedule view |
+| `CircuitSchedulePanel.tsx` | Circuit schedule assignment panel |
+| `CircuitScheduleRightPanel.tsx` | Right panel for circuit schedule details |
+| `CircuitAssignmentSelector.tsx` | Assign equipment to circuits |
+| `CircuitCableDetailsDialog.tsx` | Cable details per circuit |
+| `CircuitTemplatesDialog.tsx` | Browse and apply pre-defined circuit templates |
+| `AssembliesTab.tsx` | Assembly management tab (grouped equipment) |
+| `AssemblyInspector.tsx` | Inspect/edit assembly properties |
+| `BulkAssemblyEditor.tsx` | Bulk edit assemblies |
+| `CustomVariantDialog.tsx` | Create custom equipment variant |
+| `BOQItemSelector.tsx` | Select BOQ items for floor plan integration |
+| `MaterialTakeoffView.tsx` | Material takeoff quantities view |
+| `MaterialMappingStep.tsx` | Map floor plan items to master materials |
+| `QuickAddMaterialsDialog.tsx` | Quick-add materials to master library from floor plan |
+| `LinkToFinalAccountDialog.tsx` | Link floor plan items to final account |
+| `ZonesPanel.tsx` | Zone management panel — list, edit, delete zones |
+| `DrawingSheet2DCanvas.tsx` | 2D drawing sheet canvas for print-ready layouts |
+| `DrawingSheetView.tsx` | Drawing sheet view container |
+| `FloorPlan3DDialog.tsx` | 3D visualization dialog |
+| `ToastProvider.tsx` | Floor plan-specific toast notifications |
+| `cable-types.ts` | Cable type definitions and colors |
+| **schedules/** subdirectory: | |
+| `EnhancedScheduleSection.tsx` | Enhanced schedule section with grouping |
+| `LightingDeviceSchedule.tsx` | Lighting device schedule view |
+| `schedule-types.ts` | Schedule type definitions |
+
+#### Utility Files (`src/components/floor-plan/utils/`)
+| File | Purpose |
+|------|---------|
+| `drawing.ts` | Drawing rendering helpers — symbol placement, line rendering, zone polygon drawing |
+| `geometry.ts` | Geometric calculations — distance, area, intersection, point-in-polygon, snapping |
+| `pdfRenderer.ts` | PDF-to-canvas rendering via `pdfjs-dist` — loads PDF, renders pages to canvas |
+| `pdfGenerator.ts` | Generate export PDF from canvas state — multi-page report with schedules |
+| `supabase.ts` | Cloud save/load functions — serialize design state, upload PDF, CRUD operations |
+| `googleApi.ts` | Google API integration (Maps, Street View) for site context |
+| `styleUtils.ts` | Canvas styling utilities — colors, fonts, stroke styles per element type |
+| `autoSyncFinalAccount.ts` | Auto-sync floor plan quantities to final account items |
 
 #### Related Modules
 - **Cable Import:** `ImportFloorPlanCablesDialog` in Cable Schedules → imports drawn `SupplyLine` objects as cable entries
