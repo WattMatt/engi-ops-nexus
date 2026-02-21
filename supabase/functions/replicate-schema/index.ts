@@ -33,8 +33,9 @@ Deno.serve(async (req) => {
 
     // Extract project ref from URL: https://xyz.supabase.co -> xyz
     const targetRef = targetUrl.replace('https://', '').split('.')[0];
-    // Use direct connection (not pooler) to avoid region guessing
-    const targetDbUrl = `postgresql://postgres:${targetDbPassword}@db.${targetRef}.supabase.co:5432/postgres`;
+    // URL-encode password to handle special characters
+    const encodedPassword = encodeURIComponent(targetDbPassword);
+    const targetDbUrl = `postgresql://postgres:${encodedPassword}@db.${targetRef}.supabase.co:5432/postgres`;
 
     log('Connecting to target database...');
     const target = postgres(targetDbUrl, { max: 1 });
