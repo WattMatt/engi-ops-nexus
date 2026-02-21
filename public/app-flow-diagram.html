@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>App Flow Diagram</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { margin: 0; padding: 20px; background: #fff; font-family: sans-serif; }
+    #controls { margin-bottom: 16px; }
+    button { padding: 10px 24px; font-size: 16px; cursor: pointer; background: #1e3a5f; color: #fff; border: none; border-radius: 6px; }
+    button:hover { background: #2d5a3d; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button onclick="downloadSVG()">⬇ Download SVG</button>
+  </div>
+  <div id="diagram">
+    <pre class="mermaid">
+graph TD
+    subgraph "Entry Points"
+        Landing["/ Landing Page"]
+        Auth["/auth Login/Signup"]
+        SetPwd["/auth/set-password"]
+    end
+
+    subgraph "Auth Flow"
+        Landing -->|"Sign In"| Auth
+        Auth -->|"First login"| FirstLoginModal["Password Change Modal"]
+        Auth -->|"Success"| Projects
+        SetPwd -->|"Password set"| Auth
+        Auth -->|"Forgot password"| SetPwd
+        FirstLoginModal -->|"Changed"| Projects
+    end
+
+    subgraph "Project Selection"
+        Projects["/projects Project Select"]
+        Projects -->|"Select project"| Dashboard
+        Projects -->|"Settings"| GlobalSettings["/settings My Settings"]
+    end
+
+    subgraph "Dashboard Layout /dashboard"
+        Dashboard["/dashboard Overview"]
+
+        subgraph "Core Project"
+            Roadmap["/dashboard/roadmap Project Roadmap"]
+            RoadmapReview["/dashboard/roadmap-review Review Mode"]
+            Outline["/dashboard/project-outline"]
+            TenantTracker["/dashboard/tenant-tracker"]
+        end
+
+        subgraph "Technical Design"
+            Drawings["/dashboard/drawings Drawing Register"]
+            CableSchedules["/dashboard/cable-schedules"]
+            CableDetail["/dashboard/cable-schedules/:id"]
+            BulkServices["/dashboard/bulk-services"]
+            Specs["/dashboard/specifications"]
+            SpecDetail["/dashboard/specifications/:id"]
+            ElecBudgets["/dashboard/budgets/electrical"]
+            ElecBudgetDetail["/dashboard/budgets/electrical/:id"]
+        end
+
+        subgraph "Field Operations"
+            SiteDiary["/dashboard/site-diary"]
+            FloorPlan["/dashboard/floor-plan"]
+            BOQs["/dashboard/boqs"]
+            BOQProject["/dashboard/boqs/:boqId"]
+            BOQUpload["/dashboard/boq/:uploadId"]
+            FinalAccounts["/dashboard/final-accounts"]
+            FinalAccountDetail["/dashboard/final-accounts/:id"]
+            Procurement["/dashboard/procurement"]
+            Inspections["/dashboard/inspections"]
+            DBLegend["/dashboard/db-legend-cards"]
+        end
+
+        subgraph "AI and Reports"
+            AITools["/dashboard/ai-tools"]
+            AISkills["/dashboard/ai-skills"]
+            GeneratorReport["/dashboard/projects-report/generator"]
+            LightingReport["/dashboard/projects-report/lighting"]
+            CostReports["/dashboard/cost-reports"]
+            CostReportDetail["/dashboard/cost-reports/:id"]
+        end
+
+        subgraph "Communication"
+            Messages["/dashboard/messages"]
+            Handover["/dashboard/projects-report/handover"]
+        end
+
+        subgraph "Dashboard Settings"
+            ProjectSettings["/dashboard/project-settings"]
+            ContactLibrary["/dashboard/contact-library"]
+            MasterLib["/dashboard/master-library"]
+        end
+    end
+
+    Dashboard --> Roadmap
+    Dashboard --> Outline
+    Dashboard --> TenantTracker
+    Dashboard --> Drawings
+    Dashboard --> CableSchedules
+    CableSchedules -->|"View schedule"| CableDetail
+    Dashboard --> BulkServices
+    Dashboard --> Specs
+    Specs -->|"View spec"| SpecDetail
+    Dashboard --> ElecBudgets
+    ElecBudgets -->|"View budget"| ElecBudgetDetail
+    Dashboard --> SiteDiary
+    Dashboard --> FloorPlan
+    Dashboard --> BOQs
+    BOQs -->|"View BOQ project"| BOQProject
+    BOQs -->|"View upload"| BOQUpload
+    Dashboard --> FinalAccounts
+    FinalAccounts -->|"View account"| FinalAccountDetail
+    Dashboard --> Procurement
+    Dashboard --> Inspections
+    Dashboard --> DBLegend
+    Dashboard --> AITools
+    Dashboard --> AISkills
+    Dashboard --> GeneratorReport
+    Dashboard --> LightingReport
+    Dashboard --> CostReports
+    CostReports -->|"View report"| CostReportDetail
+    Dashboard --> Messages
+    Dashboard --> Handover
+    Dashboard --> ProjectSettings
+    Roadmap -->|"Review mode"| RoadmapReview
+
+    subgraph "Admin Portal /admin"
+        AdminProjects["/admin/projects"]
+        Finance["/admin/finance"]
+        Invoicing["/admin/invoicing"]
+        Staff["/admin/staff"]
+        Users["/admin/users"]
+        Backup["/admin/backup"]
+        Gamification["/admin/gamification"]
+        AIReview["/admin/ai-review"]
+        Feedback["/admin/feedback"]
+        FeedbackAnalytics["/admin/feedback-analytics"]
+        AdminSettings["/admin/settings"]
+        PRD["/admin/prd-manager"]
+        EmailTemplates["/admin/email-templates"]
+        EmailEditor["/admin/email-templates/:id"]
+        PdfCompliance["/admin/pdf-compliance"]
+    end
+
+    Projects -->|"Admin role"| AdminProjects
+    EmailTemplates -->|"Edit template"| EmailEditor
+
+    subgraph "External / Client Portals"
+        ClientPortal["/client-portal"]
+        HandoverClient["/handover-client"]
+        HandoverMgmt["/handover-client-management"]
+        ClientTenantRpt["/client/tenant-report/:id"]
+        ClientGenRpt["/client/generator-report/:id"]
+        ClientDocs["/client/documents/:id"]
+        ClientView["/client-view"]
+        GenReportToken["/generator-report/:token"]
+        ContractorReview["/review/:accessToken"]
+        ContractorPortal["/contractor-portal"]
+        PortalRedirect["/p/:code"]
+        CableVerification["/cable-verification"]
+        ExtRoadmapReview["/roadmap-review/:token"]
+    end
+
+    subgraph "Global Pages"
+        GlobalMasterLib["/master-library"]
+        GlobalContactLib["/contact-library"]
+        RoadmapRedirect["/projects/:projectId/roadmap"]
+    end
+
+    style Landing fill:#1e3a5f,color:#fff
+    style Auth fill:#1e3a5f,color:#fff
+    style Projects fill:#2d5a3d,color:#fff
+    style Dashboard fill:#2d5a3d,color:#fff
+    style AdminProjects fill:#5a2d2d,color:#fff
+    style ClientPortal fill:#5a4a2d,color:#fff
+    </pre>
+  </div>
+
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+
+    function downloadSVG() {
+      const svg = document.querySelector('#diagram svg');
+      if (!svg) { alert('Diagram not rendered yet. Please wait.'); return; }
+      const serializer = new XMLSerializer();
+      const source = serializer.serializeToString(svg);
+      const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'app-flow-diagram.svg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
