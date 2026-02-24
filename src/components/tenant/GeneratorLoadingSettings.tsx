@@ -205,18 +205,17 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (existingSettings) {
-        const { error } = await supabase
-          .from("generator_settings")
-          .update(settings)
-          .eq("id", existingSettings.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("generator_settings")
-          .insert({ ...settings, project_id: projectId });
-        if (error) throw error;
-      }
+      const { error } = await supabase
+        .from("generator_settings")
+        .upsert(
+          {
+            ...(existingSettings?.id ? { id: existingSettings.id } : {}),
+            project_id: projectId,
+            ...settings,
+          },
+          { onConflict: "project_id" }
+        );
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Settings saved");
