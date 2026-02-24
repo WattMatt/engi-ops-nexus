@@ -364,7 +364,9 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     }
   };
 
-  const toggleZoneExpanded = (zoneId: string) => {
+  const toggleZoneExpanded = async (zoneId: string) => {
+    const isCurrentlyExpanded = expandedZones.has(zoneId);
+    
     setExpandedZones(prev => {
       const newSet = new Set(prev);
       if (newSet.has(zoneId)) {
@@ -374,6 +376,37 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
       }
       return newSet;
     });
+
+    // Auto-create generators if expanding and none exist
+    if (!isCurrentlyExpanded) {
+      const existingGens = zoneGenerators.filter(g => g.zone_id === zoneId);
+      if (existingGens.length === 0) {
+        const zone = zones.find(z => z.id === zoneId);
+        const numGenerators = zone?.num_generators || 1;
+        const newGenerators = Array.from({ length: numGenerators }, (_, i) => ({
+          zone_id: zoneId,
+          generator_number: i + 1,
+          generator_size: null,
+          generator_cost: 0,
+        }));
+
+        try {
+          const { error } = await supabase
+            .from("zone_generators")
+            .insert(newGenerators);
+          
+          if (error) {
+            console.error("Error adding generator:", error);
+            toast.error("Failed to add generator");
+          } else {
+            refetchZoneGenerators();
+          }
+        } catch (err) {
+          console.error("Error adding generator:", err);
+          toast.error("Failed to add generator");
+        }
+      }
+    }
   };
 
   const getZoneGenerators = (zoneId: string) => {
@@ -752,69 +785,74 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                         </div>
                         
                         {/* Generators Table */}
-                        {isExpanded && generators.length > 0 && (
+                        {isExpanded && (
                           <div className="border-t bg-muted/20 p-3 sm:p-4">
-                            <div className="overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="text-xs">Generator</TableHead>
-                                    <TableHead className="text-xs">Size</TableHead>
-                                    <TableHead className="text-xs">Cost (R)</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {generators.map((generator) => (
-                                    <TableRow key={generator.id}>
-                                      <TableCell className="font-medium text-sm py-2">
-                                        #{generator.generator_number}
-                                      </TableCell>
-                                      <TableCell className="py-2">
-                                        <Select
-                                          value={generator.generator_size || "none"}
-                                          onValueChange={(value) => 
-                                            handleUpdateGeneratorSize(generator.id, value === "none" ? null : value)
-                                          }
-                                        >
-                                          <SelectTrigger className="w-full sm:w-[150px] h-8 text-xs">
-                                            <SelectValue placeholder="Select" />
-                                          </SelectTrigger>
-                                          <SelectContent className="z-50 bg-popover">
-                                            <SelectItem value="none">Not selected</SelectItem>
-                                            {GENERATOR_SIZING_TABLE.map((gen) => (
-                                              <SelectItem key={gen.rating} value={gen.rating}>
-                                                {gen.rating}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </TableCell>
-                                      <TableCell className="py-2">
-                                        <Input
-                                          type="number"
-                                          value={generator.generator_cost || 0}
-                                          onChange={(e) => {
-                                            // Optimistically update local state
-                                            const newCost = parseFloat(e.target.value) || 0;
-                                            queryClient.setQueryData(
-                                              ["zone-generators", projectId],
-                                              (old: any[]) => old?.map(g => 
-                                                g.id === generator.id ? { ...g, generator_cost: newCost } : g
-                                              )
-                                            );
-                                          }}
-                                          onBlur={(e) => 
-                                            handleUpdateGeneratorCost(generator.id, parseFloat(e.target.value) || 0)
-                                          }
-                                          className="w-full sm:w-[120px] h-8 text-xs"
-                                          placeholder="Cost"
-                                        />
-                                      </TableCell>
+                            {generators.length > 0 ? (
+                              <div className="overflow-x-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="text-xs">Generator</TableHead>
+                                      <TableHead className="text-xs">Size</TableHead>
+                                      <TableHead className="text-xs">Cost (R)</TableHead>
                                     </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {generators.map((generator) => (
+                                      <TableRow key={generator.id}>
+                                        <TableCell className="font-medium text-sm py-2">
+                                          #{generator.generator_number}
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <Select
+                                            value={generator.generator_size || "none"}
+                                            onValueChange={(value) => 
+                                              handleUpdateGeneratorSize(generator.id, value === "none" ? null : value)
+                                            }
+                                          >
+                                            <SelectTrigger className="w-full sm:w-[150px] h-8 text-xs">
+                                              <SelectValue placeholder="Select" />
+                                            </SelectTrigger>
+                                            <SelectContent className="z-50 bg-popover">
+                                              <SelectItem value="none">Not selected</SelectItem>
+                                              {GENERATOR_SIZING_TABLE.map((gen) => (
+                                                <SelectItem key={gen.rating} value={gen.rating}>
+                                                  {gen.rating}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <Input
+                                            type="number"
+                                            value={generator.generator_cost || 0}
+                                            onChange={(e) => {
+                                              const newCost = parseFloat(e.target.value) || 0;
+                                              queryClient.setQueryData(
+                                                ["zone-generators", projectId],
+                                                (old: any[]) => old?.map(g => 
+                                                  g.id === generator.id ? { ...g, generator_cost: newCost } : g
+                                                )
+                                              );
+                                            }}
+                                            onBlur={(e) => 
+                                              handleUpdateGeneratorCost(generator.id, parseFloat(e.target.value) || 0)
+                                            }
+                                            className="w-full sm:w-[120px] h-8 text-xs"
+                                            placeholder="Cost"
+                                          />
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-sm text-muted-foreground">
+                                Loading generators...
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
