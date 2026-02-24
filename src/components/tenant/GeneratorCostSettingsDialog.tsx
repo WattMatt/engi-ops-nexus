@@ -92,27 +92,19 @@ export const GeneratorCostSettingsDialog = ({
         capital_recovery_rate_percent: formValues.capitalRecoveryRatePercent,
       };
 
-      if (!settings?.id) {
-        // Create new settings
-        const { error: createError } = await supabase
-          .from("generator_settings")
-          .insert({
+      const { error } = await supabase
+        .from("generator_settings")
+        .upsert(
+          {
+            ...(settings?.id ? { id: settings.id } : {}),
             project_id: projectId,
             ...dbValues,
-          });
+          },
+          { onConflict: "project_id" }
+        );
 
-        if (createError) throw createError;
-        toast.success("Cost settings created");
-      } else {
-        // Update existing settings
-        const { error } = await supabase
-          .from("generator_settings")
-          .update(dbValues)
-          .eq("id", settings.id);
-
-        if (error) throw error;
-        toast.success("Cost settings updated");
-      }
+      if (error) throw error;
+      toast.success("Cost settings saved");
 
       // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["generator-settings-tenant-rate", projectId] });
