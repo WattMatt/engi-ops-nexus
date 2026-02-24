@@ -159,9 +159,15 @@ export function ShareGeneratorReportDialog({
     );
   };
 
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
   const handleShare = () => {
     if (!recipientEmail) {
       toast.error("Please enter a recipient email");
+      return;
+    }
+    if (!isValidEmail(recipientEmail)) {
+      toast.error("Please enter a valid email address (e.g. name@example.com)");
       return;
     }
     if (selectedSections.length === 0) {
