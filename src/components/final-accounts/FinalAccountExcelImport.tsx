@@ -205,6 +205,223 @@ export function FinalAccountExcelImport({
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  /**
+   * Detect if a single-sheet workbook contains inline section headers like
+   * "SECTION A", "SECTION B - LOW VOLTAGE..." etc.
+   * Returns the parsed bills if detected, or null if not.
+   */
+  const parseSingleSheetWithInlineSections = (workbook: XLSX.WorkBook): ParsedBill[] | null => {
+    if (workbook.SheetNames.length > 3) return null; // Multi-sheet format, skip
+
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    const allRows: string[][] = [];
+
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const row: string[] = [];
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const cell = worksheet[XLSX.utils.encode_cell({ r, c })];
+        row.push(cell ? String(cell.v ?? "").trim() : "");
+      }
+      allRows.push(row);
+    }
+
+    // Detect inline sections by scanning for "SECTION X" patterns
+    const sectionIndices: { rowIdx: number; code: string; name: string }[] = [];
+    for (let i = 0; i < allRows.length; i++) {
+      const joined = allRows[i].join(' ').trim();
+      // Match "SECTION A", "SECTION B - LOW VOLTAGE DISTRIBUTION..."
+      const sectionMatch = joined.match(/^SECTION\s+([A-Z])\s*[-–:]?\s*(.*)/i);
+      if (sectionMatch) {
+        sectionIndices.push({
+          rowIdx: i,
+          code: sectionMatch[1].toUpperCase(),
+          name: sectionMatch[2]?.trim() || `Section ${sectionMatch[1].toUpperCase()}`,
+        });
+      }
+    }
+
+    if (sectionIndices.length < 2) return null; // Not an inline-section format
+
+    // Try to extract bill number from header rows (e.g. "BILL NO. 10")
+    let billNumber = 1;
+    let billName = "Electrical Installation";
+    for (let i = 0; i < Math.min(10, allRows.length); i++) {
+      const joined = allRows[i].join(' ').trim();
+      const billMatch = joined.match(/BILL\s*(?:NO\.?|NUMBER)\s*(\d+)/i);
+      if (billMatch) {
+        billNumber = parseInt(billMatch[1]);
+      }
+      // Extract project/portion name from early rows
+      if (/PORTION\s+OF\s+CONTRACT|ELECTRICAL\s+INSTALLATION/i.test(joined) && joined.length > 10) {
+        billName = joined.replace(/\s*[-–]\s*$/, '').substring(0, 80);
+      }
+    }
+
+    console.log(`[Single-Sheet Import] Detected ${sectionIndices.length} inline sections, Bill ${billNumber}`);
+
+    // Find column mapping from the first header row (usually after first SECTION line)
+    const patterns: Record<string, RegExp> = {
+      description: /desc|particular|^description$/i,
+      quantity: /^qty$|^quantity$/i,
+      unit: /^unit$|^uom$/i,
+      supplyRate: /^supply$/i,
+      installRate: /^install$/i,
+      amount: /^amount$|^total$/i,
+      itemCode: /^item$|^no$|^code$|^ref$/i,
+    };
+
+    const findColumnsInRow = (row: string[]): Record<string, number> | null => {
+      const colMap: Record<string, number> = {};
+      row.forEach((cell, idx) => {
+        const cellUpper = cell.toUpperCase().trim();
+        for (const [key, pattern] of Object.entries(patterns)) {
+          if (pattern.test(cellUpper) && colMap[key] === undefined) {
+            colMap[key] = idx;
+          }
+        }
+      });
+      return colMap.description !== undefined || colMap.itemCode !== undefined ? colMap : null;
+    };
+
+    // Parse items for each section range
+    const sections: ParsedSection[] = [];
+
+    for (let si = 0; si < sectionIndices.length; si++) {
+      const sectionStart = sectionIndices[si].rowIdx;
+      const sectionEnd = si + 1 < sectionIndices.length
+        ? sectionIndices[si + 1].rowIdx
+        : allRows.length;
+
+      // Also stop at SUMMARY PAGE
+      let effectiveEnd = sectionEnd;
+      for (let i = sectionStart; i < sectionEnd; i++) {
+        const joined = allRows[i].join(' ').trim();
+        if (/^SUMMARY\s*PAGE/i.test(joined)) {
+          effectiveEnd = i;
+          break;
+        }
+      }
+
+      // Find column header row within this section
+      let colMap: Record<string, number> | null = null;
+      let headerRowIdx = -1;
+      for (let i = sectionStart; i < Math.min(sectionStart + 10, effectiveEnd); i++) {
+        colMap = findColumnsInRow(allRows[i]);
+        if (colMap) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+
+      if (!colMap || headerRowIdx === -1) {
+        console.log(`[Single-Sheet Import] No header row found for Section ${sectionIndices[si].code}, skipping`);
+        continue;
+      }
+
+      const items: ParsedItem[] = [];
+      let boqStatedTotal = 0;
+
+      for (let i = headerRowIdx + 1; i < effectiveEnd; i++) {
+        const row = allRows[i];
+        const itemCode = colMap.itemCode !== undefined ? row[colMap.itemCode]?.trim() || "" : "";
+        const description = colMap.description !== undefined ? row[colMap.description]?.trim() || "" : "";
+        const unitRaw = colMap.unit !== undefined ? row[colMap.unit]?.trim() || "" : "";
+        let quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
+        const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
+        const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
+        let amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+
+        if (!itemCode && !description) continue;
+
+        const textToCheck = `${itemCode} ${description}`.toLowerCase();
+
+        // Skip total/summary rows
+        if (/^total|^carried|^brought|^summary|^sub-total|^subtotal|section\s*total|bill\s*total/i.test(textToCheck)) {
+          if (amount > 0 && amount > boqStatedTotal) boqStatedTotal = amount;
+          continue;
+        }
+
+        // Skip single-letter section headers (A, B, C) that are category headers
+        const isSectionHeader = /^[A-Z]$/i.test(itemCode) && !unitRaw && quantity === 0 && supplyRate === 0 && installRate === 0;
+        if (isSectionHeader) {
+          if (amount > boqStatedTotal) boqStatedTotal = amount;
+          continue;
+        }
+
+        // Skip RATE ONLY items with no amount
+        if (/rate\s*only/i.test(String(row[colMap.quantity !== undefined ? colMap.quantity : -1] || "")) && amount === 0) {
+          continue;
+        }
+
+        // Handle percentage items
+        const isPercentageItem = unitRaw === '%' || /add\s*profit|markup|percentage/i.test(description);
+
+        // Smart amount detection - scan right for currency value if mapped amount is 0
+        if (amount === 0 && (itemCode || description)) {
+          for (let c = row.length - 1; c >= 0; c--) {
+            const cellValue = row[c];
+            if (cellValue && /[\d\s,]+[,.]?\d{2}$/.test(cellValue)) {
+              const parsed = parseNumber(cellValue);
+              if (parsed > 0) {
+                amount = parsed;
+                break;
+              }
+            }
+          }
+        }
+
+        // Fix misplaced quantity -> amount
+        if (amount === 0 && quantity > 1000 && !unitRaw) {
+          amount = quantity;
+          quantity = 0;
+        }
+
+        const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*sum|p\.?c\.?\s*amount/i.test(description);
+        const isProvisionalSum = /provisional\s*sum|^ps\s|prov\.?\s*sum/i.test(description);
+        const itemType: 'MEASURED' | 'PC' | 'PS' = isPrimeCost ? 'PC' : isProvisionalSum ? 'PS' : 'MEASURED';
+
+        // Calculate amount from rates if still 0
+        if (amount === 0 && quantity > 0 && (supplyRate > 0 || installRate > 0)) {
+          amount = quantity * (supplyRate + installRate);
+        }
+
+        if (amount === 0 && !isPercentageItem && !description) continue;
+
+        items.push({
+          item_code: itemCode,
+          description,
+          unit: unitRaw || (isPercentageItem ? '%' : 'No.'),
+          quantity,
+          supply_rate: supplyRate,
+          install_rate: installRate,
+          amount,
+          is_prime_cost: isPrimeCost,
+          item_type: itemType,
+        });
+      }
+
+      if (items.length > 0) {
+        sections.push({
+          sectionCode: sectionIndices[si].code,
+          sectionName: sectionIndices[si].name || `Section ${sectionIndices[si].code}`,
+          items,
+          boqStatedTotal,
+          _sectionNumber: sectionIndices[si].code.charCodeAt(0) - 64,
+        });
+        console.log(`[Single-Sheet Import] Section ${sectionIndices[si].code}: ${items.length} items, stated total: ${boqStatedTotal}`);
+      }
+    }
+
+    if (sections.length === 0) return null;
+
+    return [{
+      billNumber,
+      billName,
+      sections,
+    }];
+  };
+
   const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string): { section: ParsedSection; billNumber: number; billName: string } | null => {
     const parsed = parseSectionFromSheetName(sheetName);
     
@@ -279,12 +496,9 @@ export function FinalAccountExcelImport({
       let amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
       
       // Smart amount detection: If the mapped amount column returned 0, scan right-most columns
-      // for a currency value. This handles Excel files where amounts may be in unexpected columns.
       if (amount === 0 && (itemCode || description)) {
-        // Scan from right to left for the first significant currency value
         for (let c = row.length - 1; c >= 0; c--) {
           const cellValue = row[c];
-          // Look for currency patterns like "R 350 000,00" or "24 500,00"
           if (cellValue && /[\d\s,]+[,.]?\d{2}$/.test(cellValue)) {
             const parsed = parseNumber(cellValue);
             if (parsed > 0) {
@@ -296,23 +510,19 @@ export function FinalAccountExcelImport({
         }
       }
       
-      // Fix: If amount is still 0 but quantity is a large value (likely misplaced amount), swap them
-      // This handles cases like "O9.1" where the amount was placed in the quantity column
+      // Fix misplaced quantity->amount
       if (amount === 0 && quantity > 1000 && !unitRaw) {
         amount = quantity;
         quantity = 0;
         console.log(`[Excel Import] Corrected misplaced quantity->amount for ${itemCode}: R${amount}`);
       }
       
-      // Handle percentage items (like O4.2, O8.2, O9.2) - they have a % unit and the amount
-      // might be in a different column. Also extract the percentage from quantity if needed
+      // Handle percentage items
       const isPercentageItem = unitRaw === '%' || /^%$/.test(unitRaw) || /add\s*profit|markup|percentage/i.test(description);
       if (isPercentageItem && amount === 0) {
-        // For percentage items, the calculated amount should still be captured
-        // Scan again specifically for this case
         for (let c = row.length - 1; c >= 0; c--) {
           const parsed = parseNumber(row[c]);
-          if (parsed > 100 && parsed < 1000000) { // Reasonable range for an amount, not a percentage
+          if (parsed > 100 && parsed < 1000000) {
             amount = parsed;
             console.log(`[Excel Import] Found percentage item amount for ${itemCode}: R${amount}`);
             break;
@@ -324,31 +534,24 @@ export function FinalAccountExcelImport({
       
       const textToCheck = `${itemCode} ${description}`.toLowerCase();
       
-      // Check if this is a summary/total row - extract the stated total
-      // Be more specific to avoid skipping legitimate items
       if (/^total|^carried|^brought|^summary|^sub-total|^subtotal|section\s*total|bill\s*total/i.test(textToCheck)) {
-        // This row contains the BOQ stated total for this section
         if (amount > 0 && amount > boqStatedTotal) {
           boqStatedTotal = amount;
         }
         console.log(`[Excel Import] Skipped total row: ${itemCode} - ${description}`);
-        continue; // Don't add as item
+        continue;
       }
       
-      // Detect TRUE section header rows - these have ONLY a single letter code (A, B, C, etc.),
-      // NOT alphanumeric codes like O1, O2, O6 which are sub-section headers we WANT to keep
-      // Section headers have an amount (section total), but no unit, quantity, or rates
       const isBillSectionHeader = (
-        /^[A-Z]$/i.test(itemCode) && // ONLY single letter item code (not O1, O2, etc.)
-        amount > 0 && // Has an amount (section total)
-        !unitRaw && // No unit specified
-        quantity === 0 && // No quantity
-        supplyRate === 0 && // No supply rate
-        installRate === 0 // No install rate
+        /^[A-Z]$/i.test(itemCode) &&
+        amount > 0 &&
+        !unitRaw &&
+        quantity === 0 &&
+        supplyRate === 0 &&
+        installRate === 0
       );
       
       if (isBillSectionHeader) {
-        // This is a bill section header row with its subtotal - skip it
         if (amount > boqStatedTotal) {
           boqStatedTotal = amount;
         }
@@ -356,22 +559,14 @@ export function FinalAccountExcelImport({
         continue;
       }
       
-      // Sub-section headers (O1, O2, A1, B2, etc.) should be INCLUDED as items
-      // They act as category headers within the section and should be displayed
-      
-      // Detect P&G (Preliminaries & General) items first - these are NOT Prime Cost
       const isPandG = /preliminar|p\s*&\s*g|p\.?&\.?g|firm\s*and\s*fixed|attendance|general\s*requirement|setting\s*out|site\s*establishment|water\s*for\s*works|temporary|removal\s*of\s*rubbish|protection|cleaning/i.test(description);
       
-      // Detect Prime Cost items - common patterns in BOQ
-      // Must explicitly mention "prime cost" or start with "PC " - NOT just "allowance for" which is too broad
       const isPrimeCost = !isPandG && (
         /prime\s*cost|^pc\s|p\.?c\.?\s*sum|p\.?c\.?\s*amount|pc\s*rate|prime\s*cost\s*amount/i.test(description)
       );
       
-      // Detect Provisional Sum items
       const isProvisionalSum = /provisional\s*sum|^ps\s|prov\.?\s*sum/i.test(description);
       
-      // Use database-valid item_type values: 'MEASURED', 'PC', 'PS'
       const itemType: 'MEASURED' | 'PC' | 'PS' = 
         isPrimeCost ? 'PC' : isProvisionalSum ? 'PS' : 'MEASURED';
       
@@ -395,7 +590,7 @@ export function FinalAccountExcelImport({
         sectionCode: parsed.sectionCode, 
         sectionName: parsed.sectionName, 
         items,
-        boqStatedTotal, // The stated total from Excel
+        boqStatedTotal,
         _sectionNumber: parsed.sectionNumber,
       },
       billNumber: parsed.billNumber,
@@ -420,52 +615,56 @@ export function FinalAccountExcelImport({
       setProgress(10);
       setProgressText("Parsing sheets...");
 
-      // Group sections by bill
-      const billsMap = new Map<number, ParsedBill>();
-      
-      const skipPatterns = [
-        /^main\s*summary$/i,
-        /^summary$/i,
-        /mall\s*summary$/i,  // Skip "Mall Summary" sheets
-        /bill\s*summary$/i,  // Skip bill summary sheets
-        /notes/i,
-        /qualifications/i,
-        /cover/i,
-        /^index$/i,          // Skip index sheets
-      ];
+      // Try single-sheet inline-section format first (e.g., Edgars/Prince Buthelezi)
+      let parsedBills: ParsedBill[] | null = parseSingleSheetWithInlineSections(workbook);
 
-      console.log("Excel sheet names found:", workbook.SheetNames);
-      
-      for (const sheetName of workbook.SheetNames) {
-        const shouldSkip = skipPatterns.some(pattern => pattern.test(sheetName.trim()));
-        if (shouldSkip) {
-          console.log(`Skipping sheet (matched skip pattern): "${sheetName}"`);
-          continue;
-        }
+      if (!parsedBills) {
+        // Fall back to multi-sheet format
+        const billsMap = new Map<number, ParsedBill>();
         
-        console.log(`Processing sheet: "${sheetName}"`);
-        const worksheet = workbook.Sheets[sheetName];
-        const result = parseSheet(worksheet, sheetName);
+        const skipPatterns = [
+          /^main\s*summary$/i,
+          /^summary$/i,
+          /mall\s*summary$/i,
+          /bill\s*summary$/i,
+          /notes/i,
+          /qualifications/i,
+          /cover/i,
+          /^index$/i,
+        ];
+
+        console.log("Excel sheet names found:", workbook.SheetNames);
         
-        if (result) {
-          const { section, billNumber, billName } = result;
-          console.log(`  -> Parsed as Bill ${billNumber}: "${billName}", Section: "${section.sectionCode}" with ${section.items.length} items`);
-          
-          if (!billsMap.has(billNumber)) {
-            billsMap.set(billNumber, {
-              billNumber,
-              billName,
-              sections: [],
-            });
+        for (const sheetName of workbook.SheetNames) {
+          const shouldSkip = skipPatterns.some(pattern => pattern.test(sheetName.trim()));
+          if (shouldSkip) {
+            console.log(`Skipping sheet (matched skip pattern): "${sheetName}"`);
+            continue;
           }
-          billsMap.get(billNumber)!.sections.push(section);
-        } else {
-          console.log(`  -> Sheet skipped (parseSheet returned null)`);
+          
+          console.log(`Processing sheet: "${sheetName}"`);
+          const worksheet = workbook.Sheets[sheetName];
+          const result = parseSheet(worksheet, sheetName);
+          
+          if (result) {
+            const { section, billNumber, billName } = result;
+            console.log(`  -> Parsed as Bill ${billNumber}: "${billName}", Section: "${section.sectionCode}" with ${section.items.length} items`);
+            
+            if (!billsMap.has(billNumber)) {
+              billsMap.set(billNumber, {
+                billNumber,
+                billName,
+                sections: [],
+              });
+            }
+            billsMap.get(billNumber)!.sections.push(section);
+          } else {
+            console.log(`  -> Sheet skipped (parseSheet returned null)`);
+          }
         }
-      }
 
-      // Convert to array and sort by bill number
-      const parsedBills = Array.from(billsMap.values()).sort((a, b) => a.billNumber - b.billNumber);
+        parsedBills = Array.from(billsMap.values()).sort((a, b) => a.billNumber - b.billNumber);
+      }
 
       if (parsedBills.length === 0) {
         throw new Error("No valid data found in Excel file");
@@ -815,8 +1014,8 @@ export function FinalAccountExcelImport({
               disabled={loading}
             />
             <p className="text-sm text-muted-foreground">
-              Sheets like "1.2 Medium Voltage" become sections within Bill 1 (Mall Portion). 
-              Sheets like "3 ASJ" or "4 Boxer" become their own bills with the tenant name.
+              Supports both multi-sheet format (one sheet per section) and single-sheet format 
+              with inline sections (Section A, Section B, etc.). Bill numbers are auto-detected.
             </p>
           </div>
 
