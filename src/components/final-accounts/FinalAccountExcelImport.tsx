@@ -211,8 +211,7 @@ export function FinalAccountExcelImport({
    * Returns the parsed bills if detected, or null if not.
    */
   const parseSingleSheetWithInlineSections = (workbook: XLSX.WorkBook): ParsedBill[] | null => {
-    if (workbook.SheetNames.length > 3) return null; // Multi-sheet format, skip
-
+    // Use the first sheet regardless of sheet count
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
     const allRows: string[][] = [];
@@ -221,27 +220,42 @@ export function FinalAccountExcelImport({
       const row: string[] = [];
       for (let c = range.s.c; c <= range.e.c; c++) {
         const cell = worksheet[XLSX.utils.encode_cell({ r, c })];
-        row.push(cell ? String(cell.v ?? "").trim() : "");
+        // Use cell.w (formatted value) as fallback, then cell.v
+        const val = cell ? String(cell.w ?? cell.v ?? "").trim() : "";
+        row.push(val);
       }
       allRows.push(row);
     }
 
+    console.log(`[Single-Sheet Import] Total rows: ${allRows.length}, scanning for sections...`);
+
     // Detect inline sections by scanning for "SECTION X" patterns
     const sectionIndices: { rowIdx: number; code: string; name: string }[] = [];
     for (let i = 0; i < allRows.length; i++) {
-      const joined = allRows[i].join(' ').trim();
-      // Match "SECTION A", "SECTION B - LOW VOLTAGE DISTRIBUTION..."
-      const sectionMatch = joined.match(/^SECTION\s+([A-Z])\s*[-–:]?\s*(.*)/i);
-      if (sectionMatch) {
-        sectionIndices.push({
-          rowIdx: i,
-          code: sectionMatch[1].toUpperCase(),
-          name: sectionMatch[2]?.trim() || `Section ${sectionMatch[1].toUpperCase()}`,
-        });
+      // Check each cell individually AND the joined row
+      for (const cellVal of allRows[i]) {
+        if (!cellVal) continue;
+        const sectionMatch = cellVal.match(/^SECTION\s+([A-Z])\s*[-–:]?\s*(.*)/i);
+        if (sectionMatch) {
+          // Avoid duplicates for the same row
+          if (!sectionIndices.some(s => s.rowIdx === i)) {
+            const name = sectionMatch[2]?.replace(/^[-–:\s]+/, '').trim() || '';
+            sectionIndices.push({
+              rowIdx: i,
+              code: sectionMatch[1].toUpperCase(),
+              name: name || `Section ${sectionMatch[1].toUpperCase()}`,
+            });
+            console.log(`[Single-Sheet Import] Found section at row ${i}: ${sectionMatch[1]} - "${name}"`);
+          }
+          break;
+        }
       }
     }
 
-    if (sectionIndices.length < 2) return null; // Not an inline-section format
+    if (sectionIndices.length < 2) {
+      console.log(`[Single-Sheet Import] Only found ${sectionIndices.length} section headers, not enough`);
+      return null; // Not an inline-section format
+    }
 
     // Try to extract bill number from header rows (e.g. "BILL NO. 10")
     let billNumber = 1;
@@ -263,25 +277,29 @@ export function FinalAccountExcelImport({
     // Find column mapping from the first header row (usually after first SECTION line)
     const patterns: Record<string, RegExp> = {
       description: /desc|particular|^description$/i,
-      quantity: /^qty$|^quantity$/i,
+      quantity: /^qty$|^quantity$|^qnty$/i,
       unit: /^unit$|^uom$/i,
-      supplyRate: /^supply$/i,
-      installRate: /^install$/i,
+      supplyRate: /^supply/i,
+      installRate: /^install/i,
       amount: /^amount$|^total$/i,
       itemCode: /^item$|^no$|^code$|^ref$/i,
     };
 
     const findColumnsInRow = (row: string[]): Record<string, number> | null => {
       const colMap: Record<string, number> = {};
+      let matchCount = 0;
       row.forEach((cell, idx) => {
-        const cellUpper = cell.toUpperCase().trim();
+        const cellClean = cell.toUpperCase().trim();
+        if (!cellClean) return;
         for (const [key, pattern] of Object.entries(patterns)) {
-          if (pattern.test(cellUpper) && colMap[key] === undefined) {
+          if (pattern.test(cellClean) && colMap[key] === undefined) {
             colMap[key] = idx;
+            matchCount++;
           }
         }
       });
-      return colMap.description !== undefined || colMap.itemCode !== undefined ? colMap : null;
+      // Require at least 3 column matches to confirm this is a header row
+      return matchCount >= 3 ? colMap : null;
     };
 
     // Parse items for each section range
