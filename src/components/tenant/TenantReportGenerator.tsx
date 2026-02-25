@@ -149,6 +149,10 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       return buildTenantReportPdf(pdfData);
     };
 
+    const totalArea = includedTenants.reduce((sum, t) => sum + (t.area || 0), 0);
+    const totalDbCost = includedTenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
+    const totalLightingCost = includedTenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
+
     const result = await generateAndPersist(buildFn, {
       storageBucket: 'tenant-tracker-reports',
       dbTable: 'tenant_tracker_reports',
@@ -156,14 +160,16 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       foreignKeyValue: projectId,
       revision: `R${String(nextRevision).padStart(2, '0')}`,
       reportName: `Tenant_Report_${projectName.replace(/\s+/g, '_')}_Rev${nextRevision}`,
+      customInsertData: {
+        revision_number: nextRevision,
+        tenant_count: includedTenants.length,
+        total_area: totalArea,
+        total_db_cost: totalDbCost,
+        total_lighting_cost: totalLightingCost,
+      },
     });
 
     if (result) {
-      // Update with tenant-specific metadata
-      const totalArea = includedTenants.reduce((sum, t) => sum + (t.area || 0), 0);
-      const totalDbCost = includedTenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
-      const totalLightingCost = includedTenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
-
       queryClient.invalidateQueries({ queryKey: ['tenant-tracker-reports', projectId] });
       toast.success(`Report saved as Rev.${nextRevision}`);
     }
