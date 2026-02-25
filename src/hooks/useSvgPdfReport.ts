@@ -21,6 +21,8 @@ export interface ReportPersistConfig {
   projectId?: string;
   revision?: string;
   reportName: string;
+  /** Override or extend the default insert payload for custom table schemas */
+  customInsertData?: Record<string, any>;
 }
 
 export interface SvgReportResult {
@@ -194,6 +196,14 @@ export function useSvgPdfReport() {
       };
       if (config.projectId) {
         insertData.project_id = config.projectId;
+      }
+      // Merge custom data last so it can override defaults (e.g. revision_number instead of revision)
+      if (config.customInsertData) {
+        // Remove generic 'revision' if custom data provides its own revision field
+        if ('revision_number' in config.customInsertData) {
+          delete insertData.revision;
+        }
+        Object.assign(insertData, config.customInsertData);
       }
 
       let record: any = null;
