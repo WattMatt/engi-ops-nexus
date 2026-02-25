@@ -88,6 +88,25 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     const buildFn = async () => {
       const companyData = await fetchCompanyData();
+
+      // Fetch selected contact details for cover page
+      let contactOverrides: Partial<StandardCoverPageData> = {};
+      if (options.contactId) {
+        const { data: contact } = await supabase
+          .from('project_contacts')
+          .select('*')
+          .eq('id', options.contactId)
+          .maybeSingle();
+
+        if (contact) {
+          contactOverrides = {
+            contactName: contact.contact_person_name || undefined,
+            contactOrganization: contact.organization_name || undefined,
+            contactPhone: contact.phone || undefined,
+            contactEmail: contact.email || undefined,
+          };
+        }
+      }
       
       const tenantData: TenantForPdf[] = includedTenants.map(t => ({
         shopNumber: t.shop_number,
@@ -108,6 +127,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       const pdfData: TenantReportPdfData = {
         coverData: {
           ...companyData,
+          ...contactOverrides,
           reportTitle: 'TENANT TRACKER REPORT',
           reportSubtitle: 'Tenant Schedule & Progress Analysis',
           projectName,
