@@ -36,6 +36,27 @@ export interface TenantReportOptions {
   includeFloorPlan: boolean;
   includeTenantSchedule: boolean;
   floorPlanImageBase64?: string;
+  kpiCards?: {
+    totalTenants: boolean;
+    totalArea: boolean;
+    totalDbCost: boolean;
+    totalLightingCost: boolean;
+  };
+  tenantFields?: {
+    shopNumber: boolean;
+    shopName: boolean;
+    category: boolean;
+    area: boolean;
+    dbAllowance: boolean;
+    dbScopeOfWork: boolean;
+    sowReceived: boolean;
+    layoutReceived: boolean;
+    dbOrdered: boolean;
+    dbCost: boolean;
+    lightingOrdered: boolean;
+    lightingCost: boolean;
+    costReported: boolean;
+  };
 }
 
 export interface TenantReportPdfData {
@@ -67,11 +88,18 @@ function buildKpiPage(data: TenantReportPdfData): SVGSVGElement {
   const totalLightingCost = tenants.reduce((s, t) => s + (t.lightingCost || 0), 0);
   const totalCost = totalDbCost + totalLightingCost;
 
-  let y = drawStatCards(svg, [
-    { label: 'Total Units', value: String(total), color: BRAND_ACCENT },
-    { label: 'Total Area', value: `${totalArea.toFixed(0)} m²`, color: '#16a34a' },
-    { label: 'Total Cost', value: `R${(totalCost / 1000).toFixed(0)}k`, color: '#8b5cf6' },
-  ], MARGIN_TOP + 14);
+  const kpiCards = data.options.kpiCards;
+  const allEnabled = !kpiCards || (kpiCards.totalTenants && kpiCards.totalArea && kpiCards.totalDbCost && kpiCards.totalLightingCost);
+
+  const statCards: StatCard[] = [];
+  if (!kpiCards || kpiCards.totalTenants) statCards.push({ label: 'Total Units', value: String(total), color: BRAND_ACCENT });
+  if (!kpiCards || kpiCards.totalArea) statCards.push({ label: 'Total Area', value: `${totalArea.toFixed(0)} m²`, color: '#16a34a' });
+  // Show combined cost card if either cost KPI is enabled
+  if (!kpiCards || kpiCards.totalDbCost || kpiCards.totalLightingCost) statCards.push({ label: 'Total Cost', value: `R${(totalCost / 1000).toFixed(0)}k`, color: '#8b5cf6' });
+
+  let y = statCards.length > 0
+    ? drawStatCards(svg, statCards, MARGIN_TOP + 14)
+    : MARGIN_TOP + 14;
 
   y += 6;
 
@@ -165,29 +193,37 @@ export function buildTenantReportPdf(data: TenantReportPdfData): SVGSVGElement[]
 
   // 4. Tenant Schedule
   if (options.includeTenantSchedule) {
-    const cols: TableColumn[] = [
-      { header: 'Shop #', width: 16, key: 'shop' },
-      { header: 'Name', width: 32, key: 'name' },
-      { header: 'Category', width: 20, key: 'cat' },
-      { header: 'Area', width: 14, align: 'right', key: 'area' },
-      { header: 'SOW', width: 12, align: 'center', key: 'sow' },
-      { header: 'Layout', width: 12, align: 'center', key: 'layout' },
-      { header: 'DB Ord', width: 12, align: 'center', key: 'db' },
-      { header: 'DB Cost', width: 18, align: 'right', key: 'dbCost' },
-      { header: 'Light', width: 12, align: 'center', key: 'light' },
-      { header: 'L.Cost', width: 18, align: 'right', key: 'lightCost' },
+    const tf = options.tenantFields;
+    const allCols: (TableColumn & { enabled: boolean })[] = [
+      { header: 'Shop #', width: 16, key: 'shop', enabled: !tf || tf.shopNumber },
+      { header: 'Name', width: 32, key: 'name', enabled: !tf || tf.shopName },
+      { header: 'Category', width: 20, key: 'cat', enabled: !tf || tf.category },
+      { header: 'Area', width: 14, align: 'right' as const, key: 'area', enabled: !tf || tf.area },
+      { header: 'DB Allow', width: 16, key: 'dbAllow', enabled: !tf || tf.dbAllowance },
+      { header: 'DB SOW', width: 16, key: 'dbSow', enabled: !tf || tf.dbScopeOfWork },
+      { header: 'SOW', width: 12, align: 'center' as const, key: 'sow', enabled: !tf || tf.sowReceived },
+      { header: 'Layout', width: 12, align: 'center' as const, key: 'layout', enabled: !tf || tf.layoutReceived },
+      { header: 'DB Ord', width: 12, align: 'center' as const, key: 'db', enabled: !tf || tf.dbOrdered },
+      { header: 'DB Cost', width: 18, align: 'right' as const, key: 'dbCost', enabled: !tf || tf.dbCost },
+      { header: 'Light', width: 12, align: 'center' as const, key: 'light', enabled: !tf || tf.lightingOrdered },
+      { header: 'L.Cost', width: 18, align: 'right' as const, key: 'lightCost', enabled: !tf || tf.lightingCost },
+      { header: 'Reported', width: 14, align: 'center' as const, key: 'reported', enabled: !tf || tf.costReported },
     ];
+    const cols: TableColumn[] = allCols.filter(c => c.enabled).map(({ enabled, ...col }) => col);
     const rows = tenants.map(t => ({
       shop: t.shopNumber,
       name: t.shopName,
       cat: getCategoryLabel(t.category),
       area: t.area?.toFixed(0) || '-',
+      dbAllow: t.dbAllowance || '-',
+      dbSow: t.dbScopeOfWork || '-',
       sow: t.sowReceived ? 'Y' : 'N',
       layout: t.layoutReceived ? 'Y' : 'N',
       db: t.dbOrdered ? 'Y' : 'N',
       dbCost: t.dbCost ? `R${t.dbCost.toFixed(0)}` : (t.dbOrdered ? 'By Tenant' : '-'),
       light: t.lightingOrdered ? 'Y' : 'N',
       lightCost: t.lightingCost ? `R${t.lightingCost.toFixed(0)}` : (t.lightingOrdered ? 'By Tenant' : '-'),
+      reported: t.costReported ? 'Y' : 'N',
     }));
     pages.push(...buildTablePages('Tenant Schedule', cols, rows));
   }

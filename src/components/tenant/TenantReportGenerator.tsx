@@ -143,6 +143,8 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
           includeFloorPlan: options.includeFloorPlan,
           includeTenantSchedule: options.includeTenantSchedule,
           floorPlanImageBase64,
+          kpiCards: options.kpiCards,
+          tenantFields: options.tenantFields,
         },
       };
 
