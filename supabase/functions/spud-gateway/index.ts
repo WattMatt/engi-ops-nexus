@@ -178,30 +178,23 @@ serve(async (req) => {
         return new Response(JSON.stringify({ data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // --- 6. SYNC INBOX ITEM (Unified Inbox) ---
+    // --- 6. SYNC INBOX ITEM (Unified Inbox with Duplicate Prevention) ---
     if (action === 'sync_inbox_item') {
         const { title, source, project_ref, description, status, priority, due_date, external_ids, raw_payload } = body;
         if (!title || !source) throw new Error('title and source are required');
 
-        // Upsert based on external_ids->source_id if possible
-        let existing = null;
-        if (external_ids && source) {
-             // This is tricky with JSONB query via simple client, might need a specific function or logic
-             // For now, let's just insert. A robust dedup logic is needed later.
-             // OR: We assume the client handles dedup by knowing the ID? No, client is dumb.
-             // Let's assume we rely on external_ids containment.
-             
-             // Simplification: We blindly insert for now or use a match on title + project + source?
-             // Ideally we want to avoid duplicates.
-             // Let's try to find an item with the same external_ids
-             
-             // supabase .contains('external_ids', fragment)
-             // e.g. { "reminder_id": "x" }
+        // Extract the main identifier for the unique constraint
+        let external_ref_id = null;
+        if (external_ids) {
+            if (source === 'reminders' && external_ids.reminder_id) external_ref_id = external_ids.reminder_id;
+            else if (source === 'planner' && external_ids.planner_id) external_ref_id = external_ids.planner_id;
+            else if (external_ids.id) external_ref_id = external_ids.id;
         }
 
         const payload = {
             title,
             source,
+            external_ref_id, // For the unique constraint (source, external_ref_id)
             project_ref: project_ref || null,
             description: description || null,
             status: status || 'inbox',
@@ -212,13 +205,14 @@ serve(async (req) => {
             updated_at: new Date().toISOString()
         };
 
-        // We use upsert if we can identify it, otherwise insert
-        // Since we don't have a unique constraint on external_ids yet, we'll just insert.
-        // TODO: Add unique constraint/index on external_ids->>'id' per source.
-        
+        // Use upsert to handle duplicates safely
+        // If it exists (conflict on source + external_ref_id), update it.
         const { data, error } = await supabase
             .from('ops_unified_inbox')
-            .insert(payload)
+            .upsert(payload, { 
+                onConflict: 'source,external_ref_id',
+                ignoreDuplicates: false // Update on conflict
+            })
             .select()
             .single();
 
