@@ -61,7 +61,11 @@ serve(async (req) => {
 
     // --- 3. SYNC ROADMAP ITEM (Create/Update by Title) ---
     if (action === 'sync_roadmap_item') {
-      const { project_id, title, is_completed, due_date, status, priority, description, assigned_to } = body;
+      const { 
+          project_id, title, is_completed, due_date, status, priority, description, 
+          assigned_to, assigned_to_text, labels, checklist 
+      } = body;
+      
       if (!project_id || !title) throw new Error('project_id and title are required');
 
       // Check if exists (by title match within project)
@@ -83,7 +87,10 @@ serve(async (req) => {
       if (status !== undefined) payload.status = status;
       if (priority !== undefined) payload.priority = priority;
       if (description !== undefined) payload.description = description;
-      if (assigned_to !== undefined) payload.assigned_to = assigned_to;
+      if (assigned_to !== undefined) payload.assigned_to_id = assigned_to; // If UUID passed
+      if (assigned_to_text !== undefined) payload.assigned_to_text = assigned_to_text;
+      if (labels !== undefined) payload.labels = labels;
+      if (checklist !== undefined) payload.checklist = checklist;
 
       let result;
       if (existing) {
@@ -120,7 +127,11 @@ serve(async (req) => {
 
     // --- 4. CREATE ROADMAP ITEM (Explicit) ---
     if (action === 'create_roadmap_item') {
-        const { project_id, title, status, priority, due_date, description, assigned_to } = body;
+        const { 
+            project_id, title, status, priority, due_date, description, 
+            assigned_to, assigned_to_text, labels 
+        } = body;
+        
         if (!project_id || !title) throw new Error('project_id and title are required');
 
         const { data: maxSort } = await supabase
@@ -138,7 +149,9 @@ serve(async (req) => {
             priority: priority || 'medium',
             due_date: due_date || null,
             description: description || null,
-            assigned_to: assigned_to || null,
+            assigned_to_id: assigned_to || null,
+            assigned_to_text: assigned_to_text || null,
+            labels: labels || [],
             sort_order: (maxSort?.sort_order || 0) + 1,
             is_completed: false,
             created_at: new Date().toISOString(),
