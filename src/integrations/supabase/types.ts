@@ -10753,6 +10753,57 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_unified_inbox: {
+        Row: {
+          assignee_ids: Json | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          external_ids: Json | null
+          external_ref_id: string | null
+          id: string
+          priority: string | null
+          project_ref: string | null
+          raw_payload: Json | null
+          source: string
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assignee_ids?: Json | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          external_ids?: Json | null
+          external_ref_id?: string | null
+          id?: string
+          priority?: string | null
+          project_ref?: string | null
+          raw_payload?: Json | null
+          source: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assignee_ids?: Json | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          external_ids?: Json | null
+          external_ref_id?: string | null
+          id?: string
+          priority?: string | null
+          project_ref?: string | null
+          raw_payload?: Json | null
+          source?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       password_reset_requests: {
         Row: {
           completed_at: string | null
