@@ -9378,6 +9378,81 @@ export type Database = {
           },
         ]
       }
+      master_db_rates: {
+        Row: {
+          allowance: number
+          created_at: string
+          db_size: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          allowance?: number
+          created_at?: string
+          db_size: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          allowance?: number
+          created_at?: string
+          db_size?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      master_generator_rates: {
+        Row: {
+          allowance: number
+          created_at: string
+          id: string
+          size_kva: number
+          updated_at: string
+        }
+        Insert: {
+          allowance?: number
+          created_at?: string
+          id?: string
+          size_kva: number
+          updated_at?: string
+        }
+        Update: {
+          allowance?: number
+          created_at?: string
+          id?: string
+          size_kva?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      master_market_rates: {
+        Row: {
+          created_at: string
+          id: string
+          rate_per_m2: number
+          rate_type: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          rate_per_m2?: number
+          rate_type: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          rate_per_m2?: number
+          rate_type?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       master_materials: {
         Row: {
           approved_by: string | null
@@ -9579,6 +9654,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      master_tenant_profiles: {
+        Row: {
+          apply_base_rate: boolean
+          category: string
+          created_at: string
+          default_ti_rate: number
+          id: string
+          tenant_name: string
+          updated_at: string
+        }
+        Insert: {
+          apply_base_rate?: boolean
+          category?: string
+          created_at?: string
+          default_ti_rate?: number
+          id?: string
+          tenant_name: string
+          updated_at?: string
+        }
+        Update: {
+          apply_base_rate?: boolean
+          category?: string
+          created_at?: string
+          default_ti_rate?: number
+          id?: string
+          tenant_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      master_transformer_sizes: {
+        Row: {
+          allowance: number
+          created_at: string
+          id: string
+          size_kva: number
+          updated_at: string
+        }
+        Insert: {
+          allowance?: number
+          created_at?: string
+          id?: string
+          size_kva: number
+          updated_at?: string
+        }
+        Update: {
+          allowance?: number
+          created_at?: string
+          id?: string
+          size_kva?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       material_analytics_snapshots: {
         Row: {
@@ -11659,6 +11788,47 @@ export type Database = {
           },
         ]
       }
+      project_budgets: {
+        Row: {
+          base_rate_m2: number
+          created_at: string
+          created_by: string | null
+          id: string
+          project_id: string
+          revision: number
+          status: Database["public"]["Enums"]["budget_status"]
+          updated_at: string
+        }
+        Insert: {
+          base_rate_m2?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id: string
+          revision?: number
+          status?: Database["public"]["Enums"]["budget_status"]
+          updated_at?: string
+        }
+        Update: {
+          base_rate_m2?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id?: string
+          revision?: number
+          status?: Database["public"]["Enums"]["budget_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_budgets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_contacts: {
         Row: {
           address_line1: string | null
@@ -12756,6 +12926,47 @@ export type Database = {
           },
         ]
       }
+      project_scope: {
+        Row: {
+          budget_id: string
+          comments: string | null
+          created_at: string
+          display_order: number
+          id: string
+          item_name: string
+          status: Database["public"]["Enums"]["scope_status"] | null
+          updated_at: string
+        }
+        Insert: {
+          budget_id: string
+          comments?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          item_name: string
+          status?: Database["public"]["Enums"]["scope_status"] | null
+          updated_at?: string
+        }
+        Update: {
+          budget_id?: string
+          comments?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          item_name?: string
+          status?: Database["public"]["Enums"]["scope_status"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_scope_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "project_budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_specifications: {
         Row: {
           client_logo_url: string | null
@@ -12818,6 +13029,188 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      project_standby_config: {
+        Row: {
+          budget_id: string
+          created_at: string
+          id: string
+          load_factor_va_m2: number
+          power_factor: number
+          selected_generator_kva: number | null
+          updated_at: string
+        }
+        Insert: {
+          budget_id: string
+          created_at?: string
+          id?: string
+          load_factor_va_m2?: number
+          power_factor?: number
+          selected_generator_kva?: number | null
+          updated_at?: string
+        }
+        Update: {
+          budget_id?: string
+          created_at?: string
+          id?: string
+          load_factor_va_m2?: number
+          power_factor?: number
+          selected_generator_kva?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_standby_config_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: true
+            referencedRelation: "project_budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_tenant_zones: {
+        Row: {
+          created_at: string
+          id: string
+          tenant_id: string
+          zone_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tenant_id: string
+          zone_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tenant_id?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tenant_zones_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "project_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tenant_zones_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "project_zoning"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_tenants: {
+        Row: {
+          area_m2: number
+          budget_id: string
+          created_at: string
+          db_size: string | null
+          display_order: number
+          id: string
+          matched_profile_id: string | null
+          override_ti_rate: number | null
+          shop_name: string
+          shop_no: string
+          snapshotted_base_rate: number | null
+          snapshotted_ti_rate: number | null
+          standby_source: Database["public"]["Enums"]["standby_source"]
+          updated_at: string
+        }
+        Insert: {
+          area_m2?: number
+          budget_id: string
+          created_at?: string
+          db_size?: string | null
+          display_order?: number
+          id?: string
+          matched_profile_id?: string | null
+          override_ti_rate?: number | null
+          shop_name: string
+          shop_no: string
+          snapshotted_base_rate?: number | null
+          snapshotted_ti_rate?: number | null
+          standby_source?: Database["public"]["Enums"]["standby_source"]
+          updated_at?: string
+        }
+        Update: {
+          area_m2?: number
+          budget_id?: string
+          created_at?: string
+          db_size?: string | null
+          display_order?: number
+          id?: string
+          matched_profile_id?: string | null
+          override_ti_rate?: number | null
+          shop_name?: string
+          shop_no?: string
+          snapshotted_base_rate?: number | null
+          snapshotted_ti_rate?: number | null
+          standby_source?: Database["public"]["Enums"]["standby_source"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tenants_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "project_budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tenants_matched_profile_id_fkey"
+            columns: ["matched_profile_id"]
+            isOneToOne: false
+            referencedRelation: "master_tenant_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_zoning: {
+        Row: {
+          budget_id: string
+          created_at: string
+          id: string
+          transformer_size_id: string | null
+          updated_at: string
+          zone_name: string
+        }
+        Insert: {
+          budget_id: string
+          created_at?: string
+          id?: string
+          transformer_size_id?: string | null
+          updated_at?: string
+          zone_name: string
+        }
+        Update: {
+          budget_id?: string
+          created_at?: string
+          id?: string
+          transformer_size_id?: string | null
+          updated_at?: string
+          zone_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_zoning_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "project_budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_zoning_transformer_size_id_fkey"
+            columns: ["transformer_size_id"]
+            isOneToOne: false
+            referencedRelation: "master_transformer_sizes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
@@ -17023,6 +17416,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user" | "moderator" | "client"
       attendance_type: "clock_in" | "clock_out" | "break_start" | "break_end"
+      budget_status: "draft" | "active" | "final"
       cable_type:
         | "mv"
         | "lv_ac"
@@ -17041,12 +17435,14 @@ export type Database = {
       leave_status: "pending" | "approved" | "rejected" | "cancelled"
       onboarding_status: "not_started" | "in_progress" | "completed"
       review_status: "draft" | "pending" | "completed"
+      scope_status: "yes" | "no"
       section_review_status:
         | "draft"
         | "sent_for_review"
         | "under_review"
         | "disputed"
         | "approved"
+      standby_source: "centre_generator" | "tenant_own_supply"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status: "pending" | "in_progress" | "completed" | "cancelled"
       user_role: "admin" | "user"
@@ -17179,6 +17575,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user", "moderator", "client"],
       attendance_type: ["clock_in", "clock_out", "break_start", "break_end"],
+      budget_status: ["draft", "active", "final"],
       cable_type: ["mv", "lv_ac", "dc", "tray", "basket", "trunking", "sleeve"],
       design_purpose: [
         "budget_markup",
@@ -17191,6 +17588,7 @@ export const Constants = {
       leave_status: ["pending", "approved", "rejected", "cancelled"],
       onboarding_status: ["not_started", "in_progress", "completed"],
       review_status: ["draft", "pending", "completed"],
+      scope_status: ["yes", "no"],
       section_review_status: [
         "draft",
         "sent_for_review",
@@ -17198,6 +17596,7 @@ export const Constants = {
         "disputed",
         "approved",
       ],
+      standby_source: ["centre_generator", "tenant_own_supply"],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: ["pending", "in_progress", "completed", "cancelled"],
       user_role: ["admin", "user"],

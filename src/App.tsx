@@ -82,6 +82,7 @@ const Procurement = lazy(() => import("./pages/Procurement"));
 const Inspections = lazy(() => import("./pages/Inspections"));
 const DBLegendCards = lazy(() => import("./pages/DBLegendCards"));
 const PdfComplianceDashboard = lazy(() => import("./pages/PdfComplianceDashboard"));
+const BudgetStudio = lazy(() => import("./pages/BudgetStudio"));
 
 // External/client portals
 const HandoverClient = lazy(() => import("./pages/HandoverClient"));
@@ -198,6 +199,7 @@ const queryClient = new QueryClient({
                     <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
                     <Route path="budgets/electrical" element={<ElectricalBudgets />} />
                     <Route path="budgets/electrical/:budgetId" element={<ElectricalBudgetDetail />} />
+                    <Route path="budget-studio/:budgetId" element={<BudgetStudio />} />
                     <Route path="specifications" element={<Specifications />} />
                     <Route path="specifications/:specId" element={<SpecificationDetail />} />
                     <Route path="cable-schedules" element={<CableSchedules />} />
