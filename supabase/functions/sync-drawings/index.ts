@@ -374,17 +374,56 @@ serve(async (req) => {
         skipped: 0
       };
 
-      // Step 3: Navigate to drawings subfolder
-      // Try both "LATEST" and "LATEST PDF'S"
-      let drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST PDF'S`;
-      console.log(`Checking path: ${drawingsPath}`);
-      let pdfEntries = await listDropboxFolder(accessToken, drawingsPath, rootNamespaceId);
-      
-      // Fallback to "LATEST" if the first one failed or returned empty
-      if (pdfEntries.length === 0) {
-         console.log(`Path empty or not found, trying fallback: ${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`);
-         drawingsPath = `${folder.path_display}/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`;
-         pdfEntries = await listDropboxFolder(accessToken, drawingsPath, rootNamespaceId);
+      // Step 3: Dynamically find the drawings PDF path
+      let drawingsPath = '';
+      let pdfEntries: any[] = [];
+
+      try {
+        // Find ELECTRICAL folder (case-insensitive search)
+        const projectFolders = await listDropboxFolder(accessToken, folder.path_display, rootNamespaceId);
+        const electricalFolder = projectFolders.find((e: any) =>
+          e['.tag'] === 'folder' && /electrical/i.test(e.name)
+        );
+
+        if (electricalFolder) {
+          // Find DRAWINGS folder inside ELECTRICAL
+          const elecContents = await listDropboxFolder(accessToken, electricalFolder.path_display, rootNamespaceId);
+          const drawingsFolder = elecContents.find((e: any) =>
+            e['.tag'] === 'folder' && /drawings/i.test(e.name)
+          );
+
+          if (drawingsFolder) {
+            // Find PDF folder inside DRAWINGS
+            const drawContents = await listDropboxFolder(accessToken, drawingsFolder.path_display, rootNamespaceId);
+            const pdfFolder = drawContents.find((e: any) =>
+              e['.tag'] === 'folder' && /^pdf$/i.test(e.name)
+            );
+
+            if (pdfFolder) {
+              // Find LATEST folder inside PDF (try "LATEST PDF'S" first, then "LATEST")
+              const pdfContents = await listDropboxFolder(accessToken, pdfFolder.path_display, rootNamespaceId);
+              const latestFolder = pdfContents.find((e: any) =>
+                e['.tag'] === 'folder' && /latest/i.test(e.name)
+              );
+
+              if (latestFolder) {
+                drawingsPath = latestFolder.path_display;
+                pdfEntries = await listDropboxFolder(accessToken, drawingsPath, rootNamespaceId);
+                console.log(`Dynamic path resolved: ${drawingsPath}`);
+              } else {
+                console.log(`No LATEST folder found in ${pdfFolder.path_display}`);
+              }
+            } else {
+              console.log(`No PDF folder found in ${drawingsFolder.path_display}`);
+            }
+          } else {
+            console.log(`No DRAWINGS folder found in ${electricalFolder.path_display}`);
+          }
+        } else {
+          console.log(`No ELECTRICAL folder found in ${folder.path_display}`);
+        }
+      } catch (pathErr) {
+        console.error(`Error finding drawings path for ${folder.name}:`, pathErr);
       }
 
       console.log(`Scan result for ${project.name}: Found ${pdfEntries.length} entries.`);
@@ -408,7 +447,7 @@ serve(async (req) => {
 
       // Build sets for dedup: normalized drawing numbers AND file names
       const existingNormalized = new Set(
-        (existingDrawings || []).map((d: any) => d.drawing_number?.replace(/\./g, '/'))
+        (existingDrawings || []).map((d: any) => d.drawing_number?.replace(/\./g, '/').replace(/-/g, '/'))
       );
       const existingFileNames = new Set(
         (existingDrawings || []).map((d: any) => d.file_name).filter(Boolean)
@@ -430,8 +469,10 @@ serve(async (req) => {
           
           // Parse drawing number from filename: "636.E.800 - SIGNAGE LAYOUT - REV. 0" → "636/E/800"
           // Also handles suffix patterns like "636.E.407.L - ..." → "636/E/407/L"
-          const firstPart = drawingTitle.split(' - ')[0].trim(); // e.g. "636.E.800" or "636.E.407.L"
-          const drawingNumber = firstPart.replace(/\./g, '/');   // normalize to "/"
+          const firstPart = drawingTitle.split(' - ')[0].trim(); // e.g. "636.E.800" or "636-E-407-L"
+          const drawingNumber = firstPart
+            .replace(/\./g, '/')    // Dots to slashes
+            .replace(/-/g, '/');    // Dashes to slashes
           
           // Parse title: everything after the first " - " up to " - REV." or ". REV."
           const afterNumber = drawingTitle.substring(drawingTitle.indexOf(' - ') + 3);
@@ -448,7 +489,7 @@ serve(async (req) => {
           if (existingNormalized.has(drawingNumber)) {
             // Update the existing record with dropbox_path if missing
             const existing = (existingDrawings || []).find(
-              (d: any) => d.drawing_number?.replace(/\./g, '/') === drawingNumber
+              (d: any) => d.drawing_number?.replace(/\./g, '/').replace(/-/g, '/') === drawingNumber
             );
             if (existing) {
               await supabase

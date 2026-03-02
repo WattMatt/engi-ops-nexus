@@ -126,7 +126,7 @@ export const DRAWING_PATTERNS = {
  * Normalize drawing number delimiter to "/" for consistent parsing
  */
 export function normalizeDrawingNumber(drawingNumber: string): string {
-  return drawingNumber.replace(/\./g, '/');
+  return drawingNumber.replace(/\./g, '/').replace(/-/g, '/');
 }
 
 /**
