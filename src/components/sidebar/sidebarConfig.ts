@@ -54,6 +54,7 @@ export const technicalDesignItems: NavItem[] = [
   { title: "Bulk Services", url: "/dashboard/bulk-services", icon: Layers },
   { title: "Specifications", url: "/dashboard/specifications", icon: FileStack },
   { title: "Electrical Budget", url: "/dashboard/budgets/electrical", icon: Wallet },
+  { title: "Budget Studio", url: "/dashboard/budgets/electrical", icon: Wallet },
 ];
 
 // Field Operations Workspace - Site work and construction
