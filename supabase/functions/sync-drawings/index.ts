@@ -71,6 +71,18 @@ async function listFolder(token: string, path: string, nsId: string | null): Pro
   return entries;
 }
 
+/** Recursively collect all PDF files from a folder and all its subfolders */
+async function listFolderRecursive(token: string, path: string, nsId: string | null): Promise<any[]> {
+  const entries = await listFolder(token, path, nsId);
+  let pdfFiles = entries.filter((e: any) => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.pdf'));
+  const subFolders = entries.filter((e: any) => e['.tag'] === 'folder');
+  for (const folder of subFolders) {
+    const subPdfs = await listFolderRecursive(token, folder.path_display, nsId);
+    pdfFiles = pdfFiles.concat(subPdfs);
+  }
+  return pdfFiles;
+}
+
 async function downloadFile(token: string, dropboxPath: string, nsId: string | null): Promise<Uint8Array | null> {
   const hdrs: Record<string, string> = { 'Authorization': `Bearer ${token}` };
   if (nsId) hdrs['Dropbox-API-Path-Root'] = JSON.stringify({ ".tag": "root", root: nsId });
@@ -170,8 +182,7 @@ serve(async (req) => {
         continue;
       }
 
-      const allEntries = await listFolder(accessToken, drawingsPath, nsId);
-      const pdfFiles = allEntries.filter((e: any) => e['.tag'] === 'file' && e.name.toLowerCase().endsWith('.pdf'));
+      const pdfFiles = await listFolderRecursive(accessToken, drawingsPath, nsId);
       log(`  ${pdfFiles.length} PDFs in ${drawingsPath}`);
 
       // Get existing drawings for this project
