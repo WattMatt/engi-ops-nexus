@@ -91,6 +91,7 @@ serve(async (req) => {
       if (assigned_to_text !== undefined) payload.assigned_to_text = assigned_to_text;
       if (labels !== undefined) payload.labels = labels;
       if (checklist !== undefined) payload.checklist = checklist;
+      if (body.assignee_ids !== undefined) payload.assignee_ids = body.assignee_ids;
 
       let result;
       if (existing) {
@@ -152,6 +153,7 @@ serve(async (req) => {
             assigned_to_id: assigned_to || null,
             assigned_to_text: assigned_to_text || null,
             labels: labels || [],
+            assignee_ids: body.assignee_ids || [],
             sort_order: (maxSort?.sort_order || 0) + 1,
             is_completed: false,
             created_at: new Date().toISOString(),
@@ -215,6 +217,7 @@ serve(async (req) => {
             due_date: due_date || null,
             external_ids: external_ids || {},
             raw_payload: raw_payload || {},
+            assignee_ids: body.assignee_ids || [],
             updated_at: new Date().toISOString()
         };
 

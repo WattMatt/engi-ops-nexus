@@ -84,6 +84,7 @@ export interface RoadmapItemData {
   start_date: string | null;
   due_date: string | null;
   priority: string | null;
+  assignee_ids?: string[] | null;
   created_at: string;
   updated_at: string;
 }

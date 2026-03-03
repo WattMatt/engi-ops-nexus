@@ -12892,6 +12892,7 @@ export type Database = {
       project_roadmap_items: {
         Row: {
           assigned_to: string | null
+          assignee_ids: Json | null
           comments: string | null
           completed_at: string | null
           completed_by: string | null
@@ -12913,6 +12914,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          assignee_ids?: Json | null
           comments?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -12934,6 +12936,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          assignee_ids?: Json | null
           comments?: string | null
           completed_at?: string | null
           completed_by?: string | null
