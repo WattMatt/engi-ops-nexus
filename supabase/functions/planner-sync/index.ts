@@ -119,10 +119,27 @@ async function buildAssigneeMap(
 
       // 1. Exact match by username (e.g., "theunis" = "theunis")
       // 2. Fallback: AAD username starts with a Nexus username (e.g., "arnomattheus" starts with "arno")
+      // 3. Fallback: Match by display name against profile full_name
+      // 4. Fallback: shared admin account (admin@wmeng.co.za)
       let matchedProfile = aadUsername ? profileByUsername[aadUsername] : null;
       if (!matchedProfile && aadUsername) {
         const fallback = allProfileUsernames.find(nu => aadUsername.startsWith(nu) && nu.length >= 3);
         if (fallback) matchedProfile = profileByUsername[fallback];
+      }
+      if (!matchedProfile && displayName) {
+        // Try matching displayName to profile full_name (case-insensitive)
+        const nameMatch = (profiles || []).find(p => 
+          p.full_name && p.full_name.toLowerCase() === displayName.toLowerCase()
+        );
+        if (nameMatch) matchedProfile = nameMatch;
+      }
+      if (!matchedProfile) {
+        // Last resort: map to shared admin account
+        const adminProfile = profileByUsername['admin'];
+        if (adminProfile) {
+          matchedProfile = adminProfile;
+          log(`    → Falling back to admin account for "${displayName}"`);
+        }
       }
 
       if (matchedProfile) {
