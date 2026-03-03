@@ -69,6 +69,76 @@ async function getAllPages(token: string, url: string): Promise<any[]> {
   return results;
 }
 
+// ─── Assignee Resolution ─────────────────────────────────────────────────────
+
+async function buildAssigneeMap(
+  supabase: any,
+  accessToken: string,
+  aadUserIds: string[]
+): Promise<Record<string, string>> {
+  if (aadUserIds.length === 0) return {};
+
+  // 1. Load existing mappings
+  const { data: existingMappings } = await supabase
+    .from('azure_ad_user_mapping')
+    .select('azure_ad_object_id, profile_id')
+    .in('azure_ad_object_id', aadUserIds);
+
+  const map: Record<string, string> = {};
+  const mapped = new Set<string>();
+  for (const m of existingMappings || []) {
+    map[m.azure_ad_object_id] = m.profile_id;
+    mapped.add(m.azure_ad_object_id);
+  }
+
+  // 2. For unmapped IDs, fetch user info from Graph and try to match by email
+  const unmapped = aadUserIds.filter(id => !mapped.has(id));
+  if (unmapped.length === 0) return map;
+
+  // Load all profiles for email matching
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, email, first_name, last_name');
+
+  const profileByEmail: Record<string, any> = {};
+  for (const p of profiles || []) {
+    if (p.email) profileByEmail[p.email.toLowerCase()] = p;
+  }
+
+  for (const aadId of unmapped) {
+    try {
+      const userInfo = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/users/${aadId}?$select=displayName,mail,userPrincipalName`);
+      const email = (userInfo.mail || userInfo.userPrincipalName || '').toLowerCase();
+      const displayName = userInfo.displayName || '';
+
+      const matchedProfile = email ? profileByEmail[email] : null;
+
+      if (matchedProfile) {
+        // Save mapping for future syncs
+        await supabase
+          .from('azure_ad_user_mapping')
+          .upsert({
+            azure_ad_object_id: aadId,
+            profile_id: matchedProfile.id,
+            display_name: displayName,
+            email: email,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'azure_ad_object_id' });
+
+        map[aadId] = matchedProfile.id;
+        log(`    Mapped AAD user "${displayName}" (${email}) → profile ${matchedProfile.id}`);
+      } else {
+        // Save mapping entry without profile_id for admin review
+        log(`    ⚠ No Nexus profile found for AAD user "${displayName}" (${email})`);
+      }
+    } catch (e) {
+      log(`    ⚠ Could not fetch Graph user info for ${aadId}: ${(e as Error).message}`);
+    }
+  }
+
+  return map;
+}
+
 // ─── Sync Logic ───────────────────────────────────────────────────────────────
 
 function extractProjectNumber(planTitle: string): string | null {
@@ -126,9 +196,13 @@ serve(async (req) => {
 
     let totalSynced = 0;
     let totalSkipped = 0;
+    let totalAssigneesMapped = 0;
     const syncResults: Array<{ plan: string; project: string; tasksProcessed: number }> = [];
 
-    // Step 4: Process each Plan
+    // Step 4: Collect all unique AAD user IDs across all tasks first
+    const allTasks: Array<{ task: any; plan: any; project: any; bucketMap: Record<string, string> }> = [];
+    const allAadUserIds = new Set<string>();
+
     for (const plan of plans) {
       const projectNumber = extractProjectNumber(plan.title);
       if (!projectNumber) {
@@ -144,7 +218,7 @@ serve(async (req) => {
         continue;
       }
 
-      log(`  Syncing plan "${plan.title}" → Project "${project.name}" (${project.project_number})`);
+      log(`  Processing plan "${plan.title}" → Project "${project.name}" (${project.project_number})`);
 
       const tasks = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/tasks`);
       log(`    ${tasks.length} tasks in plan`);
@@ -155,10 +229,34 @@ serve(async (req) => {
         bucketMap[b.id] = b.name;
       }
 
+      for (const task of tasks) {
+        const assigneeIds: string[] = task.assignments ? Object.keys(task.assignments) : [];
+        assigneeIds.forEach(id => allAadUserIds.add(id));
+        allTasks.push({ task, plan, project, bucketMap });
+      }
+    }
+
+    // Step 5: Build assignee mapping (AAD → Nexus profile UUID)
+    log(`Resolving ${allAadUserIds.size} unique AAD user IDs to Nexus profiles...`);
+    const assigneeMap = await buildAssigneeMap(supabase, accessToken, Array.from(allAadUserIds));
+    log(`Resolved ${Object.keys(assigneeMap).length} of ${allAadUserIds.size} AAD users`);
+
+    // Step 6: Sync tasks with resolved assignees
+    const tasksByProject: Record<string, typeof allTasks> = {};
+    for (const entry of allTasks) {
+      const pid = entry.project.id;
+      if (!tasksByProject[pid]) tasksByProject[pid] = [];
+      tasksByProject[pid].push(entry);
+    }
+
+    for (const [projectId, entries] of Object.entries(tasksByProject)) {
+      const project = entries[0].project;
+      const planTitle = entries[0].plan.title;
+
       const { data: existingItems } = await supabase
         .from('project_roadmap_items')
         .select('id, title, link_url')
-        .eq('project_id', project.id);
+        .eq('project_id', projectId);
 
       const existingByPlannerUrl: Record<string, any> = {};
       const existingByTitle: Record<string, any> = {};
@@ -169,16 +267,20 @@ serve(async (req) => {
 
       let planSyncCount = 0;
 
-      for (const task of tasks) {
+      for (const { task, bucketMap } of entries) {
         const plannerUrl = `planner://task/${task.id}`;
         const bucketName = task.bucketId ? (bucketMap[task.bucketId] || null) : null;
 
-        const assigneeIds: string[] = task.assignments
-          ? Object.keys(task.assignments)
-          : [];
+        // Resolve AAD IDs to Nexus profile UUIDs
+        const aadAssigneeIds: string[] = task.assignments ? Object.keys(task.assignments) : [];
+        const resolvedAssigneeIds = aadAssigneeIds
+          .map(aadId => assigneeMap[aadId])
+          .filter(Boolean);
+
+        if (resolvedAssigneeIds.length > 0) totalAssigneesMapped++;
 
         const payload: Record<string, any> = {
-          project_id: project.id,
+          project_id: projectId,
           title: task.title,
           phase: bucketName,
           priority: mapPlannerPriority(task.priority),
@@ -188,7 +290,7 @@ serve(async (req) => {
           start_date: task.startDateTime ? task.startDateTime.substring(0, 10) : null,
           link_url: plannerUrl,
           link_label: 'View in Planner',
-          assignee_ids: assigneeIds,
+          assignee_ids: resolvedAssigneeIds,
           updated_at: new Date().toISOString(),
         };
 
@@ -203,7 +305,7 @@ serve(async (req) => {
           const { data: maxSort } = await supabase
             .from('project_roadmap_items')
             .select('sort_order')
-            .eq('project_id', project.id)
+            .eq('project_id', projectId)
             .order('sort_order', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -220,12 +322,12 @@ serve(async (req) => {
       }
 
       totalSynced += planSyncCount;
-      syncResults.push({ plan: plan.title, project: project.name, tasksProcessed: planSyncCount });
-      log(`    Synced ${planSyncCount} tasks`);
+      syncResults.push({ plan: planTitle, project: project.name, tasksProcessed: planSyncCount });
+      log(`  Synced ${planSyncCount} tasks for "${project.name}"`);
     }
 
     log(`=== Planner Sync Complete ===`);
-    log(`Plans processed: ${plans.length}, Tasks synced: ${totalSynced}, Plans skipped: ${totalSkipped}`);
+    log(`Plans processed: ${plans.length}, Tasks synced: ${totalSynced}, Plans skipped: ${totalSkipped}, Assignees mapped: ${totalAssigneesMapped}`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -233,6 +335,9 @@ serve(async (req) => {
         plansFound: plans.length,
         plansSkipped: totalSkipped,
         totalTasksSynced: totalSynced,
+        assigneesMapped: totalAssigneesMapped,
+        uniqueAadUsers: allAadUserIds.size,
+        resolvedUsers: Object.keys(assigneeMap).length,
         results: syncResults,
       },
       logs,

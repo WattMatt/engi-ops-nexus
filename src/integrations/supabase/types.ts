@@ -345,6 +345,44 @@ export type Database = {
           },
         ]
       }
+      azure_ad_user_mapping: {
+        Row: {
+          azure_ad_object_id: string
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          id: string
+          profile_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          azure_ad_object_id: string
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          profile_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          azure_ad_object_id?: string
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          profile_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "azure_ad_user_mapping_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       backup_files: {
         Row: {
           backup_id: string | null
