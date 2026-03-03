@@ -212,3 +212,6 @@ verify_jwt = false
 
 [functions.agent-gateway]
 verify_jwt = false
+
+[functions.planner-sync]
+verify_jwt = false
