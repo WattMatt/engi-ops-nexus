@@ -288,17 +288,31 @@ serve(async (req) => {
         .eq('project_id', projectId);
 
       const existingByPlannerUrl: Record<string, any> = {};
-      const existingByTitle: Record<string, any> = {};
+      // Use an array per title to handle duplicates
+      const existingByTitle: Record<string, any[]> = {};
       for (const item of existingItems || []) {
         if (item.link_url) existingByPlannerUrl[item.link_url] = item;
-        existingByTitle[item.title.toLowerCase()] = item;
+        const key = item.title.toLowerCase().trim();
+        if (!existingByTitle[key]) existingByTitle[key] = [];
+        existingByTitle[key].push(item);
       }
 
+      // Track which Planner task titles we've already synced in this run
+      // to deduplicate multiple Planner tasks with the same title
+      const syncedTitles = new Set<string>();
       let planSyncCount = 0;
 
       for (const { task, bucketMap } of entries) {
         const plannerUrl = `planner://task/${task.id}`;
         const bucketName = task.bucketId ? (bucketMap[task.bucketId] || null) : null;
+        const titleKey = task.title.toLowerCase().trim();
+
+        // Skip duplicate Planner tasks with the same title — only sync the first one
+        // (keeps the one with assignees/due dates if possible)
+        if (syncedTitles.has(titleKey)) {
+          continue;
+        }
+        syncedTitles.add(titleKey);
 
         // Resolve AAD IDs to Nexus profile UUIDs
         const aadAssigneeIds: string[] = task.assignments ? Object.keys(task.assignments) : [];
@@ -323,13 +337,35 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         };
 
-        const existing = existingByPlannerUrl[plannerUrl] || existingByTitle[task.title.toLowerCase()];
+        // Match by planner URL first, then by title
+        let existing = existingByPlannerUrl[plannerUrl];
+        if (!existing) {
+          const titleMatches = existingByTitle[titleKey];
+          if (titleMatches && titleMatches.length > 0) {
+            existing = titleMatches[0]; // use the first match
+          }
+        }
 
         if (existing) {
           await supabase
             .from('project_roadmap_items')
             .update(payload)
             .eq('id', existing.id);
+          
+          // Clean up any duplicate roadmap items with the same title
+          const titleMatches = existingByTitle[titleKey] || [];
+          if (titleMatches.length > 1) {
+            const duplicateIds = titleMatches
+              .filter(item => item.id !== existing.id)
+              .map(item => item.id);
+            if (duplicateIds.length > 0) {
+              await supabase
+                .from('project_roadmap_items')
+                .delete()
+                .in('id', duplicateIds);
+              log(`    Cleaned up ${duplicateIds.length} duplicate(s) for "${task.title}"`);
+            }
+          }
         } else {
           const { data: maxSort } = await supabase
             .from('project_roadmap_items')
