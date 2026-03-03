@@ -95,14 +95,17 @@ async function buildAssigneeMap(
   const unmapped = aadUserIds.filter(id => !mapped.has(id));
   if (unmapped.length === 0) return map;
 
-  // Load all profiles for email matching
+  // Load all profiles for matching by email username (before @)
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, email, first_name, last_name');
 
-  const profileByEmail: Record<string, any> = {};
+  const profileByUsername: Record<string, any> = {};
   for (const p of profiles || []) {
-    if (p.email) profileByEmail[p.email.toLowerCase()] = p;
+    if (p.email) {
+      const username = p.email.split('@')[0].toLowerCase();
+      profileByUsername[username] = p;
+    }
   }
 
   for (const aadId of unmapped) {
@@ -110,8 +113,10 @@ async function buildAssigneeMap(
       const userInfo = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/users/${aadId}?$select=displayName,mail,userPrincipalName`);
       const email = (userInfo.mail || userInfo.userPrincipalName || '').toLowerCase();
       const displayName = userInfo.displayName || '';
+      const username = email.split('@')[0];
 
-      const matchedProfile = email ? profileByEmail[email] : null;
+      // Match by username part (e.g., "theunis" from "theunis@wattmatt.onmicrosoft.com")
+      const matchedProfile = username ? profileByUsername[username] : null;
 
       if (matchedProfile) {
         // Save mapping for future syncs
