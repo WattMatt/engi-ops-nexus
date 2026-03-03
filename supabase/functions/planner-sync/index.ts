@@ -98,13 +98,15 @@ async function buildAssigneeMap(
   // Load all profiles for matching by email username (before @)
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, email, first_name, last_name');
+    .select('id, email, full_name');
 
   const profileByUsername: Record<string, any> = {};
+  const allProfileUsernames: string[] = [];
   for (const p of profiles || []) {
     if (p.email) {
       const username = p.email.split('@')[0].toLowerCase();
       profileByUsername[username] = p;
+      allProfileUsernames.push(username);
     }
   }
 
@@ -113,10 +115,15 @@ async function buildAssigneeMap(
       const userInfo = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/users/${aadId}?$select=displayName,mail,userPrincipalName`);
       const email = (userInfo.mail || userInfo.userPrincipalName || '').toLowerCase();
       const displayName = userInfo.displayName || '';
-      const username = email.split('@')[0];
+      const aadUsername = email.split('@')[0];
 
-      // Match by username part (e.g., "theunis" from "theunis@wattmatt.onmicrosoft.com")
-      const matchedProfile = username ? profileByUsername[username] : null;
+      // 1. Exact match by username (e.g., "theunis" = "theunis")
+      // 2. Fallback: AAD username starts with a Nexus username (e.g., "arnomattheus" starts with "arno")
+      let matchedProfile = aadUsername ? profileByUsername[aadUsername] : null;
+      if (!matchedProfile && aadUsername) {
+        const fallback = allProfileUsernames.find(nu => aadUsername.startsWith(nu) && nu.length >= 3);
+        if (fallback) matchedProfile = profileByUsername[fallback];
+      }
 
       if (matchedProfile) {
         // Save mapping for future syncs
