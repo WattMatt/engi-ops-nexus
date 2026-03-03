@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { User } from "lucide-react";
+import { User, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export interface RoadmapItemData {
   id: string;
@@ -40,6 +41,7 @@ export interface RoadmapItemData {
   due_date: string | null;
   priority: string | null;
   assigned_to?: string | null;
+  assignee_ids?: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -117,6 +119,22 @@ export const AddRoadmapItemDialog = ({
     enabled: open,
   });
 
+  // Resolve assignee_ids to profile names
+  const { data: resolvedAssignees = [] } = useQuery({
+    queryKey: ["resolved-assignees", editingItem?.assignee_ids],
+    queryFn: async () => {
+      const ids = editingItem?.assignee_ids;
+      if (!ids || ids.length === 0) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!editingItem?.assignee_ids && (editingItem?.assignee_ids?.length ?? 0) > 0,
+  });
+
   useEffect(() => {
     if (editingItem) {
       setTitle(editingItem.title);
@@ -127,6 +145,7 @@ export const AddRoadmapItemDialog = ({
       setComments(editingItem.comments || "");
       setDueDate(editingItem.due_date || "");
       setPriority(editingItem.priority || "");
+      // Prefer assignee_ids resolved to a team member, fall back to assigned_to
       setAssignedTo(editingItem.assigned_to || "");
     } else {
       setTitle("");
@@ -342,6 +361,22 @@ export const AddRoadmapItemDialog = ({
               <p className="text-xs text-muted-foreground">
                 No team members found. Add team members in Project Settings.
               </p>
+            )}
+            {/* Show resolved assignee_ids from backend sync */}
+            {resolvedAssignees.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  Synced Assignees:
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {resolvedAssignees.map((a) => (
+                    <Badge key={a.id} variant="secondary" className="text-xs">
+                      {a.full_name || a.email || a.id}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
