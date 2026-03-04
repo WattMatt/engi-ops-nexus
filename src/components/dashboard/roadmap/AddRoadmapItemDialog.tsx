@@ -57,11 +57,11 @@ interface AddRoadmapItemDialogProps {
 
 const PHASES = [
   "Planning & Preparation",
-  "Design Development",
-  "Documentation",
+  "Budget & Assessment",
   "Tender & Procurement",
+  "Drawings",
+  "Documentation",
   "Construction",
-  "Testing & Commissioning",
   "Handover",
   "General",
 ];
