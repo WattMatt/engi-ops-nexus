@@ -170,8 +170,12 @@ serve(async (req) => {
     }
 
     // Find projects with roadmap items that need plans created
+    log(`Step 3: Checking ${Object.keys(projectByNumber).length} projects for missing plans (max ${maxPlansToCreate})...`);
+    let plansCreated = 0;
     for (const [projNum, project] of Object.entries(projectByNumber)) {
-      if (existingPlanNumbers.has(projNum)) continue;
+      if (existingPlanNumbers.has(projNum)) {
+        continue;
+      }
 
       // Check if this project has any roadmap items
       const { count } = await supabase
@@ -181,21 +185,28 @@ serve(async (req) => {
 
       if (!count || count === 0) continue;
 
+      if (plansCreated >= maxPlansToCreate) {
+        log(`  ⏸ Reached max plans to create (${maxPlansToCreate}), stopping`);
+        break;
+      }
+
       // Create the plan in the M365 Group
-      const planTitle = `(${project.project_number}) ${project.name}`;
+      const planTitle = `(${project.project_number.trim()}) ${project.name}`;
       try {
-        log(`  Creating plan: "${planTitle}"...`);
+        log(`  Creating plan: "${planTitle}" (${count} roadmap items)...`);
         const newPlan = await graphPost(accessToken, 'https://graph.microsoft.com/v1.0/planner/plans', {
           owner: GROUP_ID,
           title: planTitle,
         });
         plans.push(newPlan);
+        plansCreated++;
         log(`  ✅ Plan created: "${planTitle}" (${newPlan.id})`);
         await new Promise(r => setTimeout(r, 500));
       } catch (e) {
         log(`  ❌ Failed to create plan "${planTitle}": ${(e as Error).message}`);
       }
     }
+    log(`Plans created: ${plansCreated}`);
 
     // Build reverse assignee map: Nexus profile UUID → AAD object ID
     const { data: aadMappings } = await supabase
