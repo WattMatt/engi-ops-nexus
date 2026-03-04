@@ -220,10 +220,26 @@ serve(async (req) => {
 
       log(`  ${roadmapItems?.length || 0} roadmap items to push`);
 
+      // Build a lookup for resolving parent phases for child items
+      const itemById: Record<string, any> = {};
+      for (const item of roadmapItems || []) {
+        itemById[item.id] = item;
+      }
+
+      // Resolve effective phase: use own phase, or inherit from parent
+      function getEffectivePhase(item: any): string | null {
+        if (item.phase) return item.phase;
+        if (item.parent_id && itemById[item.parent_id]) {
+          return getEffectivePhase(itemById[item.parent_id]);
+        }
+        return null;
+      }
+
       // Collect unique phases that need buckets
       const phasesNeeded = new Set<string>();
       for (const item of roadmapItems || []) {
-        if (item.phase) phasesNeeded.add(item.phase);
+        const phase = getEffectivePhase(item);
+        if (phase) phasesNeeded.add(phase);
       }
 
       // Create missing buckets
@@ -263,7 +279,8 @@ serve(async (req) => {
         }
       }
       for (const item of roadmapItems || []) {
-        const bucketId = item.phase ? bucketByName[item.phase.toLowerCase()] : null;
+        const effectivePhase = getEffectivePhase(item);
+        const bucketId = effectivePhase ? bucketByName[effectivePhase.toLowerCase()] : null;
 
         // Build assignments object
         const assignments: Record<string, any> = {};
