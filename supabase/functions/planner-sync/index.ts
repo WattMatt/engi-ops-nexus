@@ -19,6 +19,19 @@ function log(msg: string) {
   logs.push(`[${new Date().toISOString()}] ${msg}`);
 }
 
+// ─── Planner label category names (Planner uses category1-category25) ────────
+const PLANNER_LABEL_NAMES: Record<string, string> = {
+  category1: 'Pink', category2: 'Red', category3: 'Yellow',
+  category4: 'Green', category5: 'Blue', category6: 'Purple',
+  category7: 'Bronze', category8: 'Lime', category9: 'Aqua',
+  category10: 'Grey', category11: 'Silver', category12: 'Brown',
+  category13: 'Cranberry', category14: 'Orange', category15: 'Peach',
+  category16: 'Marigold', category17: 'LightGreen', category18: 'DarkGreen',
+  category19: 'Teal', category20: 'LightBlue', category21: 'DarkBlue',
+  category22: 'Lavender', category23: 'Plum', category24: 'LightGrey',
+  category25: 'DarkGrey',
+};
+
 // ─── Microsoft Graph Auth (Client Credentials Flow) ──────────────────────────
 
 async function getAccessToken(): Promise<string> {
@@ -78,7 +91,6 @@ async function buildAssigneeMap(
 ): Promise<Record<string, string>> {
   if (aadUserIds.length === 0) return {};
 
-  // 1. Load existing mappings
   const { data: existingMappings } = await supabase
     .from('azure_ad_user_mapping')
     .select('azure_ad_object_id, profile_id')
@@ -91,11 +103,9 @@ async function buildAssigneeMap(
     mapped.add(m.azure_ad_object_id);
   }
 
-  // 2. For unmapped IDs, fetch user info from Graph and try to match by email
   const unmapped = aadUserIds.filter(id => !mapped.has(id));
   if (unmapped.length === 0) return map;
 
-  // Load all profiles for matching by email username (before @)
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, email, full_name');
@@ -117,24 +127,18 @@ async function buildAssigneeMap(
       const displayName = userInfo.displayName || '';
       const aadUsername = email.split('@')[0];
 
-      // 1. Exact match by username (e.g., "theunis" = "theunis")
-      // 2. Fallback: AAD username starts with a Nexus username (e.g., "arnomattheus" starts with "arno")
-      // 3. Fallback: Match by display name against profile full_name
-      // 4. Fallback: shared admin account (admin@wmeng.co.za)
       let matchedProfile = aadUsername ? profileByUsername[aadUsername] : null;
       if (!matchedProfile && aadUsername) {
         const fallback = allProfileUsernames.find(nu => aadUsername.startsWith(nu) && nu.length >= 3);
         if (fallback) matchedProfile = profileByUsername[fallback];
       }
       if (!matchedProfile && displayName) {
-        // Try matching displayName to profile full_name (case-insensitive)
-        const nameMatch = (profiles || []).find(p => 
+        const nameMatch = (profiles || []).find((p: any) =>
           p.full_name && p.full_name.toLowerCase() === displayName.toLowerCase()
         );
         if (nameMatch) matchedProfile = nameMatch;
       }
       if (!matchedProfile) {
-        // Last resort: map to shared admin account
         const adminProfile = profileByUsername['admin'];
         if (adminProfile) {
           matchedProfile = adminProfile;
@@ -143,7 +147,6 @@ async function buildAssigneeMap(
       }
 
       if (matchedProfile) {
-        // Save mapping for future syncs
         await supabase
           .from('azure_ad_user_mapping')
           .upsert({
@@ -157,7 +160,6 @@ async function buildAssigneeMap(
         map[aadId] = matchedProfile.id;
         log(`    Mapped AAD user "${displayName}" (${email}) → profile ${matchedProfile.id}`);
       } else {
-        // Save mapping entry without profile_id for admin review
         log(`    ⚠ No Nexus profile found for AAD user "${displayName}" (${email})`);
       }
     } catch (e) {
@@ -166,6 +168,49 @@ async function buildAssigneeMap(
   }
 
   return map;
+}
+
+// ─── Task Detail Fetching (notes, checklist, labels) ─────────────────────────
+
+async function fetchTaskDetails(accessToken: string, taskId: string): Promise<{
+  description: string | null;
+  checklist: Array<{ title: string; isChecked: boolean }>;
+}> {
+  try {
+    const details = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`);
+    
+    // Extract description/notes
+    const description = details.description || null;
+    
+    // Extract checklist items
+    const checklist: Array<{ title: string; isChecked: boolean }> = [];
+    if (details.checklist) {
+      for (const [, item] of Object.entries(details.checklist as Record<string, any>)) {
+        checklist.push({
+          title: item.title || '',
+          isChecked: item.isChecked || false,
+        });
+      }
+      // Sort by orderHint if available
+      checklist.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    
+    return { description, checklist };
+  } catch (e) {
+    log(`    ⚠ Could not fetch task details for ${taskId}: ${(e as Error).message}`);
+    return { description: null, checklist: [] };
+  }
+}
+
+function extractLabels(appliedCategories: Record<string, boolean> | null): string[] {
+  if (!appliedCategories) return [];
+  const labels: string[] = [];
+  for (const [key, val] of Object.entries(appliedCategories)) {
+    if (val) {
+      labels.push(PLANNER_LABEL_NAMES[key] || key);
+    }
+  }
+  return labels;
 }
 
 // ─── Sync Logic ───────────────────────────────────────────────────────────────
@@ -288,7 +333,6 @@ serve(async (req) => {
         .eq('project_id', projectId);
 
       const existingByPlannerUrl: Record<string, any> = {};
-      // Use an array per title to handle duplicates
       const existingByTitle: Record<string, any[]> = {};
       for (const item of existingItems || []) {
         if (item.link_url) existingByPlannerUrl[item.link_url] = item;
@@ -297,8 +341,6 @@ serve(async (req) => {
         existingByTitle[key].push(item);
       }
 
-      // Track which Planner task titles we've already synced in this run
-      // to deduplicate multiple Planner tasks with the same title
       const syncedTitles = new Set<string>();
       let planSyncCount = 0;
 
@@ -307,8 +349,6 @@ serve(async (req) => {
         const bucketName = task.bucketId ? (bucketMap[task.bucketId] || null) : null;
         const titleKey = task.title.toLowerCase().trim();
 
-        // Skip duplicate Planner tasks with the same title — only sync the first one
-        // (keeps the one with assignees/due dates if possible)
         if (syncedTitles.has(titleKey)) {
           continue;
         }
@@ -321,6 +361,12 @@ serve(async (req) => {
           .filter(Boolean);
 
         if (resolvedAssigneeIds.length > 0) totalAssigneesMapped++;
+
+        // Fetch task details (notes, checklist)
+        const taskDetails = await fetchTaskDetails(accessToken, task.id);
+        
+        // Extract labels from appliedCategories
+        const labels = extractLabels(task.appliedCategories);
 
         const payload: Record<string, any> = {
           project_id: projectId,
@@ -337,12 +383,27 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         };
 
+        // Sync description from Planner notes
+        if (taskDetails.description) {
+          payload.description = taskDetails.description;
+        }
+
+        // Sync checklist
+        if (taskDetails.checklist.length > 0) {
+          payload.checklist = taskDetails.checklist;
+        }
+
+        // Sync labels
+        if (labels.length > 0) {
+          payload.labels = labels;
+        }
+
         // Match by planner URL first, then by title
         let existing = existingByPlannerUrl[plannerUrl];
         if (!existing) {
           const titleMatches = existingByTitle[titleKey];
           if (titleMatches && titleMatches.length > 0) {
-            existing = titleMatches[0]; // use the first match
+            existing = titleMatches[0];
           }
         }
 
@@ -384,6 +445,9 @@ serve(async (req) => {
         }
 
         planSyncCount++;
+        
+        // Small delay between task detail fetches to avoid throttling
+        await new Promise(r => setTimeout(r, 100));
       }
 
       totalSynced += planSyncCount;

@@ -80,6 +80,36 @@ async function graphPost(token: string, url: string, body: any): Promise<any> {
   return resp.json();
 }
 
+async function graphPatch(token: string, url: string, body: any, etag?: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+  if (etag) headers['If-Match'] = etag;
+  const resp = await fetch(url, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text();
+    log(`  ⚠ PATCH failed (${resp.status}): ${errText}`);
+  }
+}
+
+// Map Nexus labels back to Planner appliedCategories
+const PLANNER_LABEL_REVERSE: Record<string, string> = {
+  'pink': 'category1', 'red': 'category2', 'yellow': 'category3',
+  'green': 'category4', 'blue': 'category5', 'purple': 'category6',
+  'bronze': 'category7', 'lime': 'category8', 'aqua': 'category9',
+  'grey': 'category10', 'silver': 'category11', 'brown': 'category12',
+  'cranberry': 'category13', 'orange': 'category14', 'peach': 'category15',
+  'marigold': 'category16', 'lightgreen': 'category17', 'darkgreen': 'category18',
+  'teal': 'category19', 'lightblue': 'category20', 'darkblue': 'category21',
+  'lavender': 'category22', 'plum': 'category23', 'lightgrey': 'category24',
+  'darkgrey': 'category25',
+};
+
 function extractProjectNumber(planTitle: string): string | null {
   const match = planTitle.match(/\((\d+(?:\.\d+)*)\)/);
   return match ? match[1] : null;
@@ -230,6 +260,14 @@ serve(async (req) => {
           }
         }
 
+        // Build appliedCategories from labels
+        const appliedCategories: Record<string, boolean> = {};
+        const itemLabels: string[] = item.labels || [];
+        for (const label of itemLabels) {
+          const catKey = PLANNER_LABEL_REVERSE[label.toLowerCase()];
+          if (catKey) appliedCategories[catKey] = true;
+        }
+
         const taskPayload: Record<string, any> = {
           planId: plan.id,
           title: item.title,
@@ -241,10 +279,49 @@ serve(async (req) => {
         if (bucketId) taskPayload.bucketId = bucketId;
         if (item.due_date) taskPayload.dueDateTime = `${item.due_date}T00:00:00Z`;
         if (item.start_date) taskPayload.startDateTime = `${item.start_date}T00:00:00Z`;
+        if (Object.keys(appliedCategories).length > 0) taskPayload.appliedCategories = appliedCategories;
 
         try {
           const createdTask = await graphPost(accessToken, 'https://graph.microsoft.com/v1.0/planner/tasks', taskPayload);
           totalCreated++;
+
+          // Push description and checklist to task details (requires separate PATCH)
+          const hasDescription = item.description && item.description.trim();
+          const hasChecklist = item.checklist && Array.isArray(item.checklist) && item.checklist.length > 0;
+          
+          if (hasDescription || hasChecklist) {
+            try {
+              // Fetch task details to get etag
+              const detailsResp = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${createdTask.id}/details`);
+              const detailEtag = detailsResp['@odata.etag'];
+              
+              const detailPatch: Record<string, any> = {};
+              if (hasDescription) detailPatch.description = item.description;
+              if (hasChecklist) {
+                const checklistObj: Record<string, any> = {};
+                for (let i = 0; i < item.checklist.length; i++) {
+                  const ci = item.checklist[i];
+                  const key = crypto.randomUUID();
+                  checklistObj[key] = {
+                    '@odata.type': '#microsoft.graph.plannerChecklistItem',
+                    title: ci.title,
+                    isChecked: ci.isChecked || false,
+                  };
+                }
+                detailPatch.checklist = checklistObj;
+              }
+              
+              await graphPatch(
+                accessToken,
+                `https://graph.microsoft.com/v1.0/planner/tasks/${createdTask.id}/details`,
+                detailPatch,
+                detailEtag
+              );
+              await new Promise(r => setTimeout(r, 200));
+            } catch (detailErr) {
+              log(`    ⚠ Could not set details for "${item.title}": ${(detailErr as Error).message}`);
+            }
+          }
 
           // Update the roadmap item with the planner link
           await supabase
