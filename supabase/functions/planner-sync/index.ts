@@ -434,6 +434,9 @@ serve(async (req) => {
     const durationMs = Date.now() - startTime;
     log(`=== Planner Sync Complete (${(durationMs / 1000).toFixed(1)}s) ===`);
     log(`Projects: ${projectIds.length}, Tasks synced: ${totalSynced}, Errors: ${totalErrors}, Plans skipped: ${plansSkipped}`);
+    if (skippedPlans.length > 0) {
+      log(`Skipped plans:\n${skippedPlans.map(s => `  - ${s}`).join('\n')}`);
+    }
 
     // Log sync completion
     await supabase.from('planner_sync_log').insert({
