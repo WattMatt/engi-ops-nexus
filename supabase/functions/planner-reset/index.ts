@@ -249,7 +249,9 @@ serve(async (req) => {
       try {
         log(`  Creating plan: "${planTitle}" (${count} roadmap items)...`);
         const newPlan = await graphPost(accessToken, 'https://graph.microsoft.com/v1.0/planner/plans', {
-          owner: GROUP_ID,
+          container: {
+            url: `https://graph.microsoft.com/v1.0/groups/${GROUP_ID}`,
+          },
           title: planTitle,
         });
         plans.push(newPlan);
