@@ -13,19 +13,13 @@ const CLIENT_ID = Deno.env.get('MS_PLANNER_CLIENT_ID')!;
 const CLIENT_SECRET = Deno.env.get('MS_PLANNER_CLIENT_SECRET')!;
 const GROUP_ID = Deno.env.get('MS_PLANNER_GROUP_ID')!;
 
-// Configurable limits
-const TASK_DETAIL_DELAY_MS = 150;        // delay between task detail API calls
-const PROJECT_BATCH_DELAY_MS = 500;      // delay between project batches
-const MAX_TASK_DETAILS_PER_RUN = 300;    // cap task detail fetches to avoid timeout
-const TASK_DETAIL_BATCH_SIZE = 5;        // fetch details in micro-batches
+const TASK_DETAIL_DELAY_MS = 150;
+const PROJECT_BATCH_DELAY_MS = 500;
+const MAX_TASK_DETAILS_PER_RUN = 300;
 
 const logs: string[] = [];
-function log(msg: string) {
-  console.log(msg);
-  logs.push(`[${new Date().toISOString()}] ${msg}`);
-}
+function log(msg: string) { console.log(msg); logs.push(`[${new Date().toISOString()}] ${msg}`); }
 
-// ─── Planner label category names ────────────────────────────────────────────
 const PLANNER_LABEL_NAMES: Record<string, string> = {
   category1: 'Pink', category2: 'Red', category3: 'Yellow',
   category4: 'Green', category5: 'Blue', category6: 'Purple',
@@ -38,456 +32,326 @@ const PLANNER_LABEL_NAMES: Record<string, string> = {
   category25: 'DarkGrey',
 };
 
-// ─── Microsoft Graph Auth ────────────────────────────────────────────────────
+// ─── Graph helpers ───────────────────────────────────────────────────────────
 
 async function getAccessToken(): Promise<string> {
   const resp = await fetch(`https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      grant_type: 'client_credentials',
-      scope: 'https://graph.microsoft.com/.default',
+      client_id: CLIENT_ID, client_secret: CLIENT_SECRET,
+      grant_type: 'client_credentials', scope: 'https://graph.microsoft.com/.default',
     }),
   });
-  if (!resp.ok) throw new Error(`Token request failed (${resp.status}): ${await resp.text()}`);
+  if (!resp.ok) throw new Error(`Token failed (${resp.status}): ${await resp.text()}`);
   return (await resp.json()).access_token;
 }
 
-// ─── Microsoft Graph Helpers ─────────────────────────────────────────────────
-
 async function graphGet(token: string, url: string): Promise<any> {
   const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!resp.ok) throw new Error(`Graph API error (${resp.status}) for ${url}: ${await resp.text()}`);
+  if (!resp.ok) throw new Error(`GET ${resp.status} ${url}: ${await resp.text()}`);
   return resp.json();
 }
 
 async function getAllPages(token: string, url: string): Promise<any[]> {
   let results: any[] = [];
-  let nextUrl: string | null = url;
-  while (nextUrl) {
-    const data = await graphGet(token, nextUrl);
+  let next: string | null = url;
+  while (next) {
+    const data = await graphGet(token, next);
     results = results.concat(data.value || []);
-    nextUrl = data['@odata.nextLink'] || null;
+    next = data['@odata.nextLink'] || null;
   }
   return results;
 }
 
-// ─── Assignee Resolution ─────────────────────────────────────────────────────
+// ─── Assignee resolution ─────────────────────────────────────────────────────
 
-async function buildAssigneeMap(
-  supabase: any, accessToken: string, aadUserIds: string[]
-): Promise<Record<string, string>> {
+async function buildAssigneeMap(supabase: any, accessToken: string, aadUserIds: string[]): Promise<Record<string, string>> {
   if (aadUserIds.length === 0) return {};
-
-  const { data: existingMappings } = await supabase
-    .from('azure_ad_user_mapping')
-    .select('azure_ad_object_id, profile_id')
-    .in('azure_ad_object_id', aadUserIds);
-
+  const { data: existing } = await supabase.from('azure_ad_user_mapping').select('azure_ad_object_id, profile_id').in('azure_ad_object_id', aadUserIds);
   const map: Record<string, string> = {};
   const mapped = new Set<string>();
-  for (const m of existingMappings || []) {
-    map[m.azure_ad_object_id] = m.profile_id;
-    mapped.add(m.azure_ad_object_id);
-  }
+  for (const m of existing || []) { map[m.azure_ad_object_id] = m.profile_id; mapped.add(m.azure_ad_object_id); }
 
   const unmapped = aadUserIds.filter(id => !mapped.has(id));
   if (unmapped.length === 0) return map;
 
   const { data: profiles } = await supabase.from('profiles').select('id, email, full_name');
-
-  const profileByUsername: Record<string, any> = {};
-  for (const p of profiles || []) {
-    if (p.email) profileByUsername[p.email.split('@')[0].toLowerCase()] = p;
-  }
+  const byUsername: Record<string, any> = {};
+  for (const p of profiles || []) { if (p.email) byUsername[p.email.split('@')[0].toLowerCase()] = p; }
 
   for (const aadId of unmapped) {
     try {
-      const userInfo = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/users/${aadId}?$select=displayName,mail,userPrincipalName`);
-      const email = (userInfo.mail || userInfo.userPrincipalName || '').toLowerCase();
-      const displayName = userInfo.displayName || '';
-      const aadUsername = email.split('@')[0];
-
-      let matchedProfile = aadUsername ? profileByUsername[aadUsername] : null;
-      if (!matchedProfile && displayName) {
-        matchedProfile = (profiles || []).find((p: any) =>
-          p.full_name && p.full_name.toLowerCase() === displayName.toLowerCase()
-        );
+      const u = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/users/${aadId}?$select=displayName,mail,userPrincipalName`);
+      const email = (u.mail || u.userPrincipalName || '').toLowerCase();
+      const name = u.displayName || '';
+      const username = email.split('@')[0];
+      let match = username ? byUsername[username] : null;
+      if (!match && name) match = (profiles || []).find((p: any) => p.full_name?.toLowerCase() === name.toLowerCase());
+      if (match) {
+        await supabase.from('azure_ad_user_mapping').upsert({ azure_ad_object_id: aadId, profile_id: match.id, display_name: name, email, updated_at: new Date().toISOString() }, { onConflict: 'azure_ad_object_id' });
+        map[aadId] = match.id;
       }
-
-      if (matchedProfile) {
-        await supabase.from('azure_ad_user_mapping').upsert({
-          azure_ad_object_id: aadId,
-          profile_id: matchedProfile.id,
-          display_name: displayName,
-          email: email,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'azure_ad_object_id' });
-        map[aadId] = matchedProfile.id;
-        log(`    Mapped AAD user "${displayName}" → profile ${matchedProfile.id}`);
-      } else {
-        log(`    ⚠ No profile found for AAD user "${displayName}" (${email})`);
-      }
-    } catch (e) {
-      log(`    ⚠ Could not resolve AAD user ${aadId}: ${(e as Error).message}`);
-    }
+    } catch (e) { log(`  ⚠ Resolve AAD ${aadId}: ${(e as Error).message}`); }
   }
-
   return map;
 }
 
-// ─── Task Detail Fetching ────────────────────────────────────────────────────
+// ─── Task detail fetching ────────────────────────────────────────────────────
 
-async function fetchTaskDetails(accessToken: string, taskId: string): Promise<{
-  description: string | null;
-  checklist: Array<{ title: string; isChecked: boolean }>;
-}> {
+async function fetchTaskDetails(accessToken: string, taskId: string): Promise<{ description: string | null; checklist: Array<{ title: string; isChecked: boolean }> }> {
   try {
-    const details = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`);
-    const checklist: Array<{ title: string; isChecked: boolean }> = [];
-    if (details.checklist) {
-      for (const [, item] of Object.entries(details.checklist as Record<string, any>)) {
-        checklist.push({ title: item.title || '', isChecked: item.isChecked || false });
-      }
-      checklist.sort((a, b) => a.title.localeCompare(b.title));
-    }
-    return { description: details.description || null, checklist };
-  } catch (e) {
-    log(`    ⚠ Could not fetch details for task ${taskId}: ${(e as Error).message}`);
-    return { description: null, checklist: [] };
-  }
+    const d = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`);
+    const cl: Array<{ title: string; isChecked: boolean }> = [];
+    if (d.checklist) for (const [, item] of Object.entries(d.checklist as Record<string, any>)) cl.push({ title: item.title || '', isChecked: item.isChecked || false });
+    cl.sort((a, b) => a.title.localeCompare(b.title));
+    return { description: d.description || null, checklist: cl };
+  } catch { return { description: null, checklist: [] }; }
 }
 
-function extractLabels(appliedCategories: Record<string, boolean> | null): string[] {
-  if (!appliedCategories) return [];
-  return Object.entries(appliedCategories)
-    .filter(([, val]) => val)
-    .map(([key]) => PLANNER_LABEL_NAMES[key] || key);
+function extractLabels(cats: Record<string, boolean> | null): string[] {
+  if (!cats) return [];
+  return Object.entries(cats).filter(([, v]) => v).map(([k]) => PLANNER_LABEL_NAMES[k] || k);
 }
 
-function extractProjectNumber(planTitle: string): string | null {
-  // Match project numbers like (643), (584.3.1), (P93.1), (P91.10) — with optional P prefix and trailing whitespace
-  const match = planTitle.match(/\(\s*(P?\d+(?:\.\d+)*)\s*\)/i);
-  return match ? match[1].toUpperCase() : null;
+function extractProjectNumber(title: string): string | null {
+  const m = title.match(/\(\s*(P?\d+(?:\.\d+)*)\s*\)/i);
+  return m ? m[1].toUpperCase() : null;
 }
 
-function mapPlannerPriority(priority: number): string {
-  switch (priority) {
-    case 0: case 1: return 'critical';
-    case 2: case 3: return 'high';
-    case 5: case 6: return 'medium';
-    default: return 'low';
-  }
+function mapPlannerPriority(p: number): string {
+  if (p <= 1) return 'critical';
+  if (p <= 3) return 'high';
+  if (p <= 6) return 'medium';
+  return 'low';
 }
 
-// ─── Per-Project Sync (isolated error handling) ──────────────────────────────
+// ─── Per-project sync ────────────────────────────────────────────────────────
 
 async function syncProjectTasks(
-  supabase: any,
-  accessToken: string,
-  projectId: string,
-  projectName: string,
+  supabase: any, accessToken: string, projectId: string, projectName: string,
   entries: Array<{ task: any; bucketMap: Record<string, string> }>,
-  assigneeMap: Record<string, string>,
-  taskDetailBudget: { remaining: number }
-): Promise<{ synced: number; errors: number }> {
-  let synced = 0;
-  let errors = 0;
+  assigneeMap: Record<string, string>, detailBudget: { remaining: number }
+): Promise<{ synced: number; created: number; errors: number }> {
+  let synced = 0, created = 0, errors = 0;
 
-  // Load existing roadmap items for this project ONCE
-  const { data: existingItems } = await supabase
-    .from('project_roadmap_items')
-    .select('id, title, link_url')
-    .eq('project_id', projectId);
-
-  const existingByPlannerUrl: Record<string, any> = {};
-  const existingByTitle: Record<string, any[]> = {};
-  for (const item of existingItems || []) {
-    if (item.link_url) existingByPlannerUrl[item.link_url] = item;
-    const key = item.title.toLowerCase().trim();
-    if (!existingByTitle[key]) existingByTitle[key] = [];
-    existingByTitle[key].push(item);
+  // Load existing items
+  const { data: existingItems } = await supabase.from('project_roadmap_items').select('id, title, link_url, phase').eq('project_id', projectId);
+  const byPlannerUrl: Record<string, any> = {};
+  const byTitle: Record<string, any[]> = {};
+  for (const it of existingItems || []) {
+    if (it.link_url) byPlannerUrl[it.link_url] = it;
+    const k = it.title.toLowerCase().trim();
+    if (!byTitle[k]) byTitle[k] = [];
+    byTitle[k].push(it);
   }
 
-  const syncedTitles = new Set<string>();
+  // Track which planner task IDs we've seen (for detecting deletions)
+  const seenPlannerUrls = new Set<string>();
 
-  // Get max sort_order once for inserts
-  const { data: maxSortData } = await supabase
-    .from('project_roadmap_items')
-    .select('sort_order')
-    .eq('project_id', projectId)
-    .order('sort_order', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  let nextSortOrder = (maxSortData?.sort_order || 0) + 1;
+  const { data: maxSort } = await supabase.from('project_roadmap_items').select('sort_order').eq('project_id', projectId).order('sort_order', { ascending: false }).limit(1).maybeSingle();
+  let nextSort = (maxSort?.sort_order || 0) + 1;
+  const processedTitles = new Set<string>();
 
   for (const { task, bucketMap } of entries) {
     try {
       const plannerUrl = `planner://task/${task.id}`;
-      const bucketName = task.bucketId ? (bucketMap[task.bucketId] || null) : null;
+      seenPlannerUrls.add(plannerUrl);
+      const bucketName = task.bucketId ? (bucketMap[task.bucketId] || 'Inbox') : 'Inbox';
       const titleKey = task.title.toLowerCase().trim();
+      if (processedTitles.has(titleKey)) continue;
+      processedTitles.add(titleKey);
 
-      // Skip duplicate titles within same sync run
-      if (syncedTitles.has(titleKey)) continue;
-      syncedTitles.add(titleKey);
+      const aadIds: string[] = task.assignments ? Object.keys(task.assignments) : [];
+      const resolvedAssignees = aadIds.map(id => assigneeMap[id]).filter(Boolean);
 
-      // Resolve assignees
-      const aadAssigneeIds: string[] = task.assignments ? Object.keys(task.assignments) : [];
-      const resolvedAssigneeIds = aadAssigneeIds.map(id => assigneeMap[id]).filter(Boolean);
-
-      // Fetch task details only if budget allows (prevents timeout)
-      let taskDetails = { description: null as string | null, checklist: [] as any[] };
-      if (taskDetailBudget.remaining > 0) {
-        taskDetails = await fetchTaskDetails(accessToken, task.id);
-        taskDetailBudget.remaining--;
+      let details = { description: null as string | null, checklist: [] as any[] };
+      if (detailBudget.remaining > 0) {
+        details = await fetchTaskDetails(accessToken, task.id);
+        detailBudget.remaining--;
         await new Promise(r => setTimeout(r, TASK_DETAIL_DELAY_MS));
       }
 
       const labels = extractLabels(task.appliedCategories);
 
-      const payload: Record<string, any> = {
-        project_id: projectId,
-        title: task.title,
-        phase: bucketName,
-        priority: mapPlannerPriority(task.priority),
-        is_completed: task.percentComplete === 100,
-        completed_at: task.percentComplete === 100 ? (task.completedDateTime || new Date().toISOString()) : null,
-        due_date: task.dueDateTime ? task.dueDateTime.substring(0, 10) : null,
-        start_date: task.startDateTime ? task.startDateTime.substring(0, 10) : null,
-        link_url: plannerUrl,
-        link_label: 'View in Planner',
-        assignee_ids: resolvedAssigneeIds,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (taskDetails.description) payload.description = taskDetails.description;
-      if (taskDetails.checklist.length > 0) payload.checklist = taskDetails.checklist;
-      if (labels.length > 0) payload.labels = labels;
-
-      // Match by planner URL first, then by title (dedup logic)
-      let existing = existingByPlannerUrl[plannerUrl];
+      // Match existing
+      let existing = byPlannerUrl[plannerUrl];
       if (!existing) {
-        const titleMatches = existingByTitle[titleKey];
-        if (titleMatches && titleMatches.length > 0) existing = titleMatches[0];
+        const tm = byTitle[titleKey];
+        if (tm && tm.length > 0) existing = tm[0];
       }
 
       if (existing) {
-        await supabase
-          .from('project_roadmap_items')
-          .update(payload)
-          .eq('id', existing.id);
+        // ── UPDATE: only sync Planner-owned fields ──
+        // CRITICAL: Do NOT overwrite phase if already set to something other than Inbox
+        const update: Record<string, any> = {
+          priority: mapPlannerPriority(task.priority),
+          is_completed: task.percentComplete === 100,
+          completed_at: task.percentComplete === 100 ? (task.completedDateTime || new Date().toISOString()) : null,
+          due_date: task.dueDateTime ? task.dueDateTime.substring(0, 10) : null,
+          start_date: task.startDateTime ? task.startDateTime.substring(0, 10) : null,
+          link_url: plannerUrl,
+          link_label: 'View in Planner',
+          assignee_ids: resolvedAssignees,
+          updated_at: new Date().toISOString(),
+        };
 
-        // Clean up duplicates
-        const titleMatches = existingByTitle[titleKey] || [];
-        if (titleMatches.length > 1) {
-          const duplicateIds = titleMatches.filter(i => i.id !== existing.id).map(i => i.id);
-          if (duplicateIds.length > 0) {
-            await supabase.from('project_roadmap_items').delete().in('id', duplicateIds);
-            log(`    Cleaned ${duplicateIds.length} duplicate(s) for "${task.title}"`);
-          }
+        // Only set phase if the existing item has no phase or is in Inbox
+        if (!existing.phase || existing.phase === 'Inbox') {
+          update.phase = bucketName;
         }
-      } else {
-        payload.sort_order = nextSortOrder++;
-        payload.created_at = new Date().toISOString();
-        await supabase.from('project_roadmap_items').insert(payload);
-      }
 
-      synced++;
+        if (details.description) update.description = details.description;
+        if (details.checklist.length > 0) update.checklist = details.checklist;
+        if (labels.length > 0) update.labels = labels;
+
+        await supabase.from('project_roadmap_items').update(update).eq('id', existing.id);
+        synced++;
+      } else {
+        // ── INSERT: new task from Planner → Nexus Inbox (or bucket name) ──
+        const payload: Record<string, any> = {
+          project_id: projectId,
+          title: task.title,
+          phase: bucketName,
+          priority: mapPlannerPriority(task.priority),
+          is_completed: task.percentComplete === 100,
+          completed_at: task.percentComplete === 100 ? (task.completedDateTime || new Date().toISOString()) : null,
+          due_date: task.dueDateTime ? task.dueDateTime.substring(0, 10) : null,
+          start_date: task.startDateTime ? task.startDateTime.substring(0, 10) : null,
+          link_url: plannerUrl,
+          link_label: 'View in Planner',
+          assignee_ids: resolvedAssignees,
+          sort_order: nextSort++,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        if (details.description) payload.description = details.description;
+        if (details.checklist.length > 0) payload.checklist = details.checklist;
+        if (labels.length > 0) payload.labels = labels;
+
+        await supabase.from('project_roadmap_items').insert(payload);
+        created++;
+        log(`  📥 New from Planner: "${task.title}" → ${bucketName}`);
+      }
     } catch (e) {
       errors++;
-      log(`    ✗ Error syncing task "${task.title}": ${(e as Error).message}`);
+      log(`  ✗ Error "${task.title}": ${(e as Error).message}`);
     }
   }
 
-  return { synced, errors };
+  // Detect items whose Planner task was deleted: clear their link_url
+  const orphanedItems = (existingItems || []).filter(
+    (it: any) => it.link_url?.startsWith('planner://task/') && !seenPlannerUrls.has(it.link_url)
+  );
+  if (orphanedItems.length > 0) {
+    const orphanIds = orphanedItems.map((it: any) => it.id);
+    await supabase.from('project_roadmap_items').update({ link_url: null, link_label: null }).in('id', orphanIds);
+    log(`  🔗 Cleared ${orphanIds.length} stale planner links (tasks deleted from Planner)`);
+  }
+
+  return { synced, created, errors };
 }
 
-// ─── Main Handler ────────────────────────────────────────────────────────────
+// ─── Main ────────────────────────────────────────────────────────────────────
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const startTime = Date.now();
 
   try {
-    log('=== Planner Sync Started ===');
-
-    if (!TENANT_ID || !CLIENT_ID || !CLIENT_SECRET || !GROUP_ID) {
-      throw new Error('Missing required MS_PLANNER_* environment variables');
-    }
+    log('=== Planner Sync (Planner → Nexus) ===');
+    if (!TENANT_ID || !CLIENT_ID || !CLIENT_SECRET || !GROUP_ID) throw new Error('Missing MS_PLANNER_* env vars');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await supabase.from('planner_sync_log').insert({ status: 'running', started_at: new Date().toISOString() });
 
-    // Log sync start
-    await supabase.from('planner_sync_log').insert({
-      status: 'running',
-      started_at: new Date().toISOString(),
-    });
-
-    // Step 1: Authenticate
-    log('Authenticating with Microsoft Graph...');
     const accessToken = await getAccessToken();
-    log('Authentication successful');
+    log('Authenticated ✅');
 
-    // Step 2: Fetch all plans
-    log(`Fetching plans for Group: ${GROUP_ID}`);
     const plans = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/groups/${GROUP_ID}/planner/plans`);
     log(`Found ${plans.length} plans`);
 
-    // Step 3: Load Nexus projects
-    const { data: projects, error: projErr } = await supabase
-      .from('projects')
-      .select('id, name, project_number, status')
-      .order('project_number');
-    if (projErr) throw projErr;
-
+    const { data: projects } = await supabase.from('projects').select('id, name, project_number').order('project_number');
     const projectByNumber: Record<string, any> = {};
-    for (const p of projects || []) {
-      if (p.project_number) projectByNumber[p.project_number.trim().toUpperCase()] = p;
-    }
+    for (const p of projects || []) { if (p.project_number) projectByNumber[p.project_number.trim().toUpperCase()] = p; }
 
-    // Step 4: Match plans to projects, fetch tasks per plan
     type TaskEntry = { task: any; bucketMap: Record<string, string> };
     const tasksByProject: Record<string, { project: any; planTitle: string; entries: TaskEntry[] }> = {};
-    const allAadUserIds = new Set<string>();
+    const allAadIds = new Set<string>();
     let plansSkipped = 0;
 
-    const skippedPlans: string[] = [];
-
     for (const plan of plans) {
-      const projectNumber = extractProjectNumber(plan.title);
-      if (!projectNumber) {
-        plansSkipped++;
-        skippedPlans.push(`"${plan.title}" (no project number in title)`);
-        continue;
-      }
-
-      const project = projectByNumber[projectNumber];
-      if (!project) {
-        plansSkipped++;
-        skippedPlans.push(`"${plan.title}" (project #${projectNumber} not found in Nexus)`);
-        continue;
-      }
-
-      log(`  Plan "${plan.title}" → Project "${project.name}"`);
+      const pn = extractProjectNumber(plan.title);
+      if (!pn) { plansSkipped++; continue; }
+      const project = projectByNumber[pn];
+      if (!project) { plansSkipped++; continue; }
 
       const tasks = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/tasks`);
       const buckets = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/buckets`);
       const bucketMap: Record<string, string> = {};
       for (const b of buckets) bucketMap[b.id] = b.name;
 
-      if (!tasksByProject[project.id]) {
-        tasksByProject[project.id] = { project, planTitle: plan.title, entries: [] };
-      }
-
+      if (!tasksByProject[project.id]) tasksByProject[project.id] = { project, planTitle: plan.title, entries: [] };
       for (const task of tasks) {
-        const assigneeIds = task.assignments ? Object.keys(task.assignments) : [];
-        assigneeIds.forEach(id => allAadUserIds.add(id));
+        (task.assignments ? Object.keys(task.assignments) : []).forEach((id: string) => allAadIds.add(id));
         tasksByProject[project.id].entries.push({ task, bucketMap });
       }
-
-      log(`    ${tasks.length} tasks loaded`);
+      log(`  "${plan.title}" → ${tasks.length} tasks`);
     }
 
-    // Step 5: Build assignee mapping (one batch for all users)
-    log(`Resolving ${allAadUserIds.size} unique AAD users...`);
-    const assigneeMap = await buildAssigneeMap(supabase, accessToken, Array.from(allAadUserIds));
-    log(`Resolved ${Object.keys(assigneeMap).length} of ${allAadUserIds.size} AAD users`);
+    const assigneeMap = await buildAssigneeMap(supabase, accessToken, Array.from(allAadIds));
+    log(`Resolved ${Object.keys(assigneeMap).length}/${allAadIds.size} AAD users`);
 
-    // Step 6: Process projects one-by-one with error isolation
-    const projectIds = Object.keys(tasksByProject);
-    let totalSynced = 0;
-    let totalErrors = 0;
-    const taskDetailBudget = { remaining: MAX_TASK_DETAILS_PER_RUN };
-    const syncResults: Array<{ project: string; plan: string; synced: number; errors: number }> = [];
+    let totalSynced = 0, totalCreated = 0, totalErrors = 0;
+    const detailBudget = { remaining: MAX_TASK_DETAILS_PER_RUN };
+    const results: any[] = [];
+    const pids = Object.keys(tasksByProject);
 
-    for (let i = 0; i < projectIds.length; i++) {
-      const pid = projectIds[i];
-      const { project, planTitle, entries } = tasksByProject[pid];
-
-      log(`  [${i + 1}/${projectIds.length}] Syncing "${project.name}" (${entries.length} tasks)...`);
-
+    for (let i = 0; i < pids.length; i++) {
+      const { project, planTitle, entries } = tasksByProject[pids[i]];
+      log(`[${i + 1}/${pids.length}] "${project.name}" (${entries.length} tasks)...`);
       try {
-        const result = await syncProjectTasks(
-          supabase, accessToken, pid, project.name,
-          entries, assigneeMap, taskDetailBudget
-        );
-        totalSynced += result.synced;
-        totalErrors += result.errors;
-        syncResults.push({ project: project.name, plan: planTitle, synced: result.synced, errors: result.errors });
-        log(`    ✓ ${result.synced} synced, ${result.errors} errors`);
+        const r = await syncProjectTasks(supabase, accessToken, pids[i], project.name, entries, assigneeMap, detailBudget);
+        totalSynced += r.synced; totalCreated += r.created; totalErrors += r.errors;
+        results.push({ project: project.name, plan: planTitle, synced: r.synced, created: r.created, errors: r.errors });
+        log(`  ✓ ${r.synced} updated, ${r.created} new, ${r.errors} errors`);
       } catch (e) {
-        log(`    ✗ Project "${project.name}" failed entirely: ${(e as Error).message}`);
-        syncResults.push({ project: project.name, plan: planTitle, synced: 0, errors: entries.length });
+        log(`  ✗ "${project.name}" failed: ${(e as Error).message}`);
+        results.push({ project: project.name, plan: planTitle, synced: 0, created: 0, errors: entries.length });
         totalErrors += entries.length;
       }
-
-      // Delay between projects to avoid API throttling
-      if (i < projectIds.length - 1) {
-        await new Promise(r => setTimeout(r, PROJECT_BATCH_DELAY_MS));
-      }
+      if (i < pids.length - 1) await new Promise(r => setTimeout(r, PROJECT_BATCH_DELAY_MS));
     }
 
-    const durationMs = Date.now() - startTime;
-    log(`=== Planner Sync Complete (${(durationMs / 1000).toFixed(1)}s) ===`);
-    log(`Projects: ${projectIds.length}, Tasks synced: ${totalSynced}, Errors: ${totalErrors}, Plans skipped: ${plansSkipped}`);
-    if (skippedPlans.length > 0) {
-      log(`Skipped plans:\n${skippedPlans.map(s => `  - ${s}`).join('\n')}`);
-    }
+    const duration = Date.now() - startTime;
+    log(`=== Sync Complete (${(duration / 1000).toFixed(1)}s): ${totalSynced} updated, ${totalCreated} new, ${totalErrors} errors ===`);
 
-    // Log sync completion
     await supabase.from('planner_sync_log').insert({
       status: totalErrors > 0 ? 'completed_with_errors' : 'completed',
       started_at: new Date(startTime).toISOString(),
       completed_at: new Date().toISOString(),
-      duration_ms: durationMs,
-      tasks_synced: totalSynced,
+      duration_ms: duration,
+      tasks_synced: totalSynced + totalCreated,
       tasks_errored: totalErrors,
-      projects_processed: projectIds.length,
+      projects_processed: pids.length,
       plans_skipped: plansSkipped,
-      details: { results: syncResults },
+      details: { results },
     });
 
     return new Response(JSON.stringify({
       success: true,
-      summary: {
-        plansFound: plans.length,
-        plansSkipped,
-        projectsProcessed: projectIds.length,
-        totalTasksSynced: totalSynced,
-        totalErrors,
-        durationMs,
-        taskDetailBudgetUsed: MAX_TASK_DETAILS_PER_RUN - taskDetailBudget.remaining,
-        results: syncResults,
-      },
+      summary: { plansFound: plans.length, plansSkipped, projectsProcessed: pids.length, totalSynced, totalCreated, totalErrors, durationMs: duration, results },
       logs,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error: unknown) {
     const msg = (error as Error).message;
-    log(`FATAL ERROR: ${msg}`);
-
-    // Try to log the failure
+    log(`FATAL: ${msg}`);
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      await supabase.from('planner_sync_log').insert({
-        status: 'failed',
-        started_at: new Date(startTime).toISOString(),
-        completed_at: new Date().toISOString(),
-        duration_ms: Date.now() - startTime,
-        error_message: msg,
-      });
-    } catch (_) { /* ignore logging failure */ }
-
-    return new Response(JSON.stringify({ success: false, error: msg, logs }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      await supabase.from('planner_sync_log').insert({ status: 'failed', started_at: new Date(startTime).toISOString(), completed_at: new Date().toISOString(), duration_ms: Date.now() - startTime, error_message: msg });
+    } catch { /* ignore */ }
+    return new Response(JSON.stringify({ success: false, error: msg, logs }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
