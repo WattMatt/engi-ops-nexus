@@ -248,14 +248,11 @@ serve(async (req) => {
       const planTitle = `(${project.project_number.trim()}) ${project.name}`;
       try {
         log(`  Creating plan: "${planTitle}" (${count} roadmap items)...`);
-        // Use the container property for Planner API - specifying group as container
         const newPlan = await graphPost(accessToken, 'https://graph.microsoft.com/v1.0/planner/plans', {
-          owner: GROUP_ID,
-          title: planTitle,
           container: {
             url: `https://graph.microsoft.com/v1.0/groups/${GROUP_ID}`,
-            type: 'group',
           },
+          title: planTitle,
         });
         plans.push(newPlan);
         plansCreated++;
