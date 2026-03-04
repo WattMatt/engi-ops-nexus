@@ -131,6 +131,13 @@ serve(async (req) => {
   }
 
   try {
+    // Parse optional body params
+    let maxPlansToCreate = 50;
+    try {
+      const body = await req.json();
+      if (body?.maxPlansToCreate) maxPlansToCreate = body.maxPlansToCreate;
+    } catch { /* no body is fine */ }
+
     log('=== Planner Reset & Push Started ===');
     log('Step 1: Authenticate with Microsoft Graph...');
     const accessToken = await getAccessToken();
