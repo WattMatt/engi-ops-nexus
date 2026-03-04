@@ -168,8 +168,9 @@ function extractLabels(appliedCategories: Record<string, boolean> | null): strin
 }
 
 function extractProjectNumber(planTitle: string): string | null {
-  const match = planTitle.match(/\((\d+(?:\.\d+)*)\)/);
-  return match ? match[1] : null;
+  // Match project numbers like (643), (584.3.1), (P93.1), (P91.10) — with optional P prefix and trailing whitespace
+  const match = planTitle.match(/\(\s*(P?\d+(?:\.\d+)*)\s*\)/i);
+  return match ? match[1].toUpperCase() : null;
 }
 
 function mapPlannerPriority(priority: number): string {
@@ -346,7 +347,7 @@ serve(async (req) => {
 
     const projectByNumber: Record<string, any> = {};
     for (const p of projects || []) {
-      if (p.project_number) projectByNumber[p.project_number.trim()] = p;
+      if (p.project_number) projectByNumber[p.project_number.trim().toUpperCase()] = p;
     }
 
     // Step 4: Match plans to projects, fetch tasks per plan
