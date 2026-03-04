@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { pushToPlanner } from "@/utils/plannerPush";
 import {
   Dialog,
   DialogContent,
@@ -227,11 +228,13 @@ export const AddRoadmapItemDialog = ({
         .eq("id", data.id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
       queryClient.invalidateQueries({ queryKey: ["roadmap-review-content"] });
       toast.success("Roadmap item updated");
       onOpenChange(false);
+      // Fire-and-forget push to Planner
+      pushToPlanner(variables.id);
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to update item");

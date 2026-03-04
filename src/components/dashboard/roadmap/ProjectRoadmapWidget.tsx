@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { pushToPlanner } from "@/utils/plannerPush";
 import confetti from "canvas-confetti";
 import {
   DndContext,
@@ -209,8 +210,10 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
 
       return { isCompleted };
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
+      // Fire-and-forget push to Planner
+      pushToPlanner(variables.id);
       
       if (data?.isCompleted) {
         // Trigger celebration effect
