@@ -400,13 +400,12 @@ serve(async (req) => {
             for (const task of planTasks) {
               if (!validTaskIds.has(task.id)) {
                 try {
-                  const taskDetail = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`);
-                  const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`, taskDetail['@odata.etag']);
+                  const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`, task['@odata.etag']);
                   if (deleted) {
                     orphansDeleted++;
-                    log(`  🗑 Deleted orphan: "${task.title}" (bucket: ${task.bucketId})`);
+                    log(`  🗑 Deleted orphan: "${task.title}"`);
                   }
-                  await new Promise(r => setTimeout(r, 300));
+                  await new Promise(r => setTimeout(r, 150));
                 } catch (e) {
                   log(`  ⚠ Failed to delete orphan "${task.title}": ${(e as Error).message}`);
                 }
