@@ -442,7 +442,15 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
           ) : (
             <div className="space-y-2">
               {phases.map((phase) => {
-                const phaseItems = rootItems.filter(i => (i.phase || "General") === phase);
+                const phaseItems = rootItems
+                  .filter(i => (i.phase || "General") === phase)
+                  .sort((a, b) => {
+                    // For Drawings phase, sort by natural numeric order of title
+                    if (phase === "Drawings") {
+                      return a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+                    }
+                    return a.sort_order - b.sort_order;
+                  });
                 const isExpanded = expandedPhases.has(phase) || expandedPhases.has("all");
 
                 return (
