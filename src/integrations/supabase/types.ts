@@ -11221,6 +11221,51 @@ export type Database = {
           },
         ]
       }
+      planner_sync_log: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          details: Json | null
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          plans_skipped: number | null
+          projects_processed: number | null
+          started_at: string | null
+          status: string
+          tasks_errored: number | null
+          tasks_synced: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          details?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          plans_skipped?: number | null
+          projects_processed?: number | null
+          started_at?: string | null
+          status?: string
+          tasks_errored?: number | null
+          tasks_synced?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          details?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          plans_skipped?: number | null
+          projects_processed?: number | null
+          started_at?: string | null
+          status?: string
+          tasks_errored?: number | null
+          tasks_synced?: number | null
+        }
+        Relationships: []
+      }
       portal_report_snapshots: {
         Row: {
           created_at: string
