@@ -289,29 +289,23 @@ serve(async (req) => {
         continue;
       }
 
-      log(`\n── Plan: "${plan.title}" → Project: "${project.name}" ──`);
+      // ─── CHECK: Skip projects that are already fully synced ─────
+      // If any roadmap item for this project already has a planner://task/ link,
+      // the project is considered synced and we skip it entirely.
+      if (!scorchedEarth) {
+        const { count: syncedCount } = await supabase
+          .from('project_roadmap_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('project_id', project.id)
+          .like('link_url', 'planner://task/%');
 
-      // ─── PHASE 1: Delete ALL existing Planner tasks ─────────────
-      log('  Deleting existing Planner tasks...');
-      const existingTasks = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/tasks`);
-      log(`  Found ${existingTasks.length} tasks to delete`);
-
-      for (const task of existingTasks) {
-        // Need to get task details for the etag
-        try {
-          const taskDetail = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`);
-          const etag = taskDetail['@odata.etag'];
-          const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`, etag);
-          if (deleted) {
-            totalDeleted++;
-            log(`    Deleted: "${task.title}"`);
-          }
-        } catch (e) {
-          log(`    ⚠ Failed to delete "${task.title}": ${(e as Error).message}`);
+        if (syncedCount && syncedCount > 0) {
+          log(`⏭ Skipping "${project.name}" — already synced (${syncedCount} linked tasks)`);
+          continue;
         }
-        // Small delay to avoid throttling
-        await new Promise(r => setTimeout(r, 200));
       }
+
+      log(`\n── Plan: "${plan.title}" → Project: "${project.name}" ──`);
 
       // ─── PHASE 2: Get buckets (or create default ones) ─────────
       const buckets = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/buckets`);
