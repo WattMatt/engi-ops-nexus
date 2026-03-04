@@ -355,12 +355,22 @@ serve(async (req) => {
     const allAadUserIds = new Set<string>();
     let plansSkipped = 0;
 
+    const skippedPlans: string[] = [];
+
     for (const plan of plans) {
       const projectNumber = extractProjectNumber(plan.title);
-      if (!projectNumber) { plansSkipped++; continue; }
+      if (!projectNumber) {
+        plansSkipped++;
+        skippedPlans.push(`"${plan.title}" (no project number in title)`);
+        continue;
+      }
 
       const project = projectByNumber[projectNumber];
-      if (!project) { plansSkipped++; continue; }
+      if (!project) {
+        plansSkipped++;
+        skippedPlans.push(`"${plan.title}" (project #${projectNumber} not found in Nexus)`);
+        continue;
+      }
 
       log(`  Plan "${plan.title}" → Project "${project.name}"`);
 
