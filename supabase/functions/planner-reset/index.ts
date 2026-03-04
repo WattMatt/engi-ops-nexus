@@ -390,6 +390,11 @@ serve(async (req) => {
         }
       }
       for (const item of roadmapItems || []) {
+        // Skip items that already have a planner link (partial sync resume)
+        if (item.link_url && item.link_url.startsWith('planner://task/')) {
+          continue;
+        }
+
         const effectivePhase = getEffectivePhase(item);
         const bucketId = effectivePhase ? bucketByName[effectivePhase.toLowerCase()] : null;
 
