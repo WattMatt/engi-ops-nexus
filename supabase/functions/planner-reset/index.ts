@@ -291,6 +291,17 @@ serve(async (req) => {
 
       // ─── CHECK: Skip projects that are already fully synced ─────
       // Only skip if ALL roadmap items already have planner links
+      // But ALWAYS ensure template buckets exist first
+      const TEMPLATE_PHASES = [
+        'Planning & Preparation',
+        'Budget & Assessment',
+        'Tender & Procurement',
+        'Drawings',
+        'Documentation',
+        'Construction',
+        'Handover',
+      ];
+
       if (!scorchedEarth) {
         const { count: totalCount } = await supabase
           .from('project_roadmap_items')
@@ -304,7 +315,29 @@ serve(async (req) => {
           .like('link_url', 'planner://task/%');
 
         if (totalCount && syncedCount && syncedCount >= totalCount) {
-          log(`⏭ Skipping "${project.name}" — fully synced (${syncedCount}/${totalCount})`);
+          // Fully synced — but ensure all template buckets exist
+          const existingBuckets = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/buckets`);
+          const existingNames = new Set(existingBuckets.map((b: any) => b.name.toLowerCase()));
+          let bucketsCreated = 0;
+          for (const phase of TEMPLATE_PHASES) {
+            if (!existingNames.has(phase.toLowerCase())) {
+              try {
+                await graphPost(accessToken, 'https://graph.microsoft.com/v1.0/planner/buckets', {
+                  name: phase,
+                  planId: plan.id,
+                });
+                bucketsCreated++;
+                await new Promise(r => setTimeout(r, 200));
+              } catch (e) {
+                log(`  ⚠ Failed to create bucket "${phase}": ${(e as Error).message}`);
+              }
+            }
+          }
+          if (bucketsCreated > 0) {
+            log(`⏭ "${project.name}" — fully synced (${syncedCount}/${totalCount}), created ${bucketsCreated} missing template buckets`);
+          } else {
+            log(`⏭ Skipping "${project.name}" — fully synced (${syncedCount}/${totalCount})`);
+          }
           continue;
         }
         if (syncedCount && syncedCount > 0) {
