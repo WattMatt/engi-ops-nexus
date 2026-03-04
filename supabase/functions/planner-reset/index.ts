@@ -487,11 +487,11 @@ serve(async (req) => {
     }
 
     log(`\n=== Planner Reset Complete ===`);
-    log(`Deleted: ${totalDeleted} tasks | Created: ${totalCreated} tasks`);
+    log(`Deleted: ${totalDeleted} tasks | Created: ${totalCreated} tasks | Scorched Earth: ${scorchedEarth}`);
 
     return new Response(JSON.stringify({
       success: true,
-      summary: { totalDeleted, totalCreated },
+      summary: { totalDeleted, totalCreated, scorchedEarth },
       logs,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
