@@ -244,28 +244,15 @@ serve(async (req) => {
       }
 
       // ─── PHASE 2b: Delete buckets that don't match roadmap phases or "Inbox" ───
+      // All tasks were already deleted in Phase 1, so buckets should be empty
       const keepBuckets = new Set<string>(['inbox']);
       for (const phase of phasesNeeded) keepBuckets.add(phase.toLowerCase());
 
-      // Re-fetch buckets to include newly created ones
       const allBuckets = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/buckets`);
       for (const bucket of allBuckets) {
         const name = bucket.name.toLowerCase();
         if (!keepBuckets.has(name)) {
           try {
-            // Move any tasks in this bucket to Inbox first
-            const inboxBucketId = bucketByName['inbox'];
-            if (inboxBucketId) {
-              const bucketTasks = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/tasks`);
-              for (const t of bucketTasks) {
-                if (t.bucketId === bucket.id) {
-                  const taskDetail = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${t.id}`);
-                  await graphPatch(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${t.id}`, { bucketId: inboxBucketId }, taskDetail['@odata.etag']);
-                  await new Promise(r => setTimeout(r, 150));
-                }
-              }
-            }
-            // Delete the bucket
             const bucketDetail = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/buckets/${bucket.id}`);
             const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/buckets/${bucket.id}`, bucketDetail['@odata.etag']);
             if (deleted) log(`  🗑 Removed bucket: "${bucket.name}"`);
