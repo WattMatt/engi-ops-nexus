@@ -290,6 +290,10 @@ serve(async (req) => {
         log(`Skipping plan "${plan.title}" — no matching Nexus project`);
         continue;
       }
+      // Filter to specific projects if projectIds provided
+      if (filterProjectIds && !filterProjectIds.includes(project.id)) {
+        continue;
+      }
 
       // ─── CHECK: Skip projects that are already fully synced ─────
       // Only skip if ALL roadmap items already have planner links
