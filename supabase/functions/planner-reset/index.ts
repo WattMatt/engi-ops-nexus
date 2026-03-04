@@ -243,7 +243,25 @@ serve(async (req) => {
         }
       }
 
-      // ─── PHASE 4: Create Planner tasks from roadmap items ──────
+      // ─── PHASE 2b: Delete buckets that don't match roadmap phases or "Inbox" ───
+      // All tasks were already deleted in Phase 1, so buckets should be empty
+      const keepBuckets = new Set<string>(['inbox']);
+      for (const phase of phasesNeeded) keepBuckets.add(phase.toLowerCase());
+
+      const allBuckets = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/buckets`);
+      for (const bucket of allBuckets) {
+        const name = bucket.name.toLowerCase();
+        if (!keepBuckets.has(name)) {
+          try {
+            const bucketDetail = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/buckets/${bucket.id}`);
+            const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/buckets/${bucket.id}`, bucketDetail['@odata.etag']);
+            if (deleted) log(`  🗑 Removed bucket: "${bucket.name}"`);
+            await new Promise(r => setTimeout(r, 200));
+          } catch (e) {
+            log(`  ⚠ Failed to remove bucket "${bucket.name}": ${(e as Error).message}`);
+          }
+        }
+      }
       for (const item of roadmapItems || []) {
         const bucketId = item.phase ? bucketByName[item.phase.toLowerCase()] : null;
 
