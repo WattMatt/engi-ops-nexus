@@ -134,11 +134,13 @@ serve(async (req) => {
     // Parse optional body params
     let maxPlansToCreate = 50;
     let scorchedEarth = false;
+    let cleanupOrphans = false;
     let filterProjectIds: string[] | null = null;
     try {
       const body = await req.json();
       if (body?.maxPlansToCreate) maxPlansToCreate = body.maxPlansToCreate;
       if (body?.scorchedEarth === true) scorchedEarth = true;
+      if (body?.cleanup === true) cleanupOrphans = true;
       if (Array.isArray(body?.projectIds) && body.projectIds.length > 0) filterProjectIds = body.projectIds;
     } catch { /* no body is fine */ }
 
@@ -386,8 +388,33 @@ serve(async (req) => {
             }
           }
 
-          if (bucketsCreated > 0 || tasksMoved > 0) {
-            log(`⏭ "${project.name}" — synced (${syncedCount}/${totalCount}), +${bucketsCreated} buckets, moved ${tasksMoved} tasks`);
+          // ─── CLEANUP: Remove orphaned Planner tasks not tracked in Nexus ───
+          let orphansDeleted = 0;
+          if (cleanupOrphans) {
+            // Build set of valid Planner task IDs from Nexus links
+            const validTaskIds = new Set<string>();
+            for (const it of items || []) {
+              if (it.link_url) validTaskIds.add(it.link_url.replace('planner://task/', ''));
+            }
+            
+            for (const task of planTasks) {
+              if (!validTaskIds.has(task.id)) {
+                try {
+                  const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`, task['@odata.etag']);
+                  if (deleted) {
+                    orphansDeleted++;
+                    log(`  🗑 Deleted orphan: "${task.title}"`);
+                  }
+                  await new Promise(r => setTimeout(r, 150));
+                } catch (e) {
+                  log(`  ⚠ Failed to delete orphan "${task.title}": ${(e as Error).message}`);
+                }
+              }
+            }
+          }
+
+          if (bucketsCreated > 0 || tasksMoved > 0 || orphansDeleted > 0) {
+            log(`⏭ "${project.name}" — synced (${syncedCount}/${totalCount}), +${bucketsCreated} buckets, moved ${tasksMoved} tasks, deleted ${orphansDeleted} orphans`);
           } else {
             log(`⏭ Skipping "${project.name}" — fully synced (${syncedCount}/${totalCount})`);
           }
