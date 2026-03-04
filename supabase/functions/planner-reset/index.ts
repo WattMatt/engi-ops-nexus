@@ -141,9 +141,9 @@ serve(async (req) => {
     // Get all plans
     log('Step 2: Fetching all plans...');
     const plans = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/groups/${GROUP_ID}/planner/plans`);
-    log(`Found ${plans.length} plans`);
+    log(`Found ${plans.length} existing plans`);
 
-    // Get all Nexus projects
+    // Get all Nexus projects that have roadmap items
     const { data: projects } = await supabase
       .from('projects')
       .select('id, name, project_number')
@@ -152,6 +152,42 @@ serve(async (req) => {
     const projectByNumber: Record<string, any> = {};
     for (const p of projects || []) {
       if (p.project_number) projectByNumber[p.project_number.trim().toUpperCase()] = p;
+    }
+
+    // ─── AUTO-CREATE: Create Planner plans for projects that don't have one ───
+    // Build set of project numbers that already have plans
+    const existingPlanNumbers = new Set<string>();
+    for (const plan of plans) {
+      const pn = extractProjectNumber(plan.title);
+      if (pn) existingPlanNumbers.add(pn);
+    }
+
+    // Find projects with roadmap items that need plans created
+    for (const [projNum, project] of Object.entries(projectByNumber)) {
+      if (existingPlanNumbers.has(projNum)) continue;
+
+      // Check if this project has any roadmap items
+      const { count } = await supabase
+        .from('project_roadmap_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('project_id', project.id);
+
+      if (!count || count === 0) continue;
+
+      // Create the plan in the M365 Group
+      const planTitle = `(${project.project_number}) ${project.name}`;
+      try {
+        log(`  Creating plan: "${planTitle}"...`);
+        const newPlan = await graphPost(accessToken, 'https://graph.microsoft.com/v1.0/planner/plans', {
+          owner: GROUP_ID,
+          title: planTitle,
+        });
+        plans.push(newPlan);
+        log(`  ✅ Plan created: "${planTitle}" (${newPlan.id})`);
+        await new Promise(r => setTimeout(r, 500));
+      } catch (e) {
+        log(`  ❌ Failed to create plan "${planTitle}": ${(e as Error).message}`);
+      }
     }
 
     // Build reverse assignee map: Nexus profile UUID → AAD object ID
