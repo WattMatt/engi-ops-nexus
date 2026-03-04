@@ -133,19 +133,73 @@ serve(async (req) => {
   try {
     // Parse optional body params
     let maxPlansToCreate = 50;
+    let scorchedEarth = false;
     try {
       const body = await req.json();
       if (body?.maxPlansToCreate) maxPlansToCreate = body.maxPlansToCreate;
+      if (body?.scorchedEarth === true) scorchedEarth = true;
     } catch { /* no body is fine */ }
 
     log('=== Planner Reset & Push Started ===');
+    if (scorchedEarth) log('🔥 SCORCHED EARTH MODE — all plans will be deleted and rebuilt');
     log('Step 1: Authenticate with Microsoft Graph...');
     const accessToken = await getAccessToken();
     log('Authenticated ✅');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get all plans
+    // ─── PHASE 0: SCORCHED EARTH — Delete all plans ─────────────
+    if (scorchedEarth) {
+      log('Phase 0: Fetching all plans for deletion...');
+      const allPlans = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/groups/${GROUP_ID}/planner/plans`);
+      log(`Found ${allPlans.length} plans to destroy`);
+
+      let plansDeleted = 0;
+      let tasksDeleted = 0;
+
+      for (const plan of allPlans) {
+        log(`  🔥 Destroying plan: "${plan.title}" (${plan.id})`);
+
+        // Delete all tasks in this plan first (Planner requires empty plan before deletion)
+        const tasks = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/tasks`);
+        log(`    Deleting ${tasks.length} tasks...`);
+
+        for (const task of tasks) {
+          try {
+            const taskDetail = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`);
+            const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`, taskDetail['@odata.etag']);
+            if (deleted) tasksDeleted++;
+          } catch (e) {
+            log(`    ⚠ Failed to delete task "${task.title}": ${(e as Error).message}`);
+          }
+          await new Promise(r => setTimeout(r, 200));
+        }
+
+        // Now delete the plan itself
+        try {
+          const planDetail = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}`);
+          const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}`, planDetail['@odata.etag']);
+          if (deleted) {
+            plansDeleted++;
+            log(`    ✅ Plan deleted`);
+          }
+        } catch (e) {
+          log(`    ❌ Failed to delete plan: ${(e as Error).message}`);
+        }
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      // Clear all planner links from DB since every task ID is now invalid
+      log('  Clearing all planner:// links from roadmap items...');
+      const { count: clearedCount } = await supabase
+        .from('project_roadmap_items')
+        .update({ link_url: null, link_label: null, updated_at: new Date().toISOString() })
+        .like('link_url', 'planner://%');
+
+      log(`  Phase 0 complete: ${plansDeleted} plans deleted, ${tasksDeleted} tasks deleted, ${clearedCount ?? '?'} links cleared`);
+    }
+
+    // Get all plans (will be empty after scorched earth)
     log('Step 2: Fetching all plans...');
     const plans = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/groups/${GROUP_ID}/planner/plans`);
     log(`Found ${plans.length} existing plans`);
@@ -433,11 +487,11 @@ serve(async (req) => {
     }
 
     log(`\n=== Planner Reset Complete ===`);
-    log(`Deleted: ${totalDeleted} tasks | Created: ${totalCreated} tasks`);
+    log(`Deleted: ${totalDeleted} tasks | Created: ${totalCreated} tasks | Scorched Earth: ${scorchedEarth}`);
 
     return new Response(JSON.stringify({
       success: true,
-      summary: { totalDeleted, totalCreated },
+      summary: { totalDeleted, totalCreated, scorchedEarth },
       logs,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
