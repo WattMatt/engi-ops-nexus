@@ -388,8 +388,34 @@ serve(async (req) => {
             }
           }
 
-          if (bucketsCreated > 0 || tasksMoved > 0) {
-            log(`⏭ "${project.name}" — synced (${syncedCount}/${totalCount}), +${bucketsCreated} buckets, moved ${tasksMoved} tasks`);
+          // ─── CLEANUP: Remove orphaned Planner tasks not tracked in Nexus ───
+          let orphansDeleted = 0;
+          if (cleanupOrphans) {
+            // Build set of valid Planner task IDs from Nexus links
+            const validTaskIds = new Set<string>();
+            for (const it of items || []) {
+              if (it.link_url) validTaskIds.add(it.link_url.replace('planner://task/', ''));
+            }
+            
+            for (const task of planTasks) {
+              if (!validTaskIds.has(task.id)) {
+                try {
+                  const taskDetail = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`);
+                  const deleted = await graphDelete(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`, taskDetail['@odata.etag']);
+                  if (deleted) {
+                    orphansDeleted++;
+                    log(`  🗑 Deleted orphan: "${task.title}" (bucket: ${task.bucketId})`);
+                  }
+                  await new Promise(r => setTimeout(r, 300));
+                } catch (e) {
+                  log(`  ⚠ Failed to delete orphan "${task.title}": ${(e as Error).message}`);
+                }
+              }
+            }
+          }
+
+          if (bucketsCreated > 0 || tasksMoved > 0 || orphansDeleted > 0) {
+            log(`⏭ "${project.name}" — synced (${syncedCount}/${totalCount}), +${bucketsCreated} buckets, moved ${tasksMoved} tasks, deleted ${orphansDeleted} orphans`);
           } else {
             log(`⏭ Skipping "${project.name}" — fully synced (${syncedCount}/${totalCount})`);
           }
