@@ -345,6 +345,11 @@ serve(async (req) => {
           }
 
           // Reassign tasks to correct buckets based on their Nexus phase
+          // Fetch ALL plan tasks in one batch to avoid per-task GET calls
+          const planTasks = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/tasks`);
+          const planTaskById: Record<string, any> = {};
+          for (const t of planTasks) planTaskById[t.id] = t;
+
           const { data: items } = await supabase
             .from('project_roadmap_items')
             .select('id, phase, link_url, parent_id')
@@ -368,13 +373,14 @@ serve(async (req) => {
             if (!targetBucketId) continue;
 
             const plannerTaskId = it.link_url.replace('planner://task/', '');
+            const taskData = planTaskById[plannerTaskId];
+            if (!taskData) continue; // task not found in plan
+            if (taskData.bucketId === targetBucketId) continue; // already correct
+
             try {
-              const taskData = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`);
-              if (taskData.bucketId !== targetBucketId) {
-                await graphPatch(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`, { bucketId: targetBucketId }, taskData['@odata.etag']);
-                tasksMoved++;
-                await new Promise(r => setTimeout(r, 150));
-              }
+              await graphPatch(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`, { bucketId: targetBucketId }, taskData['@odata.etag']);
+              tasksMoved++;
+              await new Promise(r => setTimeout(r, 500)); // 500ms to avoid 429
             } catch (e) {
               log(`  ⚠ Failed to move task ${plannerTaskId}: ${(e as Error).message}`);
             }
