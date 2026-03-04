@@ -12931,6 +12931,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           assignee_ids: Json | null
+          checklist: Json | null
           comments: string | null
           completed_at: string | null
           completed_by: string | null
@@ -12939,6 +12940,7 @@ export type Database = {
           due_date: string | null
           id: string
           is_completed: boolean | null
+          labels: string[] | null
           link_label: string | null
           link_url: string | null
           parent_id: string | null
@@ -12953,6 +12955,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           assignee_ids?: Json | null
+          checklist?: Json | null
           comments?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -12961,6 +12964,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           is_completed?: boolean | null
+          labels?: string[] | null
           link_label?: string | null
           link_url?: string | null
           parent_id?: string | null
@@ -12975,6 +12979,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           assignee_ids?: Json | null
+          checklist?: Json | null
           comments?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -12983,6 +12988,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           is_completed?: boolean | null
+          labels?: string[] | null
           link_label?: string | null
           link_url?: string | null
           parent_id?: string | null
