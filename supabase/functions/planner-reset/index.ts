@@ -111,8 +111,8 @@ const PLANNER_LABEL_REVERSE: Record<string, string> = {
 };
 
 function extractProjectNumber(planTitle: string): string | null {
-  const match = planTitle.match(/\((\d+(?:\.\d+)*)\)/);
-  return match ? match[1] : null;
+  const match = planTitle.match(/\(\s*(P?\d+(?:\.\d+)*)\s*\)/i);
+  return match ? match[1].toUpperCase() : null;
 }
 
 function mapNexusPriorityToPlanner(priority: string | null): number {
@@ -151,7 +151,7 @@ serve(async (req) => {
 
     const projectByNumber: Record<string, any> = {};
     for (const p of projects || []) {
-      if (p.project_number) projectByNumber[p.project_number.trim()] = p;
+      if (p.project_number) projectByNumber[p.project_number.trim().toUpperCase()] = p;
     }
 
     // Build reverse assignee map: Nexus profile UUID → AAD object ID
