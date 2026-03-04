@@ -315,17 +315,21 @@ serve(async (req) => {
           .like('link_url', 'planner://task/%');
 
         if (totalCount && syncedCount && syncedCount >= totalCount) {
-          // Fully synced — but ensure all template buckets exist
+          // Fully synced — ensure template buckets exist AND reassign tasks to correct buckets
           const existingBuckets = await getAllPages(accessToken, `https://graph.microsoft.com/v1.0/planner/plans/${plan.id}/buckets`);
-          const existingNames = new Set(existingBuckets.map((b: any) => b.name.toLowerCase()));
+          const bucketNameToId: Record<string, string> = {};
+          for (const b of existingBuckets) bucketNameToId[b.name.toLowerCase()] = b.id;
+
+          // Create missing template buckets
           let bucketsCreated = 0;
           for (const phase of TEMPLATE_PHASES) {
-            if (!existingNames.has(phase.toLowerCase())) {
+            if (!bucketNameToId[phase.toLowerCase()]) {
               try {
-                await graphPost(accessToken, 'https://graph.microsoft.com/v1.0/planner/buckets', {
+                const nb = await graphPost(accessToken, 'https://graph.microsoft.com/v1.0/planner/buckets', {
                   name: phase,
                   planId: plan.id,
                 });
+                bucketNameToId[phase.toLowerCase()] = nb.id;
                 bucketsCreated++;
                 await new Promise(r => setTimeout(r, 200));
               } catch (e) {
@@ -333,8 +337,45 @@ serve(async (req) => {
               }
             }
           }
-          if (bucketsCreated > 0) {
-            log(`⏭ "${project.name}" — fully synced (${syncedCount}/${totalCount}), created ${bucketsCreated} missing template buckets`);
+
+          // Reassign tasks to correct buckets based on their Nexus phase
+          const { data: items } = await supabase
+            .from('project_roadmap_items')
+            .select('id, phase, link_url, parent_id')
+            .eq('project_id', project.id)
+            .like('link_url', 'planner://task/%');
+
+          // Build parent lookup for phase inheritance
+          const itemLookup: Record<string, any> = {};
+          for (const it of items || []) itemLookup[it.id] = it;
+          function resolvePhase(it: any): string | null {
+            if (it.phase && it.phase !== 'Inbox') return it.phase;
+            if (it.parent_id && itemLookup[it.parent_id]) return resolvePhase(itemLookup[it.parent_id]);
+            return it.phase || null;
+          }
+
+          let tasksMoved = 0;
+          for (const it of items || []) {
+            const phase = resolvePhase(it);
+            if (!phase) continue;
+            const targetBucketId = bucketNameToId[phase.toLowerCase()];
+            if (!targetBucketId) continue;
+
+            const plannerTaskId = it.link_url.replace('planner://task/', '');
+            try {
+              const taskData = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`);
+              if (taskData.bucketId !== targetBucketId) {
+                await graphPatch(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`, { bucketId: targetBucketId }, taskData['@odata.etag']);
+                tasksMoved++;
+                await new Promise(r => setTimeout(r, 150));
+              }
+            } catch (e) {
+              log(`  ⚠ Failed to move task ${plannerTaskId}: ${(e as Error).message}`);
+            }
+          }
+
+          if (bucketsCreated > 0 || tasksMoved > 0) {
+            log(`⏭ "${project.name}" — synced (${syncedCount}/${totalCount}), +${bucketsCreated} buckets, moved ${tasksMoved} tasks`);
           } else {
             log(`⏭ Skipping "${project.name}" — fully synced (${syncedCount}/${totalCount})`);
           }
