@@ -215,3 +215,6 @@ verify_jwt = false
 
 [functions.planner-sync]
 verify_jwt = false
+
+[functions.planner-push]
+verify_jwt = false
