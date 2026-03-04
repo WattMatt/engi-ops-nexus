@@ -279,7 +279,8 @@ serve(async (req) => {
         }
       }
       for (const item of roadmapItems || []) {
-        const bucketId = item.phase ? bucketByName[item.phase.toLowerCase()] : null;
+        const effectivePhase = getEffectivePhase(item);
+        const bucketId = effectivePhase ? bucketByName[effectivePhase.toLowerCase()] : null;
 
         // Build assignments object
         const assignments: Record<string, any> = {};
