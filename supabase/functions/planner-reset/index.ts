@@ -346,8 +346,19 @@ serve(async (req) => {
         return null;
       }
 
-      // Collect unique phases that need buckets
-      const phasesNeeded = new Set<string>();
+      // Always include all standard template phases as buckets
+      const TEMPLATE_PHASES = [
+        'Planning & Preparation',
+        'Budget & Assessment',
+        'Tender & Procurement',
+        'Drawings',
+        'Documentation',
+        'Construction',
+        'Handover',
+      ];
+
+      const phasesNeeded = new Set<string>(TEMPLATE_PHASES);
+      // Also add any custom phases from actual items (e.g. "Inbox", "Procurement")
       for (const item of roadmapItems || []) {
         const phase = getEffectivePhase(item);
         if (phase) phasesNeeded.add(phase);
