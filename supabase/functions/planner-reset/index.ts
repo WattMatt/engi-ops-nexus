@@ -134,11 +134,13 @@ serve(async (req) => {
     // Parse optional body params
     let maxPlansToCreate = 50;
     let scorchedEarth = false;
+    let cleanupOrphans = false;
     let filterProjectIds: string[] | null = null;
     try {
       const body = await req.json();
       if (body?.maxPlansToCreate) maxPlansToCreate = body.maxPlansToCreate;
       if (body?.scorchedEarth === true) scorchedEarth = true;
+      if (body?.cleanup === true) cleanupOrphans = true;
       if (Array.isArray(body?.projectIds) && body.projectIds.length > 0) filterProjectIds = body.projectIds;
     } catch { /* no body is fine */ }
 
