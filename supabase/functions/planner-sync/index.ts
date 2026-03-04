@@ -347,7 +347,7 @@ serve(async (req) => {
 
     const projectByNumber: Record<string, any> = {};
     for (const p of projects || []) {
-      if (p.project_number) projectByNumber[p.project_number.trim()] = p;
+      if (p.project_number) projectByNumber[p.project_number.trim().toUpperCase()] = p;
     }
 
     // Step 4: Match plans to projects, fetch tasks per plan
