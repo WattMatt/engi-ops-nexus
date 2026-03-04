@@ -305,6 +305,15 @@ export const ProjectRoadmapWidget = ({ projectId, highlightedItemId }: ProjectRo
   const togglePhase = (phase: string) => {
     setExpandedPhases((prev) => {
       const next = new Set(prev);
+      // If "all" is active, expand to individual phases so we can collapse one
+      if (next.has("all")) {
+        next.delete("all");
+        for (const p of phases) {
+          if (p !== phase) next.add(p);
+        }
+        // The toggled phase is NOT added, so it collapses
+        return next;
+      }
       if (next.has(phase)) {
         next.delete(phase);
       } else {
