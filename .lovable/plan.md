@@ -1,68 +1,40 @@
 
 
-# Dropbox Drawing Sync
+## Plan: Scorched Earth Planner Reset
 
-## Overview
-Build an edge function and UI component that scans Dropbox for project drawing PDFs and syncs them into the `project_drawings` table and Supabase Storage.
+### What needs to change
 
-## Key Design Decision: Authentication
-Your existing Dropbox integration uses **per-user OAuth** (tokens stored in `user_storage_connections`), not a global access token. The new `sync-drawings` edge function will reuse this same pattern -- the logged-in user's Dropbox credentials are used to scan folders. No new secret is needed.
+The current `planner-reset` function already deletes tasks within plans, but it cannot **delete the plans themselves**. You want a true scorched-earth approach:
 
-## Implementation
+1. **Delete all existing plans** in the M365 Group first
+2. **Recreate plans from scratch** for every Nexus project that has roadmap items
+3. **Populate them** with all roadmap items (the existing logic)
 
-### 1. Edge Function: `sync-drawings`
+### Technical approach
 
-**Auth**: Validates the user's JWT, then fetches their Dropbox access token from `user_storage_connections` (same pattern as `dropbox-api`).
+Modify `supabase/functions/planner-reset/index.ts` to add a `scorchedEarth` mode (triggered by a body param `{ "scorchedEarth": true }`):
 
-**Scanning logic**:
-- Lists folders at `/OFFICE/PROJECTS/`
-- Parses folder names matching `(NUMBER) NAME` pattern using regex `\((\d+)\)`
-- Queries `projects` table matching `project_number`
+**New Phase 0 — Delete all plans:**
+- Fetch all plans from `GET /groups/{GROUP_ID}/planner/plans`
+- For each plan, delete all its tasks first (Planner API requires plans to be empty before deletion)
+- Then delete each plan via `DELETE /planner/plans/{planId}` with its etag
+- Clear all `planner://task/` link URLs from `project_roadmap_items` in the database (since all task IDs become invalid)
+- Add throttling (200-300ms) between deletions to avoid Graph rate limits
 
-**File processing** (per matched project):
-- Navigates to `[folder]/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`
-- Lists all `.pdf` files
+**Then the existing logic runs:**
+- The plan list will be empty, so auto-create kicks in for every project with roadmap items
+- Buckets get created per phase
+- Tasks get created and linked back
 
-**Sync logic** (per PDF):
-- Checks `project_drawings` for existing record with same `file_name` and `project_id`
-- If new:
-  1. Downloads file content from Dropbox via API
-  2. Uploads to `project-drawings` storage bucket
-  3. Inserts into `project_drawings` with: `project_id`, `drawing_title` (filename without extension), `drawing_number` (derived from filename), `category` = 'electrical', `status` = 'draft', `current_revision` = '0', `file_url`, `file_path`, `file_name`
+### Changes
 
-**Response**: Returns a JSON summary with scanned projects, new drawings imported, skipped drawings, and any errors.
+**1 file modified:** `supabase/functions/planner-reset/index.ts`
+- Add `scorchedEarth` param parsing from request body
+- Add Phase 0: iterate all plans → delete tasks → delete plan → clear DB links
+- Rest of function runs as-is (auto-create + populate)
 
-### 2. Frontend: DropboxDrawingSync Component
-
-A card-based UI placed in the Drawings section:
-- "Sync Drawings from Dropbox" button that invokes the edge function
-- Progress/loading state during sync
-- Results display showing:
-  - Projects scanned (with names)
-  - New drawings imported (count per project)
-  - Skipped (already existed)
-  - Errors (if any)
-- Requires Dropbox to be connected (shows connect prompt if not)
-
-### 3. Config Update
-
-Add `[functions.sync-drawings]` with `verify_jwt = false` to `supabase/config.toml` (JWT validated in code per existing pattern).
-
-### Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| `supabase/functions/sync-drawings/index.ts` | Create -- the edge function |
-| `src/components/drawings/DropboxDrawingSync.tsx` | Create -- the sync UI component |
-| `src/components/drawings/index.ts` | Modify -- export new component |
-| `supabase/config.toml` | Modify -- add function config |
-
-### Technical Notes
-
-- The edge function reuses the `getValidAccessToken` pattern from `dropbox-api` (refresh token handling, expiry checks)
-- `drawing_number` is derived from the PDF filename by stripping the `.pdf` extension
-- The `category` field is set to `'electrical'` since the path is within the ELECTRICAL folder
-- `created_by` is set to the authenticated user's ID
-- Storage path: `{project_id}/{filename}`
-- The Dropbox download uses the `files/download` endpoint with the file path
+### Risk mitigation
+- Only triggered when explicitly passing `{ "scorchedEarth": true }` — normal reset still works as before
+- Batch limits still apply via `maxPlansToCreate` to avoid timeout
+- All planner link URLs cleared from DB to prevent stale references
 
