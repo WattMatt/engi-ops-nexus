@@ -290,18 +290,25 @@ serve(async (req) => {
       }
 
       // ─── CHECK: Skip projects that are already fully synced ─────
-      // If any roadmap item for this project already has a planner://task/ link,
-      // the project is considered synced and we skip it entirely.
+      // Only skip if ALL roadmap items already have planner links
       if (!scorchedEarth) {
+        const { count: totalCount } = await supabase
+          .from('project_roadmap_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('project_id', project.id);
+
         const { count: syncedCount } = await supabase
           .from('project_roadmap_items')
           .select('id', { count: 'exact', head: true })
           .eq('project_id', project.id)
           .like('link_url', 'planner://task/%');
 
-        if (syncedCount && syncedCount > 0) {
-          log(`⏭ Skipping "${project.name}" — already synced (${syncedCount} linked tasks)`);
+        if (totalCount && syncedCount && syncedCount >= totalCount) {
+          log(`⏭ Skipping "${project.name}" — fully synced (${syncedCount}/${totalCount})`);
           continue;
+        }
+        if (syncedCount && syncedCount > 0) {
+          log(`🔄 "${project.name}" — partially synced (${syncedCount}/${totalCount}), completing...`);
         }
       }
 
@@ -383,6 +390,11 @@ serve(async (req) => {
         }
       }
       for (const item of roadmapItems || []) {
+        // Skip items that already have a planner link (partial sync resume)
+        if (item.link_url && item.link_url.startsWith('planner://task/')) {
+          continue;
+        }
+
         const effectivePhase = getEffectivePhase(item);
         const bucketId = effectivePhase ? bucketByName[effectivePhase.toLowerCase()] : null;
 
