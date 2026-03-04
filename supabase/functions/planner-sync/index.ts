@@ -355,12 +355,22 @@ serve(async (req) => {
     const allAadUserIds = new Set<string>();
     let plansSkipped = 0;
 
+    const skippedPlans: string[] = [];
+
     for (const plan of plans) {
       const projectNumber = extractProjectNumber(plan.title);
-      if (!projectNumber) { plansSkipped++; continue; }
+      if (!projectNumber) {
+        plansSkipped++;
+        skippedPlans.push(`"${plan.title}" (no project number in title)`);
+        continue;
+      }
 
       const project = projectByNumber[projectNumber];
-      if (!project) { plansSkipped++; continue; }
+      if (!project) {
+        plansSkipped++;
+        skippedPlans.push(`"${plan.title}" (project #${projectNumber} not found in Nexus)`);
+        continue;
+      }
 
       log(`  Plan "${plan.title}" → Project "${project.name}"`);
 
@@ -424,6 +434,9 @@ serve(async (req) => {
     const durationMs = Date.now() - startTime;
     log(`=== Planner Sync Complete (${(durationMs / 1000).toFixed(1)}s) ===`);
     log(`Projects: ${projectIds.length}, Tasks synced: ${totalSynced}, Errors: ${totalErrors}, Plans skipped: ${plansSkipped}`);
+    if (skippedPlans.length > 0) {
+      log(`Skipped plans:\n${skippedPlans.map(s => `  - ${s}`).join('\n')}`);
+    }
 
     // Log sync completion
     await supabase.from('planner_sync_log').insert({
