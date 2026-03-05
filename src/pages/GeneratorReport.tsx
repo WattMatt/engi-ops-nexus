@@ -139,7 +139,9 @@ const GeneratorReport = () => {
 
   // Calculate chart data
   const calculateLoading = (tenant: any) => {
-    if (!tenant.area || tenant.own_generator_provided) return 0;
+    if (tenant.own_generator_provided) return 0;
+    if (tenant.manual_kw_override != null) return Number(tenant.manual_kw_override);
+    if (!tenant.area) return 0;
     
     const kwPerSqm = {
       standard: generatorSettings?.standard_kw_per_sqm || 0.03,
