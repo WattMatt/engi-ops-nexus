@@ -145,7 +145,7 @@ const ClientGeneratorReportView = () => {
     (settings?.control_wiring_cost || 0);
 
   return (
-    <div className="min-h-screen overflow-y-auto bg-slate-50 dark:bg-[#0f172a]">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f172a]" style={{ overflow: 'visible' }}>
       {/* Sticky Navigation */}
       <nav className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
