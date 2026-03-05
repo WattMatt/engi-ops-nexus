@@ -126,9 +126,6 @@ const ClientGeneratorReportView = () => {
       style={{
         minHeight: "100vh",
         background: "#f8fafc",
-        overflowY: "auto",
-        overflowX: "hidden",
-        position: "relative",
       }}
     >
       {/* Sticky Navigation */}
