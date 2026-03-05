@@ -1,135 +1,55 @@
 import { useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Loader2, Zap, Building2, TrendingUp, Users, BarChart3, Shield, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useEffect } from "react";
 
 const ClientGeneratorReportView = () => {
   const { token } = useParams<{ token: string }>();
 
-  // Fetch share data
-  const { data: shareData, isLoading: shareLoading, error: shareError } = useQuery({
-    queryKey: ["generator-share", token],
+  // Fetch all data via edge function (bypasses RLS for external users)
+  const { data: reportData, isLoading, error } = useQuery({
+    queryKey: ["shared-generator-report", token],
     queryFn: async () => {
       if (!token) throw new Error("Invalid access token");
 
-      const { data, error } = await supabase
-        .from("generator_report_shares")
-        .select(`
-          *,
-          project:projects(id, name, address, client_name)
-        `)
-        .eq("token", token)
-        .eq("status", "active")
-        .gt("expires_at", new Date().toISOString())
-        .single();
+      const { data, error } = await supabase.functions.invoke("get-shared-generator-report", {
+        body: { token },
+      });
 
-      if (error) throw error;
-      if (!data) throw new Error("Report not found or expired");
-
+      if (error) throw new Error("Failed to load report");
+      if (data?.error) throw new Error(data.error);
       return data;
     },
     enabled: !!token,
   });
 
-  // Update view count
-  const updateViewMutation = useMutation({
-    mutationFn: async () => {
-      if (!shareData) return;
-      await supabase
-        .from("generator_report_shares")
-        .update({
-          viewed_at: new Date().toISOString(),
-          view_count: (shareData.view_count || 0) + 1,
-        })
-        .eq("id", shareData.id);
-    },
-  });
-
-  useEffect(() => {
-    if (shareData && !shareData.viewed_at) {
-      updateViewMutation.mutate();
-    }
-  }, [shareData]);
-
-  // Fetch generator data
-  const projectId = shareData?.project_id;
+  const shareData = reportData?.share;
+  const project = reportData?.project;
+  const zones = reportData?.zones || [];
+  const zoneGenerators = reportData?.zoneGenerators || [];
+  const tenants = reportData?.tenants || [];
+  const settings = reportData?.settings;
   const sharedSections = shareData?.shared_sections || [];
 
-  const { data: zones = [] } = useQuery({
-    queryKey: ["client-generator-zones", projectId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("generator_zones")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("display_order");
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!projectId,
-  });
-
-  const zoneIds = zones.map((z) => z.id);
-
-  const { data: zoneGenerators = [] } = useQuery({
-    queryKey: ["client-zone-generators", projectId, zoneIds],
-    queryFn: async () => {
-      if (!zoneIds.length) return [];
-      const { data, error } = await supabase
-        .from("zone_generators")
-        .select("*")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!projectId && zoneIds.length > 0,
-  });
-
-  const { data: tenants = [] } = useQuery({
-    queryKey: ["client-tenants", projectId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tenants")
-        .select("*")
-        .eq("project_id", projectId);
-      if (error) throw error;
-      return (data || []).sort((a, b) => {
-        const numA = parseInt(a.shop_number.match(/\d+/)?.[0] || "0");
-        const numB = parseInt(b.shop_number.match(/\d+/)?.[0] || "0");
-        return numA - numB;
-      });
-    },
-    enabled: !!projectId && sharedSections.includes("breakdown"),
-  });
-
-  const { data: settings } = useQuery({
-    queryKey: ["client-generator-settings", projectId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("generator_settings")
-        .select("*")
-        .eq("project_id", projectId)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!projectId,
-  });
-
   // Calculate metrics
-  const totalKva = zoneGenerators.reduce((sum, gen) => {
-    const sizeStr = gen.generator_size || "";
-    const match = sizeStr.match(/(\d+)\s*kva/i);
+  const totalKva = zoneGenerators.reduce((sum: number, gen: any) => {
+    const match = (gen.generator_size || "").match(/(\d+)\s*kva/i);
     return sum + (match ? parseInt(match[1]) : 0);
   }, 0);
 
-  const totalGeneratorCost = zoneGenerators.reduce((sum, gen) => sum + (Number(gen.generator_cost) || 0), 0);
-  const tenantCount = tenants.filter((t) => !t.own_generator_provided).length;
+  const totalGeneratorCost = zoneGenerators.reduce((sum: number, gen: any) => sum + (Number(gen.generator_cost) || 0), 0);
+
+  const sortedTenants = [...tenants].sort((a: any, b: any) => {
+    const numA = parseInt(a.shop_number?.match(/\d+/)?.[0] || "0");
+    const numB = parseInt(b.shop_number?.match(/\d+/)?.[0] || "0");
+    return numA - numB;
+  });
+
+  const tenantCount = sortedTenants.filter((t: any) => !t.own_generator_provided).length;
 
   const calculateLoading = (tenant: any): number => {
     if (!tenant.area || tenant.own_generator_provided) return 0;
@@ -142,9 +62,9 @@ const ClientGeneratorReportView = () => {
     return tenant.area * (kwPerSqm[tenant.shop_category] || 0.03);
   };
 
-  const totalKw = tenants.reduce((sum, t) => sum + calculateLoading(t), 0);
+  const totalKw = sortedTenants.reduce((sum: number, t: any) => sum + calculateLoading(t), 0);
 
-  if (shareLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
         <div className="text-center">
@@ -155,7 +75,7 @@ const ClientGeneratorReportView = () => {
     );
   }
 
-  if (shareError || !shareData) {
+  if (error || !shareData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-red-900/50 to-slate-900">
         <Card className="max-w-md mx-4 bg-white/10 backdrop-blur-lg border-white/20">
@@ -170,8 +90,6 @@ const ClientGeneratorReportView = () => {
       </div>
     );
   }
-
-  const project = shareData.project as any;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-slate-900 dark:via-blue-900/20 dark:to-slate-900">
@@ -237,15 +155,15 @@ const ClientGeneratorReportView = () => {
               Generator Zones
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {zones.map((zone) => {
-                const gens = zoneGenerators.filter((g) => g.zone_id === zone.id);
-                const zoneKva = gens.reduce((sum, g) => {
+              {zones.map((zone: any) => {
+                const gens = zoneGenerators.filter((g: any) => g.zone_id === zone.id);
+                const zoneKva = gens.reduce((sum: number, g: any) => {
                   const match = (g.generator_size || "").match(/(\d+)\s*kva/i);
                   return sum + (match ? parseInt(match[1]) : 0);
                 }, 0);
-                const zoneLoad = tenants
-                  .filter((t) => t.generator_zone_id === zone.id && !t.own_generator_provided)
-                  .reduce((sum, t) => sum + calculateLoading(t), 0);
+                const zoneLoad = sortedTenants
+                  .filter((t: any) => t.generator_zone_id === zone.id && !t.own_generator_provided)
+                  .reduce((sum: number, t: any) => sum + calculateLoading(t), 0);
                 const utilization = zoneKva > 0 ? (zoneLoad / (zoneKva * 0.8)) * 100 : 0;
 
                 return (
@@ -282,7 +200,7 @@ const ClientGeneratorReportView = () => {
                         <div className="pt-2 border-t">
                           <p className="text-xs text-muted-foreground mb-1">Generators:</p>
                           <div className="flex flex-wrap gap-1">
-                            {gens.map((g, i) => (
+                            {gens.map((g: any, i: number) => (
                               <Badge key={i} variant="secondary" className="text-xs">
                                 {g.generator_size}
                               </Badge>
@@ -299,7 +217,7 @@ const ClientGeneratorReportView = () => {
         )}
 
         {/* Tenant Breakdown */}
-        {sharedSections.includes("breakdown") && tenants.length > 0 && (
+        {sharedSections.includes("breakdown") && sortedTenants.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-purple-500" />
@@ -319,10 +237,10 @@ const ClientGeneratorReportView = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {tenants
-                      .filter((t) => !t.own_generator_provided)
-                      .map((tenant) => {
-                        const zone = zones.find((z) => z.id === tenant.generator_zone_id);
+                    {sortedTenants
+                      .filter((t: any) => !t.own_generator_provided)
+                      .map((tenant: any) => {
+                        const zone = zones.find((z: any) => z.id === tenant.generator_zone_id);
                         const loading = calculateLoading(tenant);
                         return (
                           <tr key={tenant.id} className="hover:bg-muted/30">
