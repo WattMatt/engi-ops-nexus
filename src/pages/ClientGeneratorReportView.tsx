@@ -124,7 +124,7 @@ const ClientGeneratorReportView = () => {
 
   // ── Render ──
   return (
-    <div ref={topRef} style={{ background: "#f8fafc", minHeight: "100vh", overflowY: "auto" }}>
+    <div ref={topRef} style={{ background: "#f8fafc" }}>
 
       {/* ═══════════════ HERO HEADER ═══════════════ */}
       <header style={{
