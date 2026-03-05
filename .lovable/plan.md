@@ -1,68 +1,55 @@
 
 
-# Dropbox Drawing Sync
+# Fix: Shared Generator Report Shows Incorrect Load Data
 
-## Overview
-Build an edge function and UI component that scans Dropbox for project drawing PDFs and syncs them into the `project_drawings` table and Supabase Storage.
+## The Problem
 
-## Key Design Decision: Authentication
-Your existing Dropbox integration uses **per-user OAuth** (tokens stored in `user_storage_connections`), not a global access token. The new `sync-drawings` edge function will reuse this same pattern -- the logged-in user's Dropbox credentials are used to scan folders. No new secret is needed.
+The shared report page (`ClientGeneratorReportView.tsx`) and the edge function (`get-shared-generator-report`) have a fundamental data accuracy issue: **loads are recalculated from scratch using a basic `area × kw_per_sqm` formula, completely ignoring `manual_kw_override` values that users have set on tenants.**
 
-## Implementation
+The internal app correctly respects `manual_kw_override` in two places:
+- `GeneratorTenantList.tsx` (the tenant list UI) — checks override first, falls back to formula
+- `GeneratorReportExportPDFButton.tsx` (PDF export) — same logic
 
-### 1. Edge Function: `sync-drawings`
+But **three places get it wrong**:
+1. `ClientGeneratorReportView.tsx` — the shared external page (critical — client-facing)
+2. `GeneratorReport.tsx` — the internal report page's chart calculations (lines 141-152)
+3. The edge function doesn't include `manual_kw_override` in the tenants query (it does `select("*")` so the data is there, but the frontend ignores it)
 
-**Auth**: Validates the user's JWT, then fetches their Dropbox access token from `user_storage_connections` (same pattern as `dropbox-api`).
+## The Fix
 
-**Scanning logic**:
-- Lists folders at `/OFFICE/PROJECTS/`
-- Parses folder names matching `(NUMBER) NAME` pattern using regex `\((\d+)\)`
-- Queries `projects` table matching `project_number`
+### 1. Fix `ClientGeneratorReportView.tsx` — `calculateLoading` function (lines 59-68)
+Update to match the correct pattern from `GeneratorTenantList.tsx`:
+- Check `tenant.manual_kw_override` first — if set, return that value
+- Only fall back to `area × kw_per_sqm` if no override exists
 
-**File processing** (per matched project):
-- Navigates to `[folder]/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`
-- Lists all `.pdf` files
+### 2. Fix `GeneratorReport.tsx` — `calculateLoading` function (lines 141-152)
+Apply the same fix so internal charts also show correct values. This ensures the internal report page matches what `GeneratorTenantList` shows.
 
-**Sync logic** (per PDF):
-- Checks `project_drawings` for existing record with same `file_name` and `project_id`
-- If new:
-  1. Downloads file content from Dropbox via API
-  2. Uploads to `project-drawings` storage bucket
-  3. Inserts into `project_drawings` with: `project_id`, `drawing_title` (filename without extension), `drawing_number` (derived from filename), `category` = 'electrical', `status` = 'draft', `current_revision` = '0', `file_url`, `file_path`, `file_name`
+### 3. Ensure edge function fetches tenants for all sections (not just "breakdown")
+Currently tenants are only fetched when `sharedSections.includes("breakdown")`. But tenant data is needed for the **overview** section too (total kW calculation). Change to always fetch tenants when any load-related section is shared.
 
-**Response**: Returns a JSON summary with scanned projects, new drawings imported, skipped drawings, and any errors.
+## Technical Details
 
-### 2. Frontend: DropboxDrawingSync Component
+The corrected `calculateLoading` pattern:
+```typescript
+const calculateLoading = (tenant: any): number => {
+  if (tenant.own_generator_provided) return 0;
+  if (tenant.manual_kw_override != null) return Number(tenant.manual_kw_override);
+  if (!tenant.area) return 0;
+  const kwPerSqm = { /* from settings */ };
+  return tenant.area * (kwPerSqm[tenant.shop_category] || 0.03);
+};
+```
 
-A card-based UI placed in the Drawings section:
-- "Sync Drawings from Dropbox" button that invokes the edge function
-- Progress/loading state during sync
-- Results display showing:
-  - Projects scanned (with names)
-  - New drawings imported (count per project)
-  - Skipped (already existed)
-  - Errors (if any)
-- Requires Dropbox to be connected (shows connect prompt if not)
+The edge function fix (line 70-72): fetch tenants when overview OR breakdown is shared:
+```typescript
+sharedSections.includes("breakdown") || sharedSections.includes("overview")
+  ? supabase.from("tenants").select("*").eq("project_id", projectId)
+  : Promise.resolve({ data: [], error: null }),
+```
 
-### 3. Config Update
-
-Add `[functions.sync-drawings]` with `verify_jwt = false` to `supabase/config.toml` (JWT validated in code per existing pattern).
-
-### Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| `supabase/functions/sync-drawings/index.ts` | Create -- the edge function |
-| `src/components/drawings/DropboxDrawingSync.tsx` | Create -- the sync UI component |
-| `src/components/drawings/index.ts` | Modify -- export new component |
-| `supabase/config.toml` | Modify -- add function config |
-
-### Technical Notes
-
-- The edge function reuses the `getValidAccessToken` pattern from `dropbox-api` (refresh token handling, expiry checks)
-- `drawing_number` is derived from the PDF filename by stripping the `.pdf` extension
-- The `category` field is set to `'electrical'` since the path is within the ELECTRICAL folder
-- `created_by` is set to the authenticated user's ID
-- Storage path: `{project_id}/{filename}`
-- The Dropbox download uses the `files/download` endpoint with the file path
+## Impact
+- External shared reports will show correct, matching load values
+- Internal report charts will align with the tenant list
+- PDF exports already work correctly (no change needed)
 
