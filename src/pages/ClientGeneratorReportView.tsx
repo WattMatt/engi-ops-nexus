@@ -6,7 +6,7 @@ import {
   Loader2, Zap, Building2, TrendingUp, Users, BarChart3,
   Shield, Clock, FileText, MapPin, ChevronUp
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 /* ─────────────────────────────────────────────
    Complete rebuild — plain document-flow page.
