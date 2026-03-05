@@ -278,7 +278,7 @@ const GeneratorReport = () => {
           open={shareDialogOpen}
           onOpenChange={setShareDialogOpen}
           projectId={projectId}
-          projectName={projectId}
+          projectName={projectData?.name || "Project"}
         />
       )}
 
