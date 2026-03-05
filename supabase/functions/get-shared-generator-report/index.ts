@@ -54,7 +54,7 @@ serve(async (req) => {
 
     // 3. Fetch all needed data in parallel
     const [projectRes, zonesRes, settingsRes] = await Promise.all([
-      supabase.from("projects").select("id, name, address, client_name").eq("id", projectId).single(),
+      supabase.from("projects").select("id, name, client_name").eq("id", projectId).maybeSingle(),
       supabase.from("generator_zones").select("*").eq("project_id", projectId).order("display_order"),
       supabase.from("generator_settings").select("*").eq("project_id", projectId).maybeSingle(),
     ]);
