@@ -4,18 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import {
   Loader2, Zap, Building2, TrendingUp, Users, BarChart3,
-  Shield, Clock, ChevronDown, FileText, MapPin
+  Shield, Clock, FileText, MapPin
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { useRef, useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 
 const ClientGeneratorReportView = () => {
   const { token } = useParams<{ token: string }>();
   const [activeSection, setActiveSection] = useState("overview");
-  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const { data: reportData, isLoading, error } = useQuery({
     queryKey: ["shared-generator-report", token],
@@ -71,7 +69,6 @@ const ClientGeneratorReportView = () => {
 
   const totalKw = sortedTenants.reduce((sum: number, t: any) => sum + calculateLoading(t), 0);
 
-  // Build nav items from shared sections
   const navItems = [
     sharedSections.includes("overview") && { id: "overview", label: "Overview", icon: Zap },
     sharedSections.includes("zones") && zones.length > 0 && { id: "zones", label: "Zones", icon: Building2 },
@@ -79,43 +76,23 @@ const ClientGeneratorReportView = () => {
     sharedSections.includes("costs") && { id: "costs", label: "Costs", icon: BarChart3 },
   ].filter(Boolean) as { id: string; label: string; icon: any }[];
 
-  // Intersection observer for active section tracking
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
-          }
-        }
-      },
-      { rootMargin: "-20% 0px -70% 0px" }
-    );
-
-    Object.values(sectionRefs.current).forEach((el) => {
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
-  }, [reportData]);
-
-  const scrollToSection = (id: string) => {
-    sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const scrollToSection = useCallback((id: string) => {
+    setActiveSection(id);
+    const el = document.getElementById(`section-${id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
-        <div className="text-center space-y-4">
-          <div className="relative">
-            <div className="h-16 w-16 rounded-2xl bg-blue-500/20 flex items-center justify-center mx-auto">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-            </div>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ height: 64, width: 64, borderRadius: 16, background: "rgba(59,130,246,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#60a5fa" }} />
           </div>
-          <div>
-            <p className="text-white font-medium">Loading Report</p>
-            <p className="text-slate-400 text-sm">Please wait...</p>
-          </div>
+          <p style={{ color: "#fff", fontWeight: 500 }}>Loading Report</p>
+          <p style={{ color: "#94a3b8", fontSize: 14 }}>Please wait...</p>
         </div>
       </div>
     );
@@ -123,13 +100,13 @@ const ClientGeneratorReportView = () => {
 
   if (error || !shareData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4">
-        <div className="max-w-md w-full bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-10 text-center">
-          <div className="h-20 w-20 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-6">
-            <Shield className="h-10 w-10 text-red-400" />
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a", padding: 16 }}>
+        <div style={{ maxWidth: 420, width: "100%", background: "rgba(30,41,59,0.5)", borderRadius: 16, border: "1px solid rgba(51,65,85,0.5)", padding: 40, textAlign: "center" }}>
+          <div style={{ height: 80, width: 80, borderRadius: 16, background: "rgba(239,68,68,0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+            <Shield className="h-10 w-10" style={{ color: "#f87171" }} />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-3">Access Denied</h1>
-          <p className="text-slate-400 leading-relaxed">
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Access Denied</h1>
+          <p style={{ color: "#94a3b8", lineHeight: 1.6 }}>
             This report link has expired or been revoked. Please contact the sender for a new link.
           </p>
         </div>
@@ -145,38 +122,68 @@ const ClientGeneratorReportView = () => {
     (settings?.control_wiring_cost || 0);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f172a]" style={{ overflow: 'visible' }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        overflowY: "auto",
+        overflowX: "hidden",
+        position: "relative",
+      }}
+    >
       {/* Sticky Navigation */}
-      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-                <Zap className="h-4 w-4 text-white" />
+      <nav
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          background: "rgba(255,255,255,0.9)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ maxWidth: 1152, margin: "0 auto", padding: "0 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                height: 32, width: 32, borderRadius: 8,
+                background: "linear-gradient(135deg, #2563eb, #4f46e5)",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <Zap className="h-4 w-4" style={{ color: "#fff" }} />
               </div>
-              <span className="font-semibold text-sm text-slate-900 dark:text-white hidden sm:block">
+              <span style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>
                 {project?.name || "Generator Report"}
               </span>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               {navItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => scrollToSection(item.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    activeSection === item.id
-                      ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-                  }`}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: activeSection === item.id ? "#dbeafe" : "transparent",
+                    color: activeSection === item.id ? "#1d4ed8" : "#64748b",
+                    transition: "all 0.2s",
+                  }}
                 >
-                  <item.icon className="h-3.5 w-3.5 inline mr-1.5" />
+                  <item.icon style={{ height: 14, width: 14 }} />
                   {item.label}
                 </button>
               ))}
             </div>
 
-            <Badge className="bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20 text-xs">
+            <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">
               <Clock className="h-3 w-3 mr-1" />
               Expires {format(new Date(shareData.expires_at), "MMM d, yyyy")}
             </Badge>
@@ -185,29 +192,31 @@ const ClientGeneratorReportView = () => {
       </nav>
 
       {/* Hero Header */}
-      <header className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1e3a5f] via-[#1e40af] to-[#312e81]" />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyem0wLTR2Mkgy')] opacity-30" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-12 md:py-16">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+      <header style={{
+        position: "relative",
+        overflow: "hidden",
+        background: "linear-gradient(135deg, #1e3a5f, #1e40af, #312e81)",
+      }}>
+        <div style={{ maxWidth: 1152, margin: "0 auto", padding: "48px 16px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 24 }}>
             <div>
               {shareData.recipient_name && (
-                <p className="text-blue-200 text-sm mb-2">
-                  Prepared for <span className="font-medium text-white">{shareData.recipient_name}</span>
+                <p style={{ color: "#bfdbfe", fontSize: 14, marginBottom: 8 }}>
+                  Prepared for <span style={{ fontWeight: 500, color: "#fff" }}>{shareData.recipient_name}</span>
                 </p>
               )}
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight mb-3">
+              <h1 style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 700, color: "#fff", letterSpacing: "-0.02em", marginBottom: 12 }}>
                 Generator Report
               </h1>
-              <div className="flex flex-wrap items-center gap-3 text-blue-100">
-                <span className="flex items-center gap-1.5">
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, color: "#bfdbfe" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <FileText className="h-4 w-4" />
                   {project?.name || "Project"}
                 </span>
                 {project?.address && (
                   <>
-                    <span className="text-blue-300/40">•</span>
-                    <span className="flex items-center gap-1.5">
+                    <span style={{ color: "rgba(147,197,253,0.4)" }}>•</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <MapPin className="h-4 w-4" />
                       {project.address}
                     </span>
@@ -215,298 +224,231 @@ const ClientGeneratorReportView = () => {
                 )}
               </div>
               {project?.client_name && (
-                <p className="text-blue-200/70 text-sm mt-2">Client: {project.client_name}</p>
+                <p style={{ color: "rgba(191,219,254,0.7)", fontSize: 14, marginTop: 8 }}>Client: {project.client_name}</p>
               )}
             </div>
-
-            {/* Quick stats in header */}
-            <div className="flex gap-6 md:gap-8">
-              <div className="text-center">
-                <p className="text-3xl md:text-4xl font-bold text-white">{totalKva}</p>
-                <p className="text-blue-200 text-xs font-medium uppercase tracking-wider mt-1">kVA</p>
-              </div>
-              <div className="text-center">
-                <p className="text-3xl md:text-4xl font-bold text-white">{zones.length}</p>
-                <p className="text-blue-200 text-xs font-medium uppercase tracking-wider mt-1">Zones</p>
-              </div>
-              <div className="text-center">
-                <p className="text-3xl md:text-4xl font-bold text-white">{tenantCount}</p>
-                <p className="text-blue-200 text-xs font-medium uppercase tracking-wider mt-1">Tenants</p>
-              </div>
+            <div style={{ display: "flex", gap: 32 }}>
+              {[
+                { val: totalKva, label: "KVA" },
+                { val: zones.length, label: "ZONES" },
+                { val: tenantCount, label: "TENANTS" },
+              ].map((s) => (
+                <div key={s.label} style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 700, color: "#fff" }}>{s.val}</p>
+                  <p style={{ color: "#bfdbfe", fontSize: 11, fontWeight: 500, letterSpacing: "0.1em", marginTop: 4 }}>{s.label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 space-y-12">
-        {/* Overview Section */}
-        {sharedSections.includes("overview") && (
-          <section
-            id="overview"
-            ref={(el) => { sectionRefs.current["overview"] = el; }}
-          >
-            <SectionHeading icon={Zap} title="Key Metrics" iconColor="text-amber-500" />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-              <MetricCard
-                icon={<Zap className="h-5 w-5" />}
-                label="Total Capacity"
-                value={`${totalKva} kVA`}
-                color="blue"
-              />
-              <MetricCard
-                icon={<TrendingUp className="h-5 w-5" />}
-                label="Total Load"
-                value={`${totalKw.toFixed(1)} kW`}
-                color="emerald"
-              />
-              <MetricCard
-                icon={<Building2 className="h-5 w-5" />}
-                label="Generator Zones"
-                value={zones.length.toString()}
-                color="indigo"
-              />
-              <MetricCard
-                icon={<Users className="h-5 w-5" />}
-                label="Tenants Covered"
-                value={tenantCount.toString()}
-                color="violet"
-              />
-            </div>
-          </section>
-        )}
+      <main style={{ maxWidth: 1152, margin: "0 auto", padding: "32px 16px 48px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 48 }}>
 
-        {/* Generator Zones */}
-        {sharedSections.includes("zones") && zones.length > 0 && (
-          <section
-            id="zones"
-            ref={(el) => { sectionRefs.current["zones"] = el; }}
-          >
-            <SectionHeading icon={Building2} title="Generator Zones" iconColor="text-blue-500" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {zones.map((zone: any) => {
-                const gens = zoneGenerators.filter((g: any) => g.zone_id === zone.id);
-                const zoneKva = gens.reduce((sum: number, g: any) => {
-                  const match = (g.generator_size || "").match(/(\d+)\s*kva/i);
-                  return sum + (match ? parseInt(match[1]) : 0);
-                }, 0);
-                const zoneLoad = sortedTenants
-                  .filter((t: any) => t.generator_zone_id === zone.id && !t.own_generator_provided)
-                  .reduce((sum: number, t: any) => sum + calculateLoading(t), 0);
-                const utilization = zoneKva > 0 ? (zoneLoad / (zoneKva * 0.8)) * 100 : 0;
-                const tenantCountInZone = sortedTenants.filter(
-                  (t: any) => t.generator_zone_id === zone.id && !t.own_generator_provided
-                ).length;
+          {/* Overview Section */}
+          {sharedSections.includes("overview") && (
+            <section id="section-overview" style={{ scrollMarginTop: 72 }}>
+              <SectionHeading icon={Zap} title="Key Metrics" iconColor="#f59e0b" />
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                <MetricCard icon={<Zap className="h-5 w-5" />} label="Total Capacity" value={`${totalKva} kVA`} color="blue" />
+                <MetricCard icon={<TrendingUp className="h-5 w-5" />} label="Total Load" value={`${totalKw.toFixed(1)} kW`} color="emerald" />
+                <MetricCard icon={<Building2 className="h-5 w-5" />} label="Generator Zones" value={zones.length.toString()} color="indigo" />
+                <MetricCard icon={<Users className="h-5 w-5" />} label="Tenants Covered" value={tenantCount.toString()} color="violet" />
+              </div>
+            </section>
+          )}
 
-                return (
-                  <Card
-                    key={zone.id}
-                    className="overflow-hidden border-slate-200 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div
-                      className="h-1.5"
-                      style={{ backgroundColor: zone.zone_color || "#3b82f6" }}
-                    />
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base font-semibold">{zone.zone_name}</CardTitle>
-                        <Badge variant="outline" className="text-xs">
-                          {tenantCountInZone} tenants
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center">
-                          <p className="text-xs text-muted-foreground mb-0.5">Capacity</p>
-                          <p className="text-lg font-bold">{zoneKva} kVA</p>
+          {/* Generator Zones */}
+          {sharedSections.includes("zones") && zones.length > 0 && (
+            <section id="section-zones" style={{ scrollMarginTop: 72 }}>
+              <SectionHeading icon={Building2} title="Generator Zones" iconColor="#3b82f6" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {zones.map((zone: any) => {
+                  const gens = zoneGenerators.filter((g: any) => g.zone_id === zone.id);
+                  const zoneKva = gens.reduce((sum: number, g: any) => {
+                    const match = (g.generator_size || "").match(/(\d+)\s*kva/i);
+                    return sum + (match ? parseInt(match[1]) : 0);
+                  }, 0);
+                  const zoneLoad = sortedTenants
+                    .filter((t: any) => t.generator_zone_id === zone.id && !t.own_generator_provided)
+                    .reduce((sum: number, t: any) => sum + calculateLoading(t), 0);
+                  const utilization = zoneKva > 0 ? (zoneLoad / (zoneKva * 0.8)) * 100 : 0;
+                  const tenantCountInZone = sortedTenants.filter(
+                    (t: any) => t.generator_zone_id === zone.id && !t.own_generator_provided
+                  ).length;
+
+                  return (
+                    <Card key={zone.id} className="overflow-hidden border-slate-200 shadow-sm">
+                      <div className="h-1.5" style={{ backgroundColor: zone.zone_color || "#3b82f6" }} />
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base font-semibold">{zone.zone_name}</CardTitle>
+                          <Badge variant="outline" className="text-xs">{tenantCountInZone} tenants</Badge>
                         </div>
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center">
-                          <p className="text-xs text-muted-foreground mb-0.5">Load</p>
-                          <p className="text-lg font-bold">{zoneLoad.toFixed(1)} kW</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Utilization</span>
-                          <span
-                            className={`font-semibold ${
-                              utilization > 80
-                                ? "text-red-500"
-                                : utilization > 60
-                                  ? "text-amber-500"
-                                  : "text-emerald-500"
-                            }`}
-                          >
-                            {utilization.toFixed(0)}%
-                          </span>
-                        </div>
-                        <Progress value={Math.min(utilization, 100)} className="h-2" />
-                      </div>
-
-                      {gens.length > 0 && (
-                        <div className="pt-3 border-t border-slate-100 dark:border-slate-700/50">
-                          <p className="text-xs text-muted-foreground mb-2">Generators</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {gens.map((g: any, i: number) => (
-                              <Badge key={i} variant="secondary" className="text-xs font-medium">
-                                {g.generator_size}
-                              </Badge>
-                            ))}
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div style={{ background: "#f8fafc", borderRadius: 8, padding: 12, textAlign: "center" }}>
+                            <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>Capacity</p>
+                            <p style={{ fontSize: 18, fontWeight: 700 }}>{zoneKva} kVA</p>
+                          </div>
+                          <div style={{ background: "#f8fafc", borderRadius: 8, padding: 12, textAlign: "center" }}>
+                            <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>Load</p>
+                            <p style={{ fontSize: 18, fontWeight: 700 }}>{zoneLoad.toFixed(1)} kW</p>
                           </div>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Tenant Breakdown */}
-        {sharedSections.includes("breakdown") && sortedTenants.length > 0 && (
-          <section
-            id="breakdown"
-            ref={(el) => { sectionRefs.current["breakdown"] = el; }}
-          >
-            <SectionHeading icon={Users} title="Tenant Breakdown" iconColor="text-violet-500" />
-            <Card className="overflow-hidden border-slate-200 dark:border-slate-700/50 shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700/50">
-                      <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Shop</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Tenant</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Category</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600 dark:text-slate-300">Area (m²)</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-600 dark:text-slate-300">Load (kW)</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Zone</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedTenants
-                      .filter((t: any) => !t.own_generator_provided)
-                      .map((tenant: any, idx: number) => {
-                        const zone = zones.find((z: any) => z.id === tenant.generator_zone_id);
-                        const loading = calculateLoading(tenant);
-                        return (
-                          <tr
-                            key={tenant.id}
-                            className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${
-                              idx % 2 === 0 ? "" : "bg-slate-25 dark:bg-slate-800/10"
-                            }`}
-                          >
-                            <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
-                              {tenant.shop_number}
-                            </td>
-                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                              {tenant.shop_name || "—"}
-                            </td>
-                            <td className="px-4 py-3">
-                              <CategoryBadge category={tenant.shop_category} />
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
-                              {tenant.area?.toFixed(0) || "—"}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-900 dark:text-white">
-                              {loading.toFixed(2)}
-                            </td>
-                            <td className="px-4 py-3">
-                              {zone && (
-                                <Badge
-                                  style={{ backgroundColor: zone.zone_color || "#3b82f6" }}
-                                  className="text-white border-0 text-xs"
-                                >
-                                  {zone.zone_name}
-                                </Badge>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-slate-100 dark:bg-slate-800/60">
-                      <td colSpan={4} className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200">
-                        Total Load
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-bold text-slate-900 dark:text-white">
-                        {totalKw.toFixed(2)} kW
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
+                        <div>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                            <span style={{ color: "#64748b" }}>Utilization</span>
+                            <span style={{
+                              fontWeight: 600,
+                              color: utilization > 80 ? "#ef4444" : utilization > 60 ? "#f59e0b" : "#10b981"
+                            }}>
+                              {utilization.toFixed(0)}%
+                            </span>
+                          </div>
+                          <Progress value={Math.min(utilization, 100)} className="h-2" />
+                        </div>
+                        {gens.length > 0 && (
+                          <div style={{ paddingTop: 12, borderTop: "1px solid #f1f5f9" }}>
+                            <p style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>Generators</p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {gens.map((g: any, i: number) => (
+                                <Badge key={i} variant="secondary" className="text-xs font-medium">{g.generator_size}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
-            </Card>
-          </section>
-        )}
+            </section>
+          )}
 
-        {/* Cost Summary */}
-        {sharedSections.includes("costs") && (
-          <section
-            id="costs"
-            ref={(el) => { sectionRefs.current["costs"] = el; }}
-          >
-            <SectionHeading icon={BarChart3} title="Cost Summary" iconColor="text-emerald-500" />
-            <Card className="overflow-hidden border-slate-200 dark:border-slate-700/50 shadow-sm">
-              <CardContent className="p-6 md:p-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                  <CostCard
-                    label="Generator Equipment"
-                    value={totalGeneratorCost}
-                    color="blue"
-                  />
-                  <CostCard
-                    label="Tenant Distribution Boards"
-                    value={tenantCount * (settings?.rate_per_tenant_db || 0)}
-                    color="emerald"
-                  />
-                  <CostCard
-                    label="Total Capital Cost"
-                    value={totalCapital}
-                    color="indigo"
-                    isTotal
-                  />
+          {/* Tenant Breakdown */}
+          {sharedSections.includes("breakdown") && sortedTenants.length > 0 && (
+            <section id="section-breakdown" style={{ scrollMarginTop: 72 }}>
+              <SectionHeading icon={Users} title="Tenant Breakdown" iconColor="#8b5cf6" />
+              <Card className="overflow-hidden border-slate-200 shadow-sm">
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", fontSize: 14, borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Shop</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Tenant</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Category</th>
+                        <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600, color: "#475569" }}>Area (m²)</th>
+                        <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600, color: "#475569" }}>Load (kW)</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#475569" }}>Zone</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedTenants
+                        .filter((t: any) => !t.own_generator_provided)
+                        .map((tenant: any, idx: number) => {
+                          const zone = zones.find((z: any) => z.id === tenant.generator_zone_id);
+                          const loading = calculateLoading(tenant);
+                          return (
+                            <tr
+                              key={tenant.id}
+                              style={{
+                                borderBottom: "1px solid #f1f5f9",
+                                background: idx % 2 === 1 ? "#fafbfc" : "transparent",
+                              }}
+                            >
+                              <td style={{ padding: "12px 16px", fontWeight: 500, color: "#0f172a" }}>{tenant.shop_number}</td>
+                              <td style={{ padding: "12px 16px", color: "#475569" }}>{tenant.shop_name || "—"}</td>
+                              <td style={{ padding: "12px 16px" }}>
+                                <CategoryBadge category={tenant.shop_category} />
+                              </td>
+                              <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#475569" }}>
+                                {tenant.area?.toFixed(0) || "—"}
+                              </td>
+                              <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 500, color: "#0f172a" }}>
+                                {loading.toFixed(2)}
+                              </td>
+                              <td style={{ padding: "12px 16px" }}>
+                                {zone && (
+                                  <Badge style={{ backgroundColor: zone.zone_color || "#3b82f6" }} className="text-white border-0 text-xs">
+                                    {zone.zone_name}
+                                  </Badge>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ background: "#f1f5f9" }}>
+                        <td colSpan={4} style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600, color: "#334155" }}>
+                          Total Load
+                        </td>
+                        <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "#0f172a" }}>
+                          {totalKw.toFixed(2)} kW
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
+              </Card>
+            </section>
+          )}
 
-                {/* Breakdown details */}
-                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700/50">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-3">Breakdown</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <BreakdownRow label="Generator Equipment" value={totalGeneratorCost} />
-                    <BreakdownRow label={`Tenant DBs (${tenantCount})`} value={tenantCount * (settings?.rate_per_tenant_db || 0)} />
-                    <BreakdownRow label={`Main Boards (${settings?.num_main_boards || 0})`} value={(settings?.num_main_boards || 0) * (settings?.rate_per_main_board || 0)} />
-                    <BreakdownRow label="Additional Cabling" value={settings?.additional_cabling_cost || 0} />
-                    <BreakdownRow label="Control Wiring" value={settings?.control_wiring_cost || 0} />
+          {/* Cost Summary */}
+          {sharedSections.includes("costs") && (
+            <section id="section-costs" style={{ scrollMarginTop: 72 }}>
+              <SectionHeading icon={BarChart3} title="Cost Summary" iconColor="#10b981" />
+              <Card className="overflow-hidden border-slate-200 shadow-sm">
+                <CardContent className="p-6 md:p-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                    <CostCard label="Generator Equipment" value={totalGeneratorCost} color="blue" />
+                    <CostCard label="Tenant Distribution Boards" value={tenantCount * (settings?.rate_per_tenant_db || 0)} color="emerald" />
+                    <CostCard label="Total Capital Cost" value={totalCapital} color="indigo" isTotal />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-        )}
+                  <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid #e2e8f0" }}>
+                    <p style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 12 }}>Breakdown</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <BreakdownRow label="Generator Equipment" value={totalGeneratorCost} />
+                      <BreakdownRow label={`Tenant DBs (${tenantCount})`} value={tenantCount * (settings?.rate_per_tenant_db || 0)} />
+                      <BreakdownRow label={`Main Boards (${settings?.num_main_boards || 0})`} value={(settings?.num_main_boards || 0) * (settings?.rate_per_main_board || 0)} />
+                      <BreakdownRow label="Additional Cabling" value={settings?.additional_cabling_cost || 0} />
+                      <BreakdownRow label="Control Wiring" value={settings?.control_wiring_cost || 0} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          )}
+        </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#2563eb] flex items-center justify-center">
-                <Zap className="h-5 w-5 text-white" />
+      <footer style={{ borderTop: "1px solid #e2e8f0", background: "#fff" }}>
+        <div style={{ maxWidth: 1152, margin: "0 auto", padding: "32px 16px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{
+                height: 40, width: 40, borderRadius: 12,
+                background: "linear-gradient(135deg, #1e3a5f, #2563eb)",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <Zap className="h-5 w-5" style={{ color: "#fff" }} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">WM Office</p>
-                <p className="text-xs text-muted-foreground">Professional Project Management</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>WM Office</p>
+                <p style={{ fontSize: 12, color: "#64748b" }}>Professional Project Management</p>
               </div>
             </div>
-            <div className="text-center md:text-right">
-              <p className="text-xs text-muted-foreground">
+            <div style={{ textAlign: "right" }}>
+              <p style={{ fontSize: 12, color: "#64748b" }}>
                 Report generated {format(new Date(shareData.created_at), "MMMM d, yyyy")}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p style={{ fontSize: 12, color: "#64748b" }}>
                 This link expires {format(new Date(shareData.expires_at), "MMMM d, yyyy")}
               </p>
             </div>
@@ -519,114 +461,74 @@ const ClientGeneratorReportView = () => {
 
 // --- Helper Components ---
 
-function SectionHeading({
-  icon: Icon,
-  title,
-  iconColor,
-}: {
-  icon: any;
-  title: string;
-  iconColor: string;
-}) {
+function SectionHeading({ icon: Icon, title, iconColor }: { icon: any; title: string; iconColor: string }) {
   return (
-    <div className="flex items-center gap-2.5 mb-5">
-      <div className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-        <Icon className={`h-4 w-4 ${iconColor}`} />
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+      <div style={{ height: 32, width: 32, borderRadius: 8, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon style={{ height: 16, width: 16, color: iconColor }} />
       </div>
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>{title}</h2>
     </div>
   );
 }
 
-function MetricCard({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: string;
-}) {
-  const colorMap: Record<string, string> = {
-    blue: "from-blue-500/10 to-blue-500/5 text-blue-600 dark:text-blue-400",
-    emerald: "from-emerald-500/10 to-emerald-500/5 text-emerald-600 dark:text-emerald-400",
-    indigo: "from-indigo-500/10 to-indigo-500/5 text-indigo-600 dark:text-indigo-400",
-    violet: "from-violet-500/10 to-violet-500/5 text-violet-600 dark:text-violet-400",
+function MetricCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    blue: { bg: "rgba(59,130,246,0.1)", text: "#2563eb" },
+    emerald: { bg: "rgba(16,185,129,0.1)", text: "#059669" },
+    indigo: { bg: "rgba(99,102,241,0.1)", text: "#4f46e5" },
+    violet: { bg: "rgba(139,92,246,0.1)", text: "#7c3aed" },
   };
-  const iconBgMap: Record<string, string> = {
-    blue: "bg-blue-500/10 text-blue-500",
-    emerald: "bg-emerald-500/10 text-emerald-500",
-    indigo: "bg-indigo-500/10 text-indigo-500",
-    violet: "bg-violet-500/10 text-violet-500",
-  };
+  const c = colorMap[color] || colorMap.blue;
 
   return (
-    <Card className="border-slate-200 dark:border-slate-700/50 shadow-sm">
+    <Card className="border-slate-200 shadow-sm">
       <CardContent className="p-4 md:p-5">
-        <div className={`h-9 w-9 rounded-lg ${iconBgMap[color]} flex items-center justify-center mb-3`}>
+        <div style={{ height: 36, width: 36, borderRadius: 8, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, color: c.text }}>
           {icon}
         </div>
-        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">{label}</p>
-        <p className={`text-xl md:text-2xl font-bold ${colorMap[color]?.split(" ").slice(2).join(" ")}`}>
-          {value}
-        </p>
+        <p style={{ fontSize: 11, color: "#64748b", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</p>
+        <p style={{ fontSize: "clamp(18px, 2.5vw, 24px)", fontWeight: 700, color: c.text }}>{value}</p>
       </CardContent>
     </Card>
   );
 }
 
-function CostCard({
-  label,
-  value,
-  color,
-  isTotal = false,
-}: {
-  label: string;
-  value: number;
-  color: string;
-  isTotal?: boolean;
-}) {
-  const bgMap: Record<string, string> = {
-    blue: "bg-blue-50 dark:bg-blue-500/10 border-blue-100 dark:border-blue-500/20",
-    emerald: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20",
-    indigo: "bg-indigo-50 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/20",
+function CostCard({ label, value, color, isTotal = false }: { label: string; value: number; color: string; isTotal?: boolean }) {
+  const bgMap: Record<string, { bg: string; border: string; text: string }> = {
+    blue: { bg: "#eff6ff", border: "#dbeafe", text: "#1d4ed8" },
+    emerald: { bg: "#ecfdf5", border: "#d1fae5", text: "#047857" },
+    indigo: { bg: "#eef2ff", border: "#e0e7ff", text: "#4338ca" },
   };
-  const textMap: Record<string, string> = {
-    blue: "text-blue-700 dark:text-blue-300",
-    emerald: "text-emerald-700 dark:text-emerald-300",
-    indigo: "text-indigo-700 dark:text-indigo-300",
-  };
+  const c = bgMap[color] || bgMap.blue;
 
   return (
-    <div className={`rounded-xl border p-5 text-center ${bgMap[color]}`}>
-      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">{label}</p>
-      <p className={`${isTotal ? "text-3xl" : "text-2xl"} font-bold ${textMap[color]}`}>
-        R {value.toLocaleString()}
-      </p>
+    <div style={{ borderRadius: 12, border: `1px solid ${c.border}`, background: c.bg, padding: 20, textAlign: "center" }}>
+      <p style={{ fontSize: 11, color: "#64748b", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>{label}</p>
+      <p style={{ fontSize: isTotal ? 28 : 24, fontWeight: 700, color: c.text }}>R {value.toLocaleString()}</p>
     </div>
   );
 }
 
 function BreakdownRow({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/30">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium tabular-nums">R {value.toLocaleString()}</span>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8 }}>
+      <span style={{ fontSize: 14, color: "#64748b" }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>R {value.toLocaleString()}</span>
     </div>
   );
 }
 
 function CategoryBadge({ category }: { category: string }) {
-  const styles: Record<string, string> = {
-    standard: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
-    fast_food: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
-    restaurant: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-    national: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300",
+  const styles: Record<string, { bg: string; color: string }> = {
+    standard: { bg: "#dbeafe", color: "#1d4ed8" },
+    fast_food: { bg: "#fee2e2", color: "#dc2626" },
+    restaurant: { bg: "#d1fae5", color: "#047857" },
+    national: { bg: "#ede9fe", color: "#7c3aed" },
   };
+  const s = styles[category] || styles.standard;
   return (
-    <Badge className={`${styles[category] || "bg-slate-100 text-slate-700"} border-0 text-xs font-medium`}>
+    <Badge style={{ backgroundColor: s.bg, color: s.color, border: "none" }} className="text-xs font-medium">
       {category?.replace("_", " ") || "Standard"}
     </Badge>
   );
