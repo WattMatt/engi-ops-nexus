@@ -96,6 +96,7 @@ export function ShareGeneratorReportDialog({
 
       const profile = profileRes.data;
       const freshZones = zonesRes.data || [];
+      const freshProjectName = projectRes.data?.name || projectName;
       let freshTotalKva = 0;
 
       if (freshZones.length > 0) {
