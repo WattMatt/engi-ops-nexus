@@ -88,9 +88,10 @@ export function ShareGeneratorReportDialog({
       if (!user) throw new Error("Not authenticated");
 
       // Fetch fresh data for the email in parallel
-      const [profileRes, zonesRes] = await Promise.all([
+      const [profileRes, zonesRes, projectRes] = await Promise.all([
         supabase.from("profiles").select("full_name").eq("id", user.id).single(),
         supabase.from("generator_zones").select("id").eq("project_id", projectId),
+        supabase.from("projects").select("name").eq("id", projectId).single(),
       ]);
 
       const profile = profileRes.data;
