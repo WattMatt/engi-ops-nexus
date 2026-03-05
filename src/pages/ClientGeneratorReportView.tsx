@@ -18,6 +18,26 @@ const ClientGeneratorReportView = () => {
   const { token } = useParams<{ token: string }>();
   const topRef = useRef<HTMLDivElement>(null);
 
+  // CRITICAL: Force body scrollable — other components (Radix dialogs,
+  // walkthrough overlays, PWA prompts) may set overflow:hidden on body.
+  useEffect(() => {
+    const forceScroll = () => {
+      document.documentElement.style.overflow = "auto";
+      document.documentElement.style.height = "auto";
+      document.body.style.overflow = "auto";
+      document.body.style.height = "auto";
+    };
+    forceScroll();
+    const interval = setInterval(forceScroll, 500);
+    return () => {
+      clearInterval(interval);
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
+      document.body.style.overflow = "";
+      document.body.style.height = "";
+    };
+  }, []);
+
   const { data: reportData, isLoading, error } = useQuery({
     queryKey: ["shared-generator-report", token],
     queryFn: async () => {
