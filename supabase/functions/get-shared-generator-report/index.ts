@@ -67,7 +67,7 @@ serve(async (req) => {
       zoneIds.length > 0
         ? supabase.from("zone_generators").select("*").in("zone_id", zoneIds)
         : Promise.resolve({ data: [], error: null }),
-      sharedSections.includes("breakdown")
+      sharedSections.includes("breakdown") || sharedSections.includes("overview")
         ? supabase.from("tenants").select("*").eq("project_id", projectId)
         : Promise.resolve({ data: [], error: null }),
     ]);

@@ -57,7 +57,9 @@ const ClientGeneratorReportView = () => {
   const tenantCount = sortedTenants.filter((t: any) => !t.own_generator_provided).length;
 
   const calculateLoading = (tenant: any): number => {
-    if (!tenant.area || tenant.own_generator_provided) return 0;
+    if (tenant.own_generator_provided) return 0;
+    if (tenant.manual_kw_override != null) return Number(tenant.manual_kw_override);
+    if (!tenant.area) return 0;
     const kwPerSqm: Record<string, number> = {
       standard: settings?.standard_kw_per_sqm || 0.03,
       fast_food: settings?.fast_food_kw_per_sqm || 0.045,
