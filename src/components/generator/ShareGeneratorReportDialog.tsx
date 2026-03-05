@@ -116,7 +116,7 @@ export function ShareGeneratorReportDialog({
       // Send email via edge function
       const reportLink = `${window.location.origin}/generator-report/${share.token}`;
       
-      await supabase.functions.invoke("send-generator-report-share", {
+      const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-generator-report-share", {
         body: {
           recipientEmail,
           recipientName: recipientName || recipientEmail.split("@")[0],
@@ -129,6 +129,9 @@ export function ShareGeneratorReportDialog({
           expiryDate: format(expiresAt, "MMMM d, yyyy"),
         },
       });
+
+      if (emailError) throw new Error(`Email delivery failed: ${emailError.message}`);
+      if (emailResult?.error) throw new Error(`Email delivery failed: ${emailResult.error}`);
 
       return share;
     },

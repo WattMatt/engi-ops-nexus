@@ -179,7 +179,7 @@ serve(async (req) => {
     `;
 
     const { error: emailError } = await resend.emails.send({
-      from: "Cable Verification <noreply@resend.dev>",
+      from: "Cable Verification <noreply@watsonmattheus.com>",
       to: profile.email,
       subject: `Cable Verification ${statusText}: ${schedule_name}`,
       html: html,
