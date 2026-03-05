@@ -87,12 +87,27 @@ export function ShareGeneratorReportDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get sender profile
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .single();
+      // Fetch fresh data for the email in parallel
+      const [profileRes, zonesRes] = await Promise.all([
+        supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+        supabase.from("generator_zones").select("id").eq("project_id", projectId),
+      ]);
+
+      const profile = profileRes.data;
+      const freshZones = zonesRes.data || [];
+      let freshTotalKva = 0;
+
+      if (freshZones.length > 0) {
+        const { data: gens } = await supabase
+          .from("zone_generators")
+          .select("generator_size")
+          .in("zone_id", freshZones.map(z => z.id));
+        
+        freshTotalKva = (gens || []).reduce((sum, gen) => {
+          const match = (gen.generator_size || "").match(/(\d+)\s*kva/i);
+          return sum + (match ? parseInt(match[1]) : 0);
+        }, 0);
+      }
 
       const expiresAt = addDays(new Date(), expiryDays);
 
@@ -123,8 +138,8 @@ export function ShareGeneratorReportDialog({
           senderName: profile?.full_name || user.email,
           projectName,
           message,
-          totalKva,
-          zoneCount: zones.length,
+          totalKva: freshTotalKva,
+          zoneCount: freshZones.length,
           reportLink,
           expiryDate: format(expiresAt, "MMMM d, yyyy"),
         },
