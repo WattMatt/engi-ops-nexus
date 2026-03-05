@@ -218,3 +218,6 @@ verify_jwt = false
 
 [functions.planner-push]
 verify_jwt = false
+
+[functions.get-shared-generator-report]
+verify_jwt = false
