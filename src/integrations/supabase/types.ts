@@ -7071,6 +7071,54 @@ export type Database = {
         }
         Relationships: []
       }
+      generator_report_access_log: {
+        Row: {
+          accessed_at: string
+          id: string
+          ip_address: string | null
+          project_id: string
+          recipient_email: string | null
+          recipient_name: string | null
+          share_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          accessed_at?: string
+          id?: string
+          ip_address?: string | null
+          project_id: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          share_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          accessed_at?: string
+          id?: string
+          ip_address?: string | null
+          project_id?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          share_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generator_report_access_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generator_report_access_log_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "generator_report_shares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generator_report_shares: {
         Row: {
           created_at: string

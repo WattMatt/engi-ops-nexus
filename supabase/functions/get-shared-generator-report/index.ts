@@ -24,6 +24,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Extract request metadata
+    const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
+      || req.headers.get("x-real-ip") 
+      || "unknown";
+    const userAgent = req.headers.get("user-agent") || "unknown";
+
     // 1. Validate share token
     const { data: share, error: shareError } = await supabase
       .from("generator_report_shares")
@@ -43,14 +49,26 @@ serve(async (req) => {
     const projectId = share.project_id;
     const sharedSections = share.shared_sections || [];
 
-    // 2. Update view count
-    await supabase
-      .from("generator_report_shares")
-      .update({
-        viewed_at: new Date().toISOString(),
-        view_count: (share.view_count || 0) + 1,
-      })
-      .eq("id", share.id);
+    // 2. Update view count AND log individual access
+    await Promise.all([
+      supabase
+        .from("generator_report_shares")
+        .update({
+          viewed_at: new Date().toISOString(),
+          view_count: (share.view_count || 0) + 1,
+        })
+        .eq("id", share.id),
+      supabase
+        .from("generator_report_access_log")
+        .insert({
+          share_id: share.id,
+          project_id: projectId,
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          recipient_name: share.recipient_name || null,
+          recipient_email: share.recipient_email || null,
+        }),
+    ]);
 
     // 3. Fetch all needed data in parallel
     const [projectRes, zonesRes, settingsRes] = await Promise.all([
