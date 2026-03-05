@@ -138,7 +138,7 @@ export function ShareGeneratorReportDialog({
           recipientEmail,
           recipientName: recipientName || recipientEmail.split("@")[0],
           senderName: profile?.full_name || user.email,
-          projectName,
+          projectName: freshProjectName,
           message,
           totalKva: freshTotalKva,
           zoneCount: freshZones.length,
