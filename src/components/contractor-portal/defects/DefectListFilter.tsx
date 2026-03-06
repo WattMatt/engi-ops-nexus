@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { DefectPin } from "@/hooks/useDefectPins";
 
 interface Props {
   projectId: string;
@@ -12,6 +13,11 @@ interface Props {
   onListChange: (listId: string | null) => void;
   selectedStatus: string | null;
   onStatusChange: (status: string | null) => void;
+  selectedPackage: string | null;
+  onPackageChange: (pkg: string | null) => void;
+  selectedAssignee: string | null;
+  onAssigneeChange: (assignee: string | null) => void;
+  pins: DefectPin[];
   userName: string;
   userEmail?: string;
 }
@@ -29,6 +35,11 @@ export function DefectListFilter({
   onListChange,
   selectedStatus,
   onStatusChange,
+  selectedPackage,
+  onPackageChange,
+  selectedAssignee,
+  onAssigneeChange,
+  pins,
   userName,
   userEmail,
 }: Props) {
@@ -36,6 +47,12 @@ export function DefectListFilter({
   const createList = useCreateDefectList();
   const [newListName, setNewListName] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+
+  // Extract unique packages from pins
+  const packages = [...new Set(pins.map((p) => p.package).filter(Boolean))] as string[];
+  
+  // Extract unique assignees from pins
+  const assignees = [...new Set(pins.flatMap((p) => p.assignee_names || []).filter(Boolean))];
 
   const handleCreate = () => {
     if (!newListName.trim()) return;
@@ -47,8 +64,9 @@ export function DefectListFilter({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {/* List filter */}
       <Select value={selectedListId || "all"} onValueChange={(v) => onListChange(v === "all" ? null : v)}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[160px] h-8">
           <SelectValue placeholder="All lists" />
         </SelectTrigger>
         <SelectContent>
@@ -59,6 +77,38 @@ export function DefectListFilter({
         </SelectContent>
       </Select>
 
+      {/* Package filter */}
+      {packages.length > 0 && (
+        <Select value={selectedPackage || "all"} onValueChange={(v) => onPackageChange(v === "all" ? null : v)}>
+          <SelectTrigger className="w-[140px] h-8">
+            <SelectValue placeholder="All packages" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Packages</SelectItem>
+            {packages.map((pkg) => (
+              <SelectItem key={pkg} value={pkg}>{pkg}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Assignee filter */}
+      {assignees.length > 0 && (
+        <Select value={selectedAssignee || "all"} onValueChange={(v) => onAssigneeChange(v === "all" ? null : v)}>
+          <SelectTrigger className="w-[140px] h-8">
+            <SelectValue placeholder="All assignees" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Assignees</SelectItem>
+            <SelectItem value="__mine">My Defects</SelectItem>
+            {assignees.map((a) => (
+              <SelectItem key={a} value={a}>{a}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Status toggles */}
       <div className="flex gap-1">
         {STATUS_OPTIONS.map((s) => (
           <Badge
@@ -73,6 +123,7 @@ export function DefectListFilter({
         ))}
       </div>
 
+      {/* Create list */}
       {showCreate ? (
         <div className="flex gap-1">
           <Input
