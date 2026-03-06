@@ -148,7 +148,7 @@ export const useCreateDefectPin = () => {
 interface UpdatePinInput {
   id: string;
   project_id: string;
-  updates: Partial<Pick<DefectPin, "title" | "description" | "status" | "priority" | "package" | "list_id">>;
+  updates: Partial<Pick<DefectPin, "title" | "description" | "status" | "priority" | "package" | "list_id" | "x_percent" | "y_percent">>;
   user_name: string;
   user_email?: string;
 }
@@ -158,7 +158,6 @@ export const useUpdateDefectPin = () => {
 
   return useMutation({
     mutationFn: async ({ id, project_id, updates, user_name, user_email }: UpdatePinInput) => {
-      // Get old values for audit
       const { data: oldPin } = await supabase
         .from("defect_pins")
         .select("*")
@@ -173,7 +172,7 @@ export const useUpdateDefectPin = () => {
         .single();
       if (error) throw error;
 
-      // Log status change if applicable
+      // Log status change
       if (updates.status && oldPin && oldPin.status !== updates.status) {
         await supabase.from("defect_activity").insert({
           pin_id: id,
@@ -186,8 +185,19 @@ export const useUpdateDefectPin = () => {
         });
       }
 
+      // Log position change
+      if ((updates.x_percent !== undefined || updates.y_percent !== undefined) && oldPin) {
+        await supabase.from("defect_activity").insert({
+          pin_id: id,
+          activity_type: "updated",
+          content: "Pin relocated on drawing",
+          user_name,
+          user_email: user_email || null,
+        });
+      }
+
       // Log other field changes
-      const otherChanges = Object.keys(updates).filter((k) => k !== "status");
+      const otherChanges = Object.keys(updates).filter((k) => !["status", "x_percent", "y_percent"].includes(k));
       if (otherChanges.length > 0 && (!updates.status || (oldPin && oldPin.status === updates.status))) {
         await supabase.from("defect_activity").insert({
           pin_id: id,
@@ -207,6 +217,42 @@ export const useUpdateDefectPin = () => {
     },
     onError: (err: Error) => {
       toast.error("Failed to update pin: " + err.message);
+    },
+  });
+};
+
+export const useDeleteDefectPin = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, project_id }: { id: string; project_id: string }) => {
+      // Delete associated photos from storage first
+      const { data: photos } = await supabase
+        .from("defect_photos")
+        .select("storage_path")
+        .eq("pin_id", id);
+
+      if (photos && photos.length > 0) {
+        await supabase.storage
+          .from("defect-photos")
+          .remove(photos.map((p) => p.storage_path));
+      }
+
+      // Cascade delete handles photos & activity rows
+      const { error } = await supabase
+        .from("defect_pins")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+
+      return { project_id };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["defect-pins", data.project_id] });
+      toast.success("Pin deleted");
+    },
+    onError: (err: Error) => {
+      toast.error("Failed to delete pin: " + err.message);
     },
   });
 };
