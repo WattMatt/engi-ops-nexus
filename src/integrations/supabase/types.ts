@@ -4207,6 +4207,7 @@ export type Database = {
       }
       defect_photos: {
         Row: {
+          annotation_json: Json | null
           created_at: string
           file_name: string | null
           file_size: number | null
@@ -4216,6 +4217,7 @@ export type Database = {
           uploaded_by_name: string | null
         }
         Insert: {
+          annotation_json?: Json | null
           created_at?: string
           file_name?: string | null
           file_size?: number | null
@@ -4225,6 +4227,7 @@ export type Database = {
           uploaded_by_name?: string | null
         }
         Update: {
+          annotation_json?: Json | null
           created_at?: string
           file_name?: string | null
           file_size?: number | null
@@ -4245,6 +4248,7 @@ export type Database = {
       }
       defect_pins: {
         Row: {
+          assignee_names: string[] | null
           created_at: string
           created_by_email: string | null
           created_by_name: string
@@ -4252,6 +4256,7 @@ export type Database = {
           drawing_id: string
           id: string
           list_id: string | null
+          location_area: string | null
           markup_json: Json | null
           number_id: number
           package: string | null
@@ -4264,6 +4269,7 @@ export type Database = {
           y_percent: number
         }
         Insert: {
+          assignee_names?: string[] | null
           created_at?: string
           created_by_email?: string | null
           created_by_name: string
@@ -4271,6 +4277,7 @@ export type Database = {
           drawing_id: string
           id?: string
           list_id?: string | null
+          location_area?: string | null
           markup_json?: Json | null
           number_id?: number
           package?: string | null
@@ -4283,6 +4290,7 @@ export type Database = {
           y_percent: number
         }
         Update: {
+          assignee_names?: string[] | null
           created_at?: string
           created_by_email?: string | null
           created_by_name?: string
@@ -4290,6 +4298,7 @@ export type Database = {
           drawing_id?: string
           id?: string
           list_id?: string | null
+          location_area?: string | null
           markup_json?: Json | null
           number_id?: number
           package?: string | null
