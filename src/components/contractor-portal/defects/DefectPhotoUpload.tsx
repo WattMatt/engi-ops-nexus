@@ -88,7 +88,7 @@ export function DefectPhotoUpload({ pinId, projectId, uploaderName }: Props) {
             <div key={photo.id} className="relative group aspect-square rounded-md overflow-hidden border bg-muted">
               <img
                 src={getPublicUrl(photo.storage_path)}
-                alt={photo.file_name || "Defect photo"}
+                alt={photo.file_name || "Status photo"}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />

@@ -100,7 +100,7 @@ export function DefectListFilter({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Assignees</SelectItem>
-            <SelectItem value="__mine">My Defects</SelectItem>
+            <SelectItem value="__mine">My Items</SelectItem>
             {assignees.map((a) => (
               <SelectItem key={a} value={a}>{a}</SelectItem>
             ))}

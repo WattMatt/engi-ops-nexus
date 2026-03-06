@@ -157,7 +157,7 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
       <Card>
         <CardContent className="py-12 text-center">
           <FileWarning className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-40" />
-          <p className="text-muted-foreground">No drawings available for defect tracking.</p>
+          <p className="text-muted-foreground">No drawings available for status tracking.</p>
           <p className="text-sm text-muted-foreground mt-1">Drawings must be uploaded to the project first.</p>
         </CardContent>
       </Card>
@@ -172,10 +172,10 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
             <div>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                Defect & Observation Tracker
+                Status Tracking
               </CardTitle>
               <CardDescription>
-                Drop pins on drawings to log defects, observations, and snag items
+                Drop pins on drawings to log observations, snag items, and track status
               </CardDescription>
             </div>
             {selectedDrawingId && (

@@ -152,7 +152,7 @@ export function DefectPinDialog({
                 Pin #{pin.number_id}
               </>
             ) : (
-              "New Defect Pin"
+              "New Status Pin"
             )}
           </DialogTitle>
         </DialogHeader>
