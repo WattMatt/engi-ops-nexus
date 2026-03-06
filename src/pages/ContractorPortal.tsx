@@ -394,14 +394,14 @@ export default function ContractorPortal() {
               </TabsTrigger>
             </InfoTooltip>
             <InfoTooltip
-              title="Defect Tracker"
-              description="Drop pins on drawings to log defects, observations, and snag items. Track resolution status with photos and comments."
+              title="Status Tracking"
+              description="Drop pins on drawings to log observations, snag items, and track resolution status with photos and comments."
               icon={MapPin}
               side="bottom"
             >
               <TabsTrigger value="defects" className="gap-2">
                 <MapPin className="h-4 w-4" />
-                <span className="hidden sm:inline">Defects</span>
+                <span className="hidden sm:inline">Status Tracking</span>
               </TabsTrigger>
             </InfoTooltip>
           </TabsList>
