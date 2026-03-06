@@ -1,109 +1,68 @@
 
 
-# Defect Tracking & Pin Drop System — Implementation Plan
+# Dropbox Drawing Sync
 
 ## Overview
-Add a new "Defects" tab to the Contractor Portal where users can view project drawings as PDFs, drop pins to mark defects/observations, attach photos and notes, and track resolution status. All access will use the existing `anon` role + `has_valid_contractor_portal_token()` RLS pattern.
+Build an edge function and UI component that scans Dropbox for project drawing PDFs and syncs them into the `project_drawings` table and Supabase Storage.
 
----
+## Key Design Decision: Authentication
+Your existing Dropbox integration uses **per-user OAuth** (tokens stored in `user_storage_connections`), not a global access token. The new `sync-drawings` edge function will reuse this same pattern -- the logged-in user's Dropbox credentials are used to scan folders. No new secret is needed.
 
-## 1. Database Schema (Migration)
+## Implementation
 
-Create 4 new tables and 2 enums, plus a storage bucket:
+### 1. Edge Function: `sync-drawings`
 
-**Tables:**
-- `defect_pins` — Core pin data (project_id, drawing_id, x/y %, title, description, status, priority, package, created_by_name/email, list_id)
-- `defect_photos` — Photos attached to pins (pin_id, storage_path, uploaded_by_name)
-- `defect_activity` — Audit trail (pin_id, activity_type, content, user_name, user_email)
-- `defect_lists` — Custom observation lists/categories per project (project_id, name)
+**Auth**: Validates the user's JWT, then fetches their Dropbox access token from `user_storage_connections` (same pattern as `dropbox-api`).
 
-**Key design decisions:**
-- No `references auth.users(id)` — contractors are unauthenticated. Store `created_by_name` and `created_by_email` (text fields) from the portal identity dialog instead.
-- Use `defect_status` enum: `open`, `in_progress`, `resolved`, `closed`
-- Use `defect_priority` enum: `low`, `medium`, `high`, `critical`
-- `number_id` auto-assigned per drawing via a trigger or application logic.
+**Scanning logic**:
+- Lists folders at `/OFFICE/PROJECTS/`
+- Parses folder names matching `(NUMBER) NAME` pattern using regex `\((\d+)\)`
+- Queries `projects` table matching `project_number`
 
-**RLS Policies (all using `has_valid_contractor_portal_token`):**
-- `defect_pins`: SELECT, INSERT, UPDATE for `anon`
-- `defect_photos`: SELECT, INSERT for `anon`
-- `defect_activity`: SELECT, INSERT for `anon`
-- `defect_lists`: SELECT, INSERT for `anon`
-- Authenticated users get access via `has_project_access()` as usual.
+**File processing** (per matched project):
+- Navigates to `[folder]/39. ELECTRICAL/000. DRAWINGS/PDF/LATEST`
+- Lists all `.pdf` files
 
-**Storage:** Create `defect-photos` bucket (public read, like `project-drawings`).
+**Sync logic** (per PDF):
+- Checks `project_drawings` for existing record with same `file_name` and `project_id`
+- If new:
+  1. Downloads file content from Dropbox via API
+  2. Uploads to `project-drawings` storage bucket
+  3. Inserts into `project_drawings` with: `project_id`, `drawing_title` (filename without extension), `drawing_number` (derived from filename), `category` = 'electrical', `status` = 'draft', `current_revision` = '0', `file_url`, `file_path`, `file_name`
 
----
+**Response**: Returns a JSON summary with scanned projects, new drawings imported, skipped drawings, and any errors.
 
-## 2. Frontend Components
+### 2. Frontend: DropboxDrawingSync Component
 
-### New Tab in ContractorPortal.tsx
-Add a "Defects" tab (with `MapPin` icon) to the existing `TabsList`, rendering a new `<ContractorDefectTracker>` component.
+A card-based UI placed in the Drawings section:
+- "Sync Drawings from Dropbox" button that invokes the edge function
+- Progress/loading state during sync
+- Results display showing:
+  - Projects scanned (with names)
+  - New drawings imported (count per project)
+  - Skipped (already existed)
+  - Errors (if any)
+- Requires Dropbox to be connected (shows connect prompt if not)
 
-### Component Tree
-```text
-ContractorDefectTracker
-├── DrawingSelector         — Dropdown to pick a drawing
-├── DefectListFilter        — Filter by observation list / status
-├── DefectDrawingViewer     — Main viewer area
-│   ├── react-pdf (Page)    — PDF background
-│   ├── Pin Overlay Layer   — Absolute-positioned MapPin icons (color-coded)
-│   └── fabric.js Canvas    — Optional markup/redlining layer
-├── DefectSidebar           — List of all pins on current drawing
-├── DefectPinDialog         — Create/edit pin (title, description, priority, package, photos)
-└── DefectActivityTimeline  — Audit trail inside the pin dialog
-```
+### 3. Config Update
 
-### UX Flow
-1. User selects a drawing from the project's drawing register.
-2. PDF renders with `react-pdf`. Existing pins overlay as colored icons.
-3. "Add Pin" mode: click on PDF → captures X/Y as percentage → opens `DefectPinDialog`.
-4. Fill in title, description, priority, package, optional photos → save.
-5. Click existing pin → opens detail sheet with activity timeline, status controls, photo gallery.
-6. Status changes and comments auto-log to `defect_activity`.
+Add `[functions.sync-drawings]` with `verify_jwt = false` to `supabase/config.toml` (JWT validated in code per existing pattern).
 
-### Pin Colors
-- Red = Open
-- Orange = In Progress  
-- Blue = Resolved
-- Green = Closed
+### Files to Create/Modify
 
----
+| File | Action |
+|------|--------|
+| `supabase/functions/sync-drawings/index.ts` | Create -- the edge function |
+| `src/components/drawings/DropboxDrawingSync.tsx` | Create -- the sync UI component |
+| `src/components/drawings/index.ts` | Modify -- export new component |
+| `supabase/config.toml` | Modify -- add function config |
 
-## 3. Data Hooks
+### Technical Notes
 
-Following project conventions, create hooks in `src/hooks/`:
-- `useDefectPins(projectId, drawingId)` — fetch pins with react-query
-- `useDefectLists(projectId)` — fetch observation lists
-- `useCreateDefectPin()` — mutation to insert pin + log activity
-- `useUpdateDefectPin()` — mutation to update status/details + log activity
-- `useDefectPhotos(pinId)` — fetch photos for a pin
-- `useDefectActivity(pinId)` — fetch activity timeline
-
----
-
-## 4. File Structure
-
-```text
-src/components/contractor-portal/defects/
-├── ContractorDefectTracker.tsx
-├── DefectDrawingViewer.tsx
-├── DefectPinDialog.tsx
-├── DefectSidebar.tsx
-├── DefectActivityTimeline.tsx
-├── DefectListFilter.tsx
-└── DefectPhotoUpload.tsx
-src/hooks/
-├── useDefectPins.tsx
-└── useDefectLists.tsx
-```
-
----
-
-## 5. Technical Notes
-
-- **Coordinates:** Stored as percentage (0–100) of the PDF container dimensions, ensuring pins are responsive across screen sizes.
-- **fabric.js:** Already installed (`fabric@^6.7.1`). Will be used for an optional markup overlay — drawings/circles/arrows saved as JSON per pin.
-- **react-pdf:** Already installed (`react-pdf@^10.2.0`). Will reuse the pattern from `ContractorFloorPlanView`.
-- **Photo compression:** Will use `browser-image-compression` (already installed) before uploading to storage.
-- **No auth.users references:** All creator/assignee tracking uses name+email text fields from the portal identity system.
+- The edge function reuses the `getValidAccessToken` pattern from `dropbox-api` (refresh token handling, expiry checks)
+- `drawing_number` is derived from the PDF filename by stripping the `.pdf` extension
+- The `category` field is set to `'electrical'` since the path is within the ELECTRICAL folder
+- `created_by` is set to the authenticated user's ID
+- Storage path: `{project_id}/{filename}`
+- The Dropbox download uses the `files/download` endpoint with the file path
 

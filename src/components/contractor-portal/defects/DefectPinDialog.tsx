@@ -1,0 +1,218 @@
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { useCreateDefectPin, useUpdateDefectPin, DefectPin } from "@/hooks/useDefectPins";
+import { useDefectLists } from "@/hooks/useDefectLists";
+import { DefectActivityTimeline } from "./DefectActivityTimeline";
+import { DefectPhotoUpload } from "./DefectPhotoUpload";
+import { Loader2 } from "lucide-react";
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  projectId: string;
+  drawingId: string;
+  pin?: DefectPin | null;
+  clickCoords?: { x: number; y: number } | null;
+  userName: string;
+  userEmail?: string;
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  open: "bg-red-500",
+  in_progress: "bg-orange-500",
+  resolved: "bg-blue-500",
+  closed: "bg-green-500",
+};
+
+export function DefectPinDialog({
+  open,
+  onClose,
+  projectId,
+  drawingId,
+  pin,
+  clickCoords,
+  userName,
+  userEmail,
+}: Props) {
+  const isEdit = !!pin;
+  const { data: lists } = useDefectLists(projectId);
+  const createPin = useCreateDefectPin();
+  const updatePin = useUpdateDefectPin();
+
+  const [title, setTitle] = useState(pin?.title || "");
+  const [description, setDescription] = useState(pin?.description || "");
+  const [priority, setPriority] = useState<string>(pin?.priority || "medium");
+  const [status, setStatus] = useState<string>(pin?.status || "open");
+  const [pkg, setPkg] = useState(pin?.package || "");
+  const [listId, setListId] = useState<string>(pin?.list_id || "none");
+
+  const handleSave = () => {
+    if (!title.trim()) return;
+
+    if (isEdit && pin) {
+      updatePin.mutate(
+        {
+          id: pin.id,
+          project_id: projectId,
+          updates: {
+            title: title.trim(),
+            description: description.trim() || null,
+            priority: priority as DefectPin["priority"],
+            status: status as DefectPin["status"],
+            package: pkg.trim() || null,
+            list_id: listId === "none" ? null : listId,
+          },
+          user_name: userName,
+          user_email: userEmail,
+        },
+        { onSuccess: onClose }
+      );
+    } else if (clickCoords) {
+      createPin.mutate(
+        {
+          project_id: projectId,
+          drawing_id: drawingId,
+          x_percent: clickCoords.x,
+          y_percent: clickCoords.y,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          priority: priority as DefectPin["priority"],
+          package: pkg.trim() || undefined,
+          created_by_name: userName,
+          created_by_email: userEmail,
+          list_id: listId === "none" ? null : listId,
+        },
+        { onSuccess: onClose }
+      );
+    }
+  };
+
+  const isPending = createPin.isPending || updatePin.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {isEdit ? (
+              <>
+                <span className={`w-3 h-3 rounded-full ${STATUS_COLORS[pin.status]}`} />
+                Pin #{pin.number_id}
+              </>
+            ) : (
+              "New Defect Pin"
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="details">
+          <TabsList className="w-full">
+            <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+            {isEdit && <TabsTrigger value="photos" className="flex-1">Photos</TabsTrigger>}
+            {isEdit && <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>}
+          </TabsList>
+
+          <TabsContent value="details" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Title *</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Brief description" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detailed notes..." />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isEdit && (
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Package</Label>
+                <Input value={pkg} onChange={(e) => setPkg(e.target.value)} placeholder="e.g. Electrical" />
+              </div>
+              <div className="space-y-2">
+                <Label>Observation List</Label>
+                <Select value={listId} onValueChange={setListId}>
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {lists?.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {isEdit && (
+              <div className="text-xs text-muted-foreground">
+                Created by {pin.created_by_name} · {new Date(pin.created_at).toLocaleDateString()}
+              </div>
+            )}
+          </TabsContent>
+
+          {isEdit && (
+            <TabsContent value="photos" className="mt-4">
+              <DefectPhotoUpload pinId={pin.id} projectId={projectId} uploaderName={userName} />
+            </TabsContent>
+          )}
+
+          {isEdit && (
+            <TabsContent value="activity" className="mt-4">
+              <DefectActivityTimeline pinId={pin.id} userName={userName} userEmail={userEmail} />
+            </TabsContent>
+          )}
+        </Tabs>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!title.trim() || isPending}>
+            {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            {isEdit ? "Save Changes" : "Create Pin"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
