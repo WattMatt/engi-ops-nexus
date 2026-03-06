@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Plus, FileWarning } from "lucide-react";
-import { useDefectPins, DefectPin } from "@/hooks/useDefectPins";
+import { MapPin, Plus, FileWarning, Move } from "lucide-react";
+import { useDefectPins, useUpdateDefectPin, DefectPin } from "@/hooks/useDefectPins";
 import { DefectDrawingViewer } from "./DefectDrawingViewer";
 import { DefectSidebar } from "./DefectSidebar";
 import { DefectPinDialog } from "./DefectPinDialog";
 import { DefectListFilter } from "./DefectListFilter";
+import { toast } from "sonner";
 
 interface Props {
   projectId: string;
@@ -22,13 +23,15 @@ interface Props {
 export function ContractorDefectTracker({ projectId, contractorName, contractorEmail }: Props) {
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const [addMode, setAddMode] = useState(false);
+  const [relocateMode, setRelocateMode] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPin, setSelectedPin] = useState<DefectPin | null>(null);
   const [clickCoords, setClickCoords] = useState<{ x: number; y: number } | null>(null);
   const [filterListId, setFilterListId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
-  // Fetch project drawings
+  const updatePin = useUpdateDefectPin();
+
   const { data: drawings, isLoading: drawingsLoading } = useQuery({
     queryKey: ["project-drawings-defects", projectId],
     queryFn: async () => {
@@ -43,10 +46,8 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
     enabled: !!projectId,
   });
 
-  // Fetch pins for selected drawing
-  const { data: allPins, isLoading: pinsLoading } = useDefectPins(projectId, selectedDrawingId || undefined);
+  const { data: allPins } = useDefectPins(projectId, selectedDrawingId || undefined);
 
-  // Filter pins
   const filteredPins = useMemo(() => {
     if (!allPins) return [];
     return allPins.filter((pin) => {
@@ -71,13 +72,32 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
     setDialogOpen(true);
   };
 
+  const handlePinRelocate = (pin: DefectPin, coords: { x: number; y: number }) => {
+    updatePin.mutate({
+      id: pin.id,
+      project_id: projectId,
+      updates: { x_percent: coords.x, y_percent: coords.y },
+      user_name: contractorName,
+      user_email: contractorEmail,
+    });
+  };
+
   const handleDialogClose = () => {
     setDialogOpen(false);
     setSelectedPin(null);
     setClickCoords(null);
   };
 
-  // Status summary
+  const toggleAddMode = () => {
+    setAddMode(!addMode);
+    if (!addMode) setRelocateMode(false);
+  };
+
+  const toggleRelocateMode = () => {
+    setRelocateMode(!relocateMode);
+    if (!relocateMode) setAddMode(false);
+  };
+
   const statusCounts = useMemo(() => {
     if (!allPins) return { open: 0, in_progress: 0, resolved: 0, closed: 0 };
     return allPins.reduce(
@@ -131,8 +151,16 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
                 </div>
                 <Button
                   size="sm"
+                  variant={relocateMode ? "secondary" : "outline"}
+                  onClick={toggleRelocateMode}
+                  title="Drag pins to relocate"
+                >
+                  <Move className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
                   variant={addMode ? "destructive" : "default"}
-                  onClick={() => setAddMode(!addMode)}
+                  onClick={toggleAddMode}
                 >
                   {addMode ? "Cancel" : <><Plus className="h-4 w-4 mr-1" /> Add Pin</>}
                 </Button>
@@ -142,11 +170,10 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Drawing selector */}
           <div className="flex flex-wrap items-center gap-3">
             <Select
               value={selectedDrawingId || ""}
-              onValueChange={(v) => { setSelectedDrawingId(v); setAddMode(false); }}
+              onValueChange={(v) => { setSelectedDrawingId(v); setAddMode(false); setRelocateMode(false); }}
             >
               <SelectTrigger className="w-[300px]">
                 <SelectValue placeholder="Select a drawing..." />
@@ -173,15 +200,16 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
             )}
           </div>
 
-          {/* Main content */}
           {selectedDrawingId && selectedDrawing?.file_url ? (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
               <DefectDrawingViewer
                 pdfUrl={selectedDrawing.file_url}
                 pins={filteredPins}
                 addMode={addMode}
+                relocateMode={relocateMode}
                 onAddPin={handleAddPin}
                 onPinClick={handlePinClick}
+                onPinRelocate={handlePinRelocate}
                 selectedPinId={selectedPin?.id || null}
               />
               <div className="border rounded-lg">
@@ -208,7 +236,6 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
         </CardContent>
       </Card>
 
-      {/* Pin dialog */}
       {dialogOpen && selectedDrawingId && (
         <DefectPinDialog
           open={dialogOpen}

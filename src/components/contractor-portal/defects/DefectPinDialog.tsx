@@ -6,18 +6,28 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { useCreateDefectPin, useUpdateDefectPin, DefectPin } from "@/hooks/useDefectPins";
+import { useCreateDefectPin, useUpdateDefectPin, useDeleteDefectPin, DefectPin } from "@/hooks/useDefectPins";
 import { useDefectLists } from "@/hooks/useDefectLists";
 import { DefectActivityTimeline } from "./DefectActivityTimeline";
 import { DefectPhotoUpload } from "./DefectPhotoUpload";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -51,6 +61,7 @@ export function DefectPinDialog({
   const { data: lists } = useDefectLists(projectId);
   const createPin = useCreateDefectPin();
   const updatePin = useUpdateDefectPin();
+  const deletePin = useDeleteDefectPin();
 
   const [title, setTitle] = useState(pin?.title || "");
   const [description, setDescription] = useState(pin?.description || "");
@@ -98,6 +109,14 @@ export function DefectPinDialog({
         { onSuccess: onClose }
       );
     }
+  };
+
+  const handleDelete = () => {
+    if (!pin) return;
+    deletePin.mutate(
+      { id: pin.id, project_id: projectId },
+      { onSuccess: onClose }
+    );
   };
 
   const isPending = createPin.isPending || updatePin.isPending;
@@ -205,12 +224,38 @@ export function DefectPinDialog({
           )}
         </Tabs>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!title.trim() || isPending}>
-            {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-            {isEdit ? "Save Changes" : "Create Pin"}
-          </Button>
+        <DialogFooter className="flex-row justify-between sm:justify-between">
+          {isEdit && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={deletePin.isPending}>
+                  {deletePin.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Pin #{pin.number_id}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete this pin along with all its photos, comments, and activity history. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Delete Pin
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={handleSave} disabled={!title.trim() || isPending}>
+              {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              {isEdit ? "Save Changes" : "Create Pin"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
