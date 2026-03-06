@@ -57,9 +57,17 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
     return allPins.filter((pin) => {
       if (filterListId && pin.list_id !== filterListId) return false;
       if (filterStatus && pin.status !== filterStatus) return false;
+      if (filterPackage && pin.package !== filterPackage) return false;
+      if (filterAssignee) {
+        if (filterAssignee === "__mine") {
+          if (!pin.assignee_names?.includes(contractorName)) return false;
+        } else {
+          if (!pin.assignee_names?.includes(filterAssignee)) return false;
+        }
+      }
       return true;
     });
-  }, [allPins, filterListId, filterStatus]);
+  }, [allPins, filterListId, filterStatus, filterPackage, filterAssignee, contractorName]);
 
   const selectedDrawing = drawings?.find((d) => d.id === selectedDrawingId);
 
@@ -232,6 +240,11 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
                 onListChange={setFilterListId}
                 selectedStatus={filterStatus}
                 onStatusChange={setFilterStatus}
+                selectedPackage={filterPackage}
+                onPackageChange={setFilterPackage}
+                selectedAssignee={filterAssignee}
+                onAssigneeChange={setFilterAssignee}
+                pins={allPins || []}
                 userName={contractorName}
                 userEmail={contractorEmail}
               />
