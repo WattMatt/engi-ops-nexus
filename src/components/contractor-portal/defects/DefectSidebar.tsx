@@ -1,7 +1,7 @@
 import { DefectPin } from "@/hooks/useDefectPins";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MapPin } from "lucide-react";
+import { MapPin, MapPinned } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface Props {
@@ -31,7 +31,7 @@ export function DefectSidebar({ pins, selectedPinId, onPinSelect }: Props) {
         <MapPin className="h-8 w-8 mx-auto mb-2 opacity-30" />
         No pins on this drawing yet.
         <br />
-        Click on the drawing to add one.
+        Click "Add Pin" or use Rapid mode.
       </div>
     );
   }
@@ -56,13 +56,24 @@ export function DefectSidebar({ pins, selectedPinId, onPinSelect }: Props) {
                   <span className="font-medium">#{pin.number_id}</span>
                   <span className="truncate">{pin.title}</span>
                 </div>
-                <div className="flex items-center gap-1.5 mt-1">
+                {pin.location_area && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <MapPinned className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground truncate">{pin.location_area}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                   <Badge variant="outline" className="text-[10px] px-1 py-0">
                     {pin.status.replace("_", " ")}
                   </Badge>
                   <Badge variant="secondary" className="text-[10px] px-1 py-0">
                     {PRIORITY_LABELS[pin.priority]}
                   </Badge>
+                  {pin.assignee_names?.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-1 py-0">
+                      {pin.assignee_names.length} assigned
+                    </Badge>
+                  )}
                   <span className="text-[10px] text-muted-foreground">
                     {formatDistanceToNow(new Date(pin.created_at), { addSuffix: true })}
                   </span>

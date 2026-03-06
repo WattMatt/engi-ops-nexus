@@ -15,6 +15,8 @@ export interface DefectPin {
   status: "open" | "in_progress" | "resolved" | "closed";
   priority: "low" | "medium" | "high" | "critical";
   package: string | null;
+  location_area: string | null;
+  assignee_names: string[];
   markup_json: any;
   created_by_name: string;
   created_by_email: string | null;
@@ -29,6 +31,7 @@ export interface DefectPhoto {
   file_name: string | null;
   file_size: number | null;
   uploaded_by_name: string | null;
+  annotation_json: any;
   created_at: string;
 }
 
@@ -108,6 +111,8 @@ interface CreatePinInput {
   description?: string;
   priority?: "low" | "medium" | "high" | "critical";
   package?: string;
+  location_area?: string;
+  assignee_names?: string[];
   created_by_name: string;
   created_by_email?: string;
 }
@@ -119,7 +124,10 @@ export const useCreateDefectPin = () => {
     mutationFn: async (input: CreatePinInput) => {
       const { data, error } = await supabase
         .from("defect_pins")
-        .insert(input)
+        .insert({
+          ...input,
+          assignee_names: input.assignee_names || [],
+        })
         .select()
         .single();
       if (error) throw error;
@@ -145,10 +153,82 @@ export const useCreateDefectPin = () => {
   });
 };
 
+/** Optimistic rapid pin creation — adds pin to cache immediately */
+export const useCreateDefectPinOptimistic = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreatePinInput) => {
+      const { data, error } = await supabase
+        .from("defect_pins")
+        .insert({
+          ...input,
+          assignee_names: input.assignee_names || [],
+        })
+        .select()
+        .single();
+      if (error) throw error;
+
+      await supabase.from("defect_activity").insert({
+        pin_id: data.id,
+        activity_type: "created",
+        content: `Pin #${data.number_id} created: ${input.title}`,
+        user_name: input.created_by_name,
+        user_email: input.created_by_email || null,
+      });
+
+      return data as DefectPin;
+    },
+    onMutate: async (input) => {
+      const qk = ["defect-pins", input.project_id, input.drawing_id];
+      await queryClient.cancelQueries({ queryKey: qk });
+      const previous = queryClient.getQueryData<DefectPin[]>(qk);
+
+      // Create optimistic pin
+      const optimisticPin: DefectPin = {
+        id: `temp-${Date.now()}`,
+        project_id: input.project_id,
+        drawing_id: input.drawing_id,
+        list_id: input.list_id || null,
+        number_id: (previous?.length || 0) + 1,
+        x_percent: input.x_percent,
+        y_percent: input.y_percent,
+        title: input.title,
+        description: input.description || null,
+        status: "open",
+        priority: input.priority || "medium",
+        package: input.package || null,
+        location_area: input.location_area || null,
+        assignee_names: input.assignee_names || [],
+        markup_json: null,
+        created_by_name: input.created_by_name,
+        created_by_email: input.created_by_email || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData<DefectPin[]>(qk, (old) => [...(old || []), optimisticPin]);
+      return { previous, qk };
+    },
+    onError: (_err, _input, context) => {
+      if (context) {
+        queryClient.setQueryData(context.qk, context.previous);
+      }
+      toast.error("Failed to create pin");
+    },
+    onSettled: (_data, _err, input) => {
+      queryClient.invalidateQueries({ queryKey: ["defect-pins", input.project_id] });
+    },
+    onSuccess: () => {
+      toast.success("Pin saved");
+    },
+  });
+};
+
 interface UpdatePinInput {
   id: string;
   project_id: string;
-  updates: Partial<Pick<DefectPin, "title" | "description" | "status" | "priority" | "package" | "list_id" | "x_percent" | "y_percent">>;
+  updates: Partial<Pick<DefectPin, "title" | "description" | "status" | "priority" | "package" | "list_id" | "x_percent" | "y_percent" | "location_area" | "assignee_names" | "markup_json">>;
   user_name: string;
   user_email?: string;
 }
@@ -197,7 +277,7 @@ export const useUpdateDefectPin = () => {
       }
 
       // Log other field changes
-      const otherChanges = Object.keys(updates).filter((k) => !["status", "x_percent", "y_percent"].includes(k));
+      const otherChanges = Object.keys(updates).filter((k) => !["status", "x_percent", "y_percent", "markup_json"].includes(k));
       if (otherChanges.length > 0 && (!updates.status || (oldPin && oldPin.status === updates.status))) {
         await supabase.from("defect_activity").insert({
           pin_id: id,
@@ -226,7 +306,6 @@ export const useDeleteDefectPin = () => {
 
   return useMutation({
     mutationFn: async ({ id, project_id }: { id: string; project_id: string }) => {
-      // Delete associated photos from storage first
       const { data: photos } = await supabase
         .from("defect_photos")
         .select("storage_path")
@@ -238,7 +317,6 @@ export const useDeleteDefectPin = () => {
           .remove(photos.map((p) => p.storage_path));
       }
 
-      // Cascade delete handles photos & activity rows
       const { error } = await supabase
         .from("defect_pins")
         .delete()
@@ -288,6 +366,30 @@ export const useAddDefectComment = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["defect-activity", data.pin_id] });
+    },
+  });
+};
+
+export const useUpdateDefectPhoto = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, pin_id, annotation_json }: { id: string; pin_id: string; annotation_json: any }) => {
+      const { data, error } = await supabase
+        .from("defect_photos")
+        .update({ annotation_json })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return { ...data, pin_id };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["defect-photos", data.pin_id] });
+      toast.success("Annotation saved");
+    },
+    onError: (err: Error) => {
+      toast.error("Failed to save annotation: " + err.message);
     },
   });
 };

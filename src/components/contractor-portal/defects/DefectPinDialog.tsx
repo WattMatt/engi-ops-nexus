@@ -23,11 +23,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useCreateDefectPin, useUpdateDefectPin, useDeleteDefectPin, DefectPin } from "@/hooks/useDefectPins";
 import { useDefectLists } from "@/hooks/useDefectLists";
 import { DefectActivityTimeline } from "./DefectActivityTimeline";
 import { DefectPhotoUpload } from "./DefectPhotoUpload";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, X } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -69,6 +70,21 @@ export function DefectPinDialog({
   const [status, setStatus] = useState<string>(pin?.status || "open");
   const [pkg, setPkg] = useState(pin?.package || "");
   const [listId, setListId] = useState<string>(pin?.list_id || "none");
+  const [locationArea, setLocationArea] = useState(pin?.location_area || "");
+  const [assigneeInput, setAssigneeInput] = useState("");
+  const [assignees, setAssignees] = useState<string[]>(pin?.assignee_names || []);
+
+  const handleAddAssignee = () => {
+    const name = assigneeInput.trim();
+    if (name && !assignees.includes(name)) {
+      setAssignees([...assignees, name]);
+      setAssigneeInput("");
+    }
+  };
+
+  const handleRemoveAssignee = (name: string) => {
+    setAssignees(assignees.filter((a) => a !== name));
+  };
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -85,6 +101,8 @@ export function DefectPinDialog({
             status: status as DefectPin["status"],
             package: pkg.trim() || null,
             list_id: listId === "none" ? null : listId,
+            location_area: locationArea.trim() || null,
+            assignee_names: assignees,
           },
           user_name: userName,
           user_email: userEmail,
@@ -105,6 +123,8 @@ export function DefectPinDialog({
           created_by_name: userName,
           created_by_email: userEmail,
           list_id: listId === "none" ? null : listId,
+          location_area: locationArea.trim() || undefined,
+          assignee_names: assignees,
         },
         { onSuccess: onClose }
       );
@@ -187,21 +207,53 @@ export function DefectPinDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
+                <Label>Location / Area</Label>
+                <Input value={locationArea} onChange={(e) => setLocationArea(e.target.value)} placeholder="e.g. Kitchen, Level 2" />
+              </div>
+              <div className="space-y-2">
                 <Label>Package</Label>
                 <Input value={pkg} onChange={(e) => setPkg(e.target.value)} placeholder="e.g. Electrical" />
               </div>
-              <div className="space-y-2">
-                <Label>Observation List</Label>
-                <Select value={listId} onValueChange={setListId}>
-                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {lists?.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Observation List</Label>
+              <Select value={listId} onValueChange={setListId}>
+                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {lists?.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Assignees</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={assigneeInput}
+                  onChange={(e) => setAssigneeInput(e.target.value)}
+                  placeholder="Name or role"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddAssignee())}
+                />
+                <Button type="button" size="sm" variant="outline" onClick={handleAddAssignee} disabled={!assigneeInput.trim()}>
+                  Add
+                </Button>
               </div>
+              {assignees.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {assignees.map((a) => (
+                    <Badge key={a} variant="secondary" className="gap-1 pr-1">
+                      {a}
+                      <button onClick={() => handleRemoveAssignee(a)} className="hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
 
             {isEdit && (

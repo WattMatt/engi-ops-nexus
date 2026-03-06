@@ -1,10 +1,10 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { DefectPin } from "@/hooks/useDefectPins";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, RotateCcw, MapPin, Crosshair, Loader2, Move } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, MapPin, Crosshair, Loader2, Move, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -43,12 +43,49 @@ export function DefectDrawingViewer({
   const [loading, setLoading] = useState(true);
   const [draggingPin, setDraggingPin] = useState<DefectPin | null>(null);
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number } | null>(null);
+  const [markupMode, setMarkupMode] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fabricRef = useRef<any>(null);
 
   const onDocumentLoad = useCallback(({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
     setLoading(false);
   }, []);
+
+  // Initialize fabric.js canvas for markup
+  useEffect(() => {
+    if (!markupMode || !canvasRef.current || !containerRef.current) return;
+
+    let active = true;
+
+    const initFabric = async () => {
+      const { Canvas: FabricCanvas } = await import("fabric");
+      if (!active || !canvasRef.current || !containerRef.current) return;
+
+      const container = containerRef.current;
+      const canvas = new FabricCanvas(canvasRef.current, {
+        width: container.scrollWidth,
+        height: container.scrollHeight,
+        isDrawingMode: true,
+        selection: false,
+      });
+
+      canvas.freeDrawingBrush.color = "#ef4444";
+      canvas.freeDrawingBrush.width = 3;
+      fabricRef.current = canvas;
+    };
+
+    initFabric();
+
+    return () => {
+      active = false;
+      if (fabricRef.current) {
+        fabricRef.current.dispose();
+        fabricRef.current = null;
+      }
+    };
+  }, [markupMode]);
 
   const getCoordsFromEvent = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -59,7 +96,8 @@ export function DefectDrawingViewer({
   };
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (draggingPin) return; // handled by mouseup
+    if (markupMode) return; // fabric handles clicks
+    if (draggingPin) return;
     if (addMode) {
       onAddPin(getCoordsFromEvent(e));
     }
@@ -87,6 +125,15 @@ export function DefectDrawingViewer({
     setDragPreview(null);
   };
 
+  const toggleMarkup = () => {
+    setMarkupMode(!markupMode);
+    if (markupMode && fabricRef.current) {
+      // Export markup JSON (could be saved to pin.markup_json)
+      const json = fabricRef.current.toJSON();
+      console.log("Markup JSON:", json);
+    }
+  };
+
   return (
     <div className="space-y-2">
       {/* Controls */}
@@ -100,6 +147,14 @@ export function DefectDrawingViewer({
         </Button>
         <Button variant="outline" size="sm" onClick={() => setScale(1)}>
           <RotateCcw className="h-4 w-4" />
+        </Button>
+        <Button
+          variant={markupMode ? "secondary" : "outline"}
+          size="sm"
+          onClick={toggleMarkup}
+          title="Toggle drawing markup"
+        >
+          <PenTool className="h-4 w-4" />
         </Button>
 
         {numPages > 1 && (
@@ -128,6 +183,12 @@ export function DefectDrawingViewer({
             Drag a pin to relocate it
           </div>
         )}
+        {markupMode && (
+          <div className="flex items-center gap-1 ml-auto text-xs text-red-600 font-medium">
+            <PenTool className="h-3.5 w-3.5" />
+            Draw on the plan (red-lining)
+          </div>
+        )}
       </div>
 
       {/* PDF + Pin overlay */}
@@ -141,8 +202,8 @@ export function DefectDrawingViewer({
           ref={containerRef}
           className={cn(
             "relative inline-block",
-            addMode && "cursor-crosshair",
-            relocateMode && !addMode && "cursor-grab"
+            addMode && !markupMode && "cursor-crosshair",
+            relocateMode && !addMode && !markupMode && "cursor-grab"
           )}
           onClick={handleContainerClick}
           onMouseMove={handleMouseMove}
@@ -157,8 +218,17 @@ export function DefectDrawingViewer({
             />
           </Document>
 
+          {/* Fabric.js markup canvas overlay */}
+          {markupMode && (
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 z-20"
+              style={{ pointerEvents: "auto" }}
+            />
+          )}
+
           {/* Pin overlays */}
-          {pins.map((pin) => {
+          {!markupMode && pins.map((pin) => {
             const isDragging = draggingPin?.id === pin.id;
             const displayX = isDragging && dragPreview ? dragPreview.x : pin.x_percent;
             const displayY = isDragging && dragPreview ? dragPreview.y : pin.y_percent;
@@ -183,7 +253,7 @@ export function DefectDrawingViewer({
                   if (!relocateMode) onPinClick(pin);
                 }}
                 onMouseDown={(e) => handlePinMouseDown(e, pin)}
-                title={`#${pin.number_id}: ${pin.title}`}
+                title={`#${pin.number_id}: ${pin.title}${pin.location_area ? ` (${pin.location_area})` : ""}`}
               >
                 <MapPin className={cn("h-6 w-6", STATUS_COLORS[pin.status])} fill="currentColor" fillOpacity={0.2} />
                 <span className="absolute -top-1 -right-1 bg-background border rounded-full text-[9px] font-bold w-4 h-4 flex items-center justify-center">
