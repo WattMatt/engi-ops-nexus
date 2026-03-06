@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Plus, FileWarning, Move } from "lucide-react";
-import { useDefectPins, useUpdateDefectPin, DefectPin } from "@/hooks/useDefectPins";
+import { MapPin, Plus, FileWarning, Move, Zap } from "lucide-react";
+import { useDefectPins, useUpdateDefectPin, useCreateDefectPinOptimistic, DefectPin } from "@/hooks/useDefectPins";
 import { DefectDrawingViewer } from "./DefectDrawingViewer";
 import { DefectSidebar } from "./DefectSidebar";
 import { DefectPinDialog } from "./DefectPinDialog";
@@ -23,6 +23,7 @@ interface Props {
 export function ContractorDefectTracker({ projectId, contractorName, contractorEmail }: Props) {
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const [addMode, setAddMode] = useState(false);
+  const [rapidMode, setRapidMode] = useState(false);
   const [relocateMode, setRelocateMode] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPin, setSelectedPin] = useState<DefectPin | null>(null);
@@ -31,6 +32,7 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
   const updatePin = useUpdateDefectPin();
+  const createPinOptimistic = useCreateDefectPinOptimistic();
 
   const { data: drawings, isLoading: drawingsLoading } = useQuery({
     queryKey: ["project-drawings-defects", projectId],
@@ -59,12 +61,29 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
 
   const selectedDrawing = drawings?.find((d) => d.id === selectedDrawingId);
 
-  const handleAddPin = (coords: { x: number; y: number }) => {
+  // Standard add: opens dialog
+  const handleAddPin = useCallback((coords: { x: number; y: number }) => {
+    if (rapidMode && selectedDrawingId) {
+      // Rapid mode: drop pin instantly, no dialog
+      const pinCount = allPins?.length || 0;
+      createPinOptimistic.mutate({
+        project_id: projectId,
+        drawing_id: selectedDrawingId,
+        x_percent: coords.x,
+        y_percent: coords.y,
+        title: `Snag ${pinCount + 1}`,
+        priority: "medium",
+        created_by_name: contractorName,
+        created_by_email: contractorEmail,
+      });
+      // Stay in rapid mode — don't turn off addMode
+      return;
+    }
     setClickCoords(coords);
     setSelectedPin(null);
     setDialogOpen(true);
     setAddMode(false);
-  };
+  }, [rapidMode, selectedDrawingId, allPins, projectId, contractorName, contractorEmail, createPinOptimistic]);
 
   const handlePinClick = (pin: DefectPin) => {
     setSelectedPin(pin);
@@ -90,12 +109,20 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
 
   const toggleAddMode = () => {
     setAddMode(!addMode);
+    setRapidMode(false);
     if (!addMode) setRelocateMode(false);
+  };
+
+  const toggleRapidMode = () => {
+    const next = !rapidMode;
+    setRapidMode(next);
+    setAddMode(next);
+    if (next) setRelocateMode(false);
   };
 
   const toggleRelocateMode = () => {
     setRelocateMode(!relocateMode);
-    if (!relocateMode) setAddMode(false);
+    if (!relocateMode) { setAddMode(false); setRapidMode(false); }
   };
 
   const statusCounts = useMemo(() => {
@@ -131,7 +158,7 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
@@ -142,7 +169,7 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
               </CardDescription>
             </div>
             {selectedDrawingId && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex gap-1.5 text-xs">
                   <Badge variant="outline" className="gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />{statusCounts.open}</Badge>
                   <Badge variant="outline" className="gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" />{statusCounts.in_progress}</Badge>
@@ -159,10 +186,19 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
                 </Button>
                 <Button
                   size="sm"
-                  variant={addMode ? "destructive" : "default"}
+                  variant={rapidMode ? "secondary" : "outline"}
+                  onClick={toggleRapidMode}
+                  title="Rapid pinning — click to drop pins instantly"
+                >
+                  <Zap className="h-4 w-4" />
+                  {rapidMode && <span className="ml-1">Rapid</span>}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={addMode && !rapidMode ? "destructive" : "default"}
                   onClick={toggleAddMode}
                 >
-                  {addMode ? "Cancel" : <><Plus className="h-4 w-4 mr-1" /> Add Pin</>}
+                  {addMode && !rapidMode ? "Cancel" : <><Plus className="h-4 w-4 mr-1" /> Add Pin</>}
                 </Button>
               </div>
             )}
@@ -173,7 +209,7 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
           <div className="flex flex-wrap items-center gap-3">
             <Select
               value={selectedDrawingId || ""}
-              onValueChange={(v) => { setSelectedDrawingId(v); setAddMode(false); setRelocateMode(false); }}
+              onValueChange={(v) => { setSelectedDrawingId(v); setAddMode(false); setRelocateMode(false); setRapidMode(false); }}
             >
               <SelectTrigger className="w-[300px]">
                 <SelectValue placeholder="Select a drawing..." />
@@ -201,7 +237,7 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
           </div>
 
           {selectedDrawingId && selectedDrawing?.file_url ? (
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
               <DefectDrawingViewer
                 pdfUrl={selectedDrawing.file_url}
                 pins={filteredPins}
