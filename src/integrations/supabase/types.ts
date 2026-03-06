@@ -4126,6 +4126,205 @@ export type Database = {
           },
         ]
       }
+      defect_activity: {
+        Row: {
+          activity_type: string
+          content: string | null
+          created_at: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          pin_id: string
+          user_email: string | null
+          user_name: string
+        }
+        Insert: {
+          activity_type: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          pin_id: string
+          user_email?: string | null
+          user_name: string
+        }
+        Update: {
+          activity_type?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          pin_id?: string
+          user_email?: string | null
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "defect_activity_pin_id_fkey"
+            columns: ["pin_id"]
+            isOneToOne: false
+            referencedRelation: "defect_pins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      defect_lists: {
+        Row: {
+          created_at: string
+          created_by_email: string | null
+          created_by_name: string | null
+          id: string
+          name: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_email?: string | null
+          created_by_name?: string | null
+          id?: string
+          name: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_email?: string | null
+          created_by_name?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "defect_lists_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      defect_photos: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          id: string
+          pin_id: string
+          storage_path: string
+          uploaded_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          pin_id: string
+          storage_path: string
+          uploaded_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          pin_id?: string
+          storage_path?: string
+          uploaded_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "defect_photos_pin_id_fkey"
+            columns: ["pin_id"]
+            isOneToOne: false
+            referencedRelation: "defect_pins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      defect_pins: {
+        Row: {
+          created_at: string
+          created_by_email: string | null
+          created_by_name: string
+          description: string | null
+          drawing_id: string
+          id: string
+          list_id: string | null
+          markup_json: Json | null
+          number_id: number
+          package: string | null
+          priority: Database["public"]["Enums"]["defect_priority"]
+          project_id: string
+          status: Database["public"]["Enums"]["defect_status"]
+          title: string
+          updated_at: string
+          x_percent: number
+          y_percent: number
+        }
+        Insert: {
+          created_at?: string
+          created_by_email?: string | null
+          created_by_name: string
+          description?: string | null
+          drawing_id: string
+          id?: string
+          list_id?: string | null
+          markup_json?: Json | null
+          number_id?: number
+          package?: string | null
+          priority?: Database["public"]["Enums"]["defect_priority"]
+          project_id: string
+          status?: Database["public"]["Enums"]["defect_status"]
+          title: string
+          updated_at?: string
+          x_percent: number
+          y_percent: number
+        }
+        Update: {
+          created_at?: string
+          created_by_email?: string | null
+          created_by_name?: string
+          description?: string | null
+          drawing_id?: string
+          id?: string
+          list_id?: string | null
+          markup_json?: Json | null
+          number_id?: number
+          package?: string | null
+          priority?: Database["public"]["Enums"]["defect_priority"]
+          project_id?: string
+          status?: Database["public"]["Enums"]["defect_status"]
+          title?: string
+          updated_at?: string
+          x_percent?: number
+          y_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "defect_pins_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: false
+            referencedRelation: "project_drawings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defect_pins_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "defect_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defect_pins_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           code: string
@@ -17634,6 +17833,8 @@ export type Database = {
         | "basket"
         | "trunking"
         | "sleeve"
+      defect_priority: "low" | "medium" | "high" | "critical"
+      defect_status: "open" | "in_progress" | "resolved" | "closed"
       design_purpose:
         | "budget_markup"
         | "pv_design"
@@ -17786,6 +17987,8 @@ export const Constants = {
       attendance_type: ["clock_in", "clock_out", "break_start", "break_end"],
       budget_status: ["draft", "active", "final"],
       cable_type: ["mv", "lv_ac", "dc", "tray", "basket", "trunking", "sleeve"],
+      defect_priority: ["low", "medium", "high", "critical"],
+      defect_status: ["open", "in_progress", "resolved", "closed"],
       design_purpose: [
         "budget_markup",
         "pv_design",
