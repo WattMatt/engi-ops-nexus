@@ -30,6 +30,8 @@ export function ContractorDefectTracker({ projectId, contractorName, contractorE
   const [clickCoords, setClickCoords] = useState<{ x: number; y: number } | null>(null);
   const [filterListId, setFilterListId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [filterPackage, setFilterPackage] = useState<string | null>(null);
+  const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
 
   const updatePin = useUpdateDefectPin();
   const createPinOptimistic = useCreateDefectPinOptimistic();
