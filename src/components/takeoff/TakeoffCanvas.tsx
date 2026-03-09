@@ -450,13 +450,30 @@ export function TakeoffCanvas({
           onDoubleClick={handleDoubleClick}
         >
           <div
-            className="w-full h-full origin-top-left"
+            className="relative origin-top-left"
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transform: pdfState.isPdf
+                ? `translate(${pan.x}px, ${pan.y}px)`  // PDF already rendered at zoom DPI
+                : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              width: pdfState.isPdf && pdfState.pageSize ? `${pdfState.pageSize.width}px` : '100%',
+              height: pdfState.isPdf && pdfState.pageSize ? `${pdfState.pageSize.height}px` : '100%',
               willChange: 'transform',
             }}
           >
-            {imageUrl ? (
+            {/* PDF loading indicator */}
+            {pdfState.isPdf && pdfState.isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {/* PDF canvas mount point */}
+            {pdfState.isPdf && (
+              <div ref={pdfCanvasRef} className="w-full h-full" />
+            )}
+
+            {/* Regular image fallback */}
+            {!pdfState.isPdf && imageUrl && (
               <img
                 src={imageUrl}
                 alt="Drawing"
@@ -467,7 +484,10 @@ export function TakeoffCanvas({
                 }}
                 draggable={false}
               />
-            ) : (
+            )}
+
+            {/* No drawing selected */}
+            {!imageUrl && (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Select a drawing to begin takeoff
               </div>
