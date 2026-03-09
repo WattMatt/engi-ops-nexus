@@ -74,7 +74,6 @@ export function FinanceProjectList() {
     setDocumentsOpen(true);
   };
 
-  const handleDelete = async (projectId: string) => {
   const { dialog: deleteProjectDialog, requestConfirm: confirmDeleteProject } = useConfirmDelete({
     onConfirm: async (projectId: string) => {
       try {
