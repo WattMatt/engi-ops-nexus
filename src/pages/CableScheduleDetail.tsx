@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { OfflineSyncStatusBar } from "@/components/pwa/OfflineSyncStatusBar";
 import { useCableOfflineSync } from "@/hooks/useCableOfflineSync";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const CableScheduleDetail = () => {
   const { scheduleId } = useParams();
