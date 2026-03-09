@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map, CircuitBoard, Copy, CheckCheck, MapPin } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map, CircuitBoard, Copy, CheckCheck, MapPin, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { ContractorDrawingRegister } from "@/components/contractor-portal/ContractorDrawingRegister";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
@@ -16,6 +16,7 @@ import { ContractorInspectionRequests } from "@/components/contractor-portal/Con
 import { ContractorFloorPlanView } from "@/components/contractor-portal/ContractorFloorPlanView";
 import { ContractorDBLegendCards } from "@/components/contractor-portal/ContractorDBLegendCards";
 import { ContractorDefectTracker } from "@/components/contractor-portal/defects/ContractorDefectTracker";
+import { TakeoffSheet } from "@/components/takeoff/TakeoffSheet";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { ContractorPortalExportButton } from "@/components/contractor-portal/ContractorPortalExportButton";
 import { PortalUserIdentityDialog, PortalUserIdentity } from "@/components/contractor-portal/PortalUserIdentityDialog";
@@ -404,6 +405,17 @@ export default function ContractorPortal() {
                 <span className="hidden sm:inline">Status Tracking</span>
               </TabsTrigger>
             </InfoTooltip>
+            <InfoTooltip
+              title="Takeoff Sheets"
+              description="Count devices and measure cable/conduit runs directly on PDF drawings. Generate Bills of Materials and export to Excel."
+              icon={FileSpreadsheet}
+              side="bottom"
+            >
+              <TabsTrigger value="takeoff" className="gap-2">
+                <FileSpreadsheet className="h-4 w-4" />
+                <span className="hidden sm:inline">Takeoff</span>
+              </TabsTrigger>
+            </InfoTooltip>
           </TabsList>
 
           <TabsContent value="drawings">
@@ -467,6 +479,14 @@ export default function ContractorPortal() {
 
           <TabsContent value="defects">
             <ContractorDefectTracker
+              projectId={project.id}
+              contractorName={activeUserName}
+              contractorEmail={activeUserEmail}
+            />
+          </TabsContent>
+
+          <TabsContent value="takeoff">
+            <TakeoffSheet
               projectId={project.id}
               contractorName={activeUserName}
               contractorEmail={activeUserEmail}
