@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -154,26 +155,24 @@ export function FinanceProjectDocuments({ open, onOpenChange, project }: Finance
     }
   };
 
-  const handleDelete = async (doc: FinanceDocument) => {
-    if (!confirm("Are you sure you want to delete this document?")) return;
+  const { dialog: deleteDocDialog, requestConfirm: confirmDeleteDoc } = useConfirmDelete<FinanceDocument>({
+    onConfirm: async (doc) => {
+      try {
+        await supabase.storage.from("finance-documents").remove([doc.file_path]);
+        const { error } = await supabase.from("finance_documents").delete().eq("id", doc.id);
+        if (error) throw error;
+        toast.success("Document deleted");
+        queryClient.invalidateQueries({ queryKey: ["finance-documents", project.id] });
+      } catch (error: any) {
+        toast.error(error.message);
+      }
+    },
+    title: "Delete Document",
+    description: "Are you sure you want to delete this document?",
+  });
 
-    try {
-      // Delete from storage
-      await supabase.storage.from("finance-documents").remove([doc.file_path]);
-
-      // Delete record
-      const { error } = await supabase
-        .from("finance_documents")
-        .delete()
-        .eq("id", doc.id);
-
-      if (error) throw error;
-
-      toast.success("Document deleted");
-      queryClient.invalidateQueries({ queryKey: ["finance-documents", project.id] });
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+  const handleDelete = (doc: FinanceDocument) => {
+    confirmDeleteDoc(doc);
   };
 
   const getDocumentTypeLabel = (type: string) => {
@@ -300,6 +299,7 @@ export function FinanceProjectDocuments({ open, onOpenChange, project }: Finance
           )}
         </div>
       </DialogContent>
+    {deleteDocDialog}
     </Dialog>
   );
 }

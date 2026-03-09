@@ -1,4 +1,5 @@
 import React from 'react';
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,10 +88,15 @@ export const ReferenceDrawingsManager: React.FC<ReferenceDrawingsManagerProps> =
     window.open(`/dashboard/floor-plan?design=${floorPlanId}`, '_blank');
   };
 
+  const { dialog: deleteDialog, requestConfirm: confirmDelete } = useConfirmDelete({
+    onConfirm: (drawingId: string) => deleteMutation.mutate(drawingId),
+    title: "Remove Reference Drawing",
+    description: "Remove this reference drawing? This won't delete the floor plan itself.",
+    confirmLabel: "Remove",
+  });
+
   const handleDelete = (drawingId: string, drawingName: string) => {
-    if (window.confirm(`Remove "${drawingName}" as a reference drawing? This won't delete the floor plan itself.`)) {
-      deleteMutation.mutate(drawingId);
-    }
+    confirmDelete(drawingId, drawingName);
   };
 
   if (isLoading) {
@@ -102,6 +108,7 @@ export const ReferenceDrawingsManager: React.FC<ReferenceDrawingsManagerProps> =
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -207,5 +214,7 @@ export const ReferenceDrawingsManager: React.FC<ReferenceDrawingsManagerProps> =
         )}
       </CardContent>
     </Card>
+    {deleteDialog}
+    </>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -202,10 +203,14 @@ export const BudgetReferenceDrawings: React.FC<BudgetReferenceDrawingsProps> = (
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const { dialog: deleteDialog, requestConfirm: confirmDelete } = useConfirmDelete<ReferenceDrawing>({
+    onConfirm: (drawing) => deleteMutation.mutate(drawing),
+    title: (_, label) => `Delete "${label}"?`,
+    description: "This cannot be undone.",
+  });
+
   const handleDelete = (drawing: ReferenceDrawing) => {
-    if (window.confirm(`Delete "${drawing.file_name}"? This cannot be undone.`)) {
-      deleteMutation.mutate(drawing);
-    }
+    confirmDelete(drawing, drawing.file_name);
   };
 
   if (isLoading) {
@@ -462,6 +467,7 @@ export const BudgetReferenceDrawings: React.FC<BudgetReferenceDrawingsProps> = (
           )}
         </DialogContent>
       </Dialog>
+      {deleteDialog}
     </>
   );
 };

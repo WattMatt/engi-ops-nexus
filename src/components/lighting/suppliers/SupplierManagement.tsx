@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -189,23 +190,27 @@ export const SupplierManagement = () => {
   };
 
   // Delete supplier
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this supplier?')) return;
+  const { dialog: deleteDialog, requestConfirm: confirmDeleteSupplier } = useConfirmDelete({
+    onConfirm: async (id: string) => {
+      try {
+        const { error } = await supabase
+          .from('lighting_suppliers')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+        setSuppliers(prev => prev.filter(s => s.id !== id));
+        toast.success('Supplier deleted');
+      } catch (error) {
+        console.error('Error deleting supplier:', error);
+        toast.error('Failed to delete supplier');
+      }
+    },
+    title: "Delete Supplier",
+    description: "Are you sure you want to delete this supplier?",
+  });
 
-    try {
-      const { error } = await supabase
-        .from('lighting_suppliers')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setSuppliers(prev => prev.filter(s => s.id !== id));
-      toast.success('Supplier deleted');
-    } catch (error) {
-      console.error('Error deleting supplier:', error);
-      toast.error('Failed to delete supplier');
-    }
+  const handleDelete = (id: string) => {
+    confirmDeleteSupplier(id);
   };
 
   // Toggle preferred status
@@ -228,6 +233,7 @@ export const SupplierManagement = () => {
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -477,6 +483,8 @@ export const SupplierManagement = () => {
         </DialogContent>
       </Dialog>
     </Card>
+    {deleteDialog}
+    </>
   );
 };
 

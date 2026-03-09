@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -412,31 +413,34 @@ export function GlobalContactsManager() {
     }
   };
 
-  const handleDelete = async (contactId: string) => {
-    if (!confirm("Are you sure you want to delete this contact from the library? It will still remain linked to existing projects.")) return;
+  const { dialog: deleteContactDialog, requestConfirm: confirmDeleteContact } = useConfirmDelete({
+    onConfirm: async (contactId: string) => {
+      try {
+        const { error } = await supabase
+          .from('global_contacts')
+          .delete()
+          .eq('id', contactId);
+        if (error) throw error;
+        toast({
+          title: "Success",
+          description: "Contact removed from library",
+        });
+        queryClient.invalidateQueries({ queryKey: ["global-contacts"] });
+      } catch (error: any) {
+        console.error("Delete error:", error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete contact",
+          variant: "destructive",
+        });
+      }
+    },
+    title: "Delete Contact",
+    description: "Are you sure you want to delete this contact from the library? It will still remain linked to existing projects.",
+  });
 
-    try {
-      const { error } = await supabase
-        .from('global_contacts')
-        .delete()
-        .eq('id', contactId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Contact removed from library",
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["global-contacts"] });
-    } catch (error: any) {
-      console.error("Delete error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete contact",
-        variant: "destructive",
-      });
-    }
+  const handleDelete = (contactId: string) => {
+    confirmDeleteContact(contactId);
   };
 
   const openEditDialog = (contact: GlobalContact) => {
@@ -916,6 +920,7 @@ export function GlobalContactsManager() {
           </div>
         )}
       </CardContent>
+      {deleteContactDialog}
     </Card>
   );
 }

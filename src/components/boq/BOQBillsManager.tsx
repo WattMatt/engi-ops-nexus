@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,7 @@ export function BOQBillsManager({ boqId, projectId }: BOQBillsManagerProps) {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any>(null);
   const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set());
+  const [deleteBillId, setDeleteBillId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: bills = [], isLoading } = useQuery({
@@ -171,12 +173,10 @@ export function BOQBillsManager({ boqId, projectId }: BOQBillsManagerProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('Delete this bill and all its sections?')) {
-                              deleteMutation.mutate(bill.id);
-                            }
-                          }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteBillId(bill.id);
+                            }}
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -216,6 +216,13 @@ export function BOQBillsManager({ boqId, projectId }: BOQBillsManagerProps) {
         onOpenChange={setImportDialogOpen}
         boqId={boqId}
         projectId={projectId}
+      />
+      <ConfirmDeleteDialog
+        open={!!deleteBillId}
+        onOpenChange={(open) => !open && setDeleteBillId(null)}
+        onConfirm={() => { if (deleteBillId) { deleteMutation.mutate(deleteBillId); setDeleteBillId(null); } }}
+        title="Delete Bill"
+        description="Delete this bill and all its sections? This action cannot be undone."
       />
     </div>
   );

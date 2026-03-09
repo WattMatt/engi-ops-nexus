@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,10 +64,14 @@ export function DistributionBoardManager({ projectId, floorPlanId }: Distributio
     setFormData({ name: "", location: "", description: "" });
   };
 
-  const handleDelete = async (board: DistributionBoard) => {
-    if (confirm(`Delete "${board.name}" and all its circuits?`)) {
-      await deleteBoard.mutateAsync({ id: board.id, projectId });
-    }
+  const { dialog: deleteDialog, requestConfirm: confirmDelete } = useConfirmDelete<DistributionBoard>({
+    onConfirm: (board) => deleteBoard.mutateAsync({ id: board.id, projectId }),
+    title: (_, label) => `Delete "${label}"?`,
+    description: "This will delete the distribution board and all its circuits. This action cannot be undone.",
+  });
+
+  const handleDelete = (board: DistributionBoard) => {
+    confirmDelete(board, board.name);
   };
 
   const openEditDialog = (board: DistributionBoard) => {
@@ -249,6 +254,7 @@ export function DistributionBoardManager({ projectId, floorPlanId }: Distributio
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {deleteDialog}
     </div>
   );
 }

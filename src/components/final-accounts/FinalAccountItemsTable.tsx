@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ interface FinalAccountItemsTableProps {
 export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubsectionId }: FinalAccountItemsTableProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: items = [], isLoading } = useQuery({
@@ -200,11 +202,7 @@ export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubse
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0"
-                        onClick={() => {
-                          if (confirm('Delete this item?')) {
-                            deleteMutation.mutate(item.id);
-                          }
-                        }}
+                        onClick={() => setDeleteItemId(item.id)}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -233,6 +231,13 @@ export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubse
           setEditingItem(null);
           recalculateSectionTotals();
         }}
+      />
+      <ConfirmDeleteDialog
+        open={!!deleteItemId}
+        onOpenChange={(open) => !open && setDeleteItemId(null)}
+        onConfirm={() => { if (deleteItemId) { deleteMutation.mutate(deleteItemId); setDeleteItemId(null); } }}
+        title="Delete Item"
+        description="Are you sure you want to delete this item?"
       />
     </div>
   );

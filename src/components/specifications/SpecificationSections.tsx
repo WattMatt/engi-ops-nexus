@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,7 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
     section_title: "",
     section_content: "",
   });
+  const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -126,6 +128,7 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
@@ -210,7 +213,7 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(section.id);
+                          setDeleteSectionId(section.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -283,5 +286,13 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
         )}
       </CardContent>
     </Card>
+    <ConfirmDeleteDialog
+      open={!!deleteSectionId}
+      onOpenChange={(open) => !open && setDeleteSectionId(null)}
+      onConfirm={() => { if (deleteSectionId) { handleDelete(deleteSectionId); setDeleteSectionId(null); } }}
+      title="Delete Section"
+      description="Are you sure you want to delete this section and all its content?"
+    />
+    </>
   );
 };

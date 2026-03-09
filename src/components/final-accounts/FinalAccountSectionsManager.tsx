@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
   const [editingSection, setEditingSection] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [reviewDialogSection, setReviewDialogSection] = useState<any>(null);
+  const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Recalculate section totals including PC and P&A items
@@ -265,9 +267,7 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
                       className="h-7 w-7 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm('Delete this section and all its items?')) {
-                          deleteMutation.mutate(section.id);
-                        }
+                        setDeleteSectionId(section.id);
                       }}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -336,6 +336,13 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
           accountId={accountId}
         />
       )}
+      <ConfirmDeleteDialog
+        open={!!deleteSectionId}
+        onOpenChange={(open) => !open && setDeleteSectionId(null)}
+        onConfirm={() => { if (deleteSectionId) { deleteMutation.mutate(deleteSectionId); setDeleteSectionId(null); } }}
+        title="Delete Section"
+        description="Delete this section and all its items? This action cannot be undone."
+      />
     </div>
   );
 }

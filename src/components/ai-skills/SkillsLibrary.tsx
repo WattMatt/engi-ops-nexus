@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,10 +37,14 @@ export function SkillsLibrary() {
     toggleFavorite.mutate({ skillId, isFavorite });
   };
 
+  const { dialog: deleteDialog, requestConfirm: confirmDeleteSkill } = useConfirmDelete({
+    onConfirm: (skillId: string) => deleteSkill.mutate(skillId),
+    title: "Delete Skill",
+    description: "Are you sure you want to delete this skill? This action cannot be undone.",
+  });
+
   const handleDeleteSkill = (skillId: string) => {
-    if (confirm("Are you sure you want to delete this skill?")) {
-      deleteSkill.mutate(skillId);
-    }
+    confirmDeleteSkill(skillId);
   };
 
   if (isLoading) {
@@ -126,6 +131,7 @@ export function SkillsLibrary() {
         open={showCreator}
         onClose={() => setShowCreator(false)}
       />
+      {deleteDialog}
     </div>
   );
 }

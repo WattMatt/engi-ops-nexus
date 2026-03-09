@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,23 +74,26 @@ export function FinanceProjectList() {
     setDocumentsOpen(true);
   };
 
-  const handleDelete = async (projectId: string) => {
-    if (!confirm("Are you sure you want to delete this project? This will also delete all associated documents and payment schedules.")) {
-      return;
-    }
+  const { dialog: deleteProjectDialog, requestConfirm: confirmDeleteProject } = useConfirmDelete({
+    onConfirm: async (projectId: string) => {
+      try {
+        const { error } = await supabase
+          .from("invoice_projects")
+          .delete()
+          .eq("id", projectId);
+        if (error) throw error;
+        toast.success("Project deleted successfully");
+        queryClient.invalidateQueries({ queryKey: ["finance-projects"] });
+      } catch (error: any) {
+        toast.error(error.message || "Failed to delete project");
+      }
+    },
+    title: "Delete Project",
+    description: "Are you sure you want to delete this project? This will also delete all associated documents and payment schedules.",
+  });
 
-    try {
-      const { error } = await supabase
-        .from("invoice_projects")
-        .delete()
-        .eq("id", projectId);
-
-      if (error) throw error;
-      toast.success("Project deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["finance-projects"] });
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+  const handleDelete = (projectId: string) => {
+    confirmDeleteProject(projectId);
   };
 
   const handleDialogClose = () => {
@@ -250,6 +254,7 @@ export function FinanceProjectList() {
           project={selectedProject}
         />
       )}
+      {deleteProjectDialog}
     </div>
   );
 }

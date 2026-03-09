@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useConfirmDelete } from "@/components/common/ConfirmDeleteDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -149,26 +150,30 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
-    if (!confirm("Are you sure you want to remove this member?")) return;
+  const { dialog: removeMemberDialog, requestConfirm: confirmRemoveMember } = useConfirmDelete({
+    onConfirm: async (memberId: string) => {
+      setLoading(true);
+      try {
+        const { error } = await supabase
+          .from("project_members")
+          .delete()
+          .eq("id", memberId);
+        if (error) throw error;
+        toast.success("Member removed successfully");
+        loadMembers();
+      } catch (error: any) {
+        toast.error(error.message || "Failed to remove member");
+      } finally {
+        setLoading(false);
+      }
+    },
+    title: "Remove Member",
+    description: "Are you sure you want to remove this member from the project?",
+    confirmLabel: "Remove",
+  });
 
-    setLoading(true);
-
-    try {
-      const { error } = await supabase
-        .from("project_members")
-        .delete()
-        .eq("id", memberId);
-
-      if (error) throw error;
-
-      toast.success("Member removed successfully");
-      loadMembers();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to remove member");
-    } finally {
-      setLoading(false);
-    }
+  const handleRemoveMember = (memberId: string) => {
+    confirmRemoveMember(memberId);
   };
 
   const handleUpdatePosition = async (memberId: string, newPosition: string) => {
@@ -400,6 +405,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
           })
         )}
       </div>
+      {removeMemberDialog}
     </div>
   );
 }

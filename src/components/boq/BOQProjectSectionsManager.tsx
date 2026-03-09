@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: sections = [], isLoading } = useQuery({
@@ -328,9 +330,7 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm('Delete this section and all its items?')) {
-                            deleteMutation.mutate(section.id);
-                          }
+                          setDeleteSectionId(section.id);
                         }}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -374,6 +374,13 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
         onOpenChange={setTemplatePickerOpen}
         onSelectTemplate={handleSelectTemplate}
         onInsertWithItems={handleInsertWithItems}
+      />
+      <ConfirmDeleteDialog
+        open={!!deleteSectionId}
+        onOpenChange={(open) => !open && setDeleteSectionId(null)}
+        onConfirm={() => { if (deleteSectionId) { deleteMutation.mutate(deleteSectionId); setDeleteSectionId(null); } }}
+        title="Delete Section"
+        description="Delete this section and all its items? This action cannot be undone."
       />
     </div>
   );
