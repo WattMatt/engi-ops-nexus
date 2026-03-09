@@ -38,8 +38,8 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
     return acc;
   }, {} as Record<string, number>);
 
-  const dbOrdered = tenants.filter(t => t.db_ordered).length;
-  const lightingOrdered = tenants.filter(t => t.lighting_ordered).length;
+  const dbOrdered = tenants.filter(t => t.db_ordered || t.db_by_tenant).length;
+  const lightingOrdered = tenants.filter(t => t.lighting_ordered || t.lighting_by_tenant).length;
   const sowReceived = tenants.filter(t => t.sow_received).length;
   const layoutReceived = tenants.filter(t => t.layout_received).length;
   const costReported = tenants.filter(t => t.cost_reported).length;
@@ -61,11 +61,11 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
   const avgCostPerSqm = totalArea > 0 ? totalCost / totalArea : 0;
   const tenantsWithCosts = tenants.filter(t => (t.db_cost || 0) > 0 || (t.lighting_cost || 0) > 0).length;
 
-  // Identify pending items
+  // Identify pending items - exclude tenants providing their own DB/lighting
   const pendingSOW = totalTenants - sowReceived;
   const pendingLayouts = totalTenants - layoutReceived;
-  const pendingDBOrders = totalTenants - dbOrdered;
-  const pendingLightingOrders = totalTenants - lightingOrdered;
+  const pendingDBOrders = tenants.filter(t => !t.db_ordered && !t.db_by_tenant).length;
+  const pendingLightingOrders = tenants.filter(t => !t.lighting_ordered && !t.lighting_by_tenant).length;
 
   const getCategoryColor = (category: string) => {
     const colors = {
