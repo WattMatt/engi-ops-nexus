@@ -3098,9 +3098,9 @@ export type Database = {
           coc_reference_number: string
           created_at: string
           created_by: string
+          date_of_issue: string | null
           earth_continuity_ohm: number | null
           earth_loop_impedance_zs_ohm: number | null
-          failed_rules_count: number
           fraud_risk_score: string
           has_bess: boolean
           has_signature: boolean
@@ -3110,7 +3110,6 @@ export type Database = {
           installation_type: string
           insulation_resistance_mohm: number | null
           inverter_sync_verified: boolean | null
-          passed_rules_count: number
           phase_configuration: string
           polarity_correct: boolean
           project_id: string | null
@@ -3126,7 +3125,7 @@ export type Database = {
           supply_frequency: number
           supply_voltage: number
           updated_at: string
-          validation_result: Json | null
+          validation_results_json: Json | null
           validation_status: string
           voltage_at_main_db_v: number | null
         }
@@ -3137,9 +3136,9 @@ export type Database = {
           coc_reference_number: string
           created_at?: string
           created_by: string
+          date_of_issue?: string | null
           earth_continuity_ohm?: number | null
           earth_loop_impedance_zs_ohm?: number | null
-          failed_rules_count?: number
           fraud_risk_score?: string
           has_bess?: boolean
           has_signature?: boolean
@@ -3149,7 +3148,6 @@ export type Database = {
           installation_type?: string
           insulation_resistance_mohm?: number | null
           inverter_sync_verified?: boolean | null
-          passed_rules_count?: number
           phase_configuration?: string
           polarity_correct?: boolean
           project_id?: string | null
@@ -3165,7 +3163,7 @@ export type Database = {
           supply_frequency?: number
           supply_voltage?: number
           updated_at?: string
-          validation_result?: Json | null
+          validation_results_json?: Json | null
           validation_status?: string
           voltage_at_main_db_v?: number | null
         }
@@ -3176,9 +3174,9 @@ export type Database = {
           coc_reference_number?: string
           created_at?: string
           created_by?: string
+          date_of_issue?: string | null
           earth_continuity_ohm?: number | null
           earth_loop_impedance_zs_ohm?: number | null
-          failed_rules_count?: number
           fraud_risk_score?: string
           has_bess?: boolean
           has_signature?: boolean
@@ -3188,7 +3186,6 @@ export type Database = {
           installation_type?: string
           insulation_resistance_mohm?: number | null
           inverter_sync_verified?: boolean | null
-          passed_rules_count?: number
           phase_configuration?: string
           polarity_correct?: boolean
           project_id?: string | null
@@ -3204,7 +3201,7 @@ export type Database = {
           supply_frequency?: number
           supply_voltage?: number
           updated_at?: string
-          validation_result?: Json | null
+          validation_results_json?: Json | null
           validation_status?: string
           voltage_at_main_db_v?: number | null
         }

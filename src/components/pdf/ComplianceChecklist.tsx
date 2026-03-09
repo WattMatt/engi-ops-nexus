@@ -1,4 +1,5 @@
-import { Check, AlertTriangle, Info, X } from "lucide-react";
+import { Check, AlertTriangle, Info, X, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
 import { ComplianceResult } from "@/utils/pdfComplianceChecker";
 import {
   Tooltip,
@@ -6,6 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface ComplianceChecklistProps {
@@ -102,6 +104,20 @@ export function ComplianceChecklist({ results, className }: ComplianceChecklistP
           </div>
         </div>
       ))}
+
+      {/* Link to full COC Validation Tool */}
+      <div className="mt-4 pt-3 border-t">
+        <p className="text-xs text-muted-foreground mb-2">
+          This checklist tracks general compliance items. For legally required empirical test validation
+          (insulation resistance, earth loop impedance, RCD trip time, etc.), use the dedicated COC Validation Tool.
+        </p>
+        <Button variant="outline" size="sm" asChild className="gap-2">
+          <Link to="/dashboard/coc-validation">
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open COC Validation Tool
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }

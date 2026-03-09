@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, ShieldCheck, ShieldAlert, AlertTriangle, Check, X, Save, FileWarning } from "lucide-react";
+import { CalendarIcon, ShieldCheck, ShieldAlert, AlertTriangle, Check, X, Save, FileWarning, Download } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,10 +15,10 @@ import {
   COCValidationResult,
   validateCOC,
 } from "@/utils/cocValidationEngine";
+import { downloadCOCValidationPdf } from "@/utils/svg-pdf/cocValidationPdfBuilder";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,7 +58,6 @@ const cocFormSchema = z.object({
   phaseConfiguration: z.enum(["single_phase", "three_phase"]),
   supplyVoltage: z.coerce.number().positive().default(230),
   supplyFrequency: z.coerce.number().positive().default(50),
-
   registeredPersonName: z.string().min(1, "Name is required"),
   registrationNumber: z.string().min(1, "Registration number is required"),
   registrationCategory: z.enum([
@@ -67,7 +67,6 @@ const cocFormSchema = z.object({
   ]),
   hasSignature: z.boolean().default(false),
   signatureDate: z.date().nullable().optional(),
-
   insulationResistance_MOhm: z.coerce.number().nullable().optional(),
   earthLoopImpedance_Zs_Ohm: z.coerce.number().nullable().optional(),
   rcdTripTime_ms: z.coerce.number().nullable().optional(),
@@ -76,7 +75,6 @@ const cocFormSchema = z.object({
   earthContinuity_Ohm: z.coerce.number().nullable().optional(),
   voltageAtMainDB_V: z.coerce.number().nullable().optional(),
   polarityCorrect: z.boolean().default(false),
-
   hasSolarPV: z.boolean().default(false),
   hasBESS: z.boolean().default(false),
   solarGroundingVerified: z.boolean().nullable().optional(),
@@ -137,7 +135,7 @@ function buildTestReport(v: COCFormValues): COCTestReport {
 }
 
 // ============================================
-// Inline validation indicator for test fields
+// Inline validation indicator
 // ============================================
 
 interface ThresholdIndicatorProps {
@@ -147,7 +145,7 @@ interface ThresholdIndicatorProps {
 }
 
 function ThresholdIndicator({ value, check, label }: ThresholdIndicatorProps) {
-  if (value === null || value === undefined || value === (undefined as any)) {
+  if (value === null || value === undefined) {
     return <span className="text-xs text-muted-foreground">{label}</span>;
   }
   const status = check(value);
@@ -160,20 +158,45 @@ function ThresholdIndicator({ value, check, label }: ThresholdIndicatorProps) {
         status === "warning" && "text-amber-600 dark:text-amber-400"
       )}
     >
-      {status === "pass" && "✓ PASS"} 
-      {status === "fail" && "✗ FAIL"} 
-      {status === "warning" && "⚠ WARNING"} 
-      — {label}
+      {status === "pass" && "✓ PASS"}
+      {status === "fail" && "✗ FAIL"}
+      {status === "warning" && "⚠ WARNING"}
+      {" — "}{label}
     </span>
   );
+}
+
+// ============================================
+// Props
+// ============================================
+
+interface COCValidationFormProps {
+  editId?: string | null;
+  onSaved?: () => void;
 }
 
 // ============================================
 // Main Component
 // ============================================
 
-export function COCValidationForm() {
+export function COCValidationForm({ editId, onSaved }: COCValidationFormProps) {
   const [isSaving, setIsSaving] = useState(false);
+
+  // Load existing record for editing
+  const { data: existingRecord } = useQuery({
+    queryKey: ["coc-validation", editId],
+    queryFn: async () => {
+      if (!editId) return null;
+      const { data, error } = await supabase
+        .from("coc_validations")
+        .select("*")
+        .eq("id", editId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!editId,
+  });
 
   const form = useForm<COCFormValues>({
     resolver: zodResolver(cocFormSchema),
@@ -208,13 +231,47 @@ export function COCValidationForm() {
     },
   });
 
+  // Populate form when editing
+  useEffect(() => {
+    if (existingRecord) {
+      const r = existingRecord as any;
+      form.reset({
+        cocReferenceNumber: r.coc_reference_number || "",
+        certificateType: r.certificate_type || "initial",
+        installationAddress: r.installation_address || "",
+        installationType: r.installation_type || "residential",
+        phaseConfiguration: r.phase_configuration || "single_phase",
+        supplyVoltage: r.supply_voltage ?? 230,
+        supplyFrequency: r.supply_frequency ?? 50,
+        registeredPersonName: r.registered_person_name || "",
+        registrationNumber: r.registration_number || "",
+        registrationCategory: r.registration_category || "installation_electrician",
+        hasSignature: r.has_signature ?? false,
+        signatureDate: r.signature_date ? new Date(r.signature_date) : null,
+        insulationResistance_MOhm: r.insulation_resistance_mohm,
+        earthLoopImpedance_Zs_Ohm: r.earth_loop_impedance_zs_ohm,
+        rcdTripTime_ms: r.rcd_trip_time_ms,
+        rcdRatedCurrent_mA: r.rcd_rated_current_ma ?? 30,
+        pscc_kA: r.pscc_ka,
+        earthContinuity_Ohm: r.earth_continuity_ohm,
+        voltageAtMainDB_V: r.voltage_at_main_db_v,
+        polarityCorrect: r.polarity_correct ?? false,
+        hasSolarPV: r.has_solar_pv ?? false,
+        hasBESS: r.has_bess ?? false,
+        solarGroundingVerified: r.solar_grounding_verified,
+        inverterSyncVerified: r.inverter_sync_verified,
+        bessFireProtection: r.bess_fire_protection,
+        spdOperational: r.spd_operational,
+        afddInstalled: r.afdd_installed,
+      });
+    }
+  }, [existingRecord, form]);
+
   const watchedValues = form.watch();
 
   const validationResult: COCValidationResult | null = useMemo(() => {
     try {
-      const data = buildCOCData(watchedValues);
-      const test = buildTestReport(watchedValues);
-      return validateCOC(data, test);
+      return validateCOC(buildCOCData(watchedValues), buildTestReport(watchedValues));
     } catch {
       return null;
     }
@@ -228,6 +285,18 @@ export function COCValidationForm() {
       parseNullableNumber(v.rcdTripTime_ms) === null ||
       parseNullableNumber(v.pscc_kA) === null
     );
+  }, [watchedValues]);
+
+  const handleDownloadPdf = useCallback(() => {
+    try {
+      const data = buildCOCData(watchedValues);
+      const test = buildTestReport(watchedValues);
+      const result = validateCOC(data, test);
+      downloadCOCValidationPdf({ data, test, result });
+      toast.success("PDF downloaded");
+    } catch {
+      toast.error("Failed to generate PDF");
+    }
   }, [watchedValues]);
 
   const onSubmit = useCallback(async (values: COCFormValues) => {
@@ -244,7 +313,7 @@ export function COCValidationForm() {
       const result = validateCOC(data, test);
       const projectId = localStorage.getItem("selectedProjectId");
 
-      const { error } = await supabase.from("coc_validations").insert({
+      const record: any = {
         project_id: projectId || null,
         created_by: user.id,
         coc_reference_number: values.cocReferenceNumber,
@@ -267,6 +336,7 @@ export function COCValidationForm() {
         polarity_correct: values.polarityCorrect,
         has_signature: values.hasSignature,
         signature_date: values.signatureDate ? format(values.signatureDate, "yyyy-MM-dd") : null,
+        date_of_issue: values.signatureDate ? format(values.signatureDate, "yyyy-MM-dd") : null,
         has_solar_pv: values.hasSolarPV,
         has_bess: values.hasBESS,
         solar_grounding_verified: values.solarGroundingVerified ?? null,
@@ -276,29 +346,41 @@ export function COCValidationForm() {
         afdd_installed: values.afddInstalled ?? null,
         validation_status: result.status,
         fraud_risk_score: result.fraudRiskScore,
-        passed_rules_count: result.passedRules.length,
-        failed_rules_count: result.failedRules.length,
-        validation_result: result as any,
-      });
+        validation_results_json: result as any,
+      };
 
-      if (error) throw error;
-      toast.success("COC validation saved successfully");
+      if (editId) {
+        const { error } = await supabase.from("coc_validations").update(record).eq("id", editId);
+        if (error) throw error;
+        toast.success("COC validation updated");
+      } else {
+        const { error } = await supabase.from("coc_validations").insert(record);
+        if (error) throw error;
+        toast.success("COC validation saved");
+      }
+      onSaved?.();
     } catch (err: any) {
       toast.error(err.message || "Failed to save COC validation");
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [editId, onSaved]);
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">COC Validation</h1>
-        <p className="text-muted-foreground">
-          Validate Certificates of Compliance per OHS Act 85/1993 &amp; SANS 10142-1:2024.
-          All test fields require empirical numerical measurements.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {editId ? "Edit COC Validation" : "New COC Validation"}
+          </h1>
+          <p className="text-muted-foreground">
+            Validate Certificates of Compliance per OHS Act 85/1993 &amp; SANS 10142-1:2024.
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleDownloadPdf} className="gap-2">
+          <Download className="h-4 w-4" />
+          Download PDF
+        </Button>
       </div>
 
       {hasMissingMandatory && (
@@ -328,11 +410,10 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="certificateType" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Certificate Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="initial">Initial</SelectItem>
@@ -343,7 +424,6 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="installationAddress" render={({ field }) => (
                 <FormItem className="md:col-span-2 lg:col-span-1">
                   <FormLabel>Installation Address</FormLabel>
@@ -351,11 +431,10 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="installationType" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Installation Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="residential">Residential</SelectItem>
@@ -366,11 +445,10 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="phaseConfiguration" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Phase Configuration</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="single_phase">Single Phase</SelectItem>
@@ -380,7 +458,6 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="supplyVoltage" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Supply Voltage (V)</FormLabel>
@@ -388,7 +465,6 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="supplyFrequency" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Supply Frequency (Hz)</FormLabel>
@@ -413,7 +489,6 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="registrationNumber" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Registration Number</FormLabel>
@@ -421,11 +496,10 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="registrationCategory" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Registration Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="electrical_tester_single_phase">Electrical Tester (Single Phase)</SelectItem>
@@ -436,17 +510,13 @@ export function COCValidationForm() {
                   <FormMessage />
                 </FormItem>
               )} />
-
               <div className="space-y-4">
                 <FormField control={form.control} name="hasSignature" render={({ field }) => (
                   <FormItem className="flex items-center gap-2 space-y-0">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
+                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     <FormLabel className="font-normal">Signature Present</FormLabel>
                   </FormItem>
                 )} />
-
                 <FormField control={form.control} name="signatureDate" render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Signature Date</FormLabel>
@@ -460,13 +530,7 @@ export function COCValidationForm() {
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ?? undefined}
-                          onSelect={field.onChange}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
+                        <Calendar mode="single" selected={field.value ?? undefined} onSelect={field.onChange} initialFocus className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </FormItem>
@@ -484,81 +548,44 @@ export function COCValidationForm() {
                 Checkmarks, "OK", or "Pass" entries are legally void per OHS Act.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Insulation Resistance */}
                 <FormField control={form.control} name="insulationResistance_MOhm" render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>Insulation Resistance (MΩ)</FormLabel>
-                      <ThresholdIndicator
-                        value={parseNullableNumber(field.value)}
-                        check={(v) => v > 1.0 ? "pass" : "fail"}
-                        label="Min: 1.0 MΩ"
-                      />
+                      <ThresholdIndicator value={parseNullableNumber(field.value)} check={(v) => v > 1.0 ? "pass" : "fail"} label="Min: 1.0 MΩ" />
                     </div>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="e.g. 2.5"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
-                      />
+                      <Input type="number" step="0.01" placeholder="e.g. 2.5" value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
-
-                {/* Earth Loop Impedance */}
                 <FormField control={form.control} name="earthLoopImpedance_Zs_Ohm" render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>Earth Loop Impedance Zs (Ω)</FormLabel>
-                      <ThresholdIndicator
-                        value={parseNullableNumber(field.value)}
-                        check={(v) => v <= 0 ? "fail" : v <= 1.67 ? "pass" : "warning"}
-                        label="Max: 1.67 Ω for Type B MCB"
-                      />
+                      <ThresholdIndicator value={parseNullableNumber(field.value)} check={(v) => v <= 0 ? "fail" : v <= 1.67 ? "pass" : "warning"} label="Max: 1.67 Ω for Type B MCB" />
                     </div>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="e.g. 0.85"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
-                      />
+                      <Input type="number" step="0.01" placeholder="e.g. 0.85" value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
-
-                {/* RCD Trip Time */}
                 <FormField control={form.control} name="rcdTripTime_ms" render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>RCD Trip Time (ms)</FormLabel>
-                      <ThresholdIndicator
-                        value={parseNullableNumber(field.value)}
-                        check={(v) => v > 300 ? "fail" : v > 200 ? "warning" : "pass"}
-                        label="Max: 300ms for 30mA device"
-                      />
+                      <ThresholdIndicator value={parseNullableNumber(field.value)} check={(v) => v > 300 ? "fail" : v > 200 ? "warning" : "pass"} label="Max: 300ms for 30mA device" />
                     </div>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="1"
-                        placeholder="e.g. 28"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
-                      />
+                      <Input type="number" step="1" placeholder="e.g. 28" value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
-
-                {/* RCD Rated Current */}
                 <FormField control={form.control} name="rcdRatedCurrent_mA" render={({ field }) => (
                   <FormItem>
                     <FormLabel>RCD Rated Current (mA)</FormLabel>
@@ -566,71 +593,39 @@ export function COCValidationForm() {
                     <FormMessage />
                   </FormItem>
                 )} />
-
-                {/* PSCC */}
                 <FormField control={form.control} name="pscc_kA" render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>PSCC (kA)</FormLabel>
-                      <ThresholdIndicator
-                        value={parseNullableNumber(field.value)}
-                        check={(v) => v <= 0 ? "fail" : (v < 0.5 || v > 25) ? "warning" : "pass"}
-                        label="Normal range: 0.5–25 kA"
-                      />
+                      <ThresholdIndicator value={parseNullableNumber(field.value)} check={(v) => v <= 0 ? "fail" : (v < 0.5 || v > 25) ? "warning" : "pass"} label="Normal range: 0.5–25 kA" />
                     </div>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        placeholder="e.g. 6.5"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
-                      />
+                      <Input type="number" step="0.1" placeholder="e.g. 6.5" value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
-
-                {/* Earth Continuity */}
                 <FormField control={form.control} name="earthContinuity_Ohm" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Earth Continuity (Ω)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="e.g. 0.15"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
-                      />
+                      <Input type="number" step="0.01" placeholder="e.g. 0.15" value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
-
-                {/* Voltage at Main DB */}
                 <FormField control={form.control} name="voltageAtMainDB_V" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Voltage at Main DB (V)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        placeholder="e.g. 232"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
-                      />
+                      <Input type="number" step="0.1" placeholder="e.g. 232" value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
-
-                {/* Polarity */}
                 <FormField control={form.control} name="polarityCorrect" render={({ field }) => (
                   <FormItem className="flex items-center gap-2 space-y-0 pt-6">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
+                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     <FormLabel className="font-normal">Polarity Correct</FormLabel>
                   </FormItem>
                 )} />
@@ -652,7 +647,6 @@ export function COCValidationForm() {
                     <FormLabel className="font-normal">Has Solar PV</FormLabel>
                   </FormItem>
                 )} />
-
                 <FormField control={form.control} name="hasBESS" render={({ field }) => (
                   <FormItem className="flex items-center gap-2 space-y-0">
                     <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
@@ -714,10 +708,10 @@ export function COCValidationForm() {
           {validationResult && <ValidationResultsPanel result={validationResult} />}
 
           {/* Submit */}
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-3">
             <Button type="submit" disabled={isSaving} className="gap-2">
               <Save className="h-4 w-4" />
-              {isSaving ? "Saving…" : "Save COC Validation"}
+              {isSaving ? "Saving…" : editId ? "Update Validation" : "Save Validation"}
             </Button>
           </div>
         </form>
@@ -736,7 +730,6 @@ function ValidationResultsPanel({ result }: { result: COCValidationResult }) {
     INVALID: { color: "bg-destructive/10 text-destructive", icon: ShieldAlert, label: "INVALID" },
     REQUIRES_REVIEW: { color: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300", icon: AlertTriangle, label: "REQUIRES REVIEW" },
   };
-
   const fraudConfig = {
     LOW: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
     MEDIUM: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
@@ -766,7 +759,6 @@ function ValidationResultsPanel({ result }: { result: COCValidationResult }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Fraud risk reasons */}
         {result.fraudRiskScore !== "LOW" && (
           <Alert variant="destructive">
             <ShieldAlert className="h-4 w-4" />
@@ -781,7 +773,6 @@ function ValidationResultsPanel({ result }: { result: COCValidationResult }) {
           </Alert>
         )}
 
-        {/* Failed rules */}
         {result.failedRules.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-sm font-semibold text-destructive">Failed Rules</h4>
@@ -792,10 +783,7 @@ function ValidationResultsPanel({ result }: { result: COCValidationResult }) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">{rule.ruleName}</span>
                     <Badge variant="outline" className="text-[10px]">{rule.ruleId}</Badge>
-                    <Badge className={cn(
-                      "text-[10px]",
-                      rule.severity === "CRITICAL" ? "bg-destructive/10 text-destructive" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
-                    )}>
+                    <Badge className={cn("text-[10px]", rule.severity === "CRITICAL" ? "bg-destructive/10 text-destructive" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300")}>
                       {rule.severity}
                     </Badge>
                   </div>
@@ -813,7 +801,6 @@ function ValidationResultsPanel({ result }: { result: COCValidationResult }) {
           </div>
         )}
 
-        {/* Passed rules */}
         {result.passedRules.length > 0 && (
           <div className="space-y-1.5">
             <h4 className="text-sm font-semibold text-green-700 dark:text-green-400">Passed Rules</h4>
