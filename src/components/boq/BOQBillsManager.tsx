@@ -217,6 +217,13 @@ export function BOQBillsManager({ boqId, projectId }: BOQBillsManagerProps) {
         boqId={boqId}
         projectId={projectId}
       />
+      <ConfirmDeleteDialog
+        open={!!deleteBillId}
+        onOpenChange={(open) => !open && setDeleteBillId(null)}
+        onConfirm={() => { if (deleteBillId) { deleteMutation.mutate(deleteBillId); setDeleteBillId(null); } }}
+        title="Delete Bill"
+        description="Delete this bill and all its sections? This action cannot be undone."
+      />
     </div>
   );
 }
