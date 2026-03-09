@@ -330,9 +330,7 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm('Delete this section and all its items?')) {
-                            deleteMutation.mutate(section.id);
-                          }
+                          setDeleteSectionId(section.id);
                         }}
                       >
                         <Trash2 className="h-3 w-3" />
