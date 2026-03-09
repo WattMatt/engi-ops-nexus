@@ -920,6 +920,7 @@ export function GlobalContactsManager() {
           </div>
         )}
       </CardContent>
+      {deleteContactDialog}
     </Card>
   );
 }

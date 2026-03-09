@@ -297,6 +297,7 @@ export function CircuitMaterialsPanel({ circuitId, projectId }: CircuitMaterials
           projectId={projectId}
         />
       )}
+      {deleteDialog}
     </div>
   );
 }

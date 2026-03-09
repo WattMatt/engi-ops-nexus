@@ -254,6 +254,7 @@ export function DistributionBoardManager({ projectId, floorPlanId }: Distributio
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {deleteDialog}
     </div>
   );
 }

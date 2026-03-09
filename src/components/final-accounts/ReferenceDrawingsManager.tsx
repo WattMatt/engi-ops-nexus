@@ -213,5 +213,7 @@ export const ReferenceDrawingsManager: React.FC<ReferenceDrawingsManagerProps> =
         )}
       </CardContent>
     </Card>
+    {deleteDialog}
+    </>
   );
 };

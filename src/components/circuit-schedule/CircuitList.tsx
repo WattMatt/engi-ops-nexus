@@ -353,6 +353,7 @@ export function CircuitList({ boardId, projectId }: CircuitListProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {deleteDialog}
     </div>
   );
 }

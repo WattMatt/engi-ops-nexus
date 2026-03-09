@@ -467,6 +467,7 @@ export const BudgetReferenceDrawings: React.FC<BudgetReferenceDrawingsProps> = (
           )}
         </DialogContent>
       </Dialog>
+      {deleteDialog}
     </>
   );
 };

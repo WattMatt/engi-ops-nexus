@@ -299,6 +299,7 @@ export function FinanceProjectDocuments({ open, onOpenChange, project }: Finance
           )}
         </div>
       </DialogContent>
+    {deleteDocDialog}
     </Dialog>
   );
 }

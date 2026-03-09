@@ -405,6 +405,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
           })
         )}
       </div>
+      {removeMemberDialog}
     </div>
   );
 }

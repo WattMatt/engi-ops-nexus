@@ -254,6 +254,7 @@ export function FinanceProjectList() {
           project={selectedProject}
         />
       )}
+      {deleteProjectDialog}
     </div>
   );
 }

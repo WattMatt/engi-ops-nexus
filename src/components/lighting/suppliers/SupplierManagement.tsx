@@ -482,6 +482,8 @@ export const SupplierManagement = () => {
         </DialogContent>
       </Dialog>
     </Card>
+    {deleteDialog}
+    </>
   );
 };
 
