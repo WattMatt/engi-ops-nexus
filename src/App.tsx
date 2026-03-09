@@ -84,7 +84,6 @@ const DBLegendCards = lazy(() => import("./pages/DBLegendCards"));
 const PdfComplianceDashboard = lazy(() => import("./pages/PdfComplianceDashboard"));
 const BudgetStudio = lazy(() => import("./pages/BudgetStudio"));
 const Takeoffs = lazy(() => import("./pages/Takeoffs"));
-const COCValidation = lazy(() => import("./pages/COCValidation"));
 
 // External/client portals
 const HandoverClient = lazy(() => import("./pages/HandoverClient"));
@@ -227,7 +226,6 @@ const queryClient = new QueryClient({
                     <Route path="inspections" element={<Inspections />} />
                     <Route path="db-legend-cards" element={<DBLegendCards />} />
                     <Route path="takeoffs" element={<Takeoffs />} />
-                    <Route path="coc-validation" element={<COCValidation />} />
                   </Route>
                   
                   {/* External review */}

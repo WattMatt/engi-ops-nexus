@@ -23,7 +23,6 @@ import {
   ClipboardCheck,
   CircuitBoard,
   Ruler,
-  ShieldCheck,
   LucideIcon,
 } from "lucide-react";
 
@@ -92,11 +91,6 @@ export const settingsItems: NavItem[] = [
   { title: "Project Settings", url: "/dashboard/project-settings", icon: Settings },
 ];
 
-// Compliance Workspace
-export const complianceItems: NavItem[] = [
-  { title: "COC Validation", url: "/dashboard/coc-validation", icon: ShieldCheck },
-];
-
 // All workspaces configuration
 export const workspaces: WorkspaceConfig[] = [
   {
@@ -129,11 +123,5 @@ export const workspaces: WorkspaceConfig[] = [
     title: "Communication",
     icon: MessageSquare,
     items: communicationItems,
-  },
-  {
-    id: "compliance",
-    title: "Compliance",
-    icon: ShieldCheck,
-    items: complianceItems,
   },
 ];
