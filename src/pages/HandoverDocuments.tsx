@@ -17,6 +17,8 @@ import { EquipmentDocumentsView } from "@/components/handover/EquipmentDocuments
 import { GeneralDocumentsView } from "@/components/handover/GeneralDocumentsView";
 import { FolderBrowser } from "@/components/handover/folders";
 import { SANS10142ComplianceChecklist } from "@/components/handover/SANS10142ComplianceChecklist";
+import { EmptyState } from "@/components/common/FeedbackStates";
+import { useNavigate } from "react-router-dom";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();

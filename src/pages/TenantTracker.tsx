@@ -110,6 +110,21 @@ const TenantTracker = () => {
     setRefreshTrigger((prev) => prev + 1);
   };
 
+  const navigate = useNavigate();
+
+  if (!projectId) {
+    return (
+      <div className="flex-1 p-6">
+        <EmptyState
+          icon={Users}
+          title="No project selected"
+          description="Select a project to start tracking tenants, DB boards, and lighting orders"
+          action={{ label: "Select Project", onClick: () => navigate("/projects") }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Fixed Header */}
