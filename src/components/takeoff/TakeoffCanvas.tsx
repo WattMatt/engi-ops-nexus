@@ -108,6 +108,9 @@ export function TakeoffCanvas({
   const [showZoneNameDialog, setShowZoneNameDialog] = useState(false);
   const [zoneName, setZoneName] = useState('');
 
+  // Live mouse position for rubber-band preview
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+
   const catalogMap = new Map(catalog.map(c => [c.id, c]));
   const assemblyMap = new Map(assemblies.map(a => [a.id, a]));
 
