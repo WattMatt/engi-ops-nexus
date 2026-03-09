@@ -14,6 +14,7 @@ import { CostReportHistory } from "@/components/cost-reports/CostReportHistory";
 import { SvgPdfExportButton } from "@/components/cost-reports/SvgPdfExportButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const CostReportDetail = () => {
   const { reportId } = useParams();
