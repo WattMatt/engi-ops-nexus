@@ -131,6 +131,7 @@ export function SkillsLibrary() {
         open={showCreator}
         onClose={() => setShowCreator(false)}
       />
+      {deleteDialog}
     </div>
   );
 }
