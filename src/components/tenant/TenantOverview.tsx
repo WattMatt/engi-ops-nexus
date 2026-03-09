@@ -10,8 +10,10 @@ interface Tenant {
   area: number | null;
   db_ordered: boolean;
   db_cost: number | null;
+  db_by_tenant?: boolean;
   lighting_ordered: boolean;
   lighting_cost: number | null;
+  lighting_by_tenant?: boolean;
   sow_received: boolean;
   layout_received: boolean;
   cost_reported: boolean;
