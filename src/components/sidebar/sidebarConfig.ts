@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   CircuitBoard,
   Ruler,
+  ShieldCheck,
   LucideIcon,
 } from "lucide-react";
 
