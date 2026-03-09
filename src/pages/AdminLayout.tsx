@@ -73,6 +73,7 @@ const AdminLayout = () => {
   }
 
   return (
+    <>
     <SidebarProvider>
       <div className="h-screen flex w-full">
         <AdminSidebar />

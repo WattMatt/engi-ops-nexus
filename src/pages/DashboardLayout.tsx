@@ -130,6 +130,7 @@ const DashboardLayout = () => {
   }
 
   return (
+    <>
     <SidebarProvider>
       <div className="h-screen flex w-full">
         <AppSidebar />
