@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpecificationOverview } from "@/components/specifications/SpecificationOverview";
 import { SpecificationTerms } from "@/components/specifications/SpecificationTerms";
 import { SpecificationSections } from "@/components/specifications/SpecificationSections";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const SpecificationDetail = () => {
   const { specId } = useParams();
@@ -37,6 +38,11 @@ const SpecificationDetail = () => {
 
   return (
     <div className="space-y-6">
+      <PageBreadcrumb items={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Specifications", href: "/dashboard/specifications" },
+        { label: specification.title },
+      ]} />
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"

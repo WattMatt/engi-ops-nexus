@@ -8,6 +8,7 @@ import { FinalAccountOverview } from "@/components/final-accounts/FinalAccountOv
 import { FinalAccountBillsManager } from "@/components/final-accounts/FinalAccountBillsManager";
 import { PrimeCostManager } from "@/components/final-accounts/PrimeCostManager";
 import { ReportHistoryPanel } from "@/components/shared/ReportHistoryPanel";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const FinalAccountDetail = () => {
   const { accountId } = useParams();
@@ -29,6 +30,11 @@ const FinalAccountDetail = () => {
 
   return (
     <div className="flex-1 space-y-4 px-6 pt-6 pb-6">
+      <PageBreadcrumb items={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Final Accounts", href: "/dashboard/final-accounts" },
+        { label: account?.account_number || "Account" },
+      ]} />
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/final-accounts")}>
           <ArrowLeft className="h-4 w-4" />

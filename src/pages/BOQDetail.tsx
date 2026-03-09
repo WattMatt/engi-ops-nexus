@@ -11,6 +11,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { format } from "date-fns";
 import { BOQSpreadsheetTable } from "@/components/boq/BOQSpreadsheetTable";
 import { cn } from "@/lib/utils";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 interface SheetInfo {
   billNumber: number | null;
@@ -122,7 +123,12 @@ export default function BOQDetail() {
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header */}
-      <div className="px-6 py-4 border-b bg-background">
+      <div className="px-6 py-4 border-b bg-background space-y-2">
+        <PageBreadcrumb items={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "BOQ Uploads", href: "/dashboard/boqs" },
+          { label: upload.file_name },
+        ]} />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>

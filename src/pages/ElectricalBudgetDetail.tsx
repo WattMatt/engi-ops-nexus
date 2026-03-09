@@ -17,6 +17,7 @@ import { ElectricalBudgetExportPDFButton } from "@/components/budgets/Electrical
 import { ElectricalBudgetReportHistory } from "@/components/budgets/ElectricalBudgetReportHistory";
 import { OfflineSyncStatusBar } from "@/components/pwa/OfflineSyncStatusBar";
 import { useBudgetOfflineSync } from "@/hooks/useBudgetOfflineSync";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 interface ExtractedData {
   budget_number: string;
@@ -126,6 +127,11 @@ const ElectricalBudgetDetail = () => {
 
   return (
     <div className="space-y-6 p-6">
+      <PageBreadcrumb items={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Electrical Budgets", href: "/dashboard/budgets/electrical" },
+        { label: `Budget #${budget.budget_number} - ${budget.revision}` },
+      ]} />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button

@@ -8,6 +8,7 @@ import { BudgetTenantPhase } from "@/components/budget-studio/BudgetTenantPhase"
 import { BudgetInfraPhase } from "@/components/budget-studio/BudgetInfraPhase";
 import { BudgetExportPhase } from "@/components/budget-studio/BudgetExportPhase";
 import { cn } from "@/lib/utils";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const PHASES = [
   { id: "setup", label: "Setup & Scope", icon: Settings },
@@ -53,7 +54,15 @@ export default function BudgetStudio() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden flex-col">
+      <div className="px-4 py-2 border-b">
+        <PageBreadcrumb items={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Electrical Budgets", href: "/dashboard/budgets/electrical" },
+          { label: `Budget Rev ${budget.revision}` },
+        ]} />
+      </div>
+      <div className="flex flex-1 overflow-hidden">
       {/* Sidebar */}
       <aside className="w-56 shrink-0 border-r border-border bg-muted/30 flex flex-col">
         <div className="p-4 border-b border-border">
@@ -107,6 +116,7 @@ export default function BudgetStudio() {
             Total: R {totals.totalCost.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
           </div>
         </footer>
+      </div>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BOQBillsManager } from "@/components/boq/BOQBillsManager";
 import { BOQOverview } from "@/components/boq/BOQOverview";
 import { LineShopTemplatesGrid } from "@/components/boq/LineShopTemplatesGrid";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const BOQProjectDetail = () => {
   const { boqId } = useParams();
@@ -46,6 +47,11 @@ const BOQProjectDetail = () => {
   return (
     <div className="flex-1 overflow-auto">
       <div className="mx-auto w-full max-w-[1600px] px-6 py-6 space-y-6">
+        <PageBreadcrumb items={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "BOQs", href: "/dashboard/boqs" },
+          { label: `${boq.boq_number} - ${boq.boq_name}` },
+        ]} />
         <div className="flex items-start gap-4 pb-2">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/boqs")} className="shrink-0">
             <ArrowLeft className="h-4 w-4" />
