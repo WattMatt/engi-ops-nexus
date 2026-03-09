@@ -336,6 +336,13 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
           accountId={accountId}
         />
       )}
+      <ConfirmDeleteDialog
+        open={!!deleteSectionId}
+        onOpenChange={(open) => !open && setDeleteSectionId(null)}
+        onConfirm={() => { if (deleteSectionId) { deleteMutation.mutate(deleteSectionId); setDeleteSectionId(null); } }}
+        title="Delete Section"
+        description="Delete this section and all its items? This action cannot be undone."
+      />
     </div>
   );
 }
