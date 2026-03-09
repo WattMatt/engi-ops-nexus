@@ -492,6 +492,7 @@ export default function ContractorPortal() {
               contractorEmail={activeUserEmail}
             />
           </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
