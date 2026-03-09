@@ -191,7 +191,28 @@ export const SupplierManagement = () => {
 
   // Delete supplier
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this supplier?')) return;
+  const { dialog: deleteDialog, requestConfirm: confirmDelete } = useConfirmDelete({
+    onConfirm: async (id: string) => {
+      try {
+        const { error } = await supabase
+          .from('lighting_suppliers')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+        setSuppliers(prev => prev.filter(s => s.id !== id));
+        toast.success('Supplier deleted');
+      } catch (error) {
+        console.error('Error deleting supplier:', error);
+        toast.error('Failed to delete supplier');
+      }
+    },
+    title: "Delete Supplier",
+    description: "Are you sure you want to delete this supplier?",
+  });
+
+  const handleDelete = (id: string) => {
+    confirmDelete(id);
+  };
 
     try {
       const { error } = await supabase
