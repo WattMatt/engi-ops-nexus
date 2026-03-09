@@ -130,4 +130,10 @@ export const workspaces: WorkspaceConfig[] = [
     icon: MessageSquare,
     items: communicationItems,
   },
+  {
+    id: "compliance",
+    title: "Compliance",
+    icon: ShieldCheck,
+    items: complianceItems,
+  },
 ];

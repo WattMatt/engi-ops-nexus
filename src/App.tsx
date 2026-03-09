@@ -227,6 +227,7 @@ const queryClient = new QueryClient({
                     <Route path="inspections" element={<Inspections />} />
                     <Route path="db-legend-cards" element={<DBLegendCards />} />
                     <Route path="takeoffs" element={<Takeoffs />} />
+                    <Route path="coc-validation" element={<COCValidation />} />
                   </Route>
                   
                   {/* External review */}
