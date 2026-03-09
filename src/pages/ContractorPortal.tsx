@@ -484,7 +484,14 @@ export default function ContractorPortal() {
               contractorEmail={activeUserEmail}
             />
           </TabsContent>
-        </Tabs>
+
+          <TabsContent value="takeoff">
+            <TakeoffSheet
+              projectId={project.id}
+              contractorName={activeUserName}
+              contractorEmail={activeUserEmail}
+            />
+          </TabsContent>
       </div>
     </div>
   );
