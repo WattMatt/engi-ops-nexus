@@ -12,7 +12,7 @@ const SpecificationDetail = () => {
   const { specId } = useParams();
   const navigate = useNavigate();
 
-  const { data: specification, isLoading } = useQuery({
+  const { data: specification, isLoading, refetch } = useQuery({
     queryKey: ["specification", specId],
     queryFn: async () => {
       const { data, error } = await supabase
