@@ -112,6 +112,7 @@ export function SANS10142ComplianceChecklist({ projectId }: SANS10142ComplianceC
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
   const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
   const [hasChanges, setHasChanges] = useState(false);
+  const { isBlocked, confirmNavigation, cancelNavigation } = useUnsavedChanges({ hasUnsavedChanges: hasChanges });
 
   // Fetch existing compliance data
   const { data: complianceData, isLoading } = useQuery({

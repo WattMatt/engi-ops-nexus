@@ -130,6 +130,7 @@ export function LineShopTemplatesGrid({ projectId, boqId }: LineShopTemplatesGri
   const queryClient = useQueryClient();
   const [gridData, setGridData] = useState<GridData>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const { isBlocked, confirmNavigation, cancelNavigation } = useUnsavedChanges({ hasUnsavedChanges: hasChanges });
 
   // Fetch existing templates
   const { data: templates, isLoading } = useQuery({

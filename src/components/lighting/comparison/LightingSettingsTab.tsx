@@ -37,6 +37,7 @@ export const LightingSettingsTab = ({ projectId }: LightingSettingsTabProps) => 
     vat_rate: DEFAULT_SETTINGS.vat_rate,
   });
   const [hasChanges, setHasChanges] = useState(false);
+  const { isBlocked, confirmNavigation, cancelNavigation } = useUnsavedChanges({ hasUnsavedChanges: hasChanges });
 
   const { data: savedSettings, isLoading } = useQuery({
     queryKey: ['lighting-analysis-settings', projectId],
