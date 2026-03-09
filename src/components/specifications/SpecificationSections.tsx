@@ -3,10 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit } from "lucide-react";
+import { Plus, Trash2, Edit, Save, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   Accordion,
@@ -14,6 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { SectionRichEditor } from "./SectionRichEditor";
 
 interface SpecificationSectionsProps {
   specId: string;
@@ -21,8 +21,13 @@ interface SpecificationSectionsProps {
 
 export const SpecificationSections = ({ specId }: SpecificationSectionsProps) => {
   const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newSection, setNewSection] = useState({
+    section_number: "",
+    section_title: "",
+    section_content: "",
+  });
+  const [editData, setEditData] = useState({
     section_number: "",
     section_title: "",
     section_content: "",
@@ -38,7 +43,7 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
         .select("*")
         .eq("spec_id", specId)
         .order("display_order");
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -63,6 +68,38 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
       queryClient.invalidateQueries({ queryKey: ["specification-sections", specId] });
       setNewSection({ section_number: "", section_title: "", section_content: "" });
       setAdding(false);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleStartEdit = (section: any) => {
+    setEditingId(section.id);
+    setEditData({
+      section_number: section.section_number,
+      section_title: section.section_title,
+      section_content: section.section_content || "",
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editData.section_number || !editData.section_title) return;
+
+    try {
+      const { error } = await supabase
+        .from("specification_sections")
+        .update({
+          section_number: editData.section_number,
+          section_title: editData.section_title,
+          section_content: editData.section_content,
+        })
+        .eq("id", editingId);
+
+      if (error) throw error;
+
+      toast({ title: "Success", description: "Section updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["specification-sections", specId] });
+      setEditingId(null);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -126,13 +163,11 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
             </div>
             <div>
               <Label>Content</Label>
-              <Textarea
-                value={newSection.section_content}
-                onChange={(e) =>
-                  setNewSection({ ...newSection, section_content: e.target.value })
+              <SectionRichEditor
+                content={newSection.section_content}
+                onChange={(html) =>
+                  setNewSection({ ...newSection, section_content: html })
                 }
-                placeholder="Section content..."
-                rows={5}
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -159,26 +194,88 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
                     <span className="font-medium">
                       {section.section_number}. {section.section_title}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(section.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartEdit(section);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(section.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="p-4 bg-muted rounded-lg">
-                    {section.section_content ? (
-                      <p className="whitespace-pre-wrap">{section.section_content}</p>
-                    ) : (
-                      <p className="text-muted-foreground italic">No content yet</p>
-                    )}
-                  </div>
+                  {editingId === section.id ? (
+                    <div className="p-4 space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Section Number</Label>
+                          <Input
+                            value={editData.section_number}
+                            onChange={(e) =>
+                              setEditData({ ...editData, section_number: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label>Section Title</Label>
+                          <Input
+                            value={editData.section_title}
+                            onChange={(e) =>
+                              setEditData({ ...editData, section_title: e.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Content</Label>
+                        <SectionRichEditor
+                          content={editData.section_content}
+                          onChange={(html) =>
+                            setEditData({ ...editData, section_content: html })
+                          }
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingId(null)}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleSaveEdit}>
+                          <Save className="h-4 w-4 mr-1" />
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className="p-4 bg-muted rounded-lg prose prose-sm max-w-none [&_table]:border-collapse [&_table]:w-full [&_table]:border [&_table]:border-border [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted/50 [&_th]:font-semibold"
+                    >
+                      {section.section_content ? (
+                        <div dangerouslySetInnerHTML={{ __html: section.section_content }} />
+                      ) : (
+                        <p className="text-muted-foreground italic">No content yet</p>
+                      )}
+                    </div>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             ))}
