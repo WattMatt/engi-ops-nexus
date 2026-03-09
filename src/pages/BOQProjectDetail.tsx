@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BOQBillsManager } from "@/components/boq/BOQBillsManager";
 import { BOQOverview } from "@/components/boq/BOQOverview";
 import { LineShopTemplatesGrid } from "@/components/boq/LineShopTemplatesGrid";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const BOQProjectDetail = () => {
   const { boqId } = useParams();
