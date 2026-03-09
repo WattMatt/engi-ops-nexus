@@ -405,6 +405,17 @@ export default function ContractorPortal() {
                 <span className="hidden sm:inline">Status Tracking</span>
               </TabsTrigger>
             </InfoTooltip>
+            <InfoTooltip
+              title="Takeoff Sheets"
+              description="Count devices and measure cable/conduit runs directly on PDF drawings. Generate Bills of Materials and export to Excel."
+              icon={FileSpreadsheet}
+              side="bottom"
+            >
+              <TabsTrigger value="takeoff" className="gap-2">
+                <FileSpreadsheet className="h-4 w-4" />
+                <span className="hidden sm:inline">Takeoff</span>
+              </TabsTrigger>
+            </InfoTooltip>
           </TabsList>
 
           <TabsContent value="drawings">
