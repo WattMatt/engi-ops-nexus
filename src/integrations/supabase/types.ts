@@ -15617,8 +15617,11 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_vertical_drop: number | null
+          description: string | null
           id: string
+          item_code: string | null
           name: string
+          sub_category: string | null
           unit: string
           waste_percentage: number | null
         }
@@ -15629,8 +15632,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_vertical_drop?: number | null
+          description?: string | null
           id?: string
+          item_code?: string | null
           name: string
+          sub_category?: string | null
           unit?: string
           waste_percentage?: number | null
         }
@@ -15641,8 +15647,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_vertical_drop?: number | null
+          description?: string | null
           id?: string
+          item_code?: string | null
           name?: string
+          sub_category?: string | null
           unit?: string
           waste_percentage?: number | null
         }
