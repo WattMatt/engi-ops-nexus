@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/common/EmptyState";
+import { EmptyState } from "@/components/common/FeedbackStates";
 import { COCValidationForm } from "@/components/compliance/COCValidationForm";
 
 type ViewMode = "list" | "new" | "edit";
