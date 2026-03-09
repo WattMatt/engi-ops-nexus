@@ -45,6 +45,7 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: sections = [], isLoading } = useQuery({
