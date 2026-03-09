@@ -210,7 +210,7 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(section.id);
+                          setDeleteSectionId(section.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />

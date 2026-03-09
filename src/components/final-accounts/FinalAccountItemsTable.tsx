@@ -200,11 +200,8 @@ export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubse
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0"
-                        onClick={() => {
-                          if (confirm('Delete this item?')) {
-                            deleteMutation.mutate(item.id);
-                          }
-                        }}
+                        onClick={() => setDeleteItemId(item.id)}
+                        >
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
