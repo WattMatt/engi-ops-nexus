@@ -97,20 +97,6 @@ export function FinanceProjectList() {
     confirmDeleteProject(projectId);
   };
 
-    try {
-      const { error } = await supabase
-        .from("invoice_projects")
-        .delete()
-        .eq("id", projectId);
-
-      if (error) throw error;
-      toast.success("Project deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["finance-projects"] });
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
-
   const handleDialogClose = () => {
     setDialogOpen(false);
     setSelectedProject(null);
