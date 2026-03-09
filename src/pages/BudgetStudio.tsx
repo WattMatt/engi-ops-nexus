@@ -8,6 +8,7 @@ import { BudgetTenantPhase } from "@/components/budget-studio/BudgetTenantPhase"
 import { BudgetInfraPhase } from "@/components/budget-studio/BudgetInfraPhase";
 import { BudgetExportPhase } from "@/components/budget-studio/BudgetExportPhase";
 import { cn } from "@/lib/utils";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const PHASES = [
   { id: "setup", label: "Setup & Scope", icon: Settings },
