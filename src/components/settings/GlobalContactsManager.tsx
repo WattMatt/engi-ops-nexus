@@ -413,7 +413,6 @@ export function GlobalContactsManager() {
     }
   };
 
-  const handleDelete = async (contactId: string) => {
   const { dialog: deleteContactDialog, requestConfirm: confirmDeleteContact } = useConfirmDelete({
     onConfirm: async (contactId: string) => {
       try {
@@ -422,10 +421,18 @@ export function GlobalContactsManager() {
           .delete()
           .eq('id', contactId);
         if (error) throw error;
-        toast.success("Contact deleted from library");
-        queryClient.invalidateQueries({ queryKey: ['global-contacts'] });
+        toast({
+          title: "Success",
+          description: "Contact removed from library",
+        });
+        queryClient.invalidateQueries({ queryKey: ["global-contacts"] });
       } catch (error: any) {
-        toast.error(error.message || "Failed to delete contact");
+        console.error("Delete error:", error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete contact",
+          variant: "destructive",
+        });
       }
     },
     title: "Delete Contact",
@@ -434,30 +441,6 @@ export function GlobalContactsManager() {
 
   const handleDelete = (contactId: string) => {
     confirmDeleteContact(contactId);
-  };
-
-    try {
-      const { error } = await supabase
-        .from('global_contacts')
-        .delete()
-        .eq('id', contactId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Contact removed from library",
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["global-contacts"] });
-    } catch (error: any) {
-      console.error("Delete error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete contact",
-        variant: "destructive",
-      });
-    }
   };
 
   const openEditDialog = (contact: GlobalContact) => {
