@@ -255,6 +255,7 @@ export function SANS10142ComplianceChecklist({ projectId }: SANS10142ComplianceC
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">

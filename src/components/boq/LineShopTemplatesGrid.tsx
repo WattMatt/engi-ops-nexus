@@ -279,6 +279,7 @@ export function LineShopTemplatesGrid({ projectId, boqId }: LineShopTemplatesGri
   }
 
   return (
+    <>
     <Card className="border-border/50 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
         <CardTitle className="text-lg">Line Shop Power & Lighting Templates</CardTitle>
