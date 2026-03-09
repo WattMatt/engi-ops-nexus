@@ -23,7 +23,9 @@ import { CostBreakdownChart } from "@/components/tenant/charts/EnhancedCostBreak
 import { RecoveryProjectionChart } from "@/components/tenant/charts/EnhancedRecoveryProjectionChart";
 import { ShareGeneratorReportDialog } from "@/components/generator/ShareGeneratorReportDialog";
 import { GeneratorShareHistory } from "@/components/generator/GeneratorShareHistory";
-import { ChevronDown, Share2 } from "lucide-react";
+import { ChevronDown, Share2, Zap } from "lucide-react";
+import { EmptyState } from "@/components/common/FeedbackStates";
+import { useNavigate } from "react-router-dom";
 
 const GeneratorReport = () => {
   const projectId = localStorage.getItem("selectedProjectId");
