@@ -128,6 +128,7 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
