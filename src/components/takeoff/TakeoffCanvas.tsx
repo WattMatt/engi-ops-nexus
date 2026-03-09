@@ -3,6 +3,9 @@
  * point counting, linear measurement, and zone drawing tools.
  * Uses percentage-based coordinates for resolution independence.
  * 
+ * PDF files are rendered via pdfjs-dist at dynamic DPI for crisp zoom.
+ * Image files use standard <img> rendering.
+ * 
  * Navigation:
  * - Mouse wheel: zoom in/out
  * - Left mouse button drag (select tool): pan
@@ -10,7 +13,7 @@
  */
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
-import { ZoomIn, ZoomOut, Maximize, Move, RotateCcw } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Move, RotateCcw, Loader2 } from 'lucide-react';
 import type {
   TakeoffTool, TakeoffMeasurement, TakeoffZone, TakeoffCatalogItem,
   TakeoffAssembly, ScaleCalibration,
@@ -20,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { usePdfRenderer } from '@/hooks/usePdfRenderer';
 
 interface Props {
   imageUrl: string | null;
