@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map, CircuitBoard, Copy, CheckCheck, MapPin } from "lucide-react";
+import { FileText, Package, MessageSquarePlus, AlertTriangle, Users, Cable, ClipboardCheck, RefreshCw, Mail, Map, CircuitBoard, Copy, CheckCheck, MapPin, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { ContractorDrawingRegister } from "@/components/contractor-portal/ContractorDrawingRegister";
 import { ContractorProcurementStatus } from "@/components/contractor-portal/ContractorProcurementStatus";
