@@ -15546,6 +15546,271 @@ export type Database = {
         }
         Relationships: []
       }
+      takeoff_assemblies: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          icon_svg: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon_svg?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon_svg?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      takeoff_assembly_items: {
+        Row: {
+          assembly_id: string
+          catalog_id: string
+          id: string
+          quantity: number
+        }
+        Insert: {
+          assembly_id: string
+          catalog_id: string
+          id?: string
+          quantity?: number
+        }
+        Update: {
+          assembly_id?: string
+          catalog_id?: string
+          id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "takeoff_assembly_items_assembly_id_fkey"
+            columns: ["assembly_id"]
+            isOneToOne: false
+            referencedRelation: "takeoff_assemblies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "takeoff_assembly_items_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "takeoff_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      takeoff_catalog: {
+        Row: {
+          category: string
+          conduit_size: string | null
+          conduit_type: string | null
+          created_at: string
+          created_by: string | null
+          default_vertical_drop: number | null
+          id: string
+          name: string
+          unit: string
+          waste_percentage: number | null
+        }
+        Insert: {
+          category?: string
+          conduit_size?: string | null
+          conduit_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_vertical_drop?: number | null
+          id?: string
+          name: string
+          unit?: string
+          waste_percentage?: number | null
+        }
+        Update: {
+          category?: string
+          conduit_size?: string | null
+          conduit_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_vertical_drop?: number | null
+          id?: string
+          name?: string
+          unit?: string
+          waste_percentage?: number | null
+        }
+        Relationships: []
+      }
+      takeoff_measurements: {
+        Row: {
+          assembly_id: string | null
+          catalog_id: string | null
+          created_at: string
+          final_quantity: number | null
+          id: string
+          measured_length: number | null
+          points: Json | null
+          remarks: string | null
+          source_reference: string | null
+          takeoff_id: string
+          type: string
+          vertical_drop_total: number | null
+          waste_added: number | null
+          x_pos: number | null
+          y_pos: number | null
+          zone_id: string | null
+        }
+        Insert: {
+          assembly_id?: string | null
+          catalog_id?: string | null
+          created_at?: string
+          final_quantity?: number | null
+          id?: string
+          measured_length?: number | null
+          points?: Json | null
+          remarks?: string | null
+          source_reference?: string | null
+          takeoff_id: string
+          type?: string
+          vertical_drop_total?: number | null
+          waste_added?: number | null
+          x_pos?: number | null
+          y_pos?: number | null
+          zone_id?: string | null
+        }
+        Update: {
+          assembly_id?: string | null
+          catalog_id?: string | null
+          created_at?: string
+          final_quantity?: number | null
+          id?: string
+          measured_length?: number | null
+          points?: Json | null
+          remarks?: string | null
+          source_reference?: string | null
+          takeoff_id?: string
+          type?: string
+          vertical_drop_total?: number | null
+          waste_added?: number | null
+          x_pos?: number | null
+          y_pos?: number | null
+          zone_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "takeoff_measurements_assembly_id_fkey"
+            columns: ["assembly_id"]
+            isOneToOne: false
+            referencedRelation: "takeoff_assemblies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "takeoff_measurements_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "takeoff_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "takeoff_measurements_takeoff_id_fkey"
+            columns: ["takeoff_id"]
+            isOneToOne: false
+            referencedRelation: "takeoffs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "takeoff_measurements_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "takeoff_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      takeoff_zones: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          polygon: Json
+          takeoff_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          polygon?: Json
+          takeoff_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          polygon?: Json
+          takeoff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "takeoff_zones_takeoff_id_fkey"
+            columns: ["takeoff_id"]
+            isOneToOne: false
+            referencedRelation: "takeoffs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      takeoffs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_email: string | null
+          drawing_id: string | null
+          id: string
+          measurement_unit: string
+          name: string
+          project_id: string
+          scale_ratio: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          drawing_id?: string | null
+          id?: string
+          measurement_unit?: string
+          name?: string
+          project_id: string
+          scale_ratio?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          drawing_id?: string | null
+          id?: string
+          measurement_unit?: string
+          name?: string
+          project_id?: string
+          scale_ratio?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       task_activity_logs: {
         Row: {
           action_type: string
