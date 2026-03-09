@@ -73,17 +73,17 @@ const HandoverDocuments = () => {
     enabled: !!projectId,
   });
 
+  const navigate = useNavigate();
+
   if (!projectId) {
     return (
-      <div className="container mx-auto px-6 py-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>No Project Selected</CardTitle>
-            <CardDescription>
-              Please select a project from the Tenant Tracker to manage handover documents.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="flex-1 p-6">
+        <EmptyState
+          icon={FolderOpen}
+          title="No project selected"
+          description="Select a project to manage handover documents, compliance checklists, and client portals"
+          action={{ label: "Select Project", onClick: () => navigate("/projects") }}
+        />
       </div>
     );
   }
