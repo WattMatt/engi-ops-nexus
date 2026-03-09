@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Settings, Save, RotateCcw } from 'lucide-react';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { UnsavedChangesDialog } from '@/components/common/UnsavedChangesDialog';
 import { DEFAULT_SETTINGS } from './comparisonTypes';
 
 interface LightingSettingsTabProps {
@@ -35,6 +37,7 @@ export const LightingSettingsTab = ({ projectId }: LightingSettingsTabProps) => 
     vat_rate: DEFAULT_SETTINGS.vat_rate,
   });
   const [hasChanges, setHasChanges] = useState(false);
+  const { isBlocked, confirmNavigation, cancelNavigation } = useUnsavedChanges({ hasUnsavedChanges: hasChanges });
 
   const { data: savedSettings, isLoading } = useQuery({
     queryKey: ['lighting-analysis-settings', projectId],
@@ -279,6 +282,7 @@ export const LightingSettingsTab = ({ projectId }: LightingSettingsTabProps) => 
           </p>
         </CardContent>
       </Card>
+      <UnsavedChangesDialog isOpen={isBlocked} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </div>
   );
 };

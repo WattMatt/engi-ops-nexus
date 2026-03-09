@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { UnsavedChangesDialog } from "@/components/common/UnsavedChangesDialog";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
@@ -110,6 +112,7 @@ export function SANS10142ComplianceChecklist({ projectId }: SANS10142ComplianceC
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
   const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
   const [hasChanges, setHasChanges] = useState(false);
+  const { isBlocked, confirmNavigation, cancelNavigation } = useUnsavedChanges({ hasUnsavedChanges: hasChanges });
 
   // Fetch existing compliance data
   const { data: complianceData, isLoading } = useQuery({
@@ -252,6 +255,7 @@ export function SANS10142ComplianceChecklist({ projectId }: SANS10142ComplianceC
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -421,5 +425,7 @@ export function SANS10142ComplianceChecklist({ projectId }: SANS10142ComplianceC
         )}
       </CardContent>
     </Card>
+    <UnsavedChangesDialog isOpen={isBlocked} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+    </>
   );
 }

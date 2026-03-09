@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { UnsavedChangesDialog } from "@/components/common/UnsavedChangesDialog";
 import { Shield, Clock, Globe, Save, Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -38,6 +40,7 @@ export const SessionSecuritySettings = () => {
   const [logoutTime, setLogoutTime] = useState("02:00");
   const [timezone, setTimezone] = useState("Africa/Johannesburg");
   const [hasChanges, setHasChanges] = useState(false);
+  const { isBlocked, confirmNavigation, cancelNavigation } = useUnsavedChanges({ hasUnsavedChanges: hasChanges });
 
   // Fetch current settings
   const { data: settings, isLoading, error } = useQuery({
@@ -274,6 +277,7 @@ export const SessionSecuritySettings = () => {
           </Button>
         </div>
       </CardContent>
+      <UnsavedChangesDialog isOpen={isBlocked} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </Card>
   );
 };

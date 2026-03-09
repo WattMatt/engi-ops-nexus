@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Save, Plus, Trash2, Download, Upload } from "lucide-react";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { UnsavedChangesDialog } from "@/components/common/UnsavedChangesDialog";
 
 // Define the material items structure
 const DEFAULT_MATERIALS = [
@@ -128,6 +130,7 @@ export function LineShopTemplatesGrid({ projectId, boqId }: LineShopTemplatesGri
   const queryClient = useQueryClient();
   const [gridData, setGridData] = useState<GridData>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const { isBlocked, confirmNavigation, cancelNavigation } = useUnsavedChanges({ hasUnsavedChanges: hasChanges });
 
   // Fetch existing templates
   const { data: templates, isLoading } = useQuery({
@@ -276,6 +279,7 @@ export function LineShopTemplatesGrid({ projectId, boqId }: LineShopTemplatesGri
   }
 
   return (
+    <>
     <Card className="border-border/50 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
         <CardTitle className="text-lg">Line Shop Power & Lighting Templates</CardTitle>
@@ -360,5 +364,7 @@ export function LineShopTemplatesGrid({ projectId, boqId }: LineShopTemplatesGri
         </ScrollArea>
       </CardContent>
     </Card>
+    <UnsavedChangesDialog isOpen={isBlocked} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+    </>
   );
 }
