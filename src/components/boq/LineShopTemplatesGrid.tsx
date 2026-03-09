@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Save, Plus, Trash2, Download, Upload } from "lucide-react";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { UnsavedChangesDialog } from "@/components/common/UnsavedChangesDialog";
 
 // Define the material items structure
 const DEFAULT_MATERIALS = [
