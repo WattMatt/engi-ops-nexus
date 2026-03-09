@@ -173,12 +173,10 @@ export function BOQBillsManager({ boqId, projectId }: BOQBillsManagerProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('Delete this bill and all its sections?')) {
-                              deleteMutation.mutate(bill.id);
-                            }
-                          }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteBillId(bill.id);
+                            }}
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
                           <Trash2 className="h-4 w-4" />
