@@ -52,13 +52,48 @@ export function TakeoffCanvas({
   onAddMeasurement, onAddZone, onScaleSet,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const pdfCanvasRef = useRef<HTMLDivElement>(null);
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Zoom & pan state
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  // Track container size for PDF rendering
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      setContainerSize({ width, height });
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // PDF renderer — renders at zoom-appropriate DPI
+  const pdfState = usePdfRenderer({
+    url: imageUrl,
+    pageNumber: 1,
+    zoom,
+    containerWidth: containerSize.width,
+    containerHeight: containerSize.height,
+  });
+
+  // Attach rendered PDF canvas to DOM
+  useEffect(() => {
+    const host = pdfCanvasRef.current;
+    if (!host || !pdfState.canvas || !pdfState.isPdf) return;
+    host.innerHTML = '';
+    pdfState.canvas.style.display = 'block';
+    host.appendChild(pdfState.canvas);
+    if (pdfState.pageSize) {
+      setImgSize({ width: pdfState.pageSize.width, height: pdfState.pageSize.height });
+    }
+  }, [pdfState.canvas, pdfState.isPdf, pdfState.pageSize]);
 
   // Scale calibration state
   const [scaleCal, setScaleCal] = useState<ScaleCalibration>({ point1: null, point2: null, realWorldDistance: null });
