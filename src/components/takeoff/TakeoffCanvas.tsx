@@ -215,11 +215,20 @@ export function TakeoffCanvas({
   }, [activeTool, pan]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isPanning) return;
-    const dx = e.clientX - panStartRef.current.x;
-    const dy = e.clientY - panStartRef.current.y;
-    setPan({ x: panStartRef.current.panX + dx, y: panStartRef.current.panY + dy });
-  }, [isPanning]);
+    if (isPanning) {
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+      setPan({ x: panStartRef.current.panX + dx, y: panStartRef.current.panY + dy });
+      return;
+    }
+    // Track mouse for rubber-band lines when actively drawing
+    if ((activeTool === 'linear' && linearPoints.length > 0) ||
+        (activeTool === 'zone' && zonePoints.length > 0) ||
+        (activeTool === 'scale' && scaleCal.point1 && !scaleCal.point2)) {
+      const pos = getRelativePos(e);
+      setMousePos(pos);
+    }
+  }, [isPanning, activeTool, linearPoints.length, zonePoints.length, scaleCal.point1, scaleCal.point2, getRelativePos]);
 
   const handleMouseUp = useCallback(() => {
     setIsPanning(false);
