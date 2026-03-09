@@ -266,9 +266,7 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
                       className="h-7 w-7 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm('Delete this section and all its items?')) {
-                          deleteMutation.mutate(section.id);
-                        }
+                        setDeleteSectionId(section.id);
                       }}
                     >
                       <Trash2 className="h-3 w-3" />
