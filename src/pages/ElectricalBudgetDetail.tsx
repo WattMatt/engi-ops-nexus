@@ -17,6 +17,7 @@ import { ElectricalBudgetExportPDFButton } from "@/components/budgets/Electrical
 import { ElectricalBudgetReportHistory } from "@/components/budgets/ElectricalBudgetReportHistory";
 import { OfflineSyncStatusBar } from "@/components/pwa/OfflineSyncStatusBar";
 import { useBudgetOfflineSync } from "@/hooks/useBudgetOfflineSync";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 interface ExtractedData {
   budget_number: string;
