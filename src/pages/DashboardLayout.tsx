@@ -169,6 +169,13 @@ const DashboardLayout = () => {
         </div>
       </div>
     </SidebarProvider>
+    <SessionExpiryDialog
+      open={showCountdown}
+      secondsRemaining={secondsRemaining}
+      onStayLoggedIn={handleStayLoggedIn}
+      onLogout={handleLogoutNow}
+    />
+    </>
   );
 };
 
