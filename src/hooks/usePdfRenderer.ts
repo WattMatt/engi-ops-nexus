@@ -147,7 +147,8 @@ export function usePdfRenderer({ url, pageNumber = 1, zoom, containerWidth, cont
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        const renderTask = page.render({ canvasContext: ctx, viewport });
+        // @ts-ignore - pdfjs-dist types mismatch between versions
+        const renderTask = page.render({ canvasContext: ctx, viewport, canvas });
         renderTaskRef.current = renderTask;
         await renderTask.promise;
 
