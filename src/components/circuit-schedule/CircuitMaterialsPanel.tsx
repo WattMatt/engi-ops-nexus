@@ -59,10 +59,14 @@ export function CircuitMaterialsPanel({ circuitId, projectId }: CircuitMaterials
     setShowAddDialog(false);
   };
 
-  const handleDelete = async (material: DbCircuitMaterial) => {
-    if (confirm("Delete this material?")) {
-      await deleteMaterial.mutateAsync({ id: material.id, circuitId });
-    }
+  const { dialog: deleteDialog, requestConfirm: confirmDelete } = useConfirmDelete<DbCircuitMaterial>({
+    onConfirm: (material) => deleteMaterial.mutateAsync({ id: material.id, circuitId }),
+    title: "Delete Material",
+    description: "Are you sure you want to delete this material?",
+  });
+
+  const handleDelete = (material: DbCircuitMaterial) => {
+    confirmDelete(material, material.description || undefined);
   };
 
   const handleQuantityChange = async (material: DbCircuitMaterial, newQty: string) => {

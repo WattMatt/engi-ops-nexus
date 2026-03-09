@@ -88,10 +88,15 @@ export const ReferenceDrawingsManager: React.FC<ReferenceDrawingsManagerProps> =
     window.open(`/dashboard/floor-plan?design=${floorPlanId}`, '_blank');
   };
 
+  const { dialog: deleteDialog, requestConfirm: confirmDelete } = useConfirmDelete({
+    onConfirm: (drawingId: string) => deleteMutation.mutate(drawingId),
+    title: "Remove Reference Drawing",
+    description: "Remove this reference drawing? This won't delete the floor plan itself.",
+    confirmLabel: "Remove",
+  });
+
   const handleDelete = (drawingId: string, drawingName: string) => {
-    if (window.confirm(`Remove "${drawingName}" as a reference drawing? This won't delete the floor plan itself.`)) {
-      deleteMutation.mutate(drawingId);
-    }
+    confirmDelete(drawingId, drawingName);
   };
 
   if (isLoading) {

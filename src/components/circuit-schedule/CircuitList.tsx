@@ -87,10 +87,14 @@ export function CircuitList({ boardId, projectId }: CircuitListProps) {
     resetForm();
   };
 
-  const handleDelete = async (circuit: DbCircuit) => {
-    if (confirm(`Delete circuit "${circuit.circuit_ref}" and all its materials?`)) {
-      await deleteCircuit.mutateAsync({ id: circuit.id, boardId });
-    }
+  const { dialog: deleteDialog, requestConfirm: confirmDelete } = useConfirmDelete<DbCircuit>({
+    onConfirm: (circuit) => deleteCircuit.mutateAsync({ id: circuit.id, boardId }),
+    title: (_, label) => `Delete circuit "${label}"?`,
+    description: "This will delete the circuit and all its materials. This action cannot be undone.",
+  });
+
+  const handleDelete = (circuit: DbCircuit) => {
+    confirmDelete(circuit, circuit.circuit_ref);
   };
 
   const openEditDialog = (circuit: DbCircuit) => {

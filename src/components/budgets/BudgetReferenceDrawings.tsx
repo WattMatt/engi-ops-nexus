@@ -203,10 +203,14 @@ export const BudgetReferenceDrawings: React.FC<BudgetReferenceDrawingsProps> = (
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const { dialog: deleteDialog, requestConfirm: confirmDelete } = useConfirmDelete<ReferenceDrawing>({
+    onConfirm: (drawing) => deleteMutation.mutate(drawing),
+    title: (_, label) => `Delete "${label}"?`,
+    description: "This cannot be undone.",
+  });
+
   const handleDelete = (drawing: ReferenceDrawing) => {
-    if (window.confirm(`Delete "${drawing.file_name}"? This cannot be undone.`)) {
-      deleteMutation.mutate(drawing);
-    }
+    confirmDelete(drawing, drawing.file_name);
   };
 
   if (isLoading) {
