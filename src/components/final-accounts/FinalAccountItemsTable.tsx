@@ -201,7 +201,6 @@ export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubse
                         size="sm"
                         className="h-6 w-6 p-0"
                         onClick={() => setDeleteItemId(item.id)}
-                        >
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
