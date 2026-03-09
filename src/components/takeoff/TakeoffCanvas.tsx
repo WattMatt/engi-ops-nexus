@@ -507,27 +507,45 @@ export function TakeoffCanvas({
 
             {/* SVG overlay for all markers */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-              {/* Zones */}
+              {/* Zones (completed) */}
               {zones.map(z => (
                 <polygon
                   key={z.id}
                   points={z.polygon.map((p: any) => `${p.x},${p.y}`).join(' ')}
                   fill={z.color}
-                  fillOpacity={0.15}
+                  fillOpacity={0.2}
                   stroke={z.color}
-                  strokeWidth={0.3}
+                  strokeWidth={0.5}
                 />
               ))}
-              {/* Zone being drawn */}
+
+              {/* Zone being drawn — filled polygon + rubber-band to cursor */}
               {zonePoints.length > 0 && (
-                <polygon
-                  points={zonePoints.map(p => `${p.x},${p.y}`).join(' ')}
-                  fill="hsl(var(--primary))"
-                  fillOpacity={0.1}
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={0.3}
-                  strokeDasharray="0.5"
-                />
+                <>
+                  <polygon
+                    points={[...zonePoints, ...(mousePos ? [mousePos] : [])].map(p => `${p.x},${p.y}`).join(' ')}
+                    fill="hsl(var(--primary))"
+                    fillOpacity={0.12}
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={0.5}
+                    strokeDasharray="1 0.5"
+                  />
+                  {/* Vertex dots for zone */}
+                  {zonePoints.map((p, i) => (
+                    <circle key={`zv-${i}`} cx={p.x} cy={p.y} r={0.7}
+                      fill="hsl(var(--primary))" stroke="white" strokeWidth={0.2} />
+                  ))}
+                  {/* Rubber-band line from last point to cursor */}
+                  {mousePos && zonePoints.length > 0 && (
+                    <line
+                      x1={zonePoints[zonePoints.length - 1].x}
+                      y1={zonePoints[zonePoints.length - 1].y}
+                      x2={mousePos.x} y2={mousePos.y}
+                      stroke="hsl(var(--primary))" strokeWidth={0.4}
+                      strokeDasharray="0.8 0.4" opacity={0.8}
+                    />
+                  )}
+                </>
               )}
 
               {/* Count markers */}
@@ -544,42 +562,74 @@ export function TakeoffCanvas({
                 );
               })}
 
-              {/* Linear measurements */}
-              {measurements.filter(m => m.type === 'linear' && m.points).map(m => (
-                <polyline
-                  key={m.id}
-                  points={(m.points as any[]).map(p => `${p.x},${p.y}`).join(' ')}
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth={0.3}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ))}
+              {/* Completed linear measurements */}
+              {measurements.filter(m => m.type === 'linear' && m.points).map(m => {
+                const pts = m.points as { x: number; y: number }[];
+                return (
+                  <g key={m.id}>
+                    <polyline
+                      points={pts.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth={0.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {/* Vertex dots on completed lines */}
+                    {pts.map((p, i) => (
+                      <circle key={`lv-${i}`} cx={p.x} cy={p.y} r={0.5}
+                        fill="#10b981" stroke="white" strokeWidth={0.15} />
+                    ))}
+                  </g>
+                );
+              })}
 
-              {/* Linear being drawn */}
+              {/* Linear being drawn — with rubber-band to cursor */}
               {linearPoints.length > 0 && (
-                <polyline
-                  points={linearPoints.map(p => `${p.x},${p.y}`).join(' ')}
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={0.3}
-                  strokeDasharray="0.5"
-                />
+                <>
+                  <polyline
+                    points={[...linearPoints, ...(mousePos ? [mousePos] : [])].map(p => `${p.x},${p.y}`).join(' ')}
+                    fill="none"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={0.5}
+                    strokeDasharray="1 0.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {/* Vertex dots */}
+                  {linearPoints.map((p, i) => (
+                    <circle key={`lpv-${i}`} cx={p.x} cy={p.y} r={0.6}
+                      fill="hsl(var(--primary))" stroke="white" strokeWidth={0.2} />
+                  ))}
+                  {/* Cursor dot */}
+                  {mousePos && (
+                    <circle cx={mousePos.x} cy={mousePos.y} r={0.4}
+                      fill="hsl(var(--primary))" opacity={0.6} />
+                  )}
+                </>
               )}
 
-              {/* Scale calibration line */}
+              {/* Scale calibration line with rubber-band */}
               {scaleCal.point1 && (
-                <circle cx={scaleCal.point1.x} cy={scaleCal.point1.y} r={0.6} fill="#f59e0b" />
+                <circle cx={scaleCal.point1.x} cy={scaleCal.point1.y} r={0.7}
+                  fill="#f59e0b" stroke="white" strokeWidth={0.2} />
+              )}
+              {scaleCal.point1 && !scaleCal.point2 && mousePos && (
+                <line
+                  x1={scaleCal.point1.x} y1={scaleCal.point1.y}
+                  x2={mousePos.x} y2={mousePos.y}
+                  stroke="#f59e0b" strokeWidth={0.4} strokeDasharray="0.8 0.4" opacity={0.7}
+                />
               )}
               {scaleCal.point1 && scaleCal.point2 && (
                 <>
                   <line
                     x1={scaleCal.point1.x} y1={scaleCal.point1.y}
                     x2={scaleCal.point2.x} y2={scaleCal.point2.y}
-                    stroke="#f59e0b" strokeWidth={0.3} strokeDasharray="0.5"
+                    stroke="#f59e0b" strokeWidth={0.5} strokeDasharray="0.8 0.4"
                   />
-                  <circle cx={scaleCal.point2.x} cy={scaleCal.point2.y} r={0.6} fill="#f59e0b" />
+                  <circle cx={scaleCal.point2.x} cy={scaleCal.point2.y} r={0.7}
+                    fill="#f59e0b" stroke="white" strokeWidth={0.2} />
                 </>
               )}
             </svg>
