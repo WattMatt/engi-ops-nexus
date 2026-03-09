@@ -232,6 +232,13 @@ export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubse
           recalculateSectionTotals();
         }}
       />
+      <ConfirmDeleteDialog
+        open={!!deleteItemId}
+        onOpenChange={(open) => !open && setDeleteItemId(null)}
+        onConfirm={() => { if (deleteItemId) { deleteMutation.mutate(deleteItemId); setDeleteItemId(null); } }}
+        title="Delete Item"
+        description="Are you sure you want to delete this item?"
+      />
     </div>
   );
 }

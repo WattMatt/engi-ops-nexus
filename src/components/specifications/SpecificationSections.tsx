@@ -285,5 +285,13 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
         )}
       </CardContent>
     </Card>
+    <ConfirmDeleteDialog
+      open={!!deleteSectionId}
+      onOpenChange={(open) => !open && setDeleteSectionId(null)}
+      onConfirm={() => { if (deleteSectionId) { handleDelete(deleteSectionId); setDeleteSectionId(null); } }}
+      title="Delete Section"
+      description="Are you sure you want to delete this section and all its content?"
+    />
+    </>
   );
 };
