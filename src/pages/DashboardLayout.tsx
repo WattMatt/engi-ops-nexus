@@ -13,6 +13,7 @@ import { ProjectContextHeader } from "@/components/common/ProjectContextHeader";
 import { useProjectClientCheck } from "@/hooks/useProjectClientCheck";
 import { ProjectContactSetupBanner } from "@/components/project/ProjectContactSetupBanner";
 import { useSessionMonitor } from "@/hooks/useSessionMonitor";
+import { SessionExpiryDialog } from "@/components/common/SessionExpiryDialog";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const DashboardLayout = () => {
   const { hasClient, isLoading: isCheckingClient, error: clientCheckError } = useProjectClientCheck(projectId);
 
   // Session monitor for automatic logout
-  useSessionMonitor();
+  const { showCountdown, secondsRemaining, handleStayLoggedIn, handleLogoutNow } = useSessionMonitor();
 
   // Check user's profile for password change requirements
   const { data: profile, refetch: refetchProfile } = useQuery({
@@ -129,6 +130,7 @@ const DashboardLayout = () => {
   }
 
   return (
+    <>
     <SidebarProvider>
       <div className="h-screen flex w-full">
         <AppSidebar />
@@ -168,6 +170,13 @@ const DashboardLayout = () => {
         </div>
       </div>
     </SidebarProvider>
+    <SessionExpiryDialog
+      open={showCountdown}
+      secondsRemaining={secondsRemaining}
+      onStayLoggedIn={handleStayLoggedIn}
+      onLogout={handleLogoutNow}
+    />
+    </>
   );
 };
 

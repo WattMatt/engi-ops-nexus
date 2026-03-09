@@ -6,13 +6,14 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { toast } from "sonner";
 import { useSessionMonitor } from "@/hooks/useSessionMonitor";
+import { SessionExpiryDialog } from "@/components/common/SessionExpiryDialog";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   
   // Session monitor for automatic logout
-  useSessionMonitor();
+  const { showCountdown, secondsRemaining, handleStayLoggedIn, handleLogoutNow } = useSessionMonitor();
 
   useEffect(() => {
     checkAuth();
@@ -72,6 +73,7 @@ const AdminLayout = () => {
   }
 
   return (
+    <>
     <SidebarProvider>
       <div className="h-screen flex w-full">
         <AdminSidebar />
@@ -91,6 +93,13 @@ const AdminLayout = () => {
         </div>
       </div>
     </SidebarProvider>
+    <SessionExpiryDialog
+      open={showCountdown}
+      secondsRemaining={secondsRemaining}
+      onStayLoggedIn={handleStayLoggedIn}
+      onLogout={handleLogoutNow}
+    />
+    </>
   );
 };
 

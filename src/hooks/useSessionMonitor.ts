@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,113 +11,97 @@ interface SessionSettings {
   auto_logout_timezone: string;
 }
 
+const COUNTDOWN_SECONDS = 60;
+
 /**
  * Clear all local storage, session storage, IndexedDB, and Cache API
  */
 const clearAllStorage = async () => {
   console.log('[SessionMonitor] Clearing all storage...');
-
-  // Clear localStorage
   localStorage.clear();
-
-  // Clear sessionStorage
   sessionStorage.clear();
 
-  // Clear IndexedDB databases
   try {
     const databases = await indexedDB.databases();
     for (const db of databases) {
       if (db.name) {
         indexedDB.deleteDatabase(db.name);
-        console.log(`[SessionMonitor] Deleted IndexedDB: ${db.name}`);
       }
     }
   } catch (error) {
     console.warn('[SessionMonitor] Could not clear IndexedDB:', error);
   }
 
-  // Clear Cache API
   try {
     const cacheNames = await caches.keys();
     for (const cacheName of cacheNames) {
       await caches.delete(cacheName);
-      console.log(`[SessionMonitor] Deleted cache: ${cacheName}`);
     }
   } catch (error) {
     console.warn('[SessionMonitor] Could not clear Cache API:', error);
   }
-
-  console.log('[SessionMonitor] All storage cleared');
 };
 
-/**
- * Get current time in a specific timezone
- */
-const getCurrentTimeInTimezone = (timezone: string): { hours: number; minutes: number } => {
+const getCurrentTimeInTimezone = (timezone: string): { hours: number; minutes: number; seconds: number } => {
   try {
     const now = new Date();
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: timezone,
       hour: 'numeric',
       minute: 'numeric',
+      second: 'numeric',
       hour12: false,
     });
     const parts = formatter.formatToParts(now);
     const hours = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
     const minutes = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
-    return { hours, minutes };
+    const seconds = parseInt(parts.find(p => p.type === 'second')?.value || '0', 10);
+    return { hours, minutes, seconds };
   } catch (error) {
     console.warn('[SessionMonitor] Invalid timezone, using local time:', error);
     const now = new Date();
-    return { hours: now.getHours(), minutes: now.getMinutes() };
+    return { hours: now.getHours(), minutes: now.getMinutes(), seconds: now.getSeconds() };
   }
 };
 
-/**
- * Parse time string (HH:MM:SS) to hours and minutes
- */
 const parseTimeString = (timeStr: string): { hours: number; minutes: number } => {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return { hours: hours || 0, minutes: minutes || 0 };
 };
 
 /**
- * Check if current time is within the logout window (configured time +/- 2 minutes)
+ * Get seconds until the logout time. Returns negative if already past.
  */
-const isWithinLogoutWindow = (
-  currentTime: { hours: number; minutes: number },
+const getSecondsUntilLogout = (
+  currentTime: { hours: number; minutes: number; seconds: number },
   logoutTime: { hours: number; minutes: number }
-): boolean => {
-  const currentMinutes = currentTime.hours * 60 + currentTime.minutes;
-  const logoutMinutes = logoutTime.hours * 60 + logoutTime.minutes;
+): number => {
+  const currentTotalSeconds = currentTime.hours * 3600 + currentTime.minutes * 60 + currentTime.seconds;
+  const logoutTotalSeconds = logoutTime.hours * 3600 + logoutTime.minutes * 60;
   
-  // Check if within 2 minutes of logout time
-  const diff = Math.abs(currentMinutes - logoutMinutes);
-  
+  let diff = logoutTotalSeconds - currentTotalSeconds;
   // Handle midnight crossing
-  const adjustedDiff = Math.min(diff, 1440 - diff);
+  if (diff < -43200) diff += 86400; // more than 12h behind → it's ahead across midnight
   
-  return adjustedDiff <= 2;
+  return diff;
 };
 
 /**
- * Hook to monitor session and trigger automatic logout at configured times
- * 
- * Features:
- * - Checks every 60 seconds if auto-logout is enabled
- * - Compares current time against configured logout time (accounting for timezone)
- * - Triggers logout if within the scheduled window
- * - Grace period: delays logout by 30 minutes if user is active
- * - Clears all local storage, IndexedDB, and caches on logout
+ * Hook to monitor session and trigger automatic logout at configured times.
+ * Shows a 60-second countdown dialog before logging out.
  */
 export const useSessionMonitor = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isIdle } = useIdleTracker({ idleTimeout: 5 * 60 * 1000 }); // 5 minutes
+  const { isIdle } = useIdleTracker({ idleTimeout: 5 * 60 * 1000 });
   const lastLogoutCheckRef = useRef<string | null>(null);
   const graceDelayUntilRef = useRef<number | null>(null);
 
-  // Fetch session settings from company_settings
+  // Countdown dialog state
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState(COUNTDOWN_SECONDS);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const { data: settings } = useQuery({
     queryKey: ['session-security-settings'],
     queryFn: async (): Promise<SessionSettings | null> => {
@@ -131,101 +115,137 @@ export const useSessionMonitor = () => {
         console.warn('[SessionMonitor] Error fetching settings:', error);
         return null;
       }
-
       return data as SessionSettings | null;
     },
-    staleTime: 60 * 1000, // Cache for 1 minute
-    refetchInterval: 60 * 1000, // Refetch every minute
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
 
   const performLogout = useCallback(async () => {
     console.log('[SessionMonitor] Performing automatic logout...');
-    
-    // Show notification
-    toast.info('Session expired - please log in again', {
+    stopCountdown();
+
+    toast.info('Session expired – please log in again', {
       duration: 5000,
       description: 'Your session has been automatically ended for security.',
     });
 
     try {
-      // Sign out from Supabase
       await supabase.auth.signOut();
-      
-      // Clear React Query cache
       queryClient.clear();
-      
-      // Clear all local storage
       await clearAllStorage();
-      
-      // Navigate to auth page
       navigate('/auth');
     } catch (error) {
       console.error('[SessionMonitor] Error during logout:', error);
-      // Force navigation even on error
       navigate('/auth');
     }
   }, [navigate, queryClient]);
 
-  useEffect(() => {
-    if (!settings?.auto_logout_enabled) {
-      return;
+  const stopCountdown = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
+    setShowCountdown(false);
+    setSecondsRemaining(COUNTDOWN_SECONDS);
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    console.log('[SessionMonitor] Starting 60-second countdown dialog');
+    setSecondsRemaining(COUNTDOWN_SECONDS);
+    setShowCountdown(true);
+
+    countdownIntervalRef.current = setInterval(() => {
+      setSecondsRemaining(prev => {
+        if (prev <= 1) {
+          // Time's up – perform logout
+          performLogout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [performLogout]);
+
+  const handleStayLoggedIn = useCallback(() => {
+    console.log('[SessionMonitor] User chose to stay logged in');
+    stopCountdown();
+    // Push grace period forward by 30 minutes so it doesn't immediately re-trigger
+    graceDelayUntilRef.current = Date.now() + 30 * 60 * 1000;
+    toast.success('Session extended', {
+      description: 'Your session has been extended for 30 minutes.',
+      duration: 3000,
+    });
+  }, [stopCountdown]);
+
+  const handleLogoutNow = useCallback(() => {
+    performLogout();
+  }, [performLogout]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Main check loop
+  useEffect(() => {
+    if (!settings?.auto_logout_enabled) return;
 
     const checkInterval = setInterval(async () => {
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return;
-      }
+      // Don't check if countdown is already showing
+      if (showCountdown) return;
 
-      // Get current time in configured timezone
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
       const currentTime = getCurrentTimeInTimezone(settings.auto_logout_timezone);
       const logoutTime = parseTimeString(settings.auto_logout_time);
+      const secondsUntil = getSecondsUntilLogout(currentTime, logoutTime);
 
-      // Create a unique key for this minute to prevent multiple logouts
-      const checkKey = `${currentTime.hours}:${currentTime.minutes}`;
-      
-      if (isWithinLogoutWindow(currentTime, logoutTime)) {
-        // Prevent duplicate logout in same minute
-        if (lastLogoutCheckRef.current === checkKey) {
-          return;
-        }
+      // Show countdown when ≤60 seconds away and >0 (not yet past)
+      const shouldWarn = secondsUntil > 0 && secondsUntil <= COUNTDOWN_SECONDS;
+      // Already past the time (within 2-min window)
+      const shouldLogout = secondsUntil <= 0 && secondsUntil > -120;
 
-        // Check grace period - if user is active, delay by 30 minutes
+      if (shouldWarn || shouldLogout) {
+        const checkKey = `${currentTime.hours}:${currentTime.minutes}`;
+        if (lastLogoutCheckRef.current === checkKey) return;
+
+        // Grace period for active users
         if (!isIdle) {
           const now = Date.now();
           if (!graceDelayUntilRef.current) {
-            // Set grace period
-            graceDelayUntilRef.current = now + 30 * 60 * 1000; // 30 minutes
-            console.log('[SessionMonitor] User is active, delaying logout by 30 minutes');
-            toast.warning('Scheduled logout delayed', {
-              description: 'You were active, logout delayed by 30 minutes.',
-              duration: 5000,
-            });
-            return;
+            graceDelayUntilRef.current = now + 30 * 60 * 1000;
+            console.log('[SessionMonitor] User is active, showing countdown instead of instant logout');
           } else if (now < graceDelayUntilRef.current) {
-            // Still within grace period
             return;
           }
         }
 
-        // Mark this minute as checked
         lastLogoutCheckRef.current = checkKey;
-        
-        // Perform logout
-        await performLogout();
+
+        if (shouldWarn) {
+          startCountdown();
+        } else {
+          startCountdown(); // Still show dialog even if slightly past
+        }
       } else {
-        // Reset grace delay when outside logout window
         graceDelayUntilRef.current = null;
-        // Reset the check key when outside window
         lastLogoutCheckRef.current = null;
       }
-    }, 60 * 1000); // Check every 60 seconds
+    }, 10 * 1000); // Check every 10 seconds for more precise countdown triggering
 
-    return () => {
-      clearInterval(checkInterval);
-    };
-  }, [settings, isIdle, performLogout]);
+    return () => clearInterval(checkInterval);
+  }, [settings, isIdle, showCountdown, startCountdown]);
 
-  return null;
+  return {
+    showCountdown,
+    secondsRemaining,
+    handleStayLoggedIn,
+    handleLogoutNow,
+  };
 };
