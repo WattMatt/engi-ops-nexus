@@ -414,7 +414,27 @@ export function GlobalContactsManager() {
   };
 
   const handleDelete = async (contactId: string) => {
-    if (!confirm("Are you sure you want to delete this contact from the library? It will still remain linked to existing projects.")) return;
+  const { dialog: deleteContactDialog, requestConfirm: confirmDeleteContact } = useConfirmDelete({
+    onConfirm: async (contactId: string) => {
+      try {
+        const { error } = await supabase
+          .from('global_contacts')
+          .delete()
+          .eq('id', contactId);
+        if (error) throw error;
+        toast.success("Contact deleted from library");
+        queryClient.invalidateQueries({ queryKey: ['global-contacts'] });
+      } catch (error: any) {
+        toast.error(error.message || "Failed to delete contact");
+      }
+    },
+    title: "Delete Contact",
+    description: "Are you sure you want to delete this contact from the library? It will still remain linked to existing projects.",
+  });
+
+  const handleDelete = (contactId: string) => {
+    confirmDeleteContact(contactId);
+  };
 
     try {
       const { error } = await supabase
