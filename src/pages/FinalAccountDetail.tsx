@@ -8,6 +8,7 @@ import { FinalAccountOverview } from "@/components/final-accounts/FinalAccountOv
 import { FinalAccountBillsManager } from "@/components/final-accounts/FinalAccountBillsManager";
 import { PrimeCostManager } from "@/components/final-accounts/PrimeCostManager";
 import { ReportHistoryPanel } from "@/components/shared/ReportHistoryPanel";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const FinalAccountDetail = () => {
   const { accountId } = useParams();
