@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpecificationOverview } from "@/components/specifications/SpecificationOverview";
 import { SpecificationTerms } from "@/components/specifications/SpecificationTerms";
 import { SpecificationSections } from "@/components/specifications/SpecificationSections";
+import { PageBreadcrumb } from "@/components/common/PageBreadcrumb";
 
 const SpecificationDetail = () => {
   const { specId } = useParams();
