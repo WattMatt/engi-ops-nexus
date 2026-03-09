@@ -84,6 +84,7 @@ const DBLegendCards = lazy(() => import("./pages/DBLegendCards"));
 const PdfComplianceDashboard = lazy(() => import("./pages/PdfComplianceDashboard"));
 const BudgetStudio = lazy(() => import("./pages/BudgetStudio"));
 const Takeoffs = lazy(() => import("./pages/Takeoffs"));
+const COCValidation = lazy(() => import("./pages/COCValidation"));
 
 // External/client portals
 const HandoverClient = lazy(() => import("./pages/HandoverClient"));
