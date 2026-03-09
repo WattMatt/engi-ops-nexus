@@ -39,7 +39,7 @@ export const SessionSecuritySettings = () => {
   const [enabled, setEnabled] = useState(false);
   const [logoutTime, setLogoutTime] = useState("02:00");
   const [timezone, setTimezone] = useState("Africa/Johannesburg");
-  const [hasChanges, setHasChanges] = useState(false);
+  const { isBlocked, confirmNavigation, cancelNavigation } = useUnsavedChanges({ hasUnsavedChanges: hasChanges });
 
   // Fetch current settings
   const { data: settings, isLoading, error } = useQuery({
