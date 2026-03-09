@@ -3,6 +3,9 @@
  * point counting, linear measurement, and zone drawing tools.
  * Uses percentage-based coordinates for resolution independence.
  * 
+ * PDF files are rendered via pdfjs-dist at dynamic DPI for crisp zoom.
+ * Image files use standard <img> rendering.
+ * 
  * Navigation:
  * - Mouse wheel: zoom in/out
  * - Left mouse button drag (select tool): pan
@@ -10,7 +13,7 @@
  */
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
-import { ZoomIn, ZoomOut, Maximize, Move, RotateCcw } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Move, RotateCcw, Loader2 } from 'lucide-react';
 import type {
   TakeoffTool, TakeoffMeasurement, TakeoffZone, TakeoffCatalogItem,
   TakeoffAssembly, ScaleCalibration,
@@ -20,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { usePdfRenderer } from '@/hooks/usePdfRenderer';
 
 interface Props {
   imageUrl: string | null;
@@ -48,13 +52,48 @@ export function TakeoffCanvas({
   onAddMeasurement, onAddZone, onScaleSet,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const pdfCanvasRef = useRef<HTMLDivElement>(null);
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Zoom & pan state
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  // Track container size for PDF rendering
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      setContainerSize({ width, height });
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // PDF renderer — renders at zoom-appropriate DPI
+  const pdfState = usePdfRenderer({
+    url: imageUrl,
+    pageNumber: 1,
+    zoom,
+    containerWidth: containerSize.width,
+    containerHeight: containerSize.height,
+  });
+
+  // Attach rendered PDF canvas to DOM
+  useEffect(() => {
+    const host = pdfCanvasRef.current;
+    if (!host || !pdfState.canvas || !pdfState.isPdf) return;
+    host.innerHTML = '';
+    pdfState.canvas.style.display = 'block';
+    host.appendChild(pdfState.canvas);
+    if (pdfState.pageSize) {
+      setImgSize({ width: pdfState.pageSize.width, height: pdfState.pageSize.height });
+    }
+  }, [pdfState.canvas, pdfState.isPdf, pdfState.pageSize]);
 
   // Scale calibration state
   const [scaleCal, setScaleCal] = useState<ScaleCalibration>({ point1: null, point2: null, realWorldDistance: null });
@@ -411,13 +450,30 @@ export function TakeoffCanvas({
           onDoubleClick={handleDoubleClick}
         >
           <div
-            className="w-full h-full origin-top-left"
+            className="relative origin-top-left"
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transform: pdfState.isPdf
+                ? `translate(${pan.x}px, ${pan.y}px)`  // PDF already rendered at zoom DPI
+                : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              width: pdfState.isPdf && pdfState.pageSize ? `${pdfState.pageSize.width}px` : '100%',
+              height: pdfState.isPdf && pdfState.pageSize ? `${pdfState.pageSize.height}px` : '100%',
               willChange: 'transform',
             }}
           >
-            {imageUrl ? (
+            {/* PDF loading indicator */}
+            {pdfState.isPdf && pdfState.isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {/* PDF canvas mount point */}
+            {pdfState.isPdf && (
+              <div ref={pdfCanvasRef} className="w-full h-full" />
+            )}
+
+            {/* Regular image fallback */}
+            {!pdfState.isPdf && imageUrl && (
               <img
                 src={imageUrl}
                 alt="Drawing"
@@ -428,7 +484,10 @@ export function TakeoffCanvas({
                 }}
                 draggable={false}
               />
-            ) : (
+            )}
+
+            {/* No drawing selected */}
+            {!imageUrl && (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Select a drawing to begin takeoff
               </div>
