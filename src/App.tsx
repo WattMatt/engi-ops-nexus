@@ -225,6 +225,7 @@ const queryClient = new QueryClient({
                     <Route path="procurement" element={<Procurement />} />
                     <Route path="inspections" element={<Inspections />} />
                     <Route path="db-legend-cards" element={<DBLegendCards />} />
+                    <Route path="takeoffs" element={<Takeoffs />} />
                   </Route>
                   
                   {/* External review */}
