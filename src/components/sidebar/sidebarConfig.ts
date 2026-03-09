@@ -92,6 +92,11 @@ export const settingsItems: NavItem[] = [
   { title: "Project Settings", url: "/dashboard/project-settings", icon: Settings },
 ];
 
+// Compliance Workspace
+export const complianceItems: NavItem[] = [
+  { title: "COC Validation", url: "/dashboard/coc-validation", icon: ShieldCheck },
+];
+
 // All workspaces configuration
 export const workspaces: WorkspaceConfig[] = [
   {
