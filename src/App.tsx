@@ -83,6 +83,7 @@ const Inspections = lazy(() => import("./pages/Inspections"));
 const DBLegendCards = lazy(() => import("./pages/DBLegendCards"));
 const PdfComplianceDashboard = lazy(() => import("./pages/PdfComplianceDashboard"));
 const BudgetStudio = lazy(() => import("./pages/BudgetStudio"));
+const Takeoffs = lazy(() => import("./pages/Takeoffs"));
 
 // External/client portals
 const HandoverClient = lazy(() => import("./pages/HandoverClient"));
