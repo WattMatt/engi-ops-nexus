@@ -424,5 +424,7 @@ export function SANS10142ComplianceChecklist({ projectId }: SANS10142ComplianceC
         )}
       </CardContent>
     </Card>
+    <UnsavedChangesDialog isOpen={isBlocked} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+    </>
   );
 }

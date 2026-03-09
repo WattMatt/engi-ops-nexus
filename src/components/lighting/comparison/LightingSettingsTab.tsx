@@ -282,6 +282,7 @@ export const LightingSettingsTab = ({ projectId }: LightingSettingsTabProps) => 
           </p>
         </CardContent>
       </Card>
+      <UnsavedChangesDialog isOpen={isBlocked} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </div>
   );
 };

@@ -363,5 +363,7 @@ export function LineShopTemplatesGrid({ projectId, boqId }: LineShopTemplatesGri
         </ScrollArea>
       </CardContent>
     </Card>
+    <UnsavedChangesDialog isOpen={isBlocked} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+    </>
   );
 }
