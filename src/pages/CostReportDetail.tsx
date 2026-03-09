@@ -69,6 +69,11 @@ const CostReportDetail = () => {
 
   return (
     <div className="flex-1 space-y-4 px-6 pt-6 pb-6">
+      <PageBreadcrumb items={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Cost Reports", href: "/dashboard/cost-reports" },
+        { label: `Report #${report.report_number}` },
+      ]} />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button

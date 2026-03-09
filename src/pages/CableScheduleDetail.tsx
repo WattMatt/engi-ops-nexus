@@ -101,6 +101,11 @@ const CableScheduleDetail = () => {
 
   return (
     <div className="space-y-6 pb-8">
+      <PageBreadcrumb items={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Cable Schedules", href: "/dashboard/cable-schedules" },
+        { label: schedule.schedule_name },
+      ]} />
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>

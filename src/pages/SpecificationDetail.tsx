@@ -38,6 +38,11 @@ const SpecificationDetail = () => {
 
   return (
     <div className="space-y-6">
+      <PageBreadcrumb items={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Specifications", href: "/dashboard/specifications" },
+        { label: specification.title },
+      ]} />
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"

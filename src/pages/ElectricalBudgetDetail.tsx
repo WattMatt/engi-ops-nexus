@@ -127,6 +127,11 @@ const ElectricalBudgetDetail = () => {
 
   return (
     <div className="space-y-6 p-6">
+      <PageBreadcrumb items={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Electrical Budgets", href: "/dashboard/budgets/electrical" },
+        { label: `Budget #${budget.budget_number} - ${budget.revision}` },
+      ]} />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
