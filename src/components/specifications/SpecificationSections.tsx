@@ -33,6 +33,7 @@ export const SpecificationSections = ({ specId }: SpecificationSectionsProps) =>
     section_title: "",
     section_content: "",
   });
+  const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 

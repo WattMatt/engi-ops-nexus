@@ -27,6 +27,7 @@ interface FinalAccountItemsTableProps {
 export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubsectionId }: FinalAccountItemsTableProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: items = [], isLoading } = useQuery({
