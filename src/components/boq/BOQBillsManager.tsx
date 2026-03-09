@@ -23,6 +23,7 @@ export function BOQBillsManager({ boqId, projectId }: BOQBillsManagerProps) {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any>(null);
   const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set());
+  const [deleteBillId, setDeleteBillId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: bills = [], isLoading } = useQuery({
