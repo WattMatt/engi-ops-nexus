@@ -16,6 +16,7 @@ import { ContractorInspectionRequests } from "@/components/contractor-portal/Con
 import { ContractorFloorPlanView } from "@/components/contractor-portal/ContractorFloorPlanView";
 import { ContractorDBLegendCards } from "@/components/contractor-portal/ContractorDBLegendCards";
 import { ContractorDefectTracker } from "@/components/contractor-portal/defects/ContractorDefectTracker";
+import { TakeoffSheet } from "@/components/takeoff/TakeoffSheet";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { ContractorPortalExportButton } from "@/components/contractor-portal/ContractorPortalExportButton";
 import { PortalUserIdentityDialog, PortalUserIdentity } from "@/components/contractor-portal/PortalUserIdentityDialog";
