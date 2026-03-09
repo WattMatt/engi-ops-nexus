@@ -12,11 +12,11 @@ const Takeoffs = () => {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("first_name, last_name")
+          .select("full_name")
           .eq("id", user.id)
           .maybeSingle();
         if (profile) {
-          setUserName(`${profile.first_name || ""} ${profile.last_name || ""}`.trim());
+          setUserName(profile.full_name || "");
         }
       }
     };
