@@ -23,7 +23,9 @@ import { CostBreakdownChart } from "@/components/tenant/charts/EnhancedCostBreak
 import { RecoveryProjectionChart } from "@/components/tenant/charts/EnhancedRecoveryProjectionChart";
 import { ShareGeneratorReportDialog } from "@/components/generator/ShareGeneratorReportDialog";
 import { GeneratorShareHistory } from "@/components/generator/GeneratorShareHistory";
-import { ChevronDown, Share2 } from "lucide-react";
+import { ChevronDown, Share2, Zap } from "lucide-react";
+import { EmptyState } from "@/components/common/FeedbackStates";
+import { useNavigate } from "react-router-dom";
 
 const GeneratorReport = () => {
   const projectId = localStorage.getItem("selectedProjectId");
@@ -240,6 +242,21 @@ const GeneratorReport = () => {
       supabase.removeChannel(channel);
     };
   }, [projectId, refetch]);
+
+  const navigate = useNavigate();
+
+  if (!projectId) {
+    return (
+      <div className="flex-1 p-6">
+        <EmptyState
+          icon={Zap}
+          title="No project selected"
+          description="Select a project to access generator reports and cost recovery planning"
+          action={{ label: "Select Project", onClick: () => navigate("/projects") }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-6 py-6 space-y-6">

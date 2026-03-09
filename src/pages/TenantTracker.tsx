@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantList } from "@/components/tenant/TenantList";
@@ -20,6 +21,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EmptyState } from "@/components/common/FeedbackStates";
+import { Users } from "lucide-react";
 
 const TenantTracker = () => {
   const projectId = localStorage.getItem("selectedProjectId");
@@ -108,6 +111,21 @@ const TenantTracker = () => {
   const handleUpdate = () => {
     setRefreshTrigger((prev) => prev + 1);
   };
+
+  const navigate = useNavigate();
+
+  if (!projectId) {
+    return (
+      <div className="flex-1 p-6">
+        <EmptyState
+          icon={Users}
+          title="No project selected"
+          description="Select a project to start tracking tenants, DB boards, and lighting orders"
+          action={{ label: "Select Project", onClick: () => navigate("/projects") }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck, ToggleRight, Unplug, Gauge, Cable, Siren, ShieldCheck } from "lucide-react";
+import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck, ToggleRight, Unplug, Gauge, Cable, Siren, ShieldCheck, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
@@ -17,6 +17,8 @@ import { EquipmentDocumentsView } from "@/components/handover/EquipmentDocuments
 import { GeneralDocumentsView } from "@/components/handover/GeneralDocumentsView";
 import { FolderBrowser } from "@/components/handover/folders";
 import { SANS10142ComplianceChecklist } from "@/components/handover/SANS10142ComplianceChecklist";
+import { EmptyState } from "@/components/common/FeedbackStates";
+import { useNavigate } from "react-router-dom";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -71,17 +73,17 @@ const HandoverDocuments = () => {
     enabled: !!projectId,
   });
 
+  const navigate = useNavigate();
+
   if (!projectId) {
     return (
-      <div className="container mx-auto px-6 py-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>No Project Selected</CardTitle>
-            <CardDescription>
-              Please select a project from the Tenant Tracker to manage handover documents.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="flex-1 p-6">
+        <EmptyState
+          icon={FolderOpen}
+          title="No project selected"
+          description="Select a project to manage handover documents, compliance checklists, and client portals"
+          action={{ label: "Select Project", onClick: () => navigate("/projects") }}
+        />
       </div>
     );
   }

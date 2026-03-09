@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -22,15 +23,30 @@ import { AdvancedFeaturesTab } from '@/components/lighting/advanced/AdvancedFeat
 import { AnalyticsTab } from '@/components/lighting/analytics';
 import { LightingHandoverGenerator } from '@/components/lighting/handover';
 import { LightingScheduleTab } from '@/components/lighting/schedule';
+import { EmptyState } from '@/components/common/FeedbackStates';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const storedProjectId = localStorage.getItem('selectedProjectId');
     setProjectId(storedProjectId);
   }, []);
+
+  if (!projectId) {
+    return (
+      <div className="flex-1 p-6">
+        <EmptyState
+          icon={Lightbulb}
+          title="No project selected"
+          description="Select a project to access the lighting module"
+          action={{ label: "Select Project", onClick: () => navigate("/projects") }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
