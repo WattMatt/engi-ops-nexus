@@ -1,4 +1,5 @@
-import { Check, AlertTriangle, Info, X } from "lucide-react";
+import { Check, AlertTriangle, Info, X, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
 import { ComplianceResult } from "@/utils/pdfComplianceChecker";
 import {
   Tooltip,
@@ -6,6 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface ComplianceChecklistProps {
