@@ -276,6 +276,7 @@ export const SessionSecuritySettings = () => {
           </Button>
         </div>
       </CardContent>
+      <UnsavedChangesDialog isOpen={isBlocked} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </Card>
   );
 };
