@@ -2,8 +2,11 @@
 
 export interface TakeoffCatalogItem {
   id: string;
+  item_code: string | null;
   category: string;
+  sub_category: string | null;
   name: string;
+  description: string | null;
   conduit_size: string | null;
   conduit_type: string | null;
   unit: string;
