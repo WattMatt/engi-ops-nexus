@@ -75,9 +75,27 @@ export function FinanceProjectList() {
   };
 
   const handleDelete = async (projectId: string) => {
-    if (!confirm("Are you sure you want to delete this project? This will also delete all associated documents and payment schedules.")) {
-      return;
-    }
+  const { dialog: deleteProjectDialog, requestConfirm: confirmDeleteProject } = useConfirmDelete({
+    onConfirm: async (projectId: string) => {
+      try {
+        const { error } = await supabase
+          .from("invoice_projects")
+          .delete()
+          .eq("id", projectId);
+        if (error) throw error;
+        toast.success("Project deleted successfully");
+        queryClient.invalidateQueries({ queryKey: ["finance-projects"] });
+      } catch (error: any) {
+        toast.error(error.message || "Failed to delete project");
+      }
+    },
+    title: "Delete Project",
+    description: "Are you sure you want to delete this project? This will also delete all associated documents and payment schedules.",
+  });
+
+  const handleDelete = (projectId: string) => {
+    confirmDeleteProject(projectId);
+  };
 
     try {
       const { error } = await supabase
