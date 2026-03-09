@@ -150,7 +150,6 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
   const { dialog: removeMemberDialog, requestConfirm: confirmRemoveMember } = useConfirmDelete({
     onConfirm: async (memberId: string) => {
       setLoading(true);
@@ -161,7 +160,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
           .eq("id", memberId);
         if (error) throw error;
         toast.success("Member removed successfully");
-        fetchMembers();
+        loadMembers();
       } catch (error: any) {
         toast.error(error.message || "Failed to remove member");
       } finally {
@@ -175,25 +174,6 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
 
   const handleRemoveMember = (memberId: string) => {
     confirmRemoveMember(memberId);
-  };
-
-    setLoading(true);
-
-    try {
-      const { error } = await supabase
-        .from("project_members")
-        .delete()
-        .eq("id", memberId);
-
-      if (error) throw error;
-
-      toast.success("Member removed successfully");
-      loadMembers();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to remove member");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleUpdatePosition = async (memberId: string, newPosition: string) => {

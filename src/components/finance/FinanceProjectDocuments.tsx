@@ -155,7 +155,6 @@ export function FinanceProjectDocuments({ open, onOpenChange, project }: Finance
     }
   };
 
-  const handleDelete = async (doc: FinanceDocument) => {
   const { dialog: deleteDocDialog, requestConfirm: confirmDeleteDoc } = useConfirmDelete<FinanceDocument>({
     onConfirm: async (doc) => {
       try {
@@ -163,9 +162,9 @@ export function FinanceProjectDocuments({ open, onOpenChange, project }: Finance
         const { error } = await supabase.from("finance_documents").delete().eq("id", doc.id);
         if (error) throw error;
         toast.success("Document deleted");
-        queryClient.invalidateQueries({ queryKey: ["finance-documents"] });
+        queryClient.invalidateQueries({ queryKey: ["finance-documents", project.id] });
       } catch (error: any) {
-        toast.error("Failed to delete document");
+        toast.error(error.message);
       }
     },
     title: "Delete Document",
@@ -173,26 +172,7 @@ export function FinanceProjectDocuments({ open, onOpenChange, project }: Finance
   });
 
   const handleDelete = (doc: FinanceDocument) => {
-    confirmDeleteDoc(doc, doc.name);
-  };
-
-    try {
-      // Delete from storage
-      await supabase.storage.from("finance-documents").remove([doc.file_path]);
-
-      // Delete record
-      const { error } = await supabase
-        .from("finance_documents")
-        .delete()
-        .eq("id", doc.id);
-
-      if (error) throw error;
-
-      toast.success("Document deleted");
-      queryClient.invalidateQueries({ queryKey: ["finance-documents", project.id] });
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+    confirmDeleteDoc(doc);
   };
 
   const getDocumentTypeLabel = (type: string) => {
