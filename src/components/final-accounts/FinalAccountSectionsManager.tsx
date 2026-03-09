@@ -26,6 +26,7 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
   const [editingSection, setEditingSection] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [reviewDialogSection, setReviewDialogSection] = useState<any>(null);
+  const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Recalculate section totals including PC and P&A items
