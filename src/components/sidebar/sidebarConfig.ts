@@ -22,6 +22,7 @@ import {
   Package,
   ClipboardCheck,
   CircuitBoard,
+  Ruler,
   LucideIcon,
 } from "lucide-react";
 
