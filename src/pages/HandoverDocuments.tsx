@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck, ToggleRight, Unplug, Gauge, Cable, Siren, ShieldCheck } from "lucide-react";
+import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck, ToggleRight, Unplug, Gauge, Cable, Siren, ShieldCheck, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
