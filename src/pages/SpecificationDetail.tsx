@@ -12,7 +12,7 @@ const SpecificationDetail = () => {
   const { specId } = useParams();
   const navigate = useNavigate();
 
-  const { data: specification, isLoading } = useQuery({
+  const { data: specification, isLoading, refetch } = useQuery({
     queryKey: ["specification", specId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -61,7 +61,7 @@ const SpecificationDetail = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <SpecificationOverview specification={specification} />
+          <SpecificationOverview specification={specification} onUpdated={refetch} />
         </TabsContent>
 
         <TabsContent value="terms" className="space-y-4">
