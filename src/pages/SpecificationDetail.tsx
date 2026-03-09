@@ -61,7 +61,7 @@ const SpecificationDetail = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <SpecificationOverview specification={specification} />
+          <SpecificationOverview specification={specification} onUpdated={refetch} />
         </TabsContent>
 
         <TabsContent value="terms" className="space-y-4">
