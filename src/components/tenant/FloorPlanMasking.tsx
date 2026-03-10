@@ -297,8 +297,16 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   };
 
   const handleAssignTenant = (tenantId: string, tenantName: string, category: string) => {
-    if (selectedZoneId && (window as any).updateZoneTenant) {
-      (window as any).updateZoneTenant(selectedZoneId, tenantId, tenantName, category, tenants);
+    if (selectedZoneId) {
+      const isComplete = isTenantComplete(tenantId);
+      const color = isComplete ? '#10B981' : '#F97316';
+      
+      setZones(prevZones => prevZones.map(zone => {
+        if (zone.id === selectedZoneId) {
+          return { ...zone, tenantId, tenantName, category, color };
+        }
+        return zone;
+      }));
       toast.success(`Zone assigned to ${tenantName}`);
     }
   };
