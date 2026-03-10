@@ -415,7 +415,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       if (deleteError) throw deleteError;
 
-      // Insert all zones
+      // Insert all zones and get back the new IDs
+      let savedZones = zones;
       if (zones.length > 0) {
         const zonesData = zones.map(zone => ({
           project_id: projectId,
@@ -426,11 +427,21 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           color: zone.color
         }));
 
-        const { error: insertError } = await supabase
+        const { data: insertedData, error: insertError } = await supabase
           .from('tenant_floor_plan_zones')
-          .insert(zonesData);
+          .insert(zonesData)
+          .select();
 
         if (insertError) throw insertError;
+
+        // Sync local state with DB-assigned IDs (preserve order)
+        if (insertedData && insertedData.length === zones.length) {
+          savedZones = zones.map((zone, index) => ({
+            ...zone,
+            id: insertedData[index].id
+          }));
+          setZones(savedZones);
+        }
       }
 
       // Generate composite preview image
@@ -460,8 +471,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       queryClient.invalidateQueries({ queryKey: ['tenant-floor-plan', projectId] });
 
       toast.success(saveAs 
-        ? `Saved ${zones.length} zone(s) as new version` 
-        : `Saved ${zones.length} zone(s) and updated preview`
+        ? `Saved ${savedZones.length} zone(s) as new version` 
+        : `Saved ${savedZones.length} zone(s) and updated preview`
       );
     } catch (error) {
       console.error('Error saving zones:', error);
