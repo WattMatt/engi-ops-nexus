@@ -219,21 +219,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
     setIsUploading(true);
     try {
-      // Delete existing file first to ensure clean upload
-      const { error: deleteError } = await supabase.storage
-        .from('floor-plans')
-        .remove([`${projectId}/base.pdf`]);
-
-      if (deleteError) {
-        console.warn('Could not delete existing file:', deleteError);
-      }
-
       console.log('Uploading to storage...');
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('floor-plans')
         .upload(`${projectId}/base.pdf`, file, {
           cacheControl: '3600',
-          upsert: false,
+          upsert: true,
           contentType: 'application/pdf'
         });
 
@@ -297,8 +288,16 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   };
 
   const handleAssignTenant = (tenantId: string, tenantName: string, category: string) => {
-    if (selectedZoneId && (window as any).updateZoneTenant) {
-      (window as any).updateZoneTenant(selectedZoneId, tenantId, tenantName, category, tenants);
+    if (selectedZoneId) {
+      const isComplete = isTenantComplete(tenantId);
+      const color = isComplete ? '#10B981' : '#F97316';
+      
+      setZones(prevZones => prevZones.map(zone => {
+        if (zone.id === selectedZoneId) {
+          return { ...zone, tenantId, tenantName, category, color };
+        }
+        return zone;
+      }));
       toast.success(`Zone assigned to ${tenantName}`);
     }
   };
@@ -377,17 +376,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     });
 
     const filePath = `${projectId}/${fileName}`;
-    
-    // Delete existing file to avoid duplicates
-    await supabase.storage
-      .from('floor-plans')
-      .remove([filePath]);
 
-    // Upload new file
+    // Use upsert to avoid race conditions with delete-then-upload
     const { error: uploadError } = await supabase.storage
       .from('floor-plans')
       .upload(filePath, blob, { 
-        upsert: false,
+        upsert: true,
         contentType: 'image/png'
       });
 
@@ -412,7 +406,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       if (deleteError) throw deleteError;
 
-      // Insert all zones
+      // Insert all zones and get back the new IDs
+      let savedZones = zones;
       if (zones.length > 0) {
         const zonesData = zones.map(zone => ({
           project_id: projectId,
@@ -423,11 +418,21 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           color: zone.color
         }));
 
-        const { error: insertError } = await supabase
+        const { data: insertedData, error: insertError } = await supabase
           .from('tenant_floor_plan_zones')
-          .insert(zonesData);
+          .insert(zonesData)
+          .select();
 
         if (insertError) throw insertError;
+
+        // Sync local state with DB-assigned IDs (preserve order)
+        if (insertedData && insertedData.length === zones.length) {
+          savedZones = zones.map((zone, index) => ({
+            ...zone,
+            id: insertedData[index].id
+          }));
+          setZones(savedZones);
+        }
       }
 
       // Generate composite preview image
@@ -457,8 +462,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       queryClient.invalidateQueries({ queryKey: ['tenant-floor-plan', projectId] });
 
       toast.success(saveAs 
-        ? `Saved ${zones.length} zone(s) as new version` 
-        : `Saved ${zones.length} zone(s) and updated preview`
+        ? `Saved ${savedZones.length} zone(s) as new version` 
+        : `Saved ${savedZones.length} zone(s) and updated preview`
       );
     } catch (error) {
       console.error('Error saving zones:', error);

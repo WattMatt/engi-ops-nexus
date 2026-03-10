@@ -85,31 +85,8 @@ export const MaskingCanvas = ({
     );
   };
 
-  // Expose method to update zone with tenant info
-  useEffect(() => {
-    (window as any).updateZoneTenant = (zoneId: string, tenantId: string, tenantName: string, category: string, tenants: any[]) => {
-      const isComplete = isTenantComplete(tenantId, tenants);
-      const color = isComplete ? '#10B981' : '#F97316'; // Bright green for complete, Bright orange for incomplete
-      
-      const updatedZones = zones.map(zone => {
-        if (zone.id === zoneId) {
-          return {
-            ...zone,
-            tenantId,
-            tenantName,
-            category,
-            color
-          };
-        }
-        return zone;
-      });
-      onZonesChange(updatedZones);
-    };
-
-    return () => {
-      delete (window as any).updateZoneTenant;
-    };
-  }, [zones, onZonesChange]);
+  // Note: Zone tenant assignment is now handled directly in FloorPlanMasking.tsx
+  // via setZones, avoiding stale closure issues with window globals.
 
   // Expose function to get composite canvas with legend for preview generation
   useEffect(() => {
