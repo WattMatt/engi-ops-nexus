@@ -385,17 +385,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     });
 
     const filePath = `${projectId}/${fileName}`;
-    
-    // Delete existing file to avoid duplicates
-    await supabase.storage
-      .from('floor-plans')
-      .remove([filePath]);
 
-    // Upload new file
+    // Use upsert to avoid race conditions with delete-then-upload
     const { error: uploadError } = await supabase.storage
       .from('floor-plans')
       .upload(filePath, blob, { 
-        upsert: false,
+        upsert: true,
         contentType: 'image/png'
       });
 
