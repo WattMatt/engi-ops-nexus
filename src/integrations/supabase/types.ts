@@ -3090,6 +3090,131 @@ export type Database = {
           },
         ]
       }
+      coc_validations: {
+        Row: {
+          afdd_installed: boolean | null
+          bess_fire_protection: boolean | null
+          certificate_type: string
+          coc_reference_number: string
+          created_at: string
+          created_by: string
+          date_of_issue: string | null
+          earth_continuity_ohm: number | null
+          earth_loop_impedance_zs_ohm: number | null
+          fraud_risk_score: string
+          has_bess: boolean
+          has_signature: boolean
+          has_solar_pv: boolean
+          id: string
+          installation_address: string
+          installation_type: string
+          insulation_resistance_mohm: number | null
+          inverter_sync_verified: boolean | null
+          phase_configuration: string
+          polarity_correct: boolean
+          project_id: string | null
+          pscc_ka: number | null
+          rcd_rated_current_ma: number
+          rcd_trip_time_ms: number | null
+          registered_person_name: string
+          registration_category: string
+          registration_number: string
+          signature_date: string | null
+          solar_grounding_verified: boolean | null
+          spd_operational: boolean | null
+          supply_frequency: number
+          supply_voltage: number
+          updated_at: string
+          validation_results_json: Json | null
+          validation_status: string
+          voltage_at_main_db_v: number | null
+        }
+        Insert: {
+          afdd_installed?: boolean | null
+          bess_fire_protection?: boolean | null
+          certificate_type?: string
+          coc_reference_number: string
+          created_at?: string
+          created_by: string
+          date_of_issue?: string | null
+          earth_continuity_ohm?: number | null
+          earth_loop_impedance_zs_ohm?: number | null
+          fraud_risk_score?: string
+          has_bess?: boolean
+          has_signature?: boolean
+          has_solar_pv?: boolean
+          id?: string
+          installation_address?: string
+          installation_type?: string
+          insulation_resistance_mohm?: number | null
+          inverter_sync_verified?: boolean | null
+          phase_configuration?: string
+          polarity_correct?: boolean
+          project_id?: string | null
+          pscc_ka?: number | null
+          rcd_rated_current_ma?: number
+          rcd_trip_time_ms?: number | null
+          registered_person_name?: string
+          registration_category?: string
+          registration_number?: string
+          signature_date?: string | null
+          solar_grounding_verified?: boolean | null
+          spd_operational?: boolean | null
+          supply_frequency?: number
+          supply_voltage?: number
+          updated_at?: string
+          validation_results_json?: Json | null
+          validation_status?: string
+          voltage_at_main_db_v?: number | null
+        }
+        Update: {
+          afdd_installed?: boolean | null
+          bess_fire_protection?: boolean | null
+          certificate_type?: string
+          coc_reference_number?: string
+          created_at?: string
+          created_by?: string
+          date_of_issue?: string | null
+          earth_continuity_ohm?: number | null
+          earth_loop_impedance_zs_ohm?: number | null
+          fraud_risk_score?: string
+          has_bess?: boolean
+          has_signature?: boolean
+          has_solar_pv?: boolean
+          id?: string
+          installation_address?: string
+          installation_type?: string
+          insulation_resistance_mohm?: number | null
+          inverter_sync_verified?: boolean | null
+          phase_configuration?: string
+          polarity_correct?: boolean
+          project_id?: string | null
+          pscc_ka?: number | null
+          rcd_rated_current_ma?: number
+          rcd_trip_time_ms?: number | null
+          registered_person_name?: string
+          registration_category?: string
+          registration_number?: string
+          signature_date?: string | null
+          solar_grounding_verified?: boolean | null
+          spd_operational?: boolean | null
+          supply_frequency?: number
+          supply_voltage?: number
+          updated_at?: string
+          validation_results_json?: Json | null
+          validation_status?: string
+          voltage_at_main_db_v?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coc_validations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           auto_logout_enabled: boolean | null
