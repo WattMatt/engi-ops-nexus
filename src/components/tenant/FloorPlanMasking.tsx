@@ -219,21 +219,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
     setIsUploading(true);
     try {
-      // Delete existing file first to ensure clean upload
-      const { error: deleteError } = await supabase.storage
-        .from('floor-plans')
-        .remove([`${projectId}/base.pdf`]);
-
-      if (deleteError) {
-        console.warn('Could not delete existing file:', deleteError);
-      }
-
       console.log('Uploading to storage...');
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('floor-plans')
         .upload(`${projectId}/base.pdf`, file, {
           cacheControl: '3600',
-          upsert: false,
+          upsert: true,
           contentType: 'application/pdf'
         });
 
