@@ -48,7 +48,7 @@ serve(async (req) => {
     const githubResponse = await fetch(apiUrl, {
       headers: {
         "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Lovable-Component-Generator",
+        "User-Agent": "WM-Consulting-Nexus",
       },
     });
 
@@ -78,10 +78,10 @@ serve(async (req) => {
       `// File: ${f.name}\n${f.content}`
     ).join("\n\n---\n\n");
 
-    // Use Lovable AI to generate component
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    // Use AI to generate component
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY not configured");
     }
 
     const systemPrompt = `You are an expert React/TypeScript developer. Analyze the provided code and generate a clean, production-ready React component.
@@ -101,10 +101,10 @@ ${description ? `Component purpose: ${description}` : ''}`;
 
 Generate ONLY the component code, no explanations.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

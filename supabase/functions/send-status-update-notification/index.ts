@@ -71,7 +71,7 @@ serve(async (req) => {
       .single();
 
     // Always direct users to login page - they navigate from there
-    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
+    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app";
     const actionLink = `${appUrl}/auth`;
 
     const getIconAndColor = (type: string) => {

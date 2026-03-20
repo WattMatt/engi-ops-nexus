@@ -65,7 +65,7 @@ serve(async (req) => {
     const treeResponse = await fetch(treeUrl, {
       headers: {
         "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Lovable-Component-Generator",
+        "User-Agent": "WM-Consulting-Nexus",
       },
     });
 
@@ -148,7 +148,7 @@ serve(async (req) => {
         const pkgResponse = await fetch(pkgUrl, {
           headers: {
             "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "Lovable-Component-Generator",
+            "User-Agent": "WM-Consulting-Nexus",
           },
         });
         
@@ -171,9 +171,9 @@ serve(async (req) => {
     }
 
     // Generate AI summary
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY not configured");
     }
 
     const summaryPrompt = `Analyze this repository structure and provide a concise summary (max 200 words):
@@ -193,10 +193,10 @@ Dependencies: ${dependencies.required.slice(0, 10).join(', ')}
 
 Provide a brief description of what this codebase does, its main features, and any notable patterns or frameworks used.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

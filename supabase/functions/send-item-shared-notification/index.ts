@@ -81,7 +81,7 @@ serve(async (req) => {
     const senderName = sender?.full_name || "Someone";
 
     // Always direct users to login page - they navigate from there
-    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
+    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app";
     const itemLink = `${appUrl}/auth`;
 
     // Generate email HTML using template

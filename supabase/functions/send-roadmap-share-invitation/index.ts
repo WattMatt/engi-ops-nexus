@@ -44,7 +44,7 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     // Always use the production URL for email links
-    const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
+    const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app";
     const reviewLink = `${origin}/roadmap-review/${accessToken}`;
 
     const projectName = project?.name || 'Project';

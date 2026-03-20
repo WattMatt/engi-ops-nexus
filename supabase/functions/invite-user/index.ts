@@ -171,7 +171,7 @@ serve(async (req) => {
     if (sendWelcomeEmail) {
       try {
         // Always use the production URL for login link
-        const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
+        const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app";
         const loginLink = `${origin}/auth`;
 
         const emailHtml = userInviteTemplate(

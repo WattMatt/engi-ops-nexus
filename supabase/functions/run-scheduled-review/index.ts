@@ -365,7 +365,7 @@ function buildReviewEmailHtml(
           </div>
           
           <div style="margin-top: 24px; text-align: center;">
-            <a href="https://engi-ops-nexus.lovable.app/admin/ai-review" 
+            <a href="https://engi-ops-nexus.vercel.app/admin/ai-review" 
                style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">
               View Full Report →
             </a>

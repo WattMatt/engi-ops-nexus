@@ -140,7 +140,7 @@ serve(async (req) => {
 
               <!-- Action Button - Links to RFIs page for internal team -->
               <div style="text-align: center;">
-                <a href="${Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app"}/dashboard/rfis" 
+                <a href="${Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app"}/dashboard/rfis" 
                    style="display: inline-block; padding: 12px 32px; background-color: #1e40af; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">
                   View RFI in Dashboard
                 </a>

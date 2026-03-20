@@ -247,26 +247,8 @@ export function useDropbox() {
       // Use current path as return URL if not specified
       const effectiveReturnUrl = returnUrl || window.location.pathname + window.location.search;
       
-      // Capture the CORRECT origin for callback redirect
-      // In Lovable iframe preview, window.location.origin gives the internal iframe URL (lovableproject.com)
-      // We need the actual preview URL (id-preview--...lovable.app)
-      // Check if we're in the Lovable preview iframe by detecting the parent URL pattern
-      let appUrl = window.location.origin;
-      
-      try {
-        // Check for Lovable preview environment
-        // If running inside the Lovable preview, the href may contain lovableproject.com
-        // but the user sees id-preview--...lovable.app in their browser
-        if (window.location.hostname.includes('lovableproject.com')) {
-          // We're in the internal iframe - use the known preview URL pattern
-          // Extract project ID from hostname: {projectId}.lovableproject.com
-          const projectId = window.location.hostname.split('.')[0];
-          appUrl = `https://id-preview--${projectId}.lovable.app`;
-          console.log('[Dropbox] Detected Lovable preview iframe, using preview URL', { correlationId, appUrl });
-        }
-      } catch (e) {
-        console.warn('[Dropbox] Could not detect preview environment', { correlationId, error: e });
-      }
+      // Capture the origin for callback redirect
+      const appUrl = window.location.origin;
       
       console.log('[Dropbox] Requesting auth URL', { correlationId, effectiveReturnUrl, appUrl });
 
@@ -295,7 +277,6 @@ export function useDropbox() {
         sessionStorage.setItem('dropbox_oauth_started_at', new Date().toISOString());
         
         // Navigate to Dropbox OAuth - use top-level window to avoid iframe restrictions
-        // In an iframe (like Lovable preview), we need to navigate the top window
         try {
           if (window.top && window.top !== window) {
             // We're in an iframe - navigate top window

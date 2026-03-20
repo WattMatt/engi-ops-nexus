@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
     const { action, days_ahead = 3, batch_size = 50 } = await req.json().catch(() => ({}));
 
     // Get base URL for links
-    const baseUrl = Deno.env.get("APP_BASE_URL") || "https://engi-ops-nexus.lovable.app";
+    const baseUrl = Deno.env.get("APP_BASE_URL") || "https://engi-ops-nexus.vercel.app";
 
     let results = {
       queued: 0,

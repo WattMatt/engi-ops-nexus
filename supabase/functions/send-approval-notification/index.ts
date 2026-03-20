@@ -68,7 +68,7 @@ serve(async (req) => {
       });
 
     // Always direct users to login page - they navigate from there
-    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
+    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app";
     const approvalLink = `${appUrl}/auth`;
 
     await smtpClient.send({

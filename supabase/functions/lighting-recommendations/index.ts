@@ -14,9 +14,9 @@ serve(async (req) => {
   try {
     const { zones, fittings, projectSettings } = await req.json();
 
-    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY');
     if (!apiKey) {
-      throw new Error('LOVABLE_API_KEY not configured');
+      throw new Error('OPENROUTER_API_KEY not configured');
     }
 
     const systemPrompt = `You are an expert lighting design consultant specializing in South African standards (SANS 10114). 
@@ -102,7 +102,7 @@ Format your response as JSON with this structure:
   "summary": "string"
 }`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,

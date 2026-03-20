@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 
 const extractionPrompt = `You are an expert at extracting technical specifications from lighting product specification sheets.
 
@@ -133,8 +133,8 @@ serve(async (req) => {
       );
     }
 
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY is not configured');
+    if (!OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY is not configured');
       return new Response(
         JSON.stringify({ 
           error: 'AI service not configured. Please contact support.',
@@ -148,7 +148,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Starting spec sheet extraction via Lovable AI...');
+    console.log('Starting spec sheet extraction via AI...');
     console.log('Mime type:', mimeType || 'unknown');
 
     let base64Data = imageBase64;
@@ -198,13 +198,13 @@ serve(async (req) => {
       }
     };
 
-    console.log('Calling Lovable AI Gateway...');
+    console.log('Calling OpenRouter AI...');
 
-    // Call Lovable AI Gateway with google/gemini-2.5-flash
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call OpenRouter AI with google/gemini-2.5-flash
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -234,19 +234,19 @@ serve(async (req) => {
     if (response.status === 402) {
       console.error('Payment required');
       return new Response(
-        JSON.stringify({ error: 'Payment required, please add funds to your Lovable AI workspace.' }),
+        JSON.stringify({ error: 'Payment required. Please check your OpenRouter API credits.' }),
         { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status} - ${errorText}`);
+      console.error('OpenRouter AI error:', response.status, errorText);
+      throw new Error(`AI error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    console.log('Lovable AI response received');
+    console.log('AI response received');
 
     // Extract the text content from the response
     const textContent = result.choices?.[0]?.message?.content;

@@ -410,7 +410,7 @@ function buildReminderEmail(monthName: string, invoiceCount: number, projectCoun
 
             <p>Please log in to generate and send these invoices:</p>
             <p style="text-align: center;">
-              <a href="${Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app"}/auth" class="button">
+              <a href="${Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app"}/auth" class="button">
                 Log In
               </a>
             </p>
@@ -594,7 +594,7 @@ function buildGeneratedInvoicesEmail(monthName: string, invoices: GeneratedInvoi
             </div>
 
             <p style="text-align: center;">
-              <a href="${Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "https://app.lovable.app"}/admin/finance" class="button">
+              <a href="${Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app"}/admin/finance" class="button">
                 View in Finance Module
               </a>
             </p>

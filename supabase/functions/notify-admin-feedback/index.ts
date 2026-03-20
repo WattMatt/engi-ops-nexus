@@ -43,7 +43,7 @@ serve(async (req) => {
 
     const adminEmail = "arno@wmeng.co.za";
     const typeLabel = type === 'issue' ? 'Issue Report' : 'Suggestion';
-    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
+    const appUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app";
     const feedbackLink = `${appUrl}/auth`;
     
     const priorityColor = priority === 'high' ? '#dc2626' : priority === 'medium' ? '#f59e0b' : '#10b981';

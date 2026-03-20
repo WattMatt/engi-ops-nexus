@@ -13,12 +13,12 @@ serve(async (req) => {
 
   try {
     const { prompt, reportType, projectData, size = "1536x1024", quality = "high" } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -58,11 +58,11 @@ Context: ${projectData ? JSON.stringify(projectData) : ''}
 User request: ${prompt}`;
     }
 
-    // Call Lovable AI image generation
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call AI image generation
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

@@ -12,7 +12,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // Get the app URL - fallback to common patterns
-const APP_URL = Deno.env.get('APP_URL') || 'https://engi-ops-nexus.lovable.app';
+const APP_URL = Deno.env.get('APP_URL') || 'https://engi-ops-nexus.vercel.app';
 
 serve(async (req) => {
   const requestStartTime = Date.now();

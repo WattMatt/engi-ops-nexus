@@ -7,7 +7,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // Default fallback URL
-const DEFAULT_APP_URL = 'https://engi-ops-nexus.lovable.app';
+const DEFAULT_APP_URL = 'https://engi-ops-nexus.vercel.app';
 
 serve(async (req) => {
   const requestStartTime = Date.now();

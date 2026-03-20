@@ -164,7 +164,7 @@ serve(async (req) => {
       ` : ""}
 
       <div style="text-align: center;">
-        <a href="${Deno.env.get("SITE_URL") || "https://engi-ops-nexus.lovable.app"}/cable-schedules?verification=${verification_id}" class="btn">
+        <a href="${Deno.env.get("SITE_URL") || "https://engi-ops-nexus.vercel.app"}/cable-schedules?verification=${verification_id}" class="btn">
           View Verification Details
         </a>
       </div>

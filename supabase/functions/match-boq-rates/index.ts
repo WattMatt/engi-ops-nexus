@@ -679,7 +679,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -724,7 +724,7 @@ serve(async (req) => {
       supabase,
       upload_id,
       contentToProcess,
-      lovableApiKey,
+      openrouterApiKey,
       column_mappings
     );
 
@@ -763,7 +763,7 @@ async function processMatching(
   supabase: any,
   upload_id: string,
   file_content: string,
-  lovableApiKey: string | undefined,
+  openrouterApiKey: string | undefined,
   columnMappings?: Record<string, ColumnMapping>
 ): Promise<{ total_items: number; matched_count: number; new_count: number }> {
   console.log('[BOQ Match] processMatching() started');
@@ -819,14 +819,14 @@ async function processMatching(
         categories,
         columnMappings
       );
-    } else if (lovableApiKey) {
+    } else if (openrouterApiKey) {
       // Fallback to AI extraction
       console.log('[BOQ Match] No column mappings, using AI extraction');
       matchResults = await extractAndMatchWithAI(
         file_content,
         materialReference,
         categories,
-        lovableApiKey
+        openrouterApiKey
       );
     } else {
       console.log('[BOQ Match] No API key or mappings, using basic parse');
@@ -1223,9 +1223,9 @@ async function extractAndMatchWithAI(
   content: string,
   materialReference: { id: string; code: string; name: string; unit: string | null; supply_cost: number | null; install_cost: number | null }[],
   categories: MaterialCategory[] | null,
-  lovableApiKey: string | undefined
+  openrouterApiKey: string | undefined
 ): Promise<MatchResult[]> {
-  if (!lovableApiKey) {
+  if (!openrouterApiKey) {
     console.log('[BOQ Match] No API key, using basic parsing');
     return basicParse(content, materialReference, categories);
   }
@@ -1327,10 +1327,10 @@ OUTLIER RULES:
 
 CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${openrouterApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

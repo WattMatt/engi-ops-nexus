@@ -192,7 +192,7 @@ async function cleanWithAI(text: string, apiKey: string, fileName: string): Prom
   const textToProcess = text.length > 50000 ? text.slice(0, 50000) : text;
   
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -243,12 +243,12 @@ serve(async (req) => {
       throw new Error("documentId is required");
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
@@ -361,7 +361,7 @@ serve(async (req) => {
     // Clean with AI for better quality (for non-text files)
     if (extractionMethod !== "text" && text.length > 100) {
       console.log("Cleaning extracted text with AI...");
-      text = await cleanWithAI(text, LOVABLE_API_KEY, document.file_name);
+      text = await cleanWithAI(text, OPENROUTER_API_KEY, document.file_name);
       console.log(`Cleaned text: ${text.length} characters`);
     }
 

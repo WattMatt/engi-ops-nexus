@@ -43,10 +43,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 
-    if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    if (!openrouterApiKey) {
+      throw new Error('OPENROUTER_API_KEY not configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -68,7 +68,7 @@ serve(async (req) => {
     console.log(`[BOQ Template Extract] Starting extraction, content length: ${file_content?.length || 0}`);
 
     // Use AI to extract the structure
-    const extractedStructure = await extractBOQStructureWithAI(file_content, lovableApiKey);
+    const extractedStructure = await extractBOQStructureWithAI(file_content, openrouterApiKey);
 
     if (!extractedStructure || !extractedStructure.bills || extractedStructure.bills.length === 0) {
       throw new Error('Failed to extract any bills from the document');
@@ -186,7 +186,7 @@ OUTPUT FORMAT (JSON):
 DOCUMENT CONTENT:
 ${content.substring(0, 80000)}`; // Limit content to avoid token limits
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

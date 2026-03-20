@@ -55,7 +55,7 @@ export function AIImplementationGuide() {
                 Paste into AI Chat
               </p>
               <p className="text-muted-foreground">
-                Open the Lovable AI chat (bottom right) and paste the copied prompt. 
+                Open the AI chat and paste the copied prompt.
                 The AI will implement the recommendations step-by-step.
               </p>
             </div>

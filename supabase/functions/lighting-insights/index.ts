@@ -13,9 +13,9 @@ serve(async (req) => {
   try {
     const { analytics } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     const systemPrompt = `You are a lighting analytics expert. Analyze the provided portfolio data and generate actionable insights.
@@ -57,10 +57,10 @@ ${analytics.fittingTypes?.map((t: any) => `- ${t.type}: ${t.count} fittings`).jo
 
 Generate insights focused on cost savings, efficiency improvements, and strategic recommendations.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

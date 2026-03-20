@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
     const reviewerName = reviewerProfile?.full_name || user.email || "Team Member";
 
     // Always use the production URL for email links
-    const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.lovable.app";
+    const origin = Deno.env.get("PUBLIC_SITE_URL") || "https://engi-ops-nexus.vercel.app";
     
     // Update the review session as completed
     const { error: sessionError } = await supabase
