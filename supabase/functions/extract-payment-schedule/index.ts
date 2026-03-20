@@ -12,14 +12,14 @@ serve(async (req) => {
 
   try {
     const { fileContent, fileName, fileType } = await req.json();
-    
+
     if (!fileContent) {
       throw new Error('No file content provided');
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
-    if (!OPENROUTER_API_KEY) {
-      throw new Error('OPENROUTER_API_KEY is not configured');
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is not configured');
     }
 
     console.log('Processing document for payment schedule extraction:', fileName, 'Type:', fileType);
@@ -51,19 +51,19 @@ Look for and extract:
    - Claim/Invoice numbers
    - Month names in various formats:
      * "December-25", "January-26" → convert to YYYY-MM
-     * "Dec-25", "Jan-26" → convert to YYYY-MM  
+     * "Dec-25", "Jan-26" → convert to YYYY-MM
      * "Jul-25", "Aug-25" → convert to 2025-07, 2025-08
      * Column headers with month abbreviations
    - Milestones (e.g., "Pre-contract concept", "Construction", "Practical completion")
    - Percentage of fee
    - Invoice amounts (with or without R prefix)
-   
+
    For Excel cashflow forecasts:
    - Each column may represent a month
    - Look for rows with discipline names and budget amounts
    - Monthly payment values may be spread across columns
    - R- or R0 means zero payment for that month
-   
+
 4. DATES:
    - Document date
    - Start/end dates
@@ -77,13 +77,22 @@ Look for and extract:
 Be thorough and extract ALL financial data visible in the document. For spreadsheets, each non-zero monthly amount should become a separate payment entry.`;
 
     // Build the message content based on file type
-    let messageContent: any[];
-    
+    let messageContent: any;
+
     if (fileType === 'image') {
-      messageContent = [
-        { type: "text", text: extractionPrompt },
-        { type: "image_url", image_url: { url: fileContent } }
-      ];
+      // Parse data URL for Anthropic format
+      const dataUrlMatch = fileContent.match(/^data:([^;]+);base64,(.+)$/);
+      if (dataUrlMatch) {
+        messageContent = [
+          { type: "text", text: extractionPrompt },
+          { type: "image", source: { type: "base64", media_type: dataUrlMatch[1], data: dataUrlMatch[2] } }
+        ];
+      } else {
+        // Fallback: treat as text
+        messageContent = [
+          { type: "text", text: `${extractionPrompt}\n\nDOCUMENT CONTENT:\n${fileContent}` }
+        ];
+      }
     } else {
       messageContent = [
         { type: "text", text: `${extractionPrompt}\n\nDOCUMENT CONTENT:\n${fileContent}` }
@@ -91,18 +100,17 @@ Be thorough and extract ALL financial data visible in the document. For spreadsh
     }
 
     // Call AI to extract payment schedule data
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a document analysis assistant specialized in extracting payment schedules and financial data from:
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        system: `You are a document analysis assistant specialized in extracting payment schedules and financial data from:
 - Appointment letters
 - Fee proposals and professional fee calculations
 - Proposed cashflow schedules and cashflow forecasts
@@ -128,8 +136,8 @@ Common document patterns:
 - Fee proposals with milestone-based payments
 - Claim schedules with invoice numbers and payment dates
 - Excel cashflow forecasts with month columns (Jul-25, Aug-25, etc.) and payment amounts in rows
-- Spreadsheets where each column is a different month and cells contain R-prefixed amounts`
-          },
+- Spreadsheets where each column is a different month and cells contain R-prefixed amounts`,
+        messages: [
           {
             role: 'user',
             content: messageContent
@@ -137,172 +145,169 @@ Common document patterns:
         ],
         tools: [
           {
-            type: "function",
-            function: {
-              name: "extract_payment_schedule",
-              description: "Extract structured payment schedule and project data from a document",
-              parameters: {
-                type: "object",
-                properties: {
-                  project_name: { 
-                    type: ["string", "null"], 
-                    description: "Project name or reference" 
-                  },
-                  client_name: { 
-                    type: ["string", "null"], 
-                    description: "Client company name (the party paying)" 
-                  },
-                  client_address: { 
-                    type: ["string", "null"], 
-                    description: "Full client address" 
-                  },
-                  client_vat_number: { 
-                    type: ["string", "null"], 
-                    description: "Client VAT registration number" 
-                  },
-                  consultant_name: {
-                    type: ["string", "null"],
-                    description: "Consultant/company providing services"
-                  },
-                  discipline: {
-                    type: ["string", "null"],
-                    description: "Professional discipline (e.g., Electrical Engineer, Architect)"
-                  },
-                  agreed_fee: { 
-                    type: ["number", "null"], 
-                    description: "Total agreed fee/contract value excluding VAT" 
-                  },
-                  construction_cost: {
-                    type: ["number", "null"],
-                    description: "Total construction cost used for fee calculation purposes"
-                  },
-                  rebate_percentage: {
-                    type: ["number", "null"],
-                    description: "Rebate percentage offered (negative if discount)"
-                  },
-                  vat_percentage: {
-                    type: ["number", "null"],
-                    description: "VAT percentage (e.g., 15)"
-                  },
-                  payment_terms: {
-                    type: ["string", "null"],
-                    description: "Payment terms description (e.g., '30 days from invoice')"
-                  },
-                  start_date: {
-                    type: ["string", "null"],
-                    description: "Project or payment schedule start date in YYYY-MM-DD or YYYY-MM format"
-                  },
-                  end_date: {
-                    type: ["string", "null"],
-                    description: "Project or payment schedule end date in YYYY-MM-DD or YYYY-MM format"
-                  },
-                  payment_schedule: {
-                    type: "array",
-                    description: "Array of payment milestones/claims",
-                    items: {
-                      type: "object",
-                      properties: {
-                        claim_number: {
-                          type: ["number", "null"],
-                          description: "Claim or invoice number if specified"
-                        },
-                        date: {
-                          type: ["string", "null"],
-                          description: "Payment date in YYYY-MM-DD or YYYY-MM format"
-                        },
-                        amount: {
-                          type: "number",
-                          description: "Payment amount excluding VAT"
-                        },
-                        description: {
-                          type: ["string", "null"],
-                          description: "Description/milestone (e.g., 'Pre-contract concept', 'Construction', 'Practical completion')"
-                        },
-                        percentage: {
-                          type: ["number", "null"],
-                          description: "Percentage of total fee for this payment"
-                        },
-                        cumulative_percentage: {
-                          type: ["number", "null"],
-                          description: "Cumulative percentage if shown"
-                        }
+            name: "extract_payment_schedule",
+            description: "Extract structured payment schedule and project data from a document",
+            input_schema: {
+              type: "object",
+              properties: {
+                project_name: {
+                  type: ["string", "null"],
+                  description: "Project name or reference"
+                },
+                client_name: {
+                  type: ["string", "null"],
+                  description: "Client company name (the party paying)"
+                },
+                client_address: {
+                  type: ["string", "null"],
+                  description: "Full client address"
+                },
+                client_vat_number: {
+                  type: ["string", "null"],
+                  description: "Client VAT registration number"
+                },
+                consultant_name: {
+                  type: ["string", "null"],
+                  description: "Consultant/company providing services"
+                },
+                discipline: {
+                  type: ["string", "null"],
+                  description: "Professional discipline (e.g., Electrical Engineer, Architect)"
+                },
+                agreed_fee: {
+                  type: ["number", "null"],
+                  description: "Total agreed fee/contract value excluding VAT"
+                },
+                construction_cost: {
+                  type: ["number", "null"],
+                  description: "Total construction cost used for fee calculation purposes"
+                },
+                rebate_percentage: {
+                  type: ["number", "null"],
+                  description: "Rebate percentage offered (negative if discount)"
+                },
+                vat_percentage: {
+                  type: ["number", "null"],
+                  description: "VAT percentage (e.g., 15)"
+                },
+                payment_terms: {
+                  type: ["string", "null"],
+                  description: "Payment terms description (e.g., '30 days from invoice')"
+                },
+                start_date: {
+                  type: ["string", "null"],
+                  description: "Project or payment schedule start date in YYYY-MM-DD or YYYY-MM format"
+                },
+                end_date: {
+                  type: ["string", "null"],
+                  description: "Project or payment schedule end date in YYYY-MM-DD or YYYY-MM format"
+                },
+                payment_schedule: {
+                  type: "array",
+                  description: "Array of payment milestones/claims",
+                  items: {
+                    type: "object",
+                    properties: {
+                      claim_number: {
+                        type: ["number", "null"],
+                        description: "Claim or invoice number if specified"
                       },
-                      required: ["amount"]
-                    }
-                  },
-                  notes: {
-                    type: ["string", "null"],
-                    description: "Any additional notes, conditions, or special terms"
-                  },
-                  document_date: {
-                    type: ["string", "null"],
-                    description: "Date of the document in YYYY-MM-DD format"
-                  },
-                  document_reference: {
-                    type: ["string", "null"],
-                    description: "Document reference number, revision, or ID"
+                      date: {
+                        type: ["string", "null"],
+                        description: "Payment date in YYYY-MM-DD or YYYY-MM format"
+                      },
+                      amount: {
+                        type: "number",
+                        description: "Payment amount excluding VAT"
+                      },
+                      description: {
+                        type: ["string", "null"],
+                        description: "Description/milestone (e.g., 'Pre-contract concept', 'Construction', 'Practical completion')"
+                      },
+                      percentage: {
+                        type: ["number", "null"],
+                        description: "Percentage of total fee for this payment"
+                      },
+                      cumulative_percentage: {
+                        type: ["number", "null"],
+                        description: "Cumulative percentage if shown"
+                      }
+                    },
+                    required: ["amount"]
                   }
                 },
-                required: ["payment_schedule"],
-                additionalProperties: false
-              }
+                notes: {
+                  type: ["string", "null"],
+                  description: "Any additional notes, conditions, or special terms"
+                },
+                document_date: {
+                  type: ["string", "null"],
+                  description: "Date of the document in YYYY-MM-DD format"
+                },
+                document_reference: {
+                  type: ["string", "null"],
+                  description: "Document reference number, revision, or ID"
+                }
+              },
+              required: ["payment_schedule"],
+              additionalProperties: false
             }
           }
         ],
-        tool_choice: { type: "function", function: { name: "extract_payment_schedule" } }
+        tool_choice: { type: "tool", name: "extract_payment_schedule" }
       }),
     });
 
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Rate limits exceeded. Please try again later.' }), 
+          JSON.stringify({ error: 'Rate limits exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'Payment required. Please check your OpenRouter API credits.' }), 
+          JSON.stringify({ error: 'Payment required. Please check your Anthropic API credits.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      console.error('Claude API error:', response.status, errorText);
+      throw new Error(`Claude API error: ${response.status}`);
     }
 
     const data = await response.json();
     console.log('AI response received');
 
-    // Extract the tool call result
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.function.name !== 'extract_payment_schedule') {
+    // Extract the tool use result
+    const toolUseBlock = data.content?.find((block: any) => block.type === "tool_use");
+    if (!toolUseBlock || toolUseBlock.name !== 'extract_payment_schedule') {
       throw new Error('Invalid AI response format');
     }
 
-    const extractedData = JSON.parse(toolCall.function.arguments);
+    const extractedData = toolUseBlock.input;
     console.log('Extracted payment schedule:', JSON.stringify(extractedData, null, 2));
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        data: extractedData 
-      }), 
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      JSON.stringify({
+        success: true,
+        data: extractedData
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error) {
     console.error('Error in extract-payment-schedule function:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
-      }), 
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

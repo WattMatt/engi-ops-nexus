@@ -43,10 +43,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
 
-    if (!openrouterApiKey) {
-      throw new Error('OPENROUTER_API_KEY not configured');
+    if (!anthropicApiKey) {
+      throw new Error('ANTHROPIC_API_KEY not configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -68,7 +68,7 @@ serve(async (req) => {
     console.log(`[BOQ Template Extract] Starting extraction, content length: ${file_content?.length || 0}`);
 
     // Use AI to extract the structure
-    const extractedStructure = await extractBOQStructureWithAI(file_content, openrouterApiKey);
+    const extractedStructure = await extractBOQStructureWithAI(file_content, anthropicApiKey);
 
     if (!extractedStructure || !extractedStructure.bills || extractedStructure.bills.length === 0) {
       throw new Error('Failed to extract any bills from the document');
@@ -186,21 +186,21 @@ OUTPUT FORMAT (JSON):
 DOCUMENT CONTENT:
 ${content.substring(0, 80000)}`; // Limit content to avoid token limits
 
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 16000,
+      temperature: 0.1,
+      system: systemPrompt + "\n\nYou must respond with valid JSON only. No other text.",
       messages: [
-        { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 16000,
     }),
   });
 
@@ -211,7 +211,7 @@ ${content.substring(0, 80000)}`; // Limit content to avoid token limits
   }
 
   const result = await response.json();
-  const content_response = result.choices?.[0]?.message?.content;
+  const content_response = result.content?.[0]?.text;
 
   if (!content_response) {
     throw new Error('No content in AI response');

@@ -35,12 +35,12 @@ serve(async (req) => {
       includeOperational = true
     } = await req.json();
     
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -64,18 +64,17 @@ serve(async (req) => {
       includeOperational,
     });
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert full-stack software architect and engineering application specialist. 
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: `You are an expert full-stack software architect and engineering application specialist.
 You provide detailed, actionable code reviews with specific recommendations that include:
 - Exact file paths when known
 - Priority order for implementation
@@ -83,14 +82,15 @@ You provide detailed, actionable code reviews with specific recommendations that
 - Test criteria for each fix
 - Effort estimates
 
-You must respond with valid JSON matching the specified format exactly.`
-          },
+You must respond with valid JSON matching the specified format exactly.
+
+You must respond with valid JSON only. No other text.`,
+        messages: [
           {
             role: "user",
             content: reviewPrompt
           }
         ],
-        response_format: { type: "json_object" },
       }),
     });
 
@@ -113,7 +113,7 @@ You must respond with valid JSON matching the specified format exactly.`
     }
 
     const data = await response.json();
-    const reviewText = data.choices[0].message.content;
+    const reviewText = data.content[0].text;
     
     let reviewData;
     try {

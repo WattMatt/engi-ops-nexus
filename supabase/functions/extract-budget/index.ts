@@ -55,7 +55,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -175,7 +175,7 @@ ${file_content}`;
 
     let extractedBudget: ExtractedBudget | null = null;
 
-    if (openrouterApiKey) {
+    if (anthropicApiKey) {
       console.log('[Budget Extract] Using AI for extraction');
       console.log('[Budget Extract] Content length:', file_content.length, 'characters');
       
@@ -183,18 +183,19 @@ ${file_content}`;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 50000);
 
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openrouterApiKey}`,
+          'x-api-key': anthropicApiKey,
+          'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json',
         },
         signal: controller.signal,
         body: JSON.stringify({
-          // Use gemini-2.5-flash for faster response (pro is too slow)
-          model: 'google/gemini-2.5-flash',
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4096,
+          system: 'You are a document parsing assistant. Return only valid, complete JSON. Do not truncate the output.\n\nYou must respond with valid JSON only. No other text.',
           messages: [
-            { role: 'system', content: 'You are a document parsing assistant. Return only valid, complete JSON. Do not truncate the output.' },
             { role: 'user', content: extractionPrompt }
           ],
         }),
@@ -232,8 +233,8 @@ ${file_content}`;
       
       console.log('[Budget Extract] Response parsed, extracting content...');
       
-      if (aiResult.choices?.[0]?.message?.content) {
-        const rawText = aiResult.choices[0].message.content;
+      if (aiResult.content?.[0]?.text) {
+        const rawText = aiResult.content[0].text;
         console.log('[Budget Extract] Content length:', rawText.length, 'characters');
         
         // Clean the response - remove markdown code blocks

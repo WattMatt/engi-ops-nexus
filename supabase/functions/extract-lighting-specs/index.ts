@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
 const extractionPrompt = `You are an expert at extracting technical specifications from lighting product specification sheets.
 
@@ -133,14 +133,14 @@ serve(async (req) => {
       );
     }
 
-    if (!OPENROUTER_API_KEY) {
-      console.error('OPENROUTER_API_KEY is not configured');
+    if (!ANTHROPIC_API_KEY) {
+      console.error('ANTHROPIC_API_KEY is not configured');
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'AI service not configured. Please contact support.',
           extracted_data: null,
           confidence_scores: null
-        }), 
+        }),
         {
           status: 503,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -190,35 +190,33 @@ serve(async (req) => {
       }
     }
 
-    // Build the content for the API
-    const imageContent = {
-      type: "image_url",
-      image_url: {
-        url: `data:${actualMimeType || 'application/pdf'};base64,${base64Data}`
-      }
-    };
+    // Build the content block for the API (PDF vs image)
+    const isPdf = (actualMimeType || '').includes('pdf');
+    const contentBlock = isPdf
+      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64Data } }
+      : { type: "image", source: { type: "base64", media_type: actualMimeType || 'image/png', data: base64Data } };
 
-    console.log('Calling OpenRouter AI...');
+    console.log('Calling Claude API...');
 
-    // Call OpenRouter AI with google/gemini-2.5-flash
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // Call Claude API with claude-haiku-4-5
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: extractionPrompt },
-              imageContent
-            ]
-          }
-        ],
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 2048,
+        system: extractionPrompt,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Extract all specifications from this lighting product document.' },
+            contentBlock
+          ]
+        }],
       })
     });
 
@@ -234,14 +232,14 @@ serve(async (req) => {
     if (response.status === 402) {
       console.error('Payment required');
       return new Response(
-        JSON.stringify({ error: 'Payment required. Please check your OpenRouter API credits.' }),
+        JSON.stringify({ error: 'Payment required. Please check your API credits.' }),
         { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter AI error:', response.status, errorText);
+      console.error('Claude API error:', response.status, errorText);
       throw new Error(`AI error: ${response.status} - ${errorText}`);
     }
 
@@ -249,7 +247,7 @@ serve(async (req) => {
     console.log('AI response received');
 
     // Extract the text content from the response
-    const textContent = result.choices?.[0]?.message?.content;
+    const textContent = result.content?.[0]?.text;
     
     if (!textContent) {
       throw new Error('No text content in AI response');

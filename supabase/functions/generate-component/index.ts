@@ -79,9 +79,9 @@ serve(async (req) => {
     ).join("\n\n---\n\n");
 
     // Use AI to generate component
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY not configured");
     }
 
     const systemPrompt = `You are an expert React/TypeScript developer. Analyze the provided code and generate a clean, production-ready React component.
@@ -101,19 +101,21 @@ ${description ? `Component purpose: ${description}` : ''}`;
 
 Generate ONLY the component code, no explanations.`;
 
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 4096,
+        temperature: 0.3,
+        system: systemPrompt,
         messages: [
-          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.3,
       }),
     });
 
@@ -138,7 +140,7 @@ Generate ONLY the component code, no explanations.`;
     }
 
     const aiData = await aiResponse.json();
-    const generatedCode = aiData.choices?.[0]?.message?.content || "";
+    const generatedCode = aiData.content?.[0]?.text || "";
 
     // Extract code from markdown if present
     const codeMatch = generatedCode.match(/```(?:tsx?|jsx?)?\n([\s\S]*?)```/);

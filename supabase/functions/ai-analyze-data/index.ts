@@ -12,10 +12,10 @@ serve(async (req) => {
 
   try {
     const { analysisType, data } = await req.json();
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     const analysisPrompts: Record<string, string> = {
@@ -43,19 +43,18 @@ serve(async (req) => {
 
     const prompt = analysisPrompts[analysisType] || analysisPrompts.project;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-preview",
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: "You are a data analyst specializing in construction and electrical engineering projects. Provide actionable insights based on data analysis.",
         messages: [
-          {
-            role: "system",
-            content: "You are a data analyst specializing in construction and electrical engineering projects. Provide actionable insights based on data analysis.",
-          },
           {
             role: "user",
             content: `${prompt}
@@ -86,7 +85,7 @@ Provide your analysis in a structured format with clear sections and actionable 
     }
 
     const result = await response.json();
-    const analysis = result.choices[0].message.content;
+    const analysis = result.content[0].text;
 
     return new Response(
       JSON.stringify({ analysis }),

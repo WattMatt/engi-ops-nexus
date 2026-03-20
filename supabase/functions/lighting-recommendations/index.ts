@@ -14,9 +14,9 @@ serve(async (req) => {
   try {
     const { zones, fittings, projectSettings } = await req.json();
 
-    const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY not configured');
+      throw new Error('ANTHROPIC_API_KEY not configured');
     }
 
     const systemPrompt = `You are an expert lighting design consultant specializing in South African standards (SANS 10114). 
@@ -102,20 +102,21 @@ Format your response as JSON with this structure:
   "summary": "string"
 }`;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        temperature: 0.3,
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3,
-        max_tokens: 4000,
       }),
     });
 
@@ -126,7 +127,7 @@ Format your response as JSON with this structure:
     }
 
     const data = await response.json();
-    const content = data.choices[0]?.message?.content || '';
+    const content = data.content?.[0]?.text || '';
 
     // Parse JSON from response
     let recommendations;

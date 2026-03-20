@@ -13,12 +13,12 @@ serve(async (req) => {
 
   try {
     const { projectId, projectParameters } = await req.json();
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -102,25 +102,23 @@ REQUIRED JSON FORMAT:
 
 Make sure all numbers are realistic and based on the historical data provided.`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-preview",
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: "You are an expert electrical engineering cost estimator. You must respond with valid JSON containing both structured data for charts and a detailed markdown analysis.\n\nYou must respond with valid JSON only. No other text.",
         messages: [
-          {
-            role: "system",
-            content: "You are an expert electrical engineering cost estimator. You must respond with valid JSON containing both structured data for charts and a detailed markdown analysis.",
-          },
           {
             role: "user",
             content: prompt,
           },
         ],
-        response_format: { type: "json_object" },
       }),
     });
 
@@ -141,7 +139,7 @@ Make sure all numbers are realistic and based on the historical data provided.`;
     }
 
     const data = await response.json();
-    const predictionText = data.choices[0].message.content;
+    const predictionText = data.content[0].text;
     
     // Parse the JSON response
     let predictionData;

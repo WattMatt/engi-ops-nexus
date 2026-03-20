@@ -171,9 +171,9 @@ serve(async (req) => {
     }
 
     // Generate AI summary
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY not configured");
     }
 
     const summaryPrompt = `Analyze this repository structure and provide a concise summary (max 200 words):
@@ -193,19 +193,21 @@ Dependencies: ${dependencies.required.slice(0, 10).join(', ')}
 
 Provide a brief description of what this codebase does, its main features, and any notable patterns or frameworks used.`;
 
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 4096,
+        temperature: 0.3,
+        system: "You are a code analysis expert. Provide clear, concise summaries.",
         messages: [
-          { role: "system", content: "You are a code analysis expert. Provide clear, concise summaries." },
           { role: "user", content: summaryPrompt },
         ],
-        temperature: 0.3,
       }),
     });
 
@@ -214,7 +216,7 @@ Provide a brief description of what this codebase does, its main features, and a
     }
 
     const aiData = await aiResponse.json();
-    const summary = aiData.choices?.[0]?.message?.content || "Analysis complete.";
+    const summary = aiData.content?.[0]?.text || "Analysis complete.";
 
     const result: AnalysisResult = {
       files: importantFiles,

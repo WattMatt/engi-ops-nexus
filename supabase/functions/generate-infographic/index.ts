@@ -13,12 +13,12 @@ serve(async (req) => {
 
   try {
     const { prompt, reportType, projectData, size = "1536x1024", quality = "high" } = await req.json();
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -58,22 +58,24 @@ Context: ${projectData ? JSON.stringify(projectData) : ''}
 User request: ${prompt}`;
     }
 
-    // Call AI image generation
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    // Claude doesn't support image generation - generate SVG markup instead
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: "You are an expert at creating professional SVG infographics for engineering reports. Generate clean, well-structured SVG markup that can be rendered in a browser. Use professional colors (blues, grays, whites) and include relevant icons and data visualizations. The SVG should be self-contained with embedded styles.",
         messages: [
           {
             role: "user",
-            content: enhancedPrompt
+            content: enhancedPrompt + "\n\nGenerate a complete, valid SVG infographic. Return ONLY the SVG markup, starting with <svg and ending with </svg>."
           }
         ],
-        modalities: ["image", "text"]
       }),
     });
 
@@ -96,19 +98,18 @@ User request: ${prompt}`;
     }
 
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const svgContent = data.content?.[0]?.text;
 
-    if (!imageUrl) {
-      throw new Error("No image generated");
+    if (!svgContent) {
+      throw new Error("No infographic generated");
     }
 
-    // Optional: Store the infographic in Supabase storage
-    // This would require converting base64 to blob and uploading
-    // For now, we return the base64 image directly
+    // Convert SVG to data URL for compatibility
+    const svgDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`;
 
     return new Response(
-      JSON.stringify({ 
-        imageUrl,
+      JSON.stringify({
+        imageUrl: svgDataUrl,
         message: "Infographic generated successfully"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

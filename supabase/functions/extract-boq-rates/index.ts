@@ -260,7 +260,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -297,7 +297,7 @@ serve(async (req) => {
       supabase,
       upload_id,
       contentToProcess,
-      openrouterApiKey
+      anthropicApiKey
     );
 
     // Use EdgeRuntime.waitUntil to continue processing after response
@@ -342,7 +342,7 @@ async function processExtraction(
   supabase: any,
   upload_id: string,
   file_content: string,
-  openrouterApiKey: string | undefined
+  anthropicApiKey: string | undefined
 ): Promise<void> {
   try {
     // Fetch reference data
@@ -371,7 +371,7 @@ async function processExtraction(
       
       console.log(`[BOQ Extract] Processing sheet: ${sheet.name}`);
       
-      const sheetItems = await extractFromSheet(sheet, categoryList, openrouterApiKey);
+      const sheetItems = await extractFromSheet(sheet, categoryList, anthropicApiKey);
       
       // Add global row numbers
       for (const item of sheetItems) {
@@ -633,9 +633,9 @@ function validateMath(quantity: number | null, rate: number | null, amount: numb
 async function extractFromSheet(
   sheet: { name: string; content: string },
   categoryList: string,
-  openrouterApiKey: string | undefined
+  anthropicApiKey: string | undefined
 ): Promise<ExtractedItem[]> {
-  if (!openrouterApiKey) {
+  if (!anthropicApiKey) {
     console.log(`[BOQ Extract] No API key, using basic parsing for ${sheet.name}`);
     return parseSheetBasic(sheet.name, sheet.content);
   }
@@ -721,16 +721,18 @@ SHEET CONTENT:
 ${sheet.content.substring(0, 30000)}`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openrouterApiKey}`,
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
       })
@@ -748,8 +750,8 @@ ${sheet.content.substring(0, 30000)}`;
 
     const aiResult = await response.json();
     
-    if (aiResult.choices?.[0]?.message?.content) {
-      const rawText = aiResult.choices[0].message.content;
+    if (aiResult.content?.[0]?.text) {
+      const rawText = aiResult.content[0].text;
       console.log(`[BOQ Extract] AI response length for ${sheet.name}: ${rawText.length} chars`);
       return parseAIResponse(rawText, sheet.name);
     } else {

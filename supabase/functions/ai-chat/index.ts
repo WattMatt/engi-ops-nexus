@@ -103,12 +103,12 @@ serve(async (req) => {
 
   try {
     const { messages, context, skillId, useRag = true } = await req.json();
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
@@ -164,18 +164,18 @@ ${ragContext}`;
       }
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
+        model: "claude-sonnet-4-6",
+        system: systemPrompt,
+        messages: messages,
+        max_tokens: 4096,
         stream: true,
       }),
     });
@@ -198,7 +198,43 @@ ${ragContext}`;
       throw new Error("AI gateway error");
     }
 
-    return new Response(response.body, {
+    // Transform Anthropic SSE stream to OpenAI-compatible format for frontend
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    const transformStream = new TransformStream({
+      transform(chunk, controller) {
+        const text = decoder.decode(chunk, { stream: true });
+        const lines = text.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue;
+
+            try {
+              const event = JSON.parse(jsonStr);
+
+              if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                // Convert to OpenAI format
+                const openAIChunk = {
+                  choices: [{ delta: { content: event.delta.text } }]
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIChunk)}\n\n`));
+              } else if (event.type === 'message_stop') {
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              }
+            } catch (e) {
+              // Skip non-JSON lines
+            }
+          }
+        }
+      }
+    });
+
+    const readable = response.body!.pipeThrough(transformStream);
+
+    return new Response(readable, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {

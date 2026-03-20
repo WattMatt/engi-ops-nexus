@@ -192,39 +192,37 @@ async function cleanWithAI(text: string, apiKey: string, fileName: string): Prom
   const textToProcess = text.length > 50000 ? text.slice(0, 50000) : text;
   
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are a document processor. Clean up and structure the following extracted document content. 
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 8000,
+        system: `You are a document processor. Clean up and structure the following extracted document content.
 Preserve all important information, technical details, numbers, specifications, and factual content.
 Remove artifacts, repeated characters, and formatting noise.
 Output clean, well-structured text that retains all the original meaning and data.
-Do NOT summarize or remove any important information - just clean it up.`
-          },
+Do NOT summarize or remove any important information - just clean it up.`,
+        messages: [
           {
             role: "user",
             content: `Document: ${fileName}\n\nExtracted content:\n${textToProcess}`
           }
         ],
-        max_tokens: 8000,
       }),
     });
 
     if (!response.ok) {
-      console.error("AI cleanup failed:", response.status);
+      console.error("Claude API cleanup failed:", response.status);
       return text;
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || text;
+    return data.content?.[0]?.text || text;
   } catch (error) {
     console.error("AI cleanup error:", error);
     return text;
@@ -243,12 +241,12 @@ serve(async (req) => {
       throw new Error("documentId is required");
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
@@ -361,7 +359,7 @@ serve(async (req) => {
     // Clean with AI for better quality (for non-text files)
     if (extractionMethod !== "text" && text.length > 100) {
       console.log("Cleaning extracted text with AI...");
-      text = await cleanWithAI(text, OPENROUTER_API_KEY, document.file_name);
+      text = await cleanWithAI(text, ANTHROPIC_API_KEY, document.file_name);
       console.log(`Cleaned text: ${text.length} characters`);
     }
 

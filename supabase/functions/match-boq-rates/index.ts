@@ -679,7 +679,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -724,7 +724,7 @@ serve(async (req) => {
       supabase,
       upload_id,
       contentToProcess,
-      openrouterApiKey,
+      anthropicApiKey,
       column_mappings
     );
 
@@ -763,7 +763,7 @@ async function processMatching(
   supabase: any,
   upload_id: string,
   file_content: string,
-  openrouterApiKey: string | undefined,
+  anthropicApiKey: string | undefined,
   columnMappings?: Record<string, ColumnMapping>
 ): Promise<{ total_items: number; matched_count: number; new_count: number }> {
   console.log('[BOQ Match] processMatching() started');
@@ -819,14 +819,14 @@ async function processMatching(
         categories,
         columnMappings
       );
-    } else if (openrouterApiKey) {
+    } else if (anthropicApiKey) {
       // Fallback to AI extraction
       console.log('[BOQ Match] No column mappings, using AI extraction');
       matchResults = await extractAndMatchWithAI(
         file_content,
         materialReference,
         categories,
-        openrouterApiKey
+        anthropicApiKey
       );
     } else {
       console.log('[BOQ Match] No API key or mappings, using basic parse');
@@ -1223,9 +1223,9 @@ async function extractAndMatchWithAI(
   content: string,
   materialReference: { id: string; code: string; name: string; unit: string | null; supply_cost: number | null; install_cost: number | null }[],
   categories: MaterialCategory[] | null,
-  openrouterApiKey: string | undefined
+  anthropicApiKey: string | undefined
 ): Promise<MatchResult[]> {
-  if (!openrouterApiKey) {
+  if (!anthropicApiKey) {
     console.log('[BOQ Match] No API key, using basic parsing');
     return basicParse(content, materialReference, categories);
   }
@@ -1327,19 +1327,18 @@ OUTLIER RULES:
 
 CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openrouterApiKey}`,
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        system: 'You are a Construction Data Analyst expert. Extract BOQ items with precise rates, standardize units, validate math, and match to master materials. Return only valid JSON.\n\nYou must respond with valid JSON only. No other text.',
         messages: [
-          { 
-            role: 'system', 
-            content: 'You are a Construction Data Analyst expert. Extract BOQ items with precise rates, standardize units, validate math, and match to master materials. Return only valid JSON.' 
-          },
           { role: 'user', content: prompt }
         ],
       }),
@@ -1351,7 +1350,7 @@ CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
     }
 
     const data = await response.json();
-    const aiText = data.choices?.[0]?.message?.content || '';
+    const aiText = data.content?.[0]?.text || '';
     
     console.log('[BOQ Match] Raw AI response length:', aiText.length);
     

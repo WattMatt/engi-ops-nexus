@@ -13,10 +13,10 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { documentType, projectData, specifications } = body;
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     const documentPrompts: Record<string, string> = {
@@ -123,19 +123,18 @@ ${JSON.stringify(projectData, null, 2)}
 Generate professional content for this section following the guidelines above. Focus on technical accuracy and include relevant calculations where appropriate.`;
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-preview",
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: "You are an expert technical writer specializing in electrical engineering documentation. Generate professional, well-structured documents following industry standards.",
         messages: [
-          {
-            role: "system",
-            content: "You are an expert technical writer specializing in electrical engineering documentation. Generate professional, well-structured documents following industry standards.",
-          },
           {
             role: "user",
             content: userContent,
@@ -161,7 +160,7 @@ Generate professional content for this section following the guidelines above. F
     }
 
     const data = await response.json();
-    const generatedContent = data.choices[0].message.content;
+    const generatedContent = data.content[0].text;
 
     return new Response(
       JSON.stringify({ content: generatedContent }),
