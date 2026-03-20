@@ -184,6 +184,7 @@ export const CostVariationsManager = ({
       ) : (
         <Card>
           <CardContent className="p-0">
+            <TooltipProvider>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b">
@@ -233,6 +234,11 @@ export const CostVariationsManager = ({
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
+                          <SingleVariationPdfButton
+                            variation={variation}
+                            reportProjectName={reportProjectName}
+                            reportNumber={reportNumber}
+                          />
                           <Button
                             size="sm"
                             variant="outline"
@@ -260,6 +266,7 @@ export const CostVariationsManager = ({
                 </tbody>
               </table>
             </div>
+            </TooltipProvider>
           </CardContent>
         </Card>
       )}
