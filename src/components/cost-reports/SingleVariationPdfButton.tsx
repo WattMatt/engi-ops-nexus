@@ -71,6 +71,9 @@ export const SingleVariationPdfButton = ({
       foreignKeyColumn: "cost_report_id",
       foreignKeyValue: variation.cost_report_id,
       reportName: `Variation_${variation.code}_${reportProjectName || "Project"}`,
+      customInsertData: {
+        file_name: `Variation_${variation.code}_${reportProjectName || "Project"}`,
+      },
     });
 
     setLoading(false);

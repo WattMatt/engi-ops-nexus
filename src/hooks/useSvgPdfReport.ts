@@ -187,6 +187,7 @@ export function useSvgPdfReport() {
       const insertData: Record<string, any> = {
         [config.foreignKeyColumn]: config.foreignKeyValue,
         report_name: `${config.reportName} ${revision}`,
+        file_name: `${config.reportName} ${revision}`,
         revision,
         file_path: storagePath,
         file_size: sizeBytes,
