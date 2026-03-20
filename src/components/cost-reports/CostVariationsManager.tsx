@@ -30,6 +30,8 @@ interface CostVariationsManagerProps {
 export const CostVariationsManager = ({
   reportId,
   projectId,
+  reportProjectName,
+  reportNumber,
 }: CostVariationsManagerProps) => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
