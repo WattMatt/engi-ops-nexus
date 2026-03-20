@@ -188,7 +188,7 @@ serve(async (req) => {
       // Get existing drawings for this project
       const { data: existingDrawings } = await supabase
         .from('project_drawings')
-        .select('id, drawing_number, file_name, dropbox_path, file_url')
+        .select('id, drawing_number, file_name, dropbox_path, file_url, file_path')
         .eq('project_id', project.id);
 
       const existingByNorm = new Map<string, any>();
