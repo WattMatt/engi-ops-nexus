@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash, Pencil } from "lucide-react";
+import { SingleVariationPdfButton } from "./SingleVariationPdfButton";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AddVariationDialog } from "./AddVariationDialog";
 import { VariationSheetDialog } from "./VariationSheetDialog";
 import {
@@ -21,11 +23,15 @@ import { toast } from "sonner";
 interface CostVariationsManagerProps {
   reportId: string;
   projectId: string;
+  reportProjectName?: string;
+  reportNumber?: number;
 }
 
 export const CostVariationsManager = ({
   reportId,
   projectId,
+  reportProjectName,
+  reportNumber,
 }: CostVariationsManagerProps) => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
@@ -178,6 +184,7 @@ export const CostVariationsManager = ({
       ) : (
         <Card>
           <CardContent className="p-0">
+            <TooltipProvider>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b">
@@ -227,6 +234,11 @@ export const CostVariationsManager = ({
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
+                          <SingleVariationPdfButton
+                            variation={variation}
+                            reportProjectName={reportProjectName}
+                            reportNumber={reportNumber}
+                          />
                           <Button
                             size="sm"
                             variant="outline"
@@ -254,6 +266,7 @@ export const CostVariationsManager = ({
                 </tbody>
               </table>
             </div>
+            </TooltipProvider>
           </CardContent>
         </Card>
       )}
