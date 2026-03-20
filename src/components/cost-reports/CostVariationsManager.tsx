@@ -23,6 +23,8 @@ import { toast } from "sonner";
 interface CostVariationsManagerProps {
   reportId: string;
   projectId: string;
+  reportProjectName?: string;
+  reportNumber?: number;
 }
 
 export const CostVariationsManager = ({
