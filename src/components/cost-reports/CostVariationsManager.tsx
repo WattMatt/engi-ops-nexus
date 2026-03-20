@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash, Pencil } from "lucide-react";
+import { SingleVariationPdfButton } from "./SingleVariationPdfButton";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AddVariationDialog } from "./AddVariationDialog";
 import { VariationSheetDialog } from "./VariationSheetDialog";
 import {
