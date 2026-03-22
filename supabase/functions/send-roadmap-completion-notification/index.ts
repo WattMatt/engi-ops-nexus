@@ -74,22 +74,28 @@ const handler = async (req: Request): Promise<Response> => {
     // Use project-specific email or fall back to default
     const notificationEmail = project?.completion_notification_email || DEFAULT_NOTIFICATION_EMAIL;
 
-    // Get user details
-    const { data: userProfile, error: profileError } = await supabase
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", completedByUserId)
-      .single();
+    // Get user details (completedByUserId may be 'planner-sync' for Planner-originated completions)
+    let userName = 'Planner Sync';
+    let userEmail = 'N/A';
+    const userPosition = 'Team Member';
 
-    if (profileError) {
-      console.error("Error fetching user profile:", profileError);
+    if (completedByUserId && completedByUserId !== 'planner-sync') {
+      const { data: userProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", completedByUserId)
+        .single();
+
+      if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+      } else if (userProfile) {
+        userName = userProfile.full_name || 'Unknown User';
+        userEmail = userProfile.email || 'N/A';
+      }
     }
 
     const projectName = project?.name || 'Unknown Project';
     const projectNumber = project?.project_number || '';
-    const userName = userProfile?.full_name || 'Unknown User';
-    const userEmail = userProfile?.email || 'N/A';
-    const userPosition = 'Team Member'; // Position column not available in profiles table
     
     const completedAt = new Date().toLocaleString('en-ZA', { 
       weekday: 'long', 

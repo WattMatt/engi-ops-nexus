@@ -136,7 +136,7 @@ async function syncProjectTasks(
   let synced = 0, created = 0, errors = 0;
 
   // Load existing items
-  const { data: existingItems } = await supabase.from('project_roadmap_items').select('id, title, link_url, phase').eq('project_id', projectId);
+  const { data: existingItems } = await supabase.from('project_roadmap_items').select('id, title, link_url, phase, is_completed, description').eq('project_id', projectId);
   const byPlannerUrl: Record<string, any> = {};
   const byTitle: Record<string, any[]> = {};
   for (const it of existingItems || []) {
@@ -207,6 +207,28 @@ async function syncProjectTasks(
 
         await supabase.from('project_roadmap_items').update(update).eq('id', existing.id);
         synced++;
+
+        // 🎉 Detect completion transition: was NOT completed, now IS completed
+        const nowComplete = task.percentComplete === 100;
+        const wasComplete = existing.is_completed === true;
+        if (nowComplete && !wasComplete) {
+          log(`  🎉 Item completed in Planner: "${task.title}" — sending notification`);
+          try {
+            // Determine who completed it: use first assignee or fall back
+            const completedByUserId = resolvedAssignees.length > 0 ? resolvedAssignees[0] : null;
+            await supabase.functions.invoke("send-roadmap-completion-notification", {
+              body: {
+                itemId: existing.id,
+                itemTitle: task.title,
+                itemDescription: existing.description || details.description || null,
+                projectId,
+                completedByUserId: completedByUserId || 'planner-sync',
+              },
+            });
+          } catch (notifErr) {
+            log(`  ⚠ Completion notification failed: ${(notifErr as Error).message}`);
+          }
+        }
       } else {
         // ── INSERT: new task from Planner → Nexus Inbox (or bucket name) ──
         const payload: Record<string, any> = {
@@ -229,9 +251,28 @@ async function syncProjectTasks(
         if (details.checklist.length > 0) payload.checklist = details.checklist;
         if (labels.length > 0) payload.labels = labels;
 
-        await supabase.from('project_roadmap_items').insert(payload);
+        const insertResult = await supabase.from('project_roadmap_items').insert(payload).select('id').single();
         created++;
         log(`  📥 New from Planner: "${task.title}" → ${bucketName}`);
+
+        // 🎉 If new item arrives already completed, send notification
+        if (task.percentComplete === 100 && insertResult.data?.id) {
+          try {
+            const completedByUserId = resolvedAssignees.length > 0 ? resolvedAssignees[0] : null;
+            await supabase.functions.invoke("send-roadmap-completion-notification", {
+              body: {
+                itemId: insertResult.data.id,
+                itemTitle: task.title,
+                itemDescription: details.description || null,
+                projectId,
+                completedByUserId: completedByUserId || 'planner-sync',
+              },
+            });
+            log(`  🎉 New completed item notification sent: "${task.title}"`);
+          } catch (notifErr) {
+            log(`  ⚠ Completion notification failed: ${(notifErr as Error).message}`);
+          }
+        }
       }
     } catch (e) {
       errors++;
