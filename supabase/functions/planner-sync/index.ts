@@ -251,9 +251,28 @@ async function syncProjectTasks(
         if (details.checklist.length > 0) payload.checklist = details.checklist;
         if (labels.length > 0) payload.labels = labels;
 
-        await supabase.from('project_roadmap_items').insert(payload);
+        const insertResult = await supabase.from('project_roadmap_items').insert(payload).select('id').single();
         created++;
         log(`  📥 New from Planner: "${task.title}" → ${bucketName}`);
+
+        // 🎉 If new item arrives already completed, send notification
+        if (task.percentComplete === 100 && insertResult.data?.id) {
+          try {
+            const completedByUserId = resolvedAssignees.length > 0 ? resolvedAssignees[0] : null;
+            await supabase.functions.invoke("send-roadmap-completion-notification", {
+              body: {
+                itemId: insertResult.data.id,
+                itemTitle: task.title,
+                itemDescription: details.description || null,
+                projectId,
+                completedByUserId: completedByUserId || 'planner-sync',
+              },
+            });
+            log(`  🎉 New completed item notification sent: "${task.title}"`);
+          } catch (notifErr) {
+            log(`  ⚠ Completion notification failed: ${(notifErr as Error).message}`);
+          }
+        }
       }
     } catch (e) {
       errors++;
