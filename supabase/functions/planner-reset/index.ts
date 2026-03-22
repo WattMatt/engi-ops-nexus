@@ -92,6 +92,29 @@ async function graphPatch(token: string, url: string, body: any, etag?: string):
   if (!resp.ok) log(`  ⚠ PATCH ${resp.status}: ${await resp.text()}`);
 }
 
+async function sendCompletionNotification(
+  supabase: any,
+  itemId: string,
+  itemTitle: string,
+  itemDescription: string | null,
+  projectId: string,
+  completedByUserId: string,
+) {
+  try {
+    await supabase.functions.invoke('send-roadmap-completion-notification', {
+      body: {
+        itemId,
+        itemTitle,
+        itemDescription,
+        projectId,
+        completedByUserId,
+      },
+    });
+  } catch (error) {
+    log(`  ⚠ Completion notification failed: ${(error as Error).message}`);
+  }
+}
+
 function extractProjectNumber(title: string): string | null {
   const m = title.match(/\(\s*(P?\d+(?:\.\d+)*)\s*\)/i);
   return m ? m[1].toUpperCase() : null;
@@ -258,10 +281,13 @@ serve(async (req) => {
             // Fall through to create below
           } else {
             // PATCH the task
+            const plannerIsComplete = taskData.percentComplete === 100;
+            const nexusIsComplete = item.is_completed === true;
+            const effectiveIsCompleted = nexusIsComplete || plannerIsComplete;
             const patch: Record<string, any> = {
               title: item.title,
               priority: mapPriority(item.priority),
-              percentComplete: item.is_completed ? 100 : 0,
+              percentComplete: effectiveIsCompleted ? 100 : 0,
               assignments,
             };
             if (targetBucketId && taskData.bucketId !== targetBucketId) patch.bucketId = targetBucketId;
@@ -280,6 +306,23 @@ serve(async (req) => {
             }
 
             try {
+              if (plannerIsComplete && !nexusIsComplete) {
+                await supabase.from('project_roadmap_items').update({
+                  is_completed: true,
+                  completed_at: taskData.completedDateTime || new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                }).eq('id', item.id);
+
+                await sendCompletionNotification(
+                  supabase,
+                  item.id,
+                  item.title,
+                  item.description || null,
+                  project.id,
+                  (item.assignee_ids?.[0] as string | undefined) || 'planner-sync',
+                );
+              }
+
               await graphPatch(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`, patch, taskData['@odata.etag']);
               totalUpdated++;
               await new Promise(r => setTimeout(r, 300));
