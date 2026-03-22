@@ -13,9 +13,9 @@ const CLIENT_ID = Deno.env.get('MS_PLANNER_CLIENT_ID')!;
 const CLIENT_SECRET = Deno.env.get('MS_PLANNER_CLIENT_SECRET')!;
 const GROUP_ID = Deno.env.get('MS_PLANNER_GROUP_ID')!;
 
-const TASK_DETAIL_DELAY_MS = 150;
+const TASK_DETAIL_DELAY_MS = 50;
 const PROJECT_BATCH_DELAY_MS = 500;
-const MAX_TASK_DETAILS_PER_RUN = 300;
+const MAX_TASK_DETAILS_PER_RUN = 40;
 
 const logs: string[] = [];
 function log(msg: string) { console.log(msg); logs.push(`[${new Date().toISOString()}] ${msg}`); }
@@ -165,13 +165,6 @@ async function syncProjectTasks(
       const aadIds: string[] = task.assignments ? Object.keys(task.assignments) : [];
       const resolvedAssignees = aadIds.map(id => assigneeMap[id]).filter(Boolean);
 
-      let details = { description: null as string | null, checklist: [] as any[] };
-      if (detailBudget.remaining > 0) {
-        details = await fetchTaskDetails(accessToken, task.id);
-        detailBudget.remaining--;
-        await new Promise(r => setTimeout(r, TASK_DETAIL_DELAY_MS));
-      }
-
       const labels = extractLabels(task.appliedCategories);
 
       // Match existing
@@ -179,6 +172,14 @@ async function syncProjectTasks(
       if (!existing) {
         const tm = byTitle[titleKey];
         if (tm && tm.length > 0) existing = tm[0];
+      }
+
+      let details = { description: null as string | null, checklist: [] as any[] };
+      const shouldFetchDetails = !existing && detailBudget.remaining > 0;
+      if (shouldFetchDetails) {
+        details = await fetchTaskDetails(accessToken, task.id);
+        detailBudget.remaining--;
+        await new Promise(r => setTimeout(r, TASK_DETAIL_DELAY_MS));
       }
 
       if (existing) {
