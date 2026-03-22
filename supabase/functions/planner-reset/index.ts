@@ -271,7 +271,7 @@ serve(async (req) => {
         const hasLink = item.link_url?.startsWith('planner://task/');
 
         if (hasLink) {
-          // ── UPDATE existing Planner task ──
+          // ── CREATE-ONLY mode for scheduled reset: existing linked tasks are owned by Planner pull sync ──
           const plannerTaskId = item.link_url.replace('planner://task/', '');
           const taskData = planTaskById[plannerTaskId];
           if (!taskData) {
@@ -280,77 +280,25 @@ serve(async (req) => {
             await supabase.from('project_roadmap_items').update({ link_url: null, link_label: null }).eq('id', item.id);
             // Fall through to create below
           } else {
-            // PATCH the task
-            const plannerIsComplete = taskData.percentComplete === 100;
-            const nexusIsComplete = item.is_completed === true;
-            const effectiveIsCompleted = nexusIsComplete || plannerIsComplete;
-            const patch: Record<string, any> = {
-              title: item.title,
-              priority: mapPriority(item.priority),
-              percentComplete: effectiveIsCompleted ? 100 : 0,
-              assignments,
-            };
-            if (targetBucketId && taskData.bucketId !== targetBucketId) patch.bucketId = targetBucketId;
-            if (item.due_date) patch.dueDateTime = `${item.due_date}T00:00:00Z`;
-            else patch.dueDateTime = null;
-            if (item.start_date) patch.startDateTime = `${item.start_date}T00:00:00Z`;
-            else patch.startDateTime = null;
-            if (Object.keys(appliedCategories).length > 0) patch.appliedCategories = appliedCategories;
+            if (taskData.percentComplete === 100 && item.is_completed !== true) {
+              await supabase.from('project_roadmap_items').update({
+                is_completed: true,
+                completed_at: taskData.completedDateTime || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }).eq('id', item.id);
 
-            // Handle unassignment
-            if (taskData.assignments) {
-              for (const existing of Object.keys(taskData.assignments)) {
-                if (!assignments[existing]) assignments[existing] = null;
-              }
-              patch.assignments = assignments;
+              await sendCompletionNotification(
+                supabase,
+                item.id,
+                item.title,
+                item.description || null,
+                project.id,
+                (item.assignee_ids?.[0] as string | undefined) || 'planner-sync',
+              );
             }
 
-            try {
-              if (plannerIsComplete && !nexusIsComplete) {
-                await supabase.from('project_roadmap_items').update({
-                  is_completed: true,
-                  completed_at: taskData.completedDateTime || new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                }).eq('id', item.id);
-
-                await sendCompletionNotification(
-                  supabase,
-                  item.id,
-                  item.title,
-                  item.description || null,
-                  project.id,
-                  (item.assignee_ids?.[0] as string | undefined) || 'planner-sync',
-                );
-              }
-
-              await graphPatch(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`, patch, taskData['@odata.etag']);
-              totalUpdated++;
-              await new Promise(r => setTimeout(r, 300));
-            } catch (e) {
-              log(`  ⚠ Update "${item.title}": ${(e as Error).message}`);
-            }
-
-            // Update details if needed
-            const hasDesc = item.description?.trim();
-            const hasChecklist = Array.isArray(item.checklist) && item.checklist.length > 0;
-            if (hasDesc || hasChecklist) {
-              try {
-                const det = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}/details`);
-                const dp: Record<string, any> = {};
-                if (hasDesc) dp.description = item.description;
-                if (hasChecklist) {
-                  const cl: Record<string, any> = {};
-                  // Clear existing
-                  if (det.checklist) for (const k of Object.keys(det.checklist)) cl[k] = null;
-                  for (const ci of item.checklist) {
-                    cl[crypto.randomUUID()] = { '@odata.type': '#microsoft.graph.plannerChecklistItem', title: ci.title, isChecked: ci.isChecked || false };
-                  }
-                  dp.checklist = cl;
-                }
-                await graphPatch(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}/details`, dp, det['@odata.etag']);
-                await new Promise(r => setTimeout(r, 200));
-              } catch { /* non-critical */ }
-            }
+            totalSkipped++;
+            log(`  ↷ Skipped linked task: "${item.title}"`);
             continue;
           }
         }
