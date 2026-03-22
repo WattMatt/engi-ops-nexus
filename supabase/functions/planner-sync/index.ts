@@ -207,6 +207,28 @@ async function syncProjectTasks(
 
         await supabase.from('project_roadmap_items').update(update).eq('id', existing.id);
         synced++;
+
+        // 🎉 Detect completion transition: was NOT completed, now IS completed
+        const nowComplete = task.percentComplete === 100;
+        const wasComplete = existing.is_completed === true;
+        if (nowComplete && !wasComplete) {
+          log(`  🎉 Item completed in Planner: "${task.title}" — sending notification`);
+          try {
+            // Determine who completed it: use first assignee or fall back
+            const completedByUserId = resolvedAssignees.length > 0 ? resolvedAssignees[0] : null;
+            await supabase.functions.invoke("send-roadmap-completion-notification", {
+              body: {
+                itemId: existing.id,
+                itemTitle: task.title,
+                itemDescription: existing.description || details.description || null,
+                projectId,
+                completedByUserId: completedByUserId || 'planner-sync',
+              },
+            });
+          } catch (notifErr) {
+            log(`  ⚠ Completion notification failed: ${(notifErr as Error).message}`);
+          }
+        }
       } else {
         // ── INSERT: new task from Planner → Nexus Inbox (or bucket name) ──
         const payload: Record<string, any> = {
