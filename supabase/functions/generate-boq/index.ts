@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -8,11 +8,13 @@ serve(async (req) => {
   }
 
   try {
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is not configured');
+    }
+
     const { designPurpose, equipment, cables, containment, zones } = await req.json();
 
-    const prompt = `You are a professional Quantity Surveyor specializing in electrical installations.
-
-Based on the following data from a floor plan markup tool, generate a comprehensive Bill of Quantities (BoQ) in professional format.
+    const userPrompt = `Based on the following data from a floor plan markup tool, generate a comprehensive Bill of Quantities (BoQ) in professional format.
 
 PROJECT INFORMATION:
 - Design Purpose: ${designPurpose}
@@ -29,6 +31,20 @@ ${containment.map((c: any) => `- ${c.type}${c.size ? ` (${c.size})` : ''}: ${c.l
 ZONES (${zones.length} areas):
 ${zones.map((z: any) => `- ${z.label || 'Zone'}: ${z.areaSqm?.toFixed(2)}m²`).join('\n')}
 
+Generate the BoQ now.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        system: `You are a professional Quantity Surveyor specializing in electrical installations.
+
 INSTRUCTIONS:
 1. Organize items into standard trade sections
 2. Include item descriptions following standard BoQ conventions
@@ -37,23 +53,13 @@ INSTRUCTIONS:
 5. Add section totals
 6. Include provisional sums where appropriate
 7. Format in clean Markdown with tables
-8. Add professional notes and assumptions
-
-Generate the BoQ now:`;
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      }
-    );
+8. Add professional notes and assumptions`,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    });
 
     const data = await response.json();
-    const boqText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to generate BoQ';
+    const boqText = data.content?.[0]?.text || 'Failed to generate BoQ';
 
     return new Response(JSON.stringify({ boq: boqText }), {
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
