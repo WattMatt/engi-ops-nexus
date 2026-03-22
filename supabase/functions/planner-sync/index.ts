@@ -175,7 +175,7 @@ async function syncProjectTasks(
       }
 
       let details = { description: null as string | null, checklist: [] as any[] };
-      const shouldFetchDetails = !existing && detailBudget.remaining > 0;
+      const shouldFetchDetails = detailBudget.remaining > 0 && (!existing || (task.percentComplete === 100 && existing.is_completed !== true));
       if (shouldFetchDetails) {
         details = await fetchTaskDetails(accessToken, task.id);
         detailBudget.remaining--;
