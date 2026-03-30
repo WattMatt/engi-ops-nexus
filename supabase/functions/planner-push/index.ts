@@ -103,6 +103,25 @@ serve(async (req) => {
     const taskData = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`);
     const taskEtag = taskData['@odata.etag'];
 
+    // ─── CRITICAL: Planner is authoritative for completion ──────
+    // If the task is already completed in Planner (100%), NEVER overwrite it
+    // with 0% from Nexus. Instead, adopt the Planner completion status locally.
+    const plannerIsComplete = taskData.percentComplete === 100;
+    const nexusIsComplete = item.is_completed === true;
+
+    if (plannerIsComplete && !nexusIsComplete) {
+      // Adopt Planner's completion status into Nexus instead of overwriting
+      console.log(`[planner-push] Task "${item.title}" is complete in Planner but not Nexus — adopting completion`);
+      await supabase
+        .from('project_roadmap_items')
+        .update({
+          is_completed: true,
+          completed_at: taskData.completedDateTime || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', roadmapItemId);
+    }
+
     // Build assignments from assignee_ids
     const assigneeIds: string[] = item.assignee_ids || [];
     const { data: aadMappings } = await supabase
@@ -142,10 +161,13 @@ serve(async (req) => {
       if (catKey) appliedCategories[catKey] = true;
     }
 
+    // Use Planner's completion status if it's already complete there
+    const effectiveComplete = plannerIsComplete || nexusIsComplete;
+
     const taskPatch: Record<string, any> = {
       title: item.title,
       priority: mapNexusPriorityToPlanner(item.priority),
-      percentComplete: item.is_completed ? 100 : 0,
+      percentComplete: effectiveComplete ? 100 : 0,
       assignments,
     };
 
