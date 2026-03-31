@@ -145,7 +145,7 @@ async function syncProjectTasks(
   let synced = 0, created = 0, errors = 0;
 
   // Load existing items
-  const { data: existingItems } = await supabase.from('project_roadmap_items').select('id, title, link_url, phase, is_completed, description').eq('project_id', projectId);
+  const { data: existingItems } = await supabase.from('project_roadmap_items').select('id, title, link_url, phase, is_completed, completed_at, description').eq('project_id', projectId);
   const byPlannerUrl: Record<string, any> = {};
   const byTitle: Record<string, any[]> = {};
   for (const it of existingItems || []) {
