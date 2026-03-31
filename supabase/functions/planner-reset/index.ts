@@ -280,7 +280,11 @@ serve(async (req) => {
             await supabase.from('project_roadmap_items').update({ link_url: null, link_label: null }).eq('id', item.id);
             // Fall through to create below
           } else {
+            // ── Bidirectional sync for linked tasks ──
+
+            // 1. Adopt Planner completion → Nexus
             if (taskData.percentComplete === 100 && item.is_completed !== true) {
+              log(`  📥 Adopting Planner completion → Nexus: "${item.title}"`);
               await supabase.from('project_roadmap_items').update({
                 is_completed: true,
                 completed_at: taskData.completedDateTime || new Date().toISOString(),
@@ -297,8 +301,25 @@ serve(async (req) => {
               );
             }
 
+            // 2. Push Nexus completion → Planner (retry mechanism)
+            if (item.is_completed && taskData.percentComplete !== 100) {
+              log(`  📤 Pushing Nexus completion → Planner: "${item.title}"`);
+              try {
+                await graphPatch(
+                  accessToken,
+                  `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`,
+                  { percentComplete: 100 },
+                  taskData['@odata.etag'],
+                );
+                log(`  ✅ Pushed completion to Planner: "${item.title}"`);
+                totalUpdated++;
+              } catch (e) {
+                log(`  ⚠ Failed to push completion: ${(e as Error).message}`);
+              }
+            }
+
             totalSkipped++;
-            log(`  ↷ Skipped linked task: "${item.title}"`);
+            log(`  ↷ Linked task synced: "${item.title}"`);
             continue;
           }
         }

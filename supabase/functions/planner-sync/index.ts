@@ -53,6 +53,15 @@ async function graphGet(token: string, url: string): Promise<any> {
   return resp.json();
 }
 
+async function graphPatch(token: string, url: string, body: any, etag?: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+  };
+  if (etag) headers['If-Match'] = etag;
+  const resp = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(body) });
+  if (!resp.ok) log(`  ⚠ PATCH ${resp.status}: ${await resp.text()}`);
+}
+
 async function getAllPages(token: string, url: string): Promise<any[]> {
   let results: any[] = [];
   let next: string | null = url;
