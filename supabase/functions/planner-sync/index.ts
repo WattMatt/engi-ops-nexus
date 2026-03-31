@@ -194,10 +194,29 @@ async function syncProjectTasks(
       if (existing) {
         // ── UPDATE: only sync Planner-owned fields ──
         // CRITICAL: Do NOT overwrite phase if already set to something other than Inbox
+
+        // ── Reverse-push: If Nexus is complete but Planner isn't, push completion TO Planner ──
+        if (existing.is_completed === true && task.percentComplete !== 100) {
+          log(`  📤 Reverse-push: Nexus complete but Planner at ${task.percentComplete}% — pushing 100% to Planner: "${task.title}"`);
+          try {
+            await graphPatch(
+              accessToken,
+              `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`,
+              { percentComplete: 100 },
+              task['@odata.etag'],
+            );
+            log(`  ✅ Pushed completion to Planner: "${task.title}"`);
+          } catch (e) {
+            log(`  ⚠ Reverse-push failed: ${(e as Error).message}`);
+          }
+        }
+
         const update: Record<string, any> = {
           priority: mapPlannerPriority(task.priority),
-          is_completed: task.percentComplete === 100,
-          completed_at: task.percentComplete === 100 ? (task.completedDateTime || new Date().toISOString()) : null,
+          is_completed: task.percentComplete === 100 || existing.is_completed === true,
+          completed_at: (task.percentComplete === 100 || existing.is_completed === true)
+            ? (task.completedDateTime || existing.completed_at || new Date().toISOString())
+            : null,
           due_date: task.dueDateTime ? task.dueDateTime.substring(0, 10) : null,
           start_date: task.startDateTime ? task.startDateTime.substring(0, 10) : null,
           link_url: plannerUrl,
