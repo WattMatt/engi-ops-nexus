@@ -103,14 +103,22 @@ serve(async (req) => {
     const taskData = await graphGet(accessToken, `https://graph.microsoft.com/v1.0/planner/tasks/${plannerTaskId}`);
     const taskEtag = taskData['@odata.etag'];
 
-    // ─── CRITICAL: Planner is authoritative for completion ──────
-    // If the task is already completed in Planner (100%), NEVER overwrite it
-    // with 0% from Nexus. Instead, adopt the Planner completion status locally.
-    const plannerIsComplete = taskData.percentComplete === 100;
+    // ─── CRITICAL: Bidirectional completion logic ──────────────
+    const plannerPercent = taskData.percentComplete as number;
     const nexusIsComplete = item.is_completed === true;
 
-    if (plannerIsComplete && !nexusIsComplete) {
-      // Adopt Planner's completion status into Nexus instead of overwriting
+    // Determine effective percentComplete to push:
+    // 1. Nexus says complete → always push 100
+    // 2. Planner is complete (100) but Nexus isn't → adopt into Nexus, keep 100
+    // 3. Planner is in-progress (>0 but <100) and Nexus not complete → preserve Planner state
+    // 4. Both at 0/false → push 0
+    let effectivePercent: number;
+
+    if (nexusIsComplete) {
+      // Nexus completion always wins — push 100 to Planner
+      effectivePercent = 100;
+    } else if (plannerPercent === 100) {
+      // Planner is complete but Nexus isn't — adopt completion into Nexus
       console.log(`[planner-push] Task "${item.title}" is complete in Planner but not Nexus — adopting completion`);
       await supabase
         .from('project_roadmap_items')
@@ -120,6 +128,14 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq('id', roadmapItemId);
+      effectivePercent = 100;
+    } else if (plannerPercent > 0) {
+      // Planner is in-progress (e.g. 50%) — do NOT reset to 0
+      console.log(`[planner-push] Task "${item.title}" is ${plannerPercent}% in Planner — preserving`);
+      effectivePercent = plannerPercent;
+    } else {
+      // Both agree: not started
+      effectivePercent = 0;
     }
 
     // Build assignments from assignee_ids
@@ -161,13 +177,10 @@ serve(async (req) => {
       if (catKey) appliedCategories[catKey] = true;
     }
 
-    // Use Planner's completion status if it's already complete there
-    const effectiveComplete = plannerIsComplete || nexusIsComplete;
-
     const taskPatch: Record<string, any> = {
       title: item.title,
       priority: mapNexusPriorityToPlanner(item.priority),
-      percentComplete: effectiveComplete ? 100 : 0,
+      percentComplete: effectivePercent,
       assignments,
     };
 

@@ -53,6 +53,15 @@ async function graphGet(token: string, url: string): Promise<any> {
   return resp.json();
 }
 
+async function graphPatch(token: string, url: string, body: any, etag?: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+  };
+  if (etag) headers['If-Match'] = etag;
+  const resp = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(body) });
+  if (!resp.ok) log(`  ⚠ PATCH ${resp.status}: ${await resp.text()}`);
+}
+
 async function getAllPages(token: string, url: string): Promise<any[]> {
   let results: any[] = [];
   let next: string | null = url;
@@ -136,7 +145,7 @@ async function syncProjectTasks(
   let synced = 0, created = 0, errors = 0;
 
   // Load existing items
-  const { data: existingItems } = await supabase.from('project_roadmap_items').select('id, title, link_url, phase, is_completed, description').eq('project_id', projectId);
+  const { data: existingItems } = await supabase.from('project_roadmap_items').select('id, title, link_url, phase, is_completed, completed_at, description').eq('project_id', projectId);
   const byPlannerUrl: Record<string, any> = {};
   const byTitle: Record<string, any[]> = {};
   for (const it of existingItems || []) {
@@ -185,10 +194,29 @@ async function syncProjectTasks(
       if (existing) {
         // ── UPDATE: only sync Planner-owned fields ──
         // CRITICAL: Do NOT overwrite phase if already set to something other than Inbox
+
+        // ── Reverse-push: If Nexus is complete but Planner isn't, push completion TO Planner ──
+        if (existing.is_completed === true && task.percentComplete !== 100) {
+          log(`  📤 Reverse-push: Nexus complete but Planner at ${task.percentComplete}% — pushing 100% to Planner: "${task.title}"`);
+          try {
+            await graphPatch(
+              accessToken,
+              `https://graph.microsoft.com/v1.0/planner/tasks/${task.id}`,
+              { percentComplete: 100 },
+              task['@odata.etag'],
+            );
+            log(`  ✅ Pushed completion to Planner: "${task.title}"`);
+          } catch (e) {
+            log(`  ⚠ Reverse-push failed: ${(e as Error).message}`);
+          }
+        }
+
         const update: Record<string, any> = {
           priority: mapPlannerPriority(task.priority),
-          is_completed: task.percentComplete === 100,
-          completed_at: task.percentComplete === 100 ? (task.completedDateTime || new Date().toISOString()) : null,
+          is_completed: task.percentComplete === 100 || existing.is_completed === true,
+          completed_at: (task.percentComplete === 100 || existing.is_completed === true)
+            ? (task.completedDateTime || existing.completed_at || new Date().toISOString())
+            : null,
           due_date: task.dueDateTime ? task.dueDateTime.substring(0, 10) : null,
           start_date: task.startDateTime ? task.startDateTime.substring(0, 10) : null,
           link_url: plannerUrl,
