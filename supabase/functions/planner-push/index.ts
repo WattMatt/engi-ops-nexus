@@ -106,15 +106,34 @@ serve(async (req) => {
     // ─── CRITICAL: Bidirectional completion logic ──────────────
     const plannerPercent = taskData.percentComplete as number;
     const nexusIsComplete = item.is_completed === true;
+    const isRecurring = !!taskData.recurrence;
 
     // Determine effective percentComplete to push:
-    // 1. Nexus says complete → always push 100
-    // 2. Planner is complete (100) but Nexus isn't → adopt into Nexus, keep 100
-    // 3. Planner is in-progress (>0 but <100) and Nexus not complete → preserve Planner state
-    // 4. Both at 0/false → push 0
+    // 1. RECURRING tasks: NEVER push completion — Planner manages recurrence lifecycle.
+    //    Force-completing a recurring task spawns a new instance, causing an infinite loop.
+    // 2. Nexus says complete → push 100
+    // 3. Planner is complete (100) but Nexus isn't → adopt into Nexus, keep 100
+    // 4. Planner is in-progress (>0 but <100) and Nexus not complete → preserve Planner state
+    // 5. Both at 0/false → push 0
     let effectivePercent: number;
 
-    if (nexusIsComplete) {
+    if (isRecurring) {
+      // Recurring task: preserve Planner's own percentComplete, never override
+      console.log(`[planner-push] Task "${item.title}" is recurring — skipping completion push, preserving Planner state`);
+      effectivePercent = plannerPercent;
+      // If Planner shows complete, adopt into Nexus (the user completed it manually in Planner)
+      if (plannerPercent === 100 && !nexusIsComplete) {
+        console.log(`[planner-push] Adopting recurring task completion into Nexus`);
+        await supabase
+          .from('project_roadmap_items')
+          .update({
+            is_completed: true,
+            completed_at: taskData.completedDateTime || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', roadmapItemId);
+      }
+    } else if (nexusIsComplete) {
       // Nexus completion always wins — push 100 to Planner
       effectivePercent = 100;
     } else if (plannerPercent === 100) {

@@ -196,7 +196,9 @@ async function syncProjectTasks(
         // CRITICAL: Do NOT overwrite phase if already set to something other than Inbox
 
         // ── Reverse-push: If Nexus is complete but Planner isn't, push completion TO Planner ──
-        if (existing.is_completed === true && task.percentComplete !== 100) {
+        // SKIP for recurring tasks — force-completing spawns a new instance, causing an infinite loop
+        const isRecurring = !!task.recurrence;
+        if (existing.is_completed === true && task.percentComplete !== 100 && !isRecurring) {
           log(`  📤 Reverse-push: Nexus complete but Planner at ${task.percentComplete}% — pushing 100% to Planner: "${task.title}"`);
           try {
             await graphPatch(
@@ -209,6 +211,8 @@ async function syncProjectTasks(
           } catch (e) {
             log(`  ⚠ Reverse-push failed: ${(e as Error).message}`);
           }
+        } else if (existing.is_completed === true && isRecurring) {
+          log(`  ↷ Skipping reverse-push for recurring task: "${task.title}"`);
         }
 
         const update: Record<string, any> = {
