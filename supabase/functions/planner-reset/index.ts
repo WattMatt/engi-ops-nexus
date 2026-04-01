@@ -281,6 +281,7 @@ serve(async (req) => {
             // Fall through to create below
           } else {
             // ── Bidirectional sync for linked tasks ──
+            const isRecurring = !!taskData.recurrence;
 
             // 1. Adopt Planner completion → Nexus
             if (taskData.percentComplete === 100 && item.is_completed !== true) {
