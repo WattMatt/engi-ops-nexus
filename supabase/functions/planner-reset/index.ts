@@ -335,7 +335,7 @@ serve(async (req) => {
               } catch (e) {
                 log(`  ⚠ Failed to push completion: ${(e as Error).message}`);
               }
-            } else if (item.is_completed && isRecurring) {
+            } else if (item.is_completed && isRecurring && handleRecurring === 'skip') {
               log(`  ↷ Skipping completion push for recurring task: "${item.title}"`);
             }
 
