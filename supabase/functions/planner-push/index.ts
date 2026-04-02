@@ -81,6 +81,20 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // ── Check global settings ──
+    const { data: syncSettings } = await supabase.from('planner_sync_settings').select('*').limit(1).maybeSingle();
+    if (syncSettings && !syncSettings.enabled) {
+      return new Response(JSON.stringify({ success: false, reason: 'disabled_in_settings' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (syncSettings && syncSettings.sync_direction === 'planner_to_nexus') {
+      return new Response(JSON.stringify({ success: false, reason: 'direction_pull_only' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const handleRecurring = syncSettings?.handle_recurring_tasks || 'skip';
+
     // Fetch the roadmap item
     const { data: item, error: itemErr } = await supabase
       .from('project_roadmap_items')
@@ -117,7 +131,7 @@ serve(async (req) => {
     // 5. Both at 0/false → push 0
     let effectivePercent: number;
 
-    if (isRecurring) {
+    if (isRecurring && handleRecurring === 'skip') {
       // Recurring task: preserve Planner's own percentComplete, never override
       console.log(`[planner-push] Task "${item.title}" is recurring — skipping completion push, preserving Planner state`);
       effectivePercent = plannerPercent;

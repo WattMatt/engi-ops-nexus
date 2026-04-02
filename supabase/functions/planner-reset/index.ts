@@ -145,10 +145,27 @@ serve(async (req) => {
     } catch { /* no body */ }
 
     log('=== Planner Reset (Nexus → Planner) ===');
-    const accessToken = await getAccessToken();
-    log('Authenticated ✅');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // ── Check global settings ──
+    const { data: syncSettings } = await supabase.from('planner_sync_settings').select('*').limit(1).maybeSingle();
+    if (syncSettings && !syncSettings.enabled) {
+      log('⏸ Planner sync is DISABLED in admin settings. Exiting.');
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'disabled_in_settings', logs }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (syncSettings && syncSettings.sync_direction === 'planner_to_nexus') {
+      log('⏸ Sync direction is "Pull only" — push/reset skipped.');
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'direction_pull_only', logs }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const handleRecurring = syncSettings?.handle_recurring_tasks || 'skip';
+
+    const accessToken = await getAccessToken();
+    log('Authenticated ✅');
 
     // Load projects
     const { data: projects } = await supabase.from('projects').select('id, name, project_number').order('project_number');
@@ -304,7 +321,7 @@ serve(async (req) => {
 
             // 2. Push Nexus completion → Planner (retry mechanism)
             //    SKIP for recurring tasks — force-completing spawns new instances in an infinite loop
-            if (item.is_completed && taskData.percentComplete !== 100 && !isRecurring) {
+            if (item.is_completed && taskData.percentComplete !== 100 && !(isRecurring && handleRecurring === 'skip')) {
               log(`  📤 Pushing Nexus completion → Planner: "${item.title}"`);
               try {
                 await graphPatch(
@@ -318,7 +335,7 @@ serve(async (req) => {
               } catch (e) {
                 log(`  ⚠ Failed to push completion: ${(e as Error).message}`);
               }
-            } else if (item.is_completed && isRecurring) {
+            } else if (item.is_completed && isRecurring && handleRecurring === 'skip') {
               log(`  ↷ Skipping completion push for recurring task: "${item.title}"`);
             }
 

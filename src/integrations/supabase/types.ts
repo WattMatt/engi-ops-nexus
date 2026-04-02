@@ -11647,6 +11647,42 @@ export type Database = {
         }
         Relationships: []
       }
+      planner_sync_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          handle_recurring_tasks: string
+          id: string
+          last_modified_by: string | null
+          push_frequency_minutes: number
+          sync_direction: string
+          sync_frequency_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          handle_recurring_tasks?: string
+          id?: string
+          last_modified_by?: string | null
+          push_frequency_minutes?: number
+          sync_direction?: string
+          sync_frequency_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          handle_recurring_tasks?: string
+          id?: string
+          last_modified_by?: string | null
+          push_frequency_minutes?: number
+          sync_direction?: string
+          sync_frequency_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       portal_report_snapshots: {
         Row: {
           created_at: string

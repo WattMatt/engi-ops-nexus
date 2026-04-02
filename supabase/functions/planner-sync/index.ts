@@ -198,7 +198,8 @@ async function syncProjectTasks(
         // ── Reverse-push: If Nexus is complete but Planner isn't, push completion TO Planner ──
         // SKIP for recurring tasks — force-completing spawns a new instance, causing an infinite loop
         const isRecurring = !!task.recurrence;
-        if (existing.is_completed === true && task.percentComplete !== 100 && !isRecurring) {
+        const skipRecurring = isRecurring && handleRecurring === 'skip';
+        if (existing.is_completed === true && task.percentComplete !== 100 && !skipRecurring) {
           log(`  📤 Reverse-push: Nexus complete but Planner at ${task.percentComplete}% — pushing 100% to Planner: "${task.title}"`);
           try {
             await graphPatch(
@@ -211,7 +212,7 @@ async function syncProjectTasks(
           } catch (e) {
             log(`  ⚠ Reverse-push failed: ${(e as Error).message}`);
           }
-        } else if (existing.is_completed === true && isRecurring) {
+        } else if (existing.is_completed === true && skipRecurring) {
           log(`  ↷ Skipping reverse-push for recurring task: "${task.title}"`);
         }
 
@@ -338,6 +339,23 @@ serve(async (req) => {
     if (!TENANT_ID || !CLIENT_ID || !CLIENT_SECRET || !GROUP_ID) throw new Error('Missing MS_PLANNER_* env vars');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // ── Check global settings ──
+    const { data: syncSettings } = await supabase.from('planner_sync_settings').select('*').limit(1).maybeSingle();
+    if (syncSettings && !syncSettings.enabled) {
+      log('⏸ Planner sync is DISABLED in admin settings. Exiting.');
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'disabled_in_settings', logs }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (syncSettings && syncSettings.sync_direction === 'nexus_to_planner') {
+      log('⏸ Sync direction is "Push only" — pull sync skipped.');
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'direction_push_only', logs }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const handleRecurring = syncSettings?.handle_recurring_tasks || 'skip';
+
     await supabase.from('planner_sync_log').insert({ status: 'running', started_at: new Date().toISOString() });
 
     const accessToken = await getAccessToken();
