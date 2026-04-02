@@ -321,7 +321,7 @@ serve(async (req) => {
 
             // 2. Push Nexus completion → Planner (retry mechanism)
             //    SKIP for recurring tasks — force-completing spawns new instances in an infinite loop
-            if (item.is_completed && taskData.percentComplete !== 100 && !isRecurring) {
+            if (item.is_completed && taskData.percentComplete !== 100 && !(isRecurring && handleRecurring === 'skip')) {
               log(`  📤 Pushing Nexus completion → Planner: "${item.title}"`);
               try {
                 await graphPatch(
