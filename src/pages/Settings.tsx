@@ -96,6 +96,7 @@ const Settings = () => {
                   <TabsTrigger value="pdf" className="shrink-0 md:justify-start">PDF Quality</TabsTrigger>
                   <TabsTrigger value="templates" className="shrink-0 md:justify-start">PDF Templates</TabsTrigger>
                   <TabsTrigger value="invoice" className="shrink-0 md:justify-start">Invoice Settings</TabsTrigger>
+                  <TabsTrigger value="planner" className="shrink-0 md:justify-start">Planner Integration</TabsTrigger>
                   <TabsTrigger value="guides" className="shrink-0 md:justify-start">Guides & Tours</TabsTrigger>
                   <TabsTrigger value="tools" className="shrink-0 md:justify-start">Developer Tools</TabsTrigger>
                 </>
