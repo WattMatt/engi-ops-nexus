@@ -198,7 +198,8 @@ async function syncProjectTasks(
         // ── Reverse-push: If Nexus is complete but Planner isn't, push completion TO Planner ──
         // SKIP for recurring tasks — force-completing spawns a new instance, causing an infinite loop
         const isRecurring = !!task.recurrence;
-        if (existing.is_completed === true && task.percentComplete !== 100 && !isRecurring) {
+        const skipRecurring = isRecurring && handleRecurring === 'skip';
+        if (existing.is_completed === true && task.percentComplete !== 100 && !skipRecurring) {
           log(`  📤 Reverse-push: Nexus complete but Planner at ${task.percentComplete}% — pushing 100% to Planner: "${task.title}"`);
           try {
             await graphPatch(
