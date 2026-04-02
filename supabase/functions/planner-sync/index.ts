@@ -338,6 +338,23 @@ serve(async (req) => {
     if (!TENANT_ID || !CLIENT_ID || !CLIENT_SECRET || !GROUP_ID) throw new Error('Missing MS_PLANNER_* env vars');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // ── Check global settings ──
+    const { data: syncSettings } = await supabase.from('planner_sync_settings').select('*').limit(1).maybeSingle();
+    if (syncSettings && !syncSettings.enabled) {
+      log('⏸ Planner sync is DISABLED in admin settings. Exiting.');
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'disabled_in_settings', logs }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (syncSettings && syncSettings.sync_direction === 'nexus_to_planner') {
+      log('⏸ Sync direction is "Push only" — pull sync skipped.');
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'direction_push_only', logs }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const handleRecurring = syncSettings?.handle_recurring_tasks || 'skip';
+
     await supabase.from('planner_sync_log').insert({ status: 'running', started_at: new Date().toISOString() });
 
     const accessToken = await getAccessToken();
