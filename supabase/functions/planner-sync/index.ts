@@ -212,7 +212,7 @@ async function syncProjectTasks(
           } catch (e) {
             log(`  ⚠ Reverse-push failed: ${(e as Error).message}`);
           }
-        } else if (existing.is_completed === true && isRecurring) {
+        } else if (existing.is_completed === true && skipRecurring) {
           log(`  ↷ Skipping reverse-push for recurring task: "${task.title}"`);
         }
 
