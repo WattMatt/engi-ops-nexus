@@ -131,7 +131,7 @@ serve(async (req) => {
     // 5. Both at 0/false → push 0
     let effectivePercent: number;
 
-    if (isRecurring) {
+    if (isRecurring && handleRecurring === 'skip') {
       // Recurring task: preserve Planner's own percentComplete, never override
       console.log(`[planner-push] Task "${item.title}" is recurring — skipping completion push, preserving Planner state`);
       effectivePercent = plannerPercent;
