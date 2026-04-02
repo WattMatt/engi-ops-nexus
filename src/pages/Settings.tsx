@@ -160,6 +160,10 @@ const Settings = () => {
                 <InvoiceSettings />
               </TabsContent>
 
+              <TabsContent value="planner">
+                <PlannerSyncSettings />
+              </TabsContent>
+
               <TabsContent value="guides">
                 <WalkthroughSettings />
               </TabsContent>
