@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { WalkthroughSettings } from "@/components/walkthrough/WalkthroughSettings";
 import { CloudStorageSettings } from "@/components/settings/CloudStorageSettings";
+import { PlannerSyncSettings } from "@/components/settings/PlannerSyncSettings";
 import { SessionSecuritySettings } from "@/components/settings/SessionSecuritySettings";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
