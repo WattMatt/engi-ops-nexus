@@ -4880,6 +4880,44 @@ export type Database = {
           },
         ]
       }
+      drawing_transmittals: {
+        Row: {
+          created_at: string | null
+          drawing_id: string | null
+          id: string
+          method: string | null
+          notes: string | null
+          transmittal_date: string
+          transmitted_to: string
+        }
+        Insert: {
+          created_at?: string | null
+          drawing_id?: string | null
+          id?: string
+          method?: string | null
+          notes?: string | null
+          transmittal_date?: string
+          transmitted_to: string
+        }
+        Update: {
+          created_at?: string | null
+          drawing_id?: string | null
+          id?: string
+          method?: string | null
+          notes?: string | null
+          transmittal_date?: string
+          transmitted_to?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_transmittals_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: false
+            referencedRelation: "project_drawings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dropbox_activity_logs: {
         Row: {
           action: string
