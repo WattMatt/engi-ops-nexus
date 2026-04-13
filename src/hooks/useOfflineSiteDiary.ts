@@ -182,6 +182,7 @@ export function useOfflineSiteDiary({
         id: entry.id || crypto.randomUUID(),
         created_at: entry.created_at || new Date().toISOString(),
         updated_at: entry.updated_at || new Date().toISOString(),
+        attachment_urls: entry.attachment_urls ?? [],
         attachments: entry.attachments ?? null,
         attendees: entry.attendees ?? null,
         delays_disruptions: entry.delays_disruptions ?? null,
@@ -200,9 +201,12 @@ export function useOfflineSiteDiary({
         safety_observations: entry.safety_observations ?? null,
         shift_type: entry.shift_type ?? null,
         site_progress: entry.site_progress ?? null,
+        status: entry.status ?? 'draft',
         sub_entries: entry.sub_entries ?? null,
+        temperature: entry.temperature ?? null,
         visitors: entry.visitors ?? null,
         weather_conditions: entry.weather_conditions ?? null,
+        wind_conditions: entry.wind_conditions ?? null,
         workforce_details: entry.workforce_details ?? null,
       };
 

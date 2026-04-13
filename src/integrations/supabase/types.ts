@@ -15081,6 +15081,7 @@ export type Database = {
       }
       site_diary_entries: {
         Row: {
+          attachment_urls: string[] | null
           attachments: Json | null
           attendees: Json | null
           created_at: string
@@ -15104,13 +15105,17 @@ export type Database = {
           safety_observations: string | null
           shift_type: string | null
           site_progress: string | null
+          status: string | null
           sub_entries: Json | null
+          temperature: string | null
           updated_at: string
           visitors: Json | null
           weather_conditions: string | null
+          wind_conditions: string | null
           workforce_details: Json | null
         }
         Insert: {
+          attachment_urls?: string[] | null
           attachments?: Json | null
           attendees?: Json | null
           created_at?: string
@@ -15134,13 +15139,17 @@ export type Database = {
           safety_observations?: string | null
           shift_type?: string | null
           site_progress?: string | null
+          status?: string | null
           sub_entries?: Json | null
+          temperature?: string | null
           updated_at?: string
           visitors?: Json | null
           weather_conditions?: string | null
+          wind_conditions?: string | null
           workforce_details?: Json | null
         }
         Update: {
+          attachment_urls?: string[] | null
           attachments?: Json | null
           attendees?: Json | null
           created_at?: string
@@ -15164,10 +15173,13 @@ export type Database = {
           safety_observations?: string | null
           shift_type?: string | null
           site_progress?: string | null
+          status?: string | null
           sub_entries?: Json | null
+          temperature?: string | null
           updated_at?: string
           visitors?: Json | null
           weather_conditions?: string | null
+          wind_conditions?: string | null
           workforce_details?: Json | null
         }
         Relationships: [
