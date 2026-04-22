@@ -35,6 +35,7 @@ interface GeneratorTenantListProps {
 }
 
 export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, onUpdate, projectId }: GeneratorTenantListProps) => {
+  const queryClient = useQueryClient();
   const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
   const [editingKwValue, setEditingKwValue] = useState<string>("");
   
