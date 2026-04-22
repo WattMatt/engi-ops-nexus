@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Check, X, RotateCcw } from "lucide-react";
 
 interface Tenant {
@@ -35,6 +35,7 @@ interface GeneratorTenantListProps {
 }
 
 export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, onUpdate, projectId }: GeneratorTenantListProps) => {
+  const queryClient = useQueryClient();
   const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
   const [editingKwValue, setEditingKwValue] = useState<string>("");
   
@@ -203,7 +204,13 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
       toast.success("Manual kW override saved");
       setEditingTenantId(null);
       setEditingKwValue("");
-      
+
+      // Invalidate any cached tenant queries so reports / overviews see the new value
+      await queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey?.[0];
+        return typeof k === "string" && (k.startsWith("tenants") || k.startsWith("generator"));
+      }});
+
       if (onUpdate) {
         onUpdate();
       }
@@ -231,7 +238,12 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
       });
       
       toast.success("Reset to automatic calculation");
-      
+
+      await queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey?.[0];
+        return typeof k === "string" && (k.startsWith("tenants") || k.startsWith("generator"));
+      }});
+
       if (onUpdate) {
         onUpdate();
       }
