@@ -222,8 +222,7 @@ export function useSvgPdfReport() {
         }, 'DB insert');
       } catch (dbError: any) {
         console.error('[SvgPdf] DB insert failed after retries:', dbError);
-        triggerDownload(blob, fileName);
-        toast({ title: 'PDF Generated', description: 'Downloaded directly (history save failed)' });
+        toast({ title: 'PDF Downloaded', description: 'History save failed' });
         report('complete', 'Downloaded (DB save failed)');
         return { blob, timeMs, sizeBytes, dbRecord: null };
       }
@@ -231,7 +230,7 @@ export function useSvgPdfReport() {
       onSuccess?.();
       report('complete', `${revision} — ${timeMs}ms, ${(sizeBytes / 1024).toFixed(1)} KB`);
       toast({
-        title: 'PDF Generated & Saved',
+        title: 'PDF Downloaded & Saved',
         description: `${revision} generated in ${timeMs}ms (${(sizeBytes / 1024).toFixed(1)} KB)`,
       });
 
