@@ -204,7 +204,13 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
       toast.success("Manual kW override saved");
       setEditingTenantId(null);
       setEditingKwValue("");
-      
+
+      // Invalidate any cached tenant queries so reports / overviews see the new value
+      await queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey?.[0];
+        return typeof k === "string" && (k.startsWith("tenants") || k.startsWith("generator"));
+      }});
+
       if (onUpdate) {
         onUpdate();
       }
