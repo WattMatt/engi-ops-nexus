@@ -238,7 +238,12 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
       });
       
       toast.success("Reset to automatic calculation");
-      
+
+      await queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey?.[0];
+        return typeof k === "string" && (k.startsWith("tenants") || k.startsWith("generator"));
+      }});
+
       if (onUpdate) {
         onUpdate();
       }
