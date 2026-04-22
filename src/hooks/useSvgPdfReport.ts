@@ -160,11 +160,14 @@ export function useSvgPdfReport() {
       const userId = sessionData?.session?.user?.id;
       const revision = config.revision || await getNextRevision(config);
 
-      // Stage 3: Upload with retry
-      report('uploading', 'Uploading PDF to storage...');
       const fileName = `${config.reportName.replace(/[^a-zA-Z0-9._-]/g, '_')}_${revision}_${Date.now()}.pdf`;
       const storagePath = `${config.foreignKeyValue}/${fileName}`;
 
+      // Always trigger direct download as soon as the PDF is ready
+      triggerDownload(blob, fileName);
+
+      // Stage 3: Upload with retry (background persistence)
+      report('uploading', 'Uploading PDF to storage...');
       let uploadSuccess = false;
       try {
         await withRetry(async () => {
@@ -176,9 +179,8 @@ export function useSvgPdfReport() {
         uploadSuccess = true;
       } catch (uploadError: any) {
         console.error('[SvgPdf] Upload failed after retries:', uploadError);
-        triggerDownload(blob, fileName);
-        toast({ title: 'PDF Generated', description: `Downloaded directly (${(sizeBytes / 1024).toFixed(1)} KB)` });
-        report('complete', 'Downloaded directly (upload failed)');
+        toast({ title: 'PDF Downloaded', description: `History save unavailable (${(sizeBytes / 1024).toFixed(1)} KB)` });
+        report('complete', 'Downloaded (upload failed)');
         return { blob, timeMs, sizeBytes, dbRecord: null };
       }
 
@@ -220,8 +222,7 @@ export function useSvgPdfReport() {
         }, 'DB insert');
       } catch (dbError: any) {
         console.error('[SvgPdf] DB insert failed after retries:', dbError);
-        triggerDownload(blob, fileName);
-        toast({ title: 'PDF Generated', description: 'Downloaded directly (history save failed)' });
+        toast({ title: 'PDF Downloaded', description: 'History save failed' });
         report('complete', 'Downloaded (DB save failed)');
         return { blob, timeMs, sizeBytes, dbRecord: null };
       }
@@ -229,7 +230,7 @@ export function useSvgPdfReport() {
       onSuccess?.();
       report('complete', `${revision} — ${timeMs}ms, ${(sizeBytes / 1024).toFixed(1)} KB`);
       toast({
-        title: 'PDF Generated & Saved',
+        title: 'PDF Downloaded & Saved',
         description: `${revision} generated in ${timeMs}ms (${(sizeBytes / 1024).toFixed(1)} KB)`,
       });
 
