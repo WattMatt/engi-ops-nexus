@@ -189,7 +189,6 @@ export function useSvgPdfReport() {
       const insertData: Record<string, any> = {
         [config.foreignKeyColumn]: config.foreignKeyValue,
         report_name: `${config.reportName} ${revision}`,
-        file_name: `${config.reportName} ${revision}`,
         revision,
         file_path: storagePath,
         file_size: sizeBytes,
@@ -197,6 +196,7 @@ export function useSvgPdfReport() {
         notes: 'Generated via SVG engine',
         engine_version: 'svg-engine',
       };
+      // Tables that have a file_name column should request it via customInsertData.
       if (config.projectId) {
         insertData.project_id = config.projectId;
       }
