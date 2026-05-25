@@ -78,9 +78,10 @@ const CostReports = () => {
 
       // 3. Insert new report
       const { id: _id, report_number: _rn, created_at: _ca, updated_at: _ua, created_by: _cb, ...rest } = source as any;
+      const today = format(new Date(), "yyyy-MM-dd");
       const { data: newReport, error: insErr } = await supabase
         .from("cost_reports")
-        .insert({ ...rest, report_number: nextNumber, created_by: userId })
+        .insert({ ...rest, report_number: nextNumber, report_date: today, created_by: userId })
         .select()
         .single();
       if (insErr) throw insErr;
