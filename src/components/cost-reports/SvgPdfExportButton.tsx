@@ -237,6 +237,13 @@ export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportBu
       return pages;
     };
 
+    const reportName = generateStandardizedPDFFilename({
+      projectNumber: report.project_number,
+      reportType: 'CostReport',
+      revision: report.revision,
+      reportNumber: report.report_number,
+    });
+
     await generateAndPersist(buildFn, {
       storageBucket: "cost-report-pdfs",
       dbTable: "cost_report_pdfs",
@@ -244,12 +251,10 @@ export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportBu
       foreignKeyValue: report.id,
       projectId: report.project_id,
       revision: report.revision || "A",
-      reportName: generateStandardizedPDFFilename({
-        projectNumber: report.project_number,
-        reportType: 'CostReport',
-        revision: report.revision,
-        reportNumber: report.report_number,
-      }),
+      reportName,
+      customInsertData: {
+        file_name: `${reportName} ${report.revision || "A"}`,
+      },
     }, () => {
       onReportGenerated?.();
     });
