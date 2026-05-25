@@ -147,6 +147,9 @@ export const ElectricalBudgetExportPDFButton = ({
         foreignKeyValue: budgetId,
         projectId: budget.project_id,
         reportName: `Budget_${budget.budget_number}`,
+        customInsertData: {
+          file_name: `Budget_${budget.budget_number}`,
+        },
       },
       () => onReportSaved?.(),
     );
