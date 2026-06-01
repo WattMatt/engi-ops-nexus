@@ -7609,6 +7609,7 @@ export type Database = {
           capital_recovery_rate_percent: number | null
           control_wiring_cost: number | null
           created_at: string | null
+          derate_factor: number
           diesel_cost_per_litre: number | null
           fast_food_kw_per_sqm: number | null
           id: string
@@ -7634,6 +7635,7 @@ export type Database = {
           capital_recovery_rate_percent?: number | null
           control_wiring_cost?: number | null
           created_at?: string | null
+          derate_factor?: number
           diesel_cost_per_litre?: number | null
           fast_food_kw_per_sqm?: number | null
           id?: string
@@ -7659,6 +7661,7 @@ export type Database = {
           capital_recovery_rate_percent?: number | null
           control_wiring_cost?: number | null
           created_at?: string | null
+          derate_factor?: number
           diesel_cost_per_litre?: number | null
           fast_food_kw_per_sqm?: number | null
           id?: string
@@ -17434,6 +17437,7 @@ export type Database = {
           db_size_allowance: string | null
           db_size_scope_of_work: string | null
           exclude_from_totals: boolean | null
+          excluded_from_load: boolean
           generator_loading_sector_1: number | null
           generator_loading_sector_2: number | null
           generator_zone_id: string | null
@@ -17476,6 +17480,7 @@ export type Database = {
           db_size_allowance?: string | null
           db_size_scope_of_work?: string | null
           exclude_from_totals?: boolean | null
+          excluded_from_load?: boolean
           generator_loading_sector_1?: number | null
           generator_loading_sector_2?: number | null
           generator_zone_id?: string | null
@@ -17518,6 +17523,7 @@ export type Database = {
           db_size_allowance?: string | null
           db_size_scope_of_work?: string | null
           exclude_from_totals?: boolean | null
+          excluded_from_load?: boolean
           generator_loading_sector_1?: number | null
           generator_loading_sector_2?: number | null
           generator_zone_id?: string | null
