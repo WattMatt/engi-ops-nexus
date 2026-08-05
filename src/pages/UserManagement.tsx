@@ -25,6 +25,35 @@ const UserManagement = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [resendingUserId, setResendingUserId] = useState<string | null>(null);
+
+  // Resend invite (Onboarding Standard B6): fresh single-use set-password
+  // link for users who have never signed in. Emails it; if the email fails,
+  // the edge function returns the link so we copy it for manual delivery.
+  const handleResendInvite = async (user: UserProfile) => {
+    setResendingUserId(user.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("invite-user", {
+        body: { action: "resend", email: user.email, role: user.role, delivery: "email" },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Failed to resend invite");
+
+      if (data.emailSent) {
+        toast.success(`Invite re-sent to ${user.email}`);
+      } else if (data.actionLink) {
+        await navigator.clipboard.writeText(data.actionLink);
+        toast.warning("Email could not be sent — setup link copied to clipboard", {
+          description: "Deliver the link to the user yourself. It is single-use and valid for 24 hours.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error resending invite:", error);
+      toast.error(error.message || "Failed to resend invite");
+    } finally {
+      setResendingUserId(null);
+    }
+  };
 
   useEffect(() => {
     loadUsers();
@@ -163,6 +192,20 @@ const UserManagement = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
+                        {!user.last_login_at && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={resendingUserId === user.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleResendInvite(user);
+                            }}
+                          >
+                            <Mail className="h-3 w-3 mr-1" />
+                            {resendingUserId === user.id ? "Sending..." : "Resend invite"}
+                          </Button>
+                        )}
                         <ManageUserDialog user={user} onUpdated={loadUsers}>
                           <Button variant="outline" size="sm">
                             Manage

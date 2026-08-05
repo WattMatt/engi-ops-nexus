@@ -18,6 +18,8 @@ import { RoadmapReviewContent } from "@/components/projects/RoadmapReviewContent
 import { GlobalAnalytics } from "@/components/projects/GlobalAnalytics";
 import { cn } from "@/lib/utils";
 import { ContractorPortalWidget } from "@/components/admin/ContractorPortalWidget";
+import { useQueryClient } from "@tanstack/react-query";
+import { clearAllStorage } from "@/hooks/useSessionMonitor";
 
 interface Project {
   id: string;
@@ -36,6 +38,7 @@ interface Project {
 const ProjectSelect = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,7 +93,15 @@ const ProjectSelect = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    // Same purge sequence as useSessionMonitor's auto-logout (Onboarding
+    // Standard E3): sign out, drop the React Query cache, clear all storage.
+    try {
+      await supabase.auth.signOut();
+      queryClient.clear();
+      await clearAllStorage();
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
     navigate("/auth");
   };
 

@@ -8,16 +8,17 @@ import { ProjectDropdown } from "@/components/ProjectDropdown";
 import { MessageNotificationBell } from "@/components/messaging/MessageNotificationBell";
 import { LogOut } from "lucide-react";
 import { FirstLoginModal } from "@/components/auth/FirstLoginModal";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProjectContextHeader } from "@/components/common/ProjectContextHeader";
 import { useProjectClientCheck } from "@/hooks/useProjectClientCheck";
 import { ProjectContactSetupBanner } from "@/components/project/ProjectContactSetupBanner";
-import { useSessionMonitor } from "@/hooks/useSessionMonitor";
+import { useSessionMonitor, clearAllStorage } from "@/hooks/useSessionMonitor";
 import { SessionExpiryDialog } from "@/components/common/SessionExpiryDialog";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string>("");
   const [projectNumber, setProjectNumber] = useState<string>("");
@@ -98,8 +99,15 @@ const DashboardLayout = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem("selectedProjectId");
+    // Same purge sequence as useSessionMonitor's auto-logout (Onboarding
+    // Standard E3): sign out, drop the React Query cache, clear all storage.
+    try {
+      await supabase.auth.signOut();
+      queryClient.clear();
+      await clearAllStorage();
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
     navigate("/auth");
   };
 

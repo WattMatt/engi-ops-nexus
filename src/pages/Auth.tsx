@@ -12,6 +12,7 @@ import { Building2, Eye, EyeOff } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ForgotPasswordDialog } from "@/components/auth/ForgotPasswordDialog";
 import { StoicQuote } from "@/components/StoicQuote";
+import { safeNext } from "@/lib/loginNext";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -23,22 +24,29 @@ const Auth = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Get redirect URL from query params or sessionStorage (for email links that need post-login redirect)
+  // Get redirect URL from query params or sessionStorage (for email links that
+  // need post-login redirect). Both sources are untrusted: they pass through
+  // safeNext (allow-listed prefixes + dot-segment normalization) so values
+  // like `//evil.com` or `/dashboard/../../x` can never become an open
+  // redirect (Onboarding Standard A7).
   const redirectTo = useMemo(() => {
     // First check query params
-    const redirect = searchParams.get("redirect");
-    if (redirect && redirect.startsWith("/")) {
-      return redirect;
+    const fromQuery = safeNext(searchParams.get("redirect"));
+    if (fromQuery) {
+      return fromQuery;
     }
-    
+
     // Then check sessionStorage for return URL (set by deep link handlers)
     const storedReturnUrl = sessionStorage.getItem("authReturnUrl");
-    if (storedReturnUrl && storedReturnUrl.startsWith("/")) {
+    if (storedReturnUrl) {
       // Clear it after reading
       sessionStorage.removeItem("authReturnUrl");
-      return storedReturnUrl;
+      const fromStorage = safeNext(storedReturnUrl);
+      if (fromStorage) {
+        return fromStorage;
+      }
     }
-    
+
     return "/projects";
   }, [searchParams]);
 

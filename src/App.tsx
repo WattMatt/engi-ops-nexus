@@ -14,6 +14,7 @@
  import { PageLoadingSpinner } from "@/components/common/PageLoadingSpinner";
  import { HelpButton } from "./components/feedback/HelpButton";
  import { ConflictProvider } from "@/contexts/ConflictContext";
+ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 // Critical path - loaded immediately
 import Index from "./pages/Index";
@@ -144,32 +145,34 @@ const queryClient = new QueryClient({
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/auth/set-password" element={<SetPassword />} />
-                  
+
                   {/* Project selection */}
-                  <Route path="/projects" element={<ProjectSelect />} />
-                  <Route path="/settings" element={<Settings />} />
-                  
-                  {/* External client portals */}
-                  <Route path="/handover-client" element={<HandoverClient />} />
-                  <Route path="/handover-client-management" element={<HandoverClientManagement />} />
-                  <Route path="/client-portal" element={<ClientPortal />} />
-                  <Route path="/client/tenant-report/:projectId" element={<ClientTenantReport />} />
-                  <Route path="/client/generator-report/:projectId" element={<ClientGeneratorReport />} />
-                  <Route path="/client/documents/:projectId" element={<ClientDocumentsPage />} />
+                  <Route path="/projects" element={<ProtectedRoute><ProjectSelect /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+                  {/* Session-authenticated client surfaces */}
+                  <Route path="/handover-client" element={<ProtectedRoute><HandoverClient /></ProtectedRoute>} />
+                  <Route path="/handover-client-management" element={<ProtectedRoute><HandoverClientManagement /></ProtectedRoute>} />
+                  <Route path="/client-portal" element={<ProtectedRoute><ClientPortal /></ProtectedRoute>} />
+                  <Route path="/client/tenant-report/:projectId" element={<ProtectedRoute><ClientTenantReport /></ProtectedRoute>} />
+                  <Route path="/client/generator-report/:projectId" element={<ProtectedRoute><ClientGeneratorReport /></ProtectedRoute>} />
+                  <Route path="/client/documents/:projectId" element={<ProtectedRoute><ClientDocumentsPage /></ProtectedRoute>} />
+
+                  {/* Public token-gated portals (access via signed token, not session) */}
                   <Route path="/client-view" element={<ClientView />} />
                   <Route path="/generator-report/:token" element={<ClientGeneratorReportView />} />
                   <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
                   <Route path="/contractor-portal" element={<ContractorPortal />} />
                   <Route path="/p/:code" element={<PortalRedirect />} />
                   <Route path="/cable-verification" element={<CableVerificationPortal />} />
-                  
+
                   {/* Global pages */}
-                  <Route path="/master-library" element={<MasterLibrary />} />
-                  <Route path="/contact-library" element={<ContactLibrary />} />
-                  <Route path="/projects/:projectId/roadmap" element={<RoadmapItemRedirect />} />
-                  
-                  {/* Admin routes */}
-                  <Route path="/admin" element={<AdminLayout />}>
+                  <Route path="/master-library" element={<ProtectedRoute><MasterLibrary /></ProtectedRoute>} />
+                  <Route path="/contact-library" element={<ProtectedRoute><ContactLibrary /></ProtectedRoute>} />
+                  <Route path="/projects/:projectId/roadmap" element={<ProtectedRoute><RoadmapItemRedirect /></ProtectedRoute>} />
+
+                  {/* Admin routes (AdminLayout keeps its own admin-role check) */}
+                  <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
                     <Route index element={<ProjectSelect />} />
                     <Route path="projects" element={<ProjectSelect />} />
                     <Route path="finance" element={<Finance />} />
@@ -189,7 +192,7 @@ const queryClient = new QueryClient({
                   </Route>
                   
                   {/* Dashboard routes */}
-                  <Route path="/dashboard" element={<DashboardLayout />}>
+                  <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                     <Route index element={<Dashboard />} />
                     <Route path="tenant-tracker" element={<TenantTracker />} />
                     <Route path="project-settings" element={<ProjectSettings />} />

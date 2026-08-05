@@ -589,15 +589,16 @@ export const roadmapReviewUpdateTemplate = (
 
 /**
  * User invitation/welcome email template
- * Sent when an admin creates a new user account
+ * Sent when an admin creates a new user account.
+ * Carries a single-use set-password action link — NEVER credentials
+ * (Onboarding Standard B4: never send passwords in email).
  */
 export const userInviteTemplate = (
   recipientName: string,
   recipientEmail: string,
-  temporaryPassword: string,
   role: string,
   inviterName: string,
-  loginLink: string
+  setPasswordLink: string
 ) => {
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
   
@@ -613,20 +614,14 @@ export const userInviteTemplate = (
         ${createBadge(roleLabel)}
       </p>
       <p style="margin: 0 0 16px 0; font-size: 14px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-        Your account is ready. Use the credentials below to log in.
+        Your account is ready. Click the button below to choose your password and finish setting up your account.
       </p>
-      
+
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
           <td style="padding: 8px 0;">
             <p style="margin: 0; font-size: 12px; font-weight: 600; color: ${TEXT_MUTED}; text-transform: uppercase; letter-spacing: 0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Email</p>
             <p style="margin: 4px 0 0 0; font-size: 14px; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">${recipientEmail}</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding: 12px 0 0 0;">
-            <p style="margin: 0; font-size: 12px; font-weight: 600; color: ${TEXT_MUTED}; text-transform: uppercase; letter-spacing: 0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Temporary Password</p>
-            <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: 600; font-family: 'Courier New', monospace; color: ${TEXT_PRIMARY}; background-color: #f3f4f6; padding: 8px 12px; border-radius: 6px; display: inline-block;">${temporaryPassword}</p>
           </td>
         </tr>
       </table>
@@ -638,21 +633,21 @@ export const userInviteTemplate = (
         <tr>
           <td style="padding: 6px 0; vertical-align: top;">
             <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-              <strong style="color: ${BRAND_BLUE};">Step 1:</strong> Click the "Log In Now" button below
+              <strong style="color: ${BRAND_BLUE};">Step 1:</strong> Click the "Set Your Password" button below
             </p>
           </td>
         </tr>
         <tr>
           <td style="padding: 6px 0; vertical-align: top;">
             <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-              <strong style="color: ${BRAND_BLUE};">Step 2:</strong> Enter your email and the temporary password above
+              <strong style="color: ${BRAND_BLUE};">Step 2:</strong> Choose a strong password on the secure setup page
             </p>
           </td>
         </tr>
         <tr>
           <td style="padding: 6px 0; vertical-align: top;">
             <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-              <strong style="color: ${BRAND_BLUE};">Step 3:</strong> Create a new secure password when prompted
+              <strong style="color: ${BRAND_BLUE};">Step 3:</strong> You're in — sign in with your new password from then on
             </p>
           </td>
         </tr>
@@ -662,14 +657,14 @@ export const userInviteTemplate = (
     ${createHighlight(`
       <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 600; color: #9a3412; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">🔐 Important Security Notice</p>
       <p style="margin: 0; font-size: 13px; color: ${TEXT_SECONDARY}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-        <strong>You must change your password</strong> on your first login. This is a temporary password created for initial access only. Please keep your credentials secure and never share them with anyone.
+        This setup link is <strong>valid for 24 hours and can only be used once</strong>. If it expires, ask your administrator to resend your invite. Never share this link with anyone.
       </p>
     `, '#f59e0b', '#fffbeb')}
-    
+
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0 16px 0;">
       <tr>
         <td align="center">
-          ${createButton(loginLink, 'Log In Now')}
+          ${createButton(setPasswordLink, 'Set Your Password')}
         </td>
       </tr>
     </table>

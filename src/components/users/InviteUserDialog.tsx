@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { UserPlus } from "lucide-react";
@@ -10,7 +12,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const inviteSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
@@ -18,12 +19,21 @@ const inviteSchema = z.object({
   role: z.enum(["admin", "moderator", "user"], {
     required_error: "Please select a role",
   }),
-  password: z.string()
-    .min(6, "Password must be at least 6 characters")
-    .max(100, "Password must be less than 100 characters"),
+  // Delivery mode (Onboarding Standard B1/B4):
+  //  - "email": branded email with a single-use set-password link (default)
+  //  - "relay": server-generated CSPRNG temp password shown ONCE to the admin
+  delivery: z.enum(["email", "relay"]),
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
+
+interface InviteResult {
+  delivery: "email" | "relay";
+  email: string;
+  emailSent?: boolean;
+  actionLink?: string | null;
+  tempPassword?: string | null;
+}
 
 interface InviteUserDialogProps {
   onInvited?: () => void;
@@ -32,9 +42,7 @@ interface InviteUserDialogProps {
 export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [createdPassword, setCreatedPassword] = useState<string>("");
-  const [emailSent, setEmailSent] = useState(false);
-  const { logActivity } = useActivityLogger();
+  const [result, setResult] = useState<InviteResult | null>(null);
 
   const form = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
@@ -42,19 +50,9 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
       fullName: "",
       email: "",
       role: "user",
-      password: "",
+      delivery: "email",
     },
   });
-
-  const generatePassword = () => {
-    const length = 12;
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let password = "";
-    for (let i = 0; i < length; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    form.setValue("password", password);
-  };
 
   const onSubmit = async (data: InviteFormData) => {
     setLoading(true);
@@ -65,35 +63,42 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
         return;
       }
 
-      // Use Edge Function to create user
+      // Use Edge Function to create user. The server generates any temp
+      // password itself (CSPRNG) and never emails credentials — email
+      // delivery carries a set-password link instead.
       const { data: inviteData, error: inviteError } = await supabase.functions.invoke("invite-user", {
         body: {
           email: data.email,
           fullName: data.fullName,
           role: data.role,
-          password: data.password,
+          delivery: data.delivery,
         },
       });
 
       if (inviteError) throw inviteError;
       if (!inviteData?.success) throw new Error(inviteData?.error || "Failed to create user");
 
-      setCreatedPassword(data.password);
-      setEmailSent(inviteData?.emailSent || false);
-      
-      const wasEmailSent = inviteData?.emailSent;
-      toast.success(`User created successfully`, {
-        description: wasEmailSent 
-          ? `A welcome email with login credentials has been sent to ${data.email}`
-          : `Share the password with ${data.fullName}. They can change it after logging in.`
+      setResult({
+        delivery: inviteData.delivery === "relay" ? "relay" : "email",
+        email: data.email,
+        emailSent: inviteData.emailSent ?? false,
+        actionLink: inviteData.actionLink ?? null,
+        tempPassword: inviteData.tempPassword ?? null,
       });
 
-      // Log the invite activity
-      await logActivity(
-        'create',
-        `Invited new user: ${data.fullName}`,
-        { email: data.email, role: data.role }
-      );
+      if (inviteData.delivery === "relay") {
+        toast.success("User created", {
+          description: `Share the temporary password with ${data.fullName} securely. They must change it on first login.`,
+        });
+      } else if (inviteData.emailSent) {
+        toast.success("User created", {
+          description: `A set-password link has been emailed to ${data.email}`,
+        });
+      } else {
+        toast.warning("User created, but the email could not be sent", {
+          description: "Copy the setup link below and deliver it to the user yourself.",
+        });
+      }
 
       onInvited?.();
     } catch (error: any) {
@@ -106,9 +111,13 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
 
   const handleClose = () => {
     setOpen(false);
-    setCreatedPassword("");
-    setEmailSent(false);
+    setResult(null);
     form.reset();
+  };
+
+  const copyToClipboard = (value: string, label: string) => {
+    navigator.clipboard.writeText(value);
+    toast.success(`${label} copied to clipboard`);
   };
 
   return (
@@ -120,12 +129,12 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
-        {!createdPassword ? (
+        {!result ? (
           <>
             <DialogHeader>
               <DialogTitle>Invite New User</DialogTitle>
               <DialogDescription>
-                Create a new user account with a custom password that you can share with them.
+                Send a set-password link by email, or hand over a one-time temporary password yourself.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -156,35 +165,6 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
                 </FormItem>
               )}
             />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <div className="flex gap-2">
-                        <FormControl>
-                          <Input 
-                            type="text" 
-                            placeholder="Enter or generate password" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={generatePassword}
-                        >
-                          Generate
-                        </Button>
-                      </div>
-                      <FormMessage />
-                      <p className="text-xs text-muted-foreground">
-                        User can change this password after first login.
-                      </p>
-                    </FormItem>
-                  )}
-                />
             <FormField
               control={form.control}
               name="role"
@@ -207,6 +187,42 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="delivery"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="space-y-1"
+                    >
+                      <div className="flex items-start space-x-2">
+                        <RadioGroupItem value="email" id="delivery-email" className="mt-0.5" />
+                        <Label htmlFor="delivery-email" className="font-normal cursor-pointer">
+                          Email a set-password link
+                          <span className="block text-xs text-muted-foreground">
+                            The user chooses their own password. No credentials are emailed.
+                          </span>
+                        </Label>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <RadioGroupItem value="relay" id="delivery-relay" className="mt-0.5" />
+                        <Label htmlFor="delivery-relay" className="font-normal cursor-pointer">
+                          Temporary password (shown to you once)
+                          <span className="block text-xs text-muted-foreground">
+                            For users without reliable email. You relay the password yourself.
+                          </span>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={handleClose}>
                     Cancel
@@ -225,42 +241,61 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
                 ✅ User Created Successfully
               </DialogTitle>
               <DialogDescription>
-                {emailSent 
-                  ? "A welcome email with login credentials has been sent to the user."
-                  : "Share this password with the user. They should change it after logging in."}
+                {result.delivery === "relay"
+                  ? "Share this temporary password with the user securely. They must change it on first login."
+                  : result.emailSent
+                    ? "A set-password link has been emailed to the user."
+                    : "The invite email could not be sent. Copy the setup link below and deliver it to the user yourself."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              {emailSent && (
+              {result.delivery === "email" && result.emailSent && (
                 <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                   <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
-                    📧 Welcome email sent with login credentials
+                    📧 Set-password link emailed to {result.email}
                   </p>
                 </div>
               )}
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-2">Temporary Password:</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 p-2 bg-background rounded border text-lg font-mono">
-                    {createdPassword}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdPassword);
-                      toast.success("Password copied to clipboard");
-                    }}
-                  >
-                    Copy
-                  </Button>
+              {result.delivery === "email" && !result.emailSent && result.actionLink && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm font-medium mb-2">One-time setup link:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 p-2 bg-background rounded border text-xs font-mono break-all">
+                      {result.actionLink}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(result.actionLink!, "Setup link")}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Valid for 24 hours, single use. It won't be shown again.
+                  </p>
                 </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {emailSent 
-                  ? "The password is included in the welcome email. Save it securely as backup."
-                  : "Make sure to save this password securely. It won't be shown again."}
-              </p>
+              )}
+              {result.delivery === "relay" && result.tempPassword && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm font-medium mb-2">Temporary Password:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 p-2 bg-background rounded border text-lg font-mono">
+                      {result.tempPassword}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(result.tempPassword!, "Password")}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    It won't be shown again — not even in an email.
+                  </p>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button onClick={handleClose}>

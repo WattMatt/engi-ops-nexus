@@ -12217,7 +12217,6 @@ export type Database = {
           login_count: number | null
           must_change_password: boolean | null
           password_changed_at: string | null
-          role: Database["public"]["Enums"]["user_role"] | null
           status: string | null
           updated_at: string
         }
@@ -12232,7 +12231,6 @@ export type Database = {
           login_count?: number | null
           must_change_password?: boolean | null
           password_changed_at?: string | null
-          role?: Database["public"]["Enums"]["user_role"] | null
           status?: string | null
           updated_at?: string
         }
@@ -12247,7 +12245,6 @@ export type Database = {
           login_count?: number | null
           must_change_password?: boolean | null
           password_changed_at?: string | null
-          role?: Database["public"]["Enums"]["user_role"] | null
           status?: string | null
           updated_at?: string
         }
@@ -17616,44 +17613,6 @@ export type Database = {
           },
         ]
       }
-      user_invitations: {
-        Row: {
-          email: string
-          expires_at: string
-          id: string
-          invited_at: string
-          invited_by: string
-          role: Database["public"]["Enums"]["app_role"] | null
-          status: string | null
-        }
-        Insert: {
-          email: string
-          expires_at?: string
-          id?: string
-          invited_at?: string
-          invited_by: string
-          role?: Database["public"]["Enums"]["app_role"] | null
-          status?: string | null
-        }
-        Update: {
-          email?: string
-          expires_at?: string
-          id?: string
-          invited_at?: string
-          invited_by?: string
-          role?: Database["public"]["Enums"]["app_role"] | null
-          status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_invitations_invited_by_fkey"
-            columns: ["invited_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_reminders: {
         Row: {
           created_at: string
@@ -18263,7 +18222,6 @@ export type Database = {
       standby_source: "centre_generator" | "tenant_own_supply"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status: "pending" | "in_progress" | "completed" | "cancelled"
-      user_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -18419,7 +18377,6 @@ export const Constants = {
       standby_source: ["centre_generator", "tenant_own_supply"],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: ["pending", "in_progress", "completed", "cancelled"],
-      user_role: ["admin", "user"],
     },
   },
 } as const

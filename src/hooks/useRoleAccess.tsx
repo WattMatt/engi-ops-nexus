@@ -23,19 +23,31 @@ export const useRoleAccess = (requiredRole?: AppRole) => {
         return;
       }
 
-      const { data: roleData, error } = await supabase
+      // Fetch ALL role rows — users may hold multiple roles, and
+      // .maybeSingle() errors when more than one row exists
+      const { data: roleRows, error } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        .eq("user_id", user.id);
 
       if (error) {
-        console.error("Error fetching user role:", error);
-        setLoading(false);
+        // Fail closed: a failed role lookup is treated as unauthorized
+        console.error("Error fetching user roles:", error);
+        setUserRole(null);
+        if (requiredRole) {
+          toast.error("You don't have permission to access this page");
+          navigate("/");
+        }
         return;
       }
 
-      const role = roleData?.role as AppRole || "user";
+      const roles = new Set((roleRows ?? []).map((r) => r.role as AppRole));
+      // Derive the highest-privilege role; default to "user" when no rows exist
+      const role: AppRole = roles.has("admin")
+        ? "admin"
+        : roles.has("moderator")
+          ? "moderator"
+          : "user";
       setUserRole(role);
 
       // Check access if required role is specified
@@ -44,7 +56,12 @@ export const useRoleAccess = (requiredRole?: AppRole) => {
         navigate("/");
       }
     } catch (error) {
+      // Fail closed on unexpected errors as well
       console.error("Error in checkUserRole:", error);
+      if (requiredRole) {
+        toast.error("You don't have permission to access this page");
+        navigate("/");
+      }
     } finally {
       setLoading(false);
     }

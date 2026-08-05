@@ -14,9 +14,11 @@ interface SessionSettings {
 const COUNTDOWN_SECONDS = 60;
 
 /**
- * Clear all local storage, session storage, IndexedDB, and Cache API
+ * Clear all local storage, session storage, IndexedDB, and Cache API.
+ * Exported so every sign-out path (manual logout buttons, auto-logout)
+ * purges the same state (Onboarding Standard E3).
  */
-const clearAllStorage = async () => {
+export const clearAllStorage = async () => {
   console.log('[SessionMonitor] Clearing all storage...');
   localStorage.clear();
   sessionStorage.clear();
