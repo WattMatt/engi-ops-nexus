@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
 import { buildRoadmapExportPdf, type RoadmapExportPdfData } from "@/utils/svg-pdf/roadmapExportPdfBuilder";
 import { imageToBase64 } from "@/utils/svg-pdf/imageUtils";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 
 interface RoadmapExportPDFButtonProps {
   projectId: string;
@@ -52,17 +53,23 @@ export function RoadmapExportPDFButton({ projectId }: RoadmapExportPDFButtonProp
         .single();
       if (error) throw error;
 
-      const { data: items } = await supabase
-        .from("project_roadmap_items")
-        .select("id, title, phase, priority, start_date, due_date, is_completed, description, comments, parent_id, sort_order")
-        .eq("project_id", projectId)
-        .order("sort_order");
+      const items = throwOnError(
+        await supabase
+          .from("project_roadmap_items")
+          .select("id, title, phase, priority, start_date, due_date, is_completed, description, comments, parent_id, sort_order")
+          .eq("project_id", projectId)
+          .order("sort_order"),
+        "roadmap items",
+      );
 
-      const { data: company } = await supabase
-        .from("company_settings")
-        .select("company_name, company_logo_url")
-        .limit(1)
-        .maybeSingle();
+      const company = throwOnError(
+        await supabase
+          .from("company_settings")
+          .select("company_name, company_logo_url")
+          .limit(1)
+          .maybeSingle(),
+        "company settings",
+      );
 
       return {
         project: {

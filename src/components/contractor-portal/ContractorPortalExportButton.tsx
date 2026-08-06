@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
 import { buildContractorPortalPdf } from "@/utils/svg-pdf/contractorPortalPdfBuilder";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 
 interface ContractorPortalExportButtonProps {
@@ -70,15 +71,27 @@ export function ContractorPortalExportButton({
           .eq("project_id", projectId),
       ]);
 
+      // Surface any failed fetch instead of exporting an empty section
+      throwOnError(tenantsRes, "tenants");
+      throwOnError(drawingsRes, "drawings");
+      throwOnError(procurementRes, "procurement items");
+      throwOnError(inspectionsRes, "inspection items");
+      throwOnError(rfisRes, "RFIs");
+      throwOnError(companyRes, "company settings");
+      throwOnError(schedulesRes, "cable schedules");
+
       // Fetch cables via cable_schedules
       let cableData: any[] = [];
       const scheduleIds = (schedulesRes.data || []).map(s => s.id);
       if (scheduleIds.length > 0) {
-        const { data } = await supabase
-          .from("cable_entries")
-          .select("cable_tag, from_location, to_location, cable_type, contractor_confirmed, contractor_installed")
-          .in("schedule_id", scheduleIds)
-          .order("cable_tag");
+        const data = throwOnError(
+          await supabase
+            .from("cable_entries")
+            .select("cable_tag, from_location, to_location, cable_type, contractor_confirmed, contractor_installed")
+            .in("schedule_id", scheduleIds)
+            .order("cable_tag"),
+          "cable entries",
+        );
         cableData = data || [];
       }
 

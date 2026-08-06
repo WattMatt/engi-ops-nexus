@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ContactSelector } from "@/components/shared/ContactSelector";
 import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
 import { buildCableSchedulePdf, type CableSchedulePdfData, type CableEntry } from "@/utils/svg-pdf/cableSchedulePdfBuilder";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -26,20 +27,24 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
 
     const buildFn = async () => {
       // 1. Fetch cable entries
-      const { data: entries, error: entriesError } = await supabase
-        .from("cable_entries")
-        .select("*")
-        .eq("schedule_id", schedule.id)
-        .order("cable_tag");
-
-      if (entriesError) throw entriesError;
+      const entries = throwOnError(
+        await supabase
+          .from("cable_entries")
+          .select("*")
+          .eq("schedule_id", schedule.id)
+          .order("cable_tag"),
+        "cable entries",
+      );
 
       // 2. Fetch project details
-      const { data: project } = await supabase
-        .from("projects")
-        .select("project_number, name, client_name")
-        .eq("id", schedule.project_id)
-        .single();
+      const project = throwOnError(
+        await supabase
+          .from("projects")
+          .select("project_number, name, client_name")
+          .eq("id", schedule.project_id)
+          .single(),
+        "project",
+      );
 
       // 3. Fetch company data for cover page
       const companyData = await fetchCompanyData();

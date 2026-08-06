@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { buildConversationPdf } from "@/utils/svg-pdf/conversationPdfBuilder";
 import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 
 interface ExportConversationProps {
   conversationId: string;
@@ -44,10 +45,13 @@ export function ExportConversation({ conversationId, conversationTitle }: Export
       if (error) throw error;
 
       const senderIds = [...new Set(data.map(m => m.sender_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", senderIds);
+      const profiles = throwOnError(
+        await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", senderIds),
+        "sender profiles",
+      );
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 

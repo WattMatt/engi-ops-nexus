@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
 import { buildFinalAccountPdf, type FinalAccountPdfData } from "@/utils/svg-pdf/finalAccountPdfBuilder";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 
 interface FinalAccountExportPDFButtonProps {
@@ -17,27 +18,36 @@ export const FinalAccountExportPDFButton = ({ account }: FinalAccountExportPDFBu
   const handleExport = async () => {
     const buildFn = async () => {
       // Fetch bills, sections, items
-      const { data: bills } = await supabase
-        .from("final_account_bills")
-        .select("*")
-        .eq("final_account_id", account.id)
-        .order("bill_number");
+      const bills = throwOnError(
+        await supabase
+          .from("final_account_bills")
+          .select("*")
+          .eq("final_account_id", account.id)
+          .order("bill_number"),
+        "final account bills",
+      );
 
       const billsWithData = [];
       for (const bill of bills || []) {
-        const { data: sections } = await supabase
-          .from("final_account_sections")
-          .select("*")
-          .eq("bill_id", bill.id)
-          .order("display_order");
+        const sections = throwOnError(
+          await supabase
+            .from("final_account_sections")
+            .select("*")
+            .eq("bill_id", bill.id)
+            .order("display_order"),
+          "final account sections",
+        );
 
         const sectionsWithItems = [];
         for (const section of sections || []) {
-          const { data: items } = await supabase
-            .from("final_account_items")
-            .select("*")
-            .eq("section_id", section.id)
-            .order("display_order");
+          const items = throwOnError(
+            await supabase
+              .from("final_account_items")
+              .select("*")
+              .eq("section_id", section.id)
+              .order("display_order"),
+            "final account items",
+          );
           sectionsWithItems.push({ ...section, items: items || [] });
         }
         billsWithData.push({ ...bill, sections: sectionsWithItems });
