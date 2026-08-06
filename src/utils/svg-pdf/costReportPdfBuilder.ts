@@ -15,7 +15,7 @@
 const PAGE_W = 210;
 const PAGE_H = 297;
 
-// Margins — aligned with Hardened PDF Standard (pdfStandards.ts)
+// Margins — aligned with the portfolio PDF standard (APPS/PDF-STANDARD/STANDARD.md)
 const MARGIN_TOP = 25;
 const MARGIN_BOTTOM = 22;
 const MARGIN_LEFT = 15;
@@ -43,7 +43,7 @@ interface CoverPageData {
   projectNumber?: string;
   companyLogoBase64?: string | null;
   clientLogoBase64?: string | null;
-  // Standardised cover page fields (aligned with pdfStandards.ts)
+  // Standardised cover page fields (aligned with the portfolio PDF standard)
   companyAddress?: string;
   companyPhone?: string;
   contactName?: string;
@@ -204,7 +204,7 @@ export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
   // White background
   el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, svg);
 
-  // Left accent bar — gradient effect using two rects (matches pdfStandards.ts cover)
+  // Left accent bar — gradient effect using two rects (matches the standard cover)
   el('rect', { x: 0, y: 0, width: 4, height: PAGE_H / 2, fill: BRAND_PRIMARY }, svg);
   el('rect', { x: 0, y: PAGE_H / 2, width: 4, height: PAGE_H / 2, fill: BRAND_ACCENT }, svg);
 
@@ -241,7 +241,7 @@ export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
     logoBottomY = 58;
   }
 
-  // Divider line (matches std-cover-divider in pdfStandards.ts)
+  // Divider line (matches the standard cover divider)
   el('rect', { x: PAGE_W / 2 - 25, y: logoBottomY + 4, width: 50, height: 1.2, fill: BRAND_ACCENT, rx: 0.3 }, svg);
 
   // Report title — "COST REPORT"
@@ -287,7 +287,7 @@ export function buildCoverPageSvg(data: CoverPageData): SVGSVGElement {
     textEl(svg, PAGE_W / 2, projY + 14, data.projectNumber, { size: 4, fill: TEXT_MUTED, anchor: 'middle' });
   }
 
-  // ── PREPARED FOR / PREPARED BY sections (matches pdfStandards.ts cover layout) ──
+  // ── PREPARED FOR / PREPARED BY sections (matches the standard cover layout) ──
   const detailsY = 175;
   el('line', { x1: 30, y1: detailsY, x2: PAGE_W - 30, y2: detailsY, stroke: BORDER_COLOR, 'stroke-width': 0.3 }, svg);
 

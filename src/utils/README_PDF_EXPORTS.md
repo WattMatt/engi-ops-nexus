@@ -1,74 +1,52 @@
 # PDF Export Documentation Index
 
-## 📖 Documentation Files
+> Updated 2026-08-06 as part of the PDF standardization pass. The previous
+> version of this index referenced `pdfCoverPage.ts`, `fetchCompanyDetails()`
+> and `generateCoverPage()` — none of which exist in this codebase.
 
-All PDF exports in this application follow standardized guidelines. Choose the appropriate documentation based on your needs:
+## The one true pipeline
 
-### For Developers Adding New PDF Exports
+All PDF exports in this app run on the **client-side SVG → jsPDF engine**:
 
-1. **[PDF_QUICK_START.md](./PDF_QUICK_START.md)** - Start here!
-   - Quick copy-paste templates
-   - Common patterns
-   - 5-minute implementation guide
+| Need | Go to |
+|------|-------|
+| Generate + download + persist a report (progress, retries, history record, optional preview) | `src/hooks/useSvgPdfReport.ts` |
+| Convert SVG pages to a PDF blob / trigger a plain download | `src/utils/svg-pdf/svgToPdfEngine.ts` (`svgPagesToPdfBlob`, `svgPagesToDownload`) |
+| Standard cover page, headers/footers, tables, text pages, brand palette | `src/utils/svg-pdf/sharedSvgHelpers.ts` |
+| A builder for an existing report type | `src/utils/svg-pdf/<type>PdfBuilder.ts` (29 builders) |
+| Supabase fetches inside a build function | `src/utils/svg-pdf/fetchStrict.ts` (`throwOnError` — never export an empty PDF on a failed query) |
+| Filenames | `src/utils/pdfFilenameGenerator.ts` (`composeReportStorageFilename` — sanitized, revision + timestamp, single `.pdf`) |
+| Preview-before-save dialog | `src/components/pdf/SvgPdfPreviewDialog.tsx` (opt-in with `preview: true` in the persist config) |
+| Structural compliance checks | `src/utils/svg-pdf/complianceChecker.ts` (runs in CI: `npm run test:pdf-compliance`; also on the admin /pdf-compliance page) |
 
-2. **[PDF_EXPORT_STANDARDS.md](./PDF_EXPORT_STANDARDS.md)** - Complete reference
-   - Full implementation guide
-   - Real-world examples
-   - Best practices
-   - Common mistakes to avoid
+## Adding a new PDF export
 
-### For Developers Maintaining Existing Exports
+1. Create `src/utils/svg-pdf/<yourType>PdfBuilder.ts`; compose pages from
+   `sharedSvgHelpers` (`buildStandardCoverPageSvg`, `buildTablePages`,
+   `buildTextPages`, `applyPageFooters`, ...).
+2. In your component, call `useSvgPdfReport().generateAndPersist(buildFn, config)`
+   with a storage bucket + history table, or `svgPagesToDownload` for
+   download-only exports (always wrap in try/catch + toast).
+3. Wrap every Supabase query in the build function with `throwOnError`.
+4. Register the builder in `complianceChecker.ts` with mock data so it is
+   covered by the automated structural checks.
 
-3. **[pdfCoverPage.ts](./pdfCoverPage.ts)** - Source code
-   - Utility functions
-   - TypeScript interfaces
-   - JSDoc comments
+## Mandatory rules
 
-## 🎯 Which Document Do I Need?
+- One engine: **SVG → jsPDF**. No PDFShift, no pdfmake, no html2canvas, no
+  new direct-jsPDF paths.
+- The only documented exception is
+  `src/components/floor-plan/utils/pdfGenerator.ts` (see its header).
+- Portfolio-wide requirements: `APPS/PDF-STANDARD/STANDARD.md`.
 
-### "I'm adding a new PDF export feature"
-→ Start with **PDF_QUICK_START.md**, copy a template, then refer to **PDF_EXPORT_STANDARDS.md** for details
+## Working examples
 
-### "I need to modify the cover page style"
-→ Edit **pdfCoverPage.ts** (but read standards first!)
+- Persisted report with preview: `src/components/cost-reports/SvgPdfExportButton.tsx`
+- Persisted report: `src/components/cable-schedules/CableScheduleExportPDFButton.tsx`
+- Download-only: `src/components/contractor-portal/ContractorPortalExportButton.tsx`
+- Static guide documents: `src/utils/svg-pdf/guidePdfBuilder.ts`
+  (used by `BulkServicesSettingsOverview`)
 
-### "I want to see working examples"
-→ Check these files:
-- `src/components/tenant/GeneratorReportExportPDFButton.tsx`
-- `src/components/cable-schedules/CableScheduleExportPDFButton.tsx`
-- `src/components/cost-reports/ExportPDFButton.tsx`
-
-### "I need to understand the requirements"
-→ Read **PDF_EXPORT_STANDARDS.md**
-
-## ⚠️ MANDATORY FOR ALL PDF EXPORTS
-
-All PDF export features **MUST**:
-1. Use `fetchCompanyDetails()` to get company info
-2. Use `generateCoverPage()` for the first page
-3. Follow the standardized format
-4. Not create custom cover pages
-
-## 🚀 Quick Links
-
-- [Quick Start Guide](./PDF_QUICK_START.md)
-- [Full Standards](./PDF_EXPORT_STANDARDS.md)
-- [Source Code](./pdfCoverPage.ts)
-
-## 📦 Existing PDF Exports
-
-Current implementations:
-- ✅ Generator Reports
-- ✅ Cable Schedules
-- ✅ Cost Reports
-- ⚠️ Floor Plans (needs migration to standard format)
-- ⚠️ Specifications (needs implementation)
-- ⚠️ Final Accounts (needs implementation)
-- ⚠️ Electrical Budgets (needs implementation)
-
-## 🔍 Need Help?
-
-1. Read the Quick Start Guide
-2. Copy an existing implementation
-3. Check the Standards document
-4. Review the utility source code
+> Note: `PDF_QUICK_START.md` and `PDF_EXPORT_STANDARDS.md` in this directory
+> predate the SVG engine and are retained for history only — see the
+> deprecation banners at the top of each.

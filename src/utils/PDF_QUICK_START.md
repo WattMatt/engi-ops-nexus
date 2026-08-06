@@ -1,5 +1,9 @@
 # PDF Export Quick Start Guide
 
+> **⚠️ DEPRECATED (2026-08-06).** This guide references `pdfCoverPage.ts` /
+> `generateCoverPage()`, which do not exist. The current pipeline is the
+> SVG → jsPDF engine — see `README_PDF_EXPORTS.md` in this directory.
+
 ## 🚀 Quick Implementation (Copy & Paste)
 
 ### 1. Basic Template
