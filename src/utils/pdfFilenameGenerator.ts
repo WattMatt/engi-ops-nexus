@@ -55,7 +55,34 @@ export function generateStandardizedPDFFilename(options: PDFFilenameOptions): st
 export function generateStorageFilename(options: PDFFilenameOptions): string {
   const baseFilename = generateStandardizedPDFFilename(options);
   const timestamp = Date.now();
-  
+
   // Insert timestamp before .pdf extension
   return baseFilename.replace('.pdf', `_${timestamp}.pdf`);
+}
+
+/**
+ * Strip any trailing ".pdf" extension(s) from a report name (case-insensitive).
+ * Callers sometimes pass already-standardized names ending in ".pdf"; composing
+ * further suffixes onto those produced double-extension filenames like
+ * "..._RevA_2026-06-01.pdf_A_1748736000000.pdf".
+ */
+export function stripPdfExtension(name: string): string {
+  return name.replace(/(\.pdf)+$/i, '');
+}
+
+/**
+ * Pure composition of the storage/download filename used by useSvgPdfReport:
+ * {sanitized-report-name}_{revision}_{timestamp}.pdf
+ *
+ * - Strips any trailing ".pdf" from reportName first (fixes the
+ *   double-extension bug when callers pass a standardized *.pdf name).
+ * - Sanitizes to [a-zA-Z0-9._-].
+ */
+export function composeReportStorageFilename(
+  reportName: string,
+  revision: string,
+  timestamp: number = Date.now(),
+): string {
+  const base = stripPdfExtension(reportName).replace(/[^a-zA-Z0-9._-]/g, '_');
+  return `${base}_${revision}_${timestamp}.pdf`;
 }

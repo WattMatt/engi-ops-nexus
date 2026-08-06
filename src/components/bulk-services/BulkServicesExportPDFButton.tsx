@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
 import { buildBulkServicesPdf, type BulkServicesData } from "@/utils/svg-pdf/bulkServicesPdfBuilder";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 import { format } from "date-fns";
 
@@ -62,20 +63,26 @@ export function BulkServicesExportPDFButton({
       // Fetch project name
       let projectName = "Bulk Services";
       if (document.project_id) {
-        const { data: project } = await supabase
-          .from("projects")
-          .select("name")
-          .eq("id", document.project_id)
-          .single();
+        const project = throwOnError(
+          await supabase
+            .from("projects")
+            .select("name")
+            .eq("id", document.project_id)
+            .single(),
+          "project",
+        );
         projectName = project?.name || "Bulk Services";
       }
 
       // Fetch workflow phases
-      const { data: phases } = await supabase
-        .from("bulk_services_workflow_phases")
-        .select("*, bulk_services_workflow_tasks(*)")
-        .eq("document_id", documentId)
-        .order("display_order");
+      const phases = throwOnError(
+        await supabase
+          .from("bulk_services_workflow_phases")
+          .select("*, bulk_services_workflow_tasks(*)")
+          .eq("document_id", documentId)
+          .order("display_order"),
+        "workflow phases",
+      );
 
       const companyData = await fetchCompanyData();
 

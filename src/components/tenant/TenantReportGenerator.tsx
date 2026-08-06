@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ReportOptionsDialog, ReportOptions } from "./ReportOptionsDialog";
 import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
 import { buildTenantReportPdf, type TenantReportPdfData, type TenantForPdf } from "@/utils/svg-pdf/tenantReportPdfBuilder";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 import { format } from "date-fns";
 
@@ -50,12 +51,15 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     setOptionsDialogOpen(false);
 
     // Get next revision number
-    const { data: existingReports } = await supabase
-      .from('tenant_tracker_reports')
-      .select('revision_number')
-      .eq('project_id', projectId)
-      .order('revision_number', { ascending: false })
-      .limit(1);
+    const existingReports = throwOnError(
+      await supabase
+        .from('tenant_tracker_reports')
+        .select('revision_number')
+        .eq('project_id', projectId)
+        .order('revision_number', { ascending: false })
+        .limit(1),
+      'existing tenant reports',
+    );
 
     const nextRevision = existingReports && existingReports.length > 0 
       ? existingReports[0].revision_number + 1 
@@ -92,11 +96,14 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       // Fetch selected contact details for cover page
       let contactOverrides: Partial<StandardCoverPageData> = {};
       if (options.contactId) {
-        const { data: contact } = await supabase
-          .from('project_contacts')
-          .select('*')
-          .eq('id', options.contactId)
-          .maybeSingle();
+        const contact = throwOnError(
+          await supabase
+            .from('project_contacts')
+            .select('*')
+            .eq('id', options.contactId)
+            .maybeSingle(),
+          'project contact',
+        );
 
         if (contact) {
           contactOverrides = {

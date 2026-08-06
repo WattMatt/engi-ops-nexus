@@ -17,6 +17,7 @@ import { useSvgPdfReport } from '@/hooks/useSvgPdfReport';
 import { buildLightingReportPdf, type LightingReportPdfData, type LightingTenantSchedule, type LightingFittingSpec } from '@/utils/svg-pdf/lightingReportPdfBuilder';
 import { buildWarrantySchedulePdf, type WarrantySchedulePdfData, type WarrantyFitting } from '@/utils/svg-pdf/warrantySchedulePdfBuilder';
 import { svgPagesToPdfBlob } from '@/utils/svg-pdf/svgToPdfEngine';
+import { throwOnError } from '@/utils/svg-pdf/fetchStrict';
 import type { StandardCoverPageData } from '@/utils/svg-pdf/sharedSvgHelpers';
 
 interface LightingHandoverGeneratorProps {
@@ -204,11 +205,17 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
 
       // Generate lighting schedule via SVG engine
       if (includeSchedule) {
-        const { data: tenants } = await supabase.from('tenants').select('id, shop_name, shop_number, area').eq('project_id', projectId);
-        const { data: schedules } = await supabase
-          .from('project_lighting_schedules')
-          .select(`id, tenant_id, quantity, approval_status, lighting_fittings (manufacturer, model_number, wattage, supply_cost, install_cost)`)
-          .eq('project_id', projectId);
+        const tenants = throwOnError(
+          await supabase.from('tenants').select('id, shop_name, shop_number, area').eq('project_id', projectId),
+          'tenants',
+        );
+        const schedules = throwOnError(
+          await supabase
+            .from('project_lighting_schedules')
+            .select(`id, tenant_id, quantity, approval_status, lighting_fittings (manufacturer, model_number, wattage, supply_cost, install_cost)`)
+            .eq('project_id', projectId),
+          'lighting schedules',
+        );
 
         const scheduleData: LightingTenantSchedule[] = (tenants || []).map(tenant => {
           const tenantItems = (schedules || [])

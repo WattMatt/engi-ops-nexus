@@ -8,7 +8,7 @@
 export const PAGE_W = 210;
 export const PAGE_H = 297;
 
-// Margins — aligned with Hardened PDF Standard (pdfStandards.ts)
+// Margins — aligned with the portfolio PDF standard (APPS/PDF-STANDARD/STANDARD.md)
 export const MARGIN_TOP = 25;
 export const MARGIN_BOTTOM = 22;
 export const MARGIN_LEFT = 15;

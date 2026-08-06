@@ -15,6 +15,7 @@ import { ReportTemplateManager } from './ReportTemplateManager';
 import { RegulatoryComplianceSection } from './RegulatoryComplianceSection';
 import { useSvgPdfReport } from '@/hooks/useSvgPdfReport';
 import { buildLightingReportPdf, type LightingReportPdfData, type LightingTenantSchedule, type LightingFittingSpec } from '@/utils/svg-pdf/lightingReportPdfBuilder';
+import { throwOnError } from '@/utils/svg-pdf/fetchStrict';
 import type { StandardCoverPageData } from '@/utils/svg-pdf/sharedSvgHelpers';
 import { format } from 'date-fns';
 
@@ -120,15 +121,21 @@ export const LightingReportTab: React.FC<LightingReportTabProps> = ({ projectId 
 
   const fetchScheduleData = async (): Promise<LightingTenantSchedule[]> => {
     if (!projectId) return [];
-    const { data: tenants } = await supabase
-      .from('tenants')
-      .select('id, shop_name, shop_number, area')
-      .eq('project_id', projectId);
+    const tenants = throwOnError(
+      await supabase
+        .from('tenants')
+        .select('id, shop_name, shop_number, area')
+        .eq('project_id', projectId),
+      'tenants',
+    );
 
-    const { data: schedules } = await supabase
-      .from('project_lighting_schedules')
-      .select(`id, tenant_id, quantity, approval_status, lighting_fittings (manufacturer, model_number, wattage, supply_cost, install_cost)`)
-      .eq('project_id', projectId);
+    const schedules = throwOnError(
+      await supabase
+        .from('project_lighting_schedules')
+        .select(`id, tenant_id, quantity, approval_status, lighting_fittings (manufacturer, model_number, wattage, supply_cost, install_cost)`)
+        .eq('project_id', projectId),
+      'lighting schedules',
+    );
 
     return (tenants || []).map(tenant => {
       const tenantItems = (schedules || [])
@@ -160,10 +167,13 @@ export const LightingReportTab: React.FC<LightingReportTabProps> = ({ projectId 
 
   const fetchSpecifications = async (): Promise<LightingFittingSpec[]> => {
     if (!projectId) return [];
-    const { data: schedules } = await supabase
-      .from('project_lighting_schedules')
-      .select(`quantity, lighting_fittings (id, manufacturer, model_number, wattage, lumens, color_temperature, cri, ip_rating, fitting_type)`)
-      .eq('project_id', projectId);
+    const schedules = throwOnError(
+      await supabase
+        .from('project_lighting_schedules')
+        .select(`quantity, lighting_fittings (id, manufacturer, model_number, wattage, lumens, color_temperature, cri, ip_rating, fitting_type)`)
+        .eq('project_id', projectId),
+      'fitting specifications',
+    );
 
     const fittingMap = new Map<string, LightingFittingSpec>();
     (schedules || []).forEach(schedule => {

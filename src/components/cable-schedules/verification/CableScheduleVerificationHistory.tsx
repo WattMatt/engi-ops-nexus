@@ -29,6 +29,7 @@ import { CableVerificationStatusBadge } from "./CableVerificationStatusBadge";
 import { VerificationStatus } from "@/types/cableVerification";
 import { EmptyState, LoadingState } from "@/components/common";
 import { buildVerificationCertPdf, type VerificationCertPdfData } from "@/utils/svg-pdf/verificationCertPdfBuilder";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 import { useSvgPdfReport } from "@/hooks/useSvgPdfReport";
 
@@ -161,17 +162,23 @@ export function CableScheduleVerificationHistory({ scheduleId }: CableScheduleVe
         if (vErr) throw vErr;
 
         // Fetch verification items
-        const { data: items } = await (supabase
-          .from('cable_schedule_verification_items' as any) as any)
-          .select('*')
-          .eq('verification_id', verificationId);
+        const items = throwOnError(
+          await (supabase
+            .from('cable_schedule_verification_items' as any) as any)
+            .select('*')
+            .eq('verification_id', verificationId),
+          'verification items',
+        );
 
         // Fetch schedule info
-        const { data: schedule } = await supabase
-          .from('cable_schedules')
-          .select('*, projects(name, project_number)')
-          .eq('id', scheduleId)
-          .single();
+        const schedule = throwOnError(
+          await supabase
+            .from('cable_schedules')
+            .select('*, projects(name, project_number)')
+            .eq('id', scheduleId)
+            .single(),
+          'cable schedule',
+        );
 
         const companyData = await fetchCompanyData();
 

@@ -14,8 +14,9 @@ import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download, E
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { buildSiteDiaryEntryPdf } from "@/utils/svg-pdf/siteDiaryPdfBuilder";
+import { svgPagesToDownload } from "@/utils/svg-pdf/svgToPdfEngine";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
 import { TasksManager } from "@/components/site-diary/TasksManager";
 import { EnhancedTasksManager } from "@/components/site-diary/task-views/EnhancedTasksManager";
 import { MeetingMinutes } from "@/components/site-diary/MeetingMinutes";
@@ -304,224 +305,37 @@ const SiteDiary = () => {
   const exportToPDF = async (entry: SiteDiaryEntry) => {
     try {
       // Fetch project details
-      const { data: projectData, error: projectError } = await supabase
-        .from("projects")
-        .select("name, project_number")
-        .eq("id", projectId)
-        .single();
+      const projectData = throwOnError(
+        await supabase
+          .from("projects")
+          .select("name, project_number")
+          .eq("id", projectId)
+          .single(),
+        "project",
+      );
 
-      if (projectError) {
-        console.error("Error fetching project:", projectError);
-      }
+      // Build pages via the shared SVG engine (legacy inline jsPDF path removed)
+      const pages = buildSiteDiaryEntryPdf({
+        projectName: projectData?.name,
+        projectNumber: projectData?.project_number || undefined,
+        entryDate: format(new Date(entry.entry_date), "EEEE, MMMM d, yyyy"),
+        createdTime: format(new Date(entry.created_at), "h:mm a"),
+        weather: entry.weather_conditions || undefined,
+        dailyLog: entry.site_progress || undefined,
+        issues: entry.queries || undefined,
+        notes: entry.notes || undefined,
+        actionItems: (entry.sub_entries || []).map((item: SubEntry) => ({
+          description: item.description,
+          assignedTo: item.assignedTo,
+          priority: item.priority,
+          completed: item.completed,
+        })),
+      });
 
-      const doc = new jsPDF();
-      let yPosition = 20;
-
-      // Project Information (if available)
-      if (projectData) {
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Project: ${projectData.name}`, 20, yPosition);
-        yPosition += 5;
-        if (projectData.project_number) {
-          doc.text(`Project #: ${projectData.project_number}`, 20, yPosition);
-          yPosition += 10;
-        } else {
-          yPosition += 5;
-        }
-      }
-
-      // Header
-      doc.setFontSize(20);
-      doc.setTextColor(40, 40, 40);
-      doc.text("Site Diary Entry", 20, yPosition);
-      yPosition += 15;
-
-      // Date and Time
-      doc.setFontSize(12);
-      doc.setTextColor(100, 100, 100);
-      doc.text(format(new Date(entry.entry_date), "EEEE, MMMM d, yyyy"), 20, yPosition);
-      yPosition += 6;
-      doc.text(`Created: ${format(new Date(entry.created_at), "h:mm a")}`, 20, yPosition);
-      yPosition += 15;
-
-      // Weather (if exists)
-      if (entry.weather_conditions) {
-        doc.setFontSize(14);
-        doc.setTextColor(40, 40, 40);
-        doc.text("Weather Conditions", 20, yPosition);
-        yPosition += 8;
-        doc.setFontSize(11);
-        doc.setTextColor(80, 80, 80);
-        const weatherLines = doc.splitTextToSize(entry.weather_conditions, 170);
-        doc.text(weatherLines, 20, yPosition);
-        yPosition += weatherLines.length * 6 + 10;
-      }
-
-      // Site Progress
-      if (entry.site_progress) {
-        doc.setFontSize(14);
-        doc.setTextColor(40, 40, 40);
-        doc.text("Daily Log", 20, yPosition);
-        yPosition += 8;
-        doc.setFontSize(11);
-        doc.setTextColor(80, 80, 80);
-        const progressLines = doc.splitTextToSize(entry.site_progress, 170);
-        doc.text(progressLines, 20, yPosition);
-        yPosition += progressLines.length * 6 + 10;
-      }
-
-      // Issues & Concerns
-      if (entry.queries) {
-        if (yPosition > 250) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        doc.setFontSize(14);
-        doc.setTextColor(40, 40, 40);
-        doc.text("Issues & Concerns", 20, yPosition);
-        yPosition += 8;
-        doc.setFontSize(11);
-        doc.setTextColor(80, 80, 80);
-        const queriesLines = doc.splitTextToSize(entry.queries, 170);
-        doc.text(queriesLines, 20, yPosition);
-        yPosition += queriesLines.length * 6 + 10;
-      }
-
-      // Additional Notes
-      if (entry.notes) {
-        if (yPosition > 250) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        doc.setFontSize(14);
-        doc.setTextColor(40, 40, 40);
-        doc.text("Additional Observations", 20, yPosition);
-        yPosition += 8;
-        doc.setFontSize(11);
-        doc.setTextColor(80, 80, 80);
-        const notesLines = doc.splitTextToSize(entry.notes, 170);
-        doc.text(notesLines, 20, yPosition);
-        yPosition += notesLines.length * 6 + 10;
-      }
-
-      // Action Items
-      if (entry.sub_entries && entry.sub_entries.length > 0) {
-        if (yPosition > 220) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        doc.setFontSize(14);
-        doc.setTextColor(40, 40, 40);
-        doc.text("Action Items & Assignments", 20, yPosition);
-        yPosition += 10;
-
-        const actionItemsData = entry.sub_entries.map((item: SubEntry, index: number) => [
-          `${index + 1}`,
-          item.description,
-          item.assignedTo && item.assignedTo.length > 0 ? item.assignedTo.join(', ') : "-",
-          item.priority, // Store raw priority value for custom rendering
-          item.completed ? "Done" : "Pending",
-        ]);
-
-        autoTable(doc, {
-          startY: yPosition,
-          head: [["#", "Description", "Assigned To", "Priority", "Status"]],
-          body: actionItemsData,
-          theme: "grid",
-          headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-          styles: { fontSize: 10 },
-          columnStyles: {
-            0: { cellWidth: 12 },
-            1: { cellWidth: 70 },
-            2: { cellWidth: 40 },
-            3: { cellWidth: 25 },
-            4: { cellWidth: 28 },
-          },
-          didDrawCell: (data: any) => {
-            // Draw colored priority indicators matching the UI
-            if (data.section === 'body' && data.column.index === 3) {
-              const priority = actionItemsData[data.row.index][3];
-              const cell = data.cell;
-              
-              // Clear the default text
-              doc.setFillColor(255, 255, 255);
-              doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
-              
-              // Draw colored circle
-              const circleX = cell.x + 5;
-              const circleY = cell.y + cell.height / 2;
-              const circleRadius = 2;
-              
-              if (priority === 'high') {
-                doc.setFillColor(220, 38, 38); // red matching UI
-                doc.circle(circleX, circleY, circleRadius, 'F');
-                doc.setTextColor(220, 38, 38);
-                doc.setFontSize(10);
-                doc.text('HIGH', circleX + 5, circleY + 1);
-              } else if (priority === 'medium') {
-                doc.setFillColor(249, 115, 22); // orange matching UI
-                doc.circle(circleX, circleY, circleRadius, 'F');
-                doc.setTextColor(249, 115, 22);
-                doc.setFontSize(10);
-                doc.text('MEDIUM', circleX + 5, circleY + 1);
-              } else if (priority === 'low') {
-                doc.setFillColor(34, 197, 94); // green matching UI
-                doc.circle(circleX, circleY, circleRadius, 'F');
-                doc.setTextColor(34, 197, 94);
-                doc.setFontSize(10);
-                doc.text('LOW', circleX + 5, circleY + 1);
-              } else if (priority === 'note') {
-                doc.setFillColor(100, 116, 139); // gray matching UI
-                doc.circle(circleX, circleY, circleRadius, 'F');
-                doc.setTextColor(100, 116, 139);
-                doc.setFontSize(10);
-                doc.text('Note', circleX + 5, circleY + 1);
-              }
-              
-              // Reset text color
-              doc.setTextColor(0, 0, 0);
-            }
-            
-            // Draw colored status indicators
-            if (data.section === 'body' && data.column.index === 4) {
-              const status = actionItemsData[data.row.index][4];
-              const cell = data.cell;
-              
-              // Clear the default text
-              doc.setFillColor(255, 255, 255);
-              doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
-              
-              // Draw colored circle
-              const circleX = cell.x + 5;
-              const circleY = cell.y + cell.height / 2;
-              const circleRadius = 2;
-              
-              if (status === 'Done') {
-                doc.setFillColor(34, 197, 94); // green for completed
-                doc.circle(circleX, circleY, circleRadius, 'F');
-                doc.setTextColor(34, 197, 94);
-                doc.setFontSize(10);
-                doc.text('Done', circleX + 5, circleY + 1);
-              } else {
-                doc.setFillColor(234, 179, 8); // yellow/amber for pending
-                doc.circle(circleX, circleY, circleRadius, 'F');
-                doc.setTextColor(234, 179, 8);
-                doc.setFontSize(10);
-                doc.text('Pending', circleX + 5, circleY + 1);
-              }
-              
-              // Reset text color
-              doc.setTextColor(0, 0, 0);
-            }
-          },
-        });
-      }
-
-      // Save the PDF
       const fileName = `Site-Diary-${format(new Date(entry.entry_date), "yyyy-MM-dd")}.pdf`;
-      doc.save(fileName);
+      await svgPagesToDownload(pages, { filename: fileName });
       toast.success("PDF exported successfully");
+
     } catch (error) {
       console.error("Error exporting PDF:", error);
       toast.error("Failed to export PDF");

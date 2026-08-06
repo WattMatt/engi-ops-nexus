@@ -29,14 +29,14 @@ describe("StatusCard", () => {
     render(<StatusCard variant="success" title="Success!" />);
     
     const card = screen.getByRole("status");
-    expect(card).toHaveClass("bg-green-50");
+    expect(card).toHaveClass("bg-green-50/50");
   });
 
   it("renders error variant correctly", () => {
     render(<StatusCard variant="error" title="Error!" />);
     
     const card = screen.getByRole("status");
-    expect(card).toHaveClass("bg-red-50");
+    expect(card).toHaveClass("bg-red-50/50");
   });
 
   it("renders action button when provided", () => {

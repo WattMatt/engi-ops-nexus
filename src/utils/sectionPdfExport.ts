@@ -10,22 +10,29 @@ import {
   WHITE, TEXT_DARK, TEXT_MUTED, BRAND_PRIMARY,
   type StandardCoverPageData,
 } from './svg-pdf/sharedSvgHelpers';
-import { svgPagesToPdfBlob, svgPagesToDownload } from './svg-pdf/svgToPdfEngine';
+import { svgPagesToPdfBlob } from './svg-pdf/svgToPdfEngine';
+import { throwOnError } from './svg-pdf/fetchStrict';
 import { format } from 'date-fns';
 
 export async function generateSectionPDF(sectionId: string): Promise<Blob> {
   // Fetch section data
-  const { data: section } = await supabase
-    .from('boq_project_sections')
-    .select('section_code, section_name, description, total_amount')
-    .eq('id', sectionId)
-    .single();
+  const section = throwOnError(
+    await supabase
+      .from('boq_project_sections')
+      .select('section_code, section_name, description, total_amount')
+      .eq('id', sectionId)
+      .single(),
+    'section',
+  );
 
-  const { data: items } = await supabase
-    .from('boq_items')
-    .select('item_code, description, quantity, unit, total_rate, total_amount')
-    .eq('section_id', sectionId)
-    .order('display_order');
+  const items = throwOnError(
+    await supabase
+      .from('boq_items')
+      .select('item_code, description, quantity, unit, total_rate, total_amount')
+      .eq('section_id', sectionId)
+      .order('display_order'),
+    'section items',
+  );
 
   const sectionName = section?.section_name || 'Section';
 

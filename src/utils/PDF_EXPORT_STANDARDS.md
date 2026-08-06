@@ -1,5 +1,10 @@
 # PDF Export Standards
 
+> **⚠️ DEPRECATED (2026-08-06).** This document references `pdfCoverPage.ts` /
+> `fetchCompanyDetails()` / `generateCoverPage()`, which do not exist. The
+> current pipeline is the SVG → jsPDF engine — see `README_PDF_EXPORTS.md`
+> in this directory and `APPS/PDF-STANDARD/STANDARD.md`.
+
 ## Overview
 
 All PDF exports in this application MUST use the standardized cover page format defined in `src/utils/pdfCoverPage.ts`. This ensures consistent branding, professional appearance, and a unified user experience across all reports.

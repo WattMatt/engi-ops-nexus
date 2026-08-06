@@ -1,12 +1,21 @@
 /**
  * PDF Constants
- * 
- * Standalone constants previously in pdfmake/styles.ts.
+ *
  * Used by compliance checker, style manager, quality settings, etc.
+ *
+ * The brand palette is re-exported from the single canonical source
+ * (src/utils/svg-pdf/sharedSvgHelpers.ts) — do not hardcode brand hexes
+ * here. Historical note: `primary` used to be a divergent '#1e3a8a';
+ * the canonical brand primary is '#1e3a5f'.
  */
+import {
+  BRAND_PRIMARY,
+  SUCCESS_COLOR,
+  DANGER_COLOR,
+} from '@/utils/svg-pdf/sharedSvgHelpers';
 
 export const PDF_COLORS = {
-  primary: '#1e3a8a',
+  primary: BRAND_PRIMARY,
   secondary: '#3b82f6',
   accent: '#6366f1',
   text: '#0f172a',
@@ -18,9 +27,9 @@ export const PDF_COLORS = {
   border: '#e2e8f0',
   borderLight: '#f1f5f9',
   white: '#ffffff',
-  success: '#16a34a',
+  success: SUCCESS_COLOR,
   warning: '#d97706',
-  danger: '#dc2626',
+  danger: DANGER_COLOR,
   info: '#0284c7',
   primaryLight: '#dbeafe',
   successLight: '#dcfce7',
