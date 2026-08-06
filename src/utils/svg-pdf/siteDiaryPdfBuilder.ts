@@ -4,8 +4,9 @@
 import {
   createSvgElement, el, textEl, buildStandardCoverPageSvg,
   buildTablePages, addPageHeader, applyPageFooters, applyRunningHeaders, drawStatCards,
-  MARGIN_LEFT, MARGIN_TOP, PAGE_W, PAGE_H,
-  WHITE, BRAND_PRIMARY, TEXT_DARK, TEXT_MUTED,
+  wrapText,
+  MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM, PAGE_W, PAGE_H, CONTENT_W,
+  WHITE, BRAND_PRIMARY, BRAND_LIGHT, BORDER_COLOR, TEXT_DARK, TEXT_MUTED,
   SUCCESS_COLOR, DANGER_COLOR,
   type StandardCoverPageData, type TableColumn, type StatCard,
 } from './sharedSvgHelpers';
@@ -101,4 +102,168 @@ export function buildSiteDiaryPdf(data: SiteDiaryPdfData): SVGSVGElement[] {
   applyRunningHeaders(allPages, 'Site Diary Tasks', data.projectName);
   applyPageFooters(allPages, 'Site Diary Tasks');
   return allPages;
+}
+
+// ─── Single Diary Entry Export ───
+// Migrated from the legacy inline jsPDF+autoTable path in src/pages/SiteDiary.tsx.
+
+export interface SiteDiaryEntryActionItem {
+  description: string;
+  assignedTo?: string[];
+  priority: string; // 'high' | 'medium' | 'low' | 'note'
+  completed: boolean;
+}
+
+export interface SiteDiaryEntryPdfData {
+  projectName?: string;
+  projectNumber?: string;
+  entryDate: string;    // pre-formatted, e.g. "Monday, June 1, 2026"
+  createdTime: string;  // pre-formatted, e.g. "7:30 AM"
+  weather?: string;
+  dailyLog?: string;
+  issues?: string;
+  notes?: string;
+  actionItems: SiteDiaryEntryActionItem[];
+}
+
+const PRIORITY_COLORS: Record<string, string> = {
+  high: '#dc2626',
+  medium: '#f97316',
+  low: '#22c55e',
+  note: '#64748b',
+};
+
+export function buildSiteDiaryEntryPdf(data: SiteDiaryEntryPdfData): SVGSVGElement[] {
+  const pages: SVGSVGElement[] = [];
+  const maxY = PAGE_H - MARGIN_BOTTOM - 10;
+  const startY = MARGIN_TOP + 14;
+
+  const newPage = (): SVGSVGElement => {
+    const page = createSvgElement();
+    el('rect', { x: 0, y: 0, width: PAGE_W, height: PAGE_H, fill: WHITE }, page);
+    addPageHeader(page, 'Site Diary Entry');
+    pages.push(page);
+    return page;
+  };
+
+  let page = newPage();
+  let y = startY;
+
+  const ensureSpace = (needed: number) => {
+    if (y + needed > maxY) {
+      page = newPage();
+      y = startY;
+    }
+  };
+
+  // Project info
+  if (data.projectName) {
+    textEl(page, MARGIN_LEFT, y, `Project: ${data.projectName}`, { size: 3, fill: TEXT_MUTED });
+    y += 4.5;
+  }
+  if (data.projectNumber) {
+    textEl(page, MARGIN_LEFT, y, `Project #: ${data.projectNumber}`, { size: 3, fill: TEXT_MUTED });
+    y += 4.5;
+  }
+  y += 2;
+
+  // Title
+  textEl(page, MARGIN_LEFT, y, 'Site Diary Entry', { size: 6.5, fill: BRAND_PRIMARY, weight: 'bold' });
+  y += 8;
+
+  // Date & created time
+  textEl(page, MARGIN_LEFT, y, data.entryDate, { size: 3.5, fill: TEXT_MUTED });
+  y += 5;
+  textEl(page, MARGIN_LEFT, y, `Created: ${data.createdTime}`, { size: 3.5, fill: TEXT_MUTED });
+  y += 8;
+
+  // Text sections (split paragraphs on newlines, wrap each line)
+  const addTextSection = (heading: string, text?: string) => {
+    if (!text) return;
+    ensureSpace(14);
+    textEl(page, MARGIN_LEFT, y, heading, { size: 4.5, fill: TEXT_DARK, weight: 'bold' });
+    y += 6;
+    for (const paragraph of text.split(/\r?\n/)) {
+      const lines = paragraph.trim() ? wrapText(paragraph, CONTENT_W, 3.2) : [''];
+      for (const line of lines) {
+        ensureSpace(5);
+        textEl(page, MARGIN_LEFT, y, line, { size: 3.2, fill: TEXT_DARK });
+        y += 4.5;
+      }
+    }
+    y += 5;
+  };
+
+  addTextSection('Weather Conditions', data.weather);
+  addTextSection('Daily Log', data.dailyLog);
+  addTextSection('Issues & Concerns', data.issues);
+  addTextSection('Additional Observations', data.notes);
+
+  // Action items table
+  if (data.actionItems.length > 0) {
+    ensureSpace(20);
+    textEl(page, MARGIN_LEFT, y, 'Action Items & Assignments', { size: 4.5, fill: TEXT_DARK, weight: 'bold' });
+    y += 7;
+
+    const rowHeight = 6;
+    const cols = [
+      { header: '#', width: 8 },
+      { header: 'Description', width: 82 },
+      { header: 'Assigned To', width: 40 },
+      { header: 'Priority', width: 25 },
+      { header: 'Status', width: 25 },
+    ];
+
+    const drawTableHeader = () => {
+      el('rect', { x: MARGIN_LEFT, y: y - 3.5, width: CONTENT_W, height: rowHeight, fill: BRAND_PRIMARY }, page);
+      let x = MARGIN_LEFT + 1.5;
+      for (const col of cols) {
+        textEl(page, x, y, col.header, { size: 3, fill: WHITE, weight: 'bold' });
+        x += col.width;
+      }
+      y += rowHeight;
+    };
+
+    drawTableHeader();
+
+    data.actionItems.forEach((item, index) => {
+      if (y + rowHeight > maxY) {
+        page = newPage();
+        y = startY;
+        drawTableHeader();
+      }
+
+      const bg = index % 2 === 0 ? WHITE : BRAND_LIGHT;
+      el('rect', { x: MARGIN_LEFT, y: y - 3.5, width: CONTENT_W, height: rowHeight, fill: bg }, page);
+
+      const priorityColor = PRIORITY_COLORS[item.priority] || TEXT_MUTED;
+      const statusColor = item.completed ? '#22c55e' : '#eab308';
+
+      let x = MARGIN_LEFT + 1.5;
+      textEl(page, x, y, String(index + 1), { size: 2.8, fill: TEXT_DARK });
+      x += cols[0].width;
+      const desc = item.description.length > 55 ? `${item.description.slice(0, 54)}…` : item.description;
+      textEl(page, x, y, desc, { size: 2.8, fill: TEXT_DARK });
+      x += cols[1].width;
+      const assigned = item.assignedTo && item.assignedTo.length > 0 ? item.assignedTo.join(', ') : '-';
+      textEl(page, x, y, assigned.length > 26 ? `${assigned.slice(0, 25)}…` : assigned, { size: 2.8, fill: TEXT_DARK });
+      x += cols[2].width;
+      el('circle', { cx: x + 1.2, cy: y - 1, r: 1.1, fill: priorityColor }, page);
+      textEl(page, x + 3.5, y, item.priority.toUpperCase(), { size: 2.8, fill: priorityColor, weight: 'bold' });
+      x += cols[3].width;
+      el('circle', { cx: x + 1.2, cy: y - 1, r: 1.1, fill: statusColor }, page);
+      textEl(page, x + 3.5, y, item.completed ? 'Done' : 'Pending', { size: 2.8, fill: statusColor, weight: 'bold' });
+
+      el('line', {
+        x1: MARGIN_LEFT, y1: y + rowHeight - 3.5,
+        x2: PAGE_W - MARGIN_RIGHT, y2: y + rowHeight - 3.5,
+        stroke: BORDER_COLOR, 'stroke-width': 0.15,
+      }, page);
+
+      y += rowHeight;
+    });
+  }
+
+  applyPageFooters(pages, 'Site Diary Entry', false);
+  return pages;
 }

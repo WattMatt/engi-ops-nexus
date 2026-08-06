@@ -1,16 +1,21 @@
 /**
  * Floor Plan PDF Generator
- * 
- * ⚠️ IMPORTANT: This PDF generator currently uses a custom format.
- * 
- * For NEW PDF export features, you MUST use the standardized cover page format.
- * See: src/utils/README_PDF_EXPORTS.md
- * 
- * Quick start: src/utils/PDF_QUICK_START.md
- * Standards: src/utils/PDF_EXPORT_STANDARDS.md
- * 
- * TODO: Migrate this floor plan exporter to use the standard cover page format
- * from src/utils/pdfCoverPage.ts
+ *
+ * ═══════════════════════════════════════════════════════════════════════
+ *  DOCUMENTED EXCEPTION to the app's PDF standard (SVG→jsPDF engine)
+ * ═══════════════════════════════════════════════════════════════════════
+ * This is the app's last remaining direct-jsPDF generator (the primary
+ * engine everywhere else is useSvgPdfReport / sharedSvgHelpers /
+ * svgToPdfEngine — see src/utils/svg-pdf/ and the portfolio standard at
+ * APPS/PDF-STANDARD/STANDARD.md).
+ *
+ * It is deliberately NOT yet migrated: it renders raster floor-plan
+ * imagery, canvas markups, and scale-dependent layouts (~950 lines) that
+ * do not map 1:1 onto the A4 SVG page builders. Migration is planned but
+ * out of scope of the 2026-08 PDF standardization pass.
+ *
+ * Do NOT copy this file's approach for new PDF features — build new
+ * exports on the SVG engine (see src/utils/svg-pdf/sharedSvgHelpers.ts).
  */
 
 import jsPDF from 'jspdf';
