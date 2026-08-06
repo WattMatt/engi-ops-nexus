@@ -22,7 +22,9 @@ import {
   type VariationItem,
   type VariationSheetData,
 } from "@/utils/svg-pdf/costReportPdfBuilder";
-import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
+import { generateStandardizedPDFFilename, stripPdfExtension } from "@/utils/pdfFilenameGenerator";
+import { throwOnError } from "@/utils/svg-pdf/fetchStrict";
+import { SvgPdfPreviewDialog } from "@/components/pdf/SvgPdfPreviewDialog";
 import { format } from "date-fns";
 import type { StandardCoverPageData } from "@/utils/svg-pdf/sharedSvgHelpers";
 
@@ -33,22 +35,43 @@ interface SvgPdfExportButtonProps {
 
 export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportButtonProps) => {
   const { toast } = useToast();
-  const { isGenerating, fetchCompanyData, generateAndPersist } = useSvgPdfReport();
+  const {
+    isGenerating,
+    fetchCompanyData,
+    generateAndPersist,
+    svgPages,
+    showPreview,
+    confirmPreview,
+    cancelPreview,
+  } = useSvgPdfReport();
+
+  const reportName = generateStandardizedPDFFilename({
+    projectNumber: report.project_number,
+    reportType: "CostReport",
+    revision: report.revision,
+    reportNumber: report.report_number,
+  });
 
   const handleExport = async () => {
     const buildFn = async () => {
       // 1. Fetch Related Data
-      const { data: categoriesData } = await supabase
-        .from("cost_categories")
-        .select("*, cost_line_items(*)")
-        .eq("cost_report_id", report.id)
-        .order("display_order");
+      const categoriesData = throwOnError(
+        await supabase
+          .from("cost_categories")
+          .select("*, cost_line_items(*)")
+          .eq("cost_report_id", report.id)
+          .order("display_order"),
+        "cost categories",
+      );
 
-      const { data: variationsData } = await supabase
-        .from("cost_variations")
-        .select("*, variation_line_items(*)")
-        .eq("cost_report_id", report.id)
-        .order("display_order");
+      const variationsData = throwOnError(
+        await supabase
+          .from("cost_variations")
+          .select("*, variation_line_items(*)")
+          .eq("cost_report_id", report.id)
+          .order("display_order"),
+        "cost variations",
+      );
 
       const companyData = await fetchCompanyData();
 
@@ -237,13 +260,6 @@ export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportBu
       return pages;
     };
 
-    const reportName = generateStandardizedPDFFilename({
-      projectNumber: report.project_number,
-      reportType: 'CostReport',
-      revision: report.revision,
-      reportNumber: report.report_number,
-    });
-
     await generateAndPersist(buildFn, {
       storageBucket: "cost-report-pdfs",
       dbTable: "cost_report_pdfs",
@@ -252,8 +268,9 @@ export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportBu
       projectId: report.project_id,
       revision: report.revision || "A",
       reportName,
+      preview: true,
       customInsertData: {
-        file_name: `${reportName} ${report.revision || "A"}`,
+        file_name: `${stripPdfExtension(reportName)} ${report.revision || "A"}`,
       },
     }, () => {
       onReportGenerated?.();
@@ -261,22 +278,31 @@ export const SvgPdfExportButton = ({ report, onReportGenerated }: SvgPdfExportBu
   };
 
   return (
-    <Button 
-      onClick={handleExport} 
-      disabled={isGenerating}
-      className="gap-2"
-    >
-      {isGenerating ? (
-        <>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Generating...
-        </>
-      ) : (
-        <>
-          <FileText className="h-4 w-4" />
-          Export Report
-        </>
-      )}
-    </Button>
+    <>
+      <Button
+        onClick={handleExport}
+        disabled={isGenerating}
+        className="gap-2"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Generating...
+          </>
+        ) : (
+          <>
+            <FileText className="h-4 w-4" />
+            Export Report
+          </>
+        )}
+      </Button>
+      <SvgPdfPreviewDialog
+        open={showPreview}
+        svgPages={svgPages}
+        fileName={stripPdfExtension(reportName)}
+        onConfirm={confirmPreview}
+        onCancel={cancelPreview}
+      />
+    </>
   );
 };

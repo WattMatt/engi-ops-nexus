@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { svgPagesToPdfBlob } from '@/utils/svg-pdf/svgToPdfEngine';
 import { imageToBase64 } from '@/utils/svg-pdf/imageUtils';
 import { useToast } from '@/hooks/use-toast';
+import { composeReportStorageFilename, stripPdfExtension } from '@/utils/pdfFilenameGenerator';
 import type { StandardCoverPageData } from '@/utils/svg-pdf/sharedSvgHelpers';
 
 const LOGO_TIMEOUT = 4000;
@@ -23,6 +24,12 @@ export interface ReportPersistConfig {
   reportName: string;
   /** Override or extend the default insert payload for custom table schemas */
   customInsertData?: Record<string, any>;
+  /**
+   * When true, pauses after building the SVG pages and shows them for user
+   * review. The pipeline only continues (convert → download → upload → save)
+   * after confirmPreview() is called; cancelPreview() aborts with no output.
+   */
+  preview?: boolean;
 }
 
 export interface SvgReportResult {
@@ -54,6 +61,20 @@ export function useSvgPdfReport() {
   const [currentPage, setCurrentPage] = useState(0);
   const [zoom, setZoom] = useState(100);
   const previewRef = useRef<HTMLDivElement>(null);
+  /** Resolver for the in-flight preview gate (set only while a preview is awaiting user action). */
+  const previewResolverRef = useRef<((proceed: boolean) => void) | null>(null);
+
+  /** Continue the pipeline after the user approved the previewed pages. */
+  const confirmPreview = useCallback(() => {
+    previewResolverRef.current?.(true);
+    previewResolverRef.current = null;
+  }, []);
+
+  /** Abort the pipeline from the preview dialog; nothing is downloaded or saved. */
+  const cancelPreview = useCallback(() => {
+    previewResolverRef.current?.(false);
+    previewResolverRef.current = null;
+  }, []);
 
   /**
    * Fetch company settings and convert logos to base64 for cover page use.
@@ -146,8 +167,21 @@ export function useSvgPdfReport() {
       report('building', 'Constructing report pages...');
       const pages = await buildFn();
       setSvgPages(pages);
-      setShowPreview(true);
       setCurrentPage(0);
+
+      // Optional preview gate: wait for the user to confirm or cancel.
+      if (config.preview) {
+        setShowPreview(true);
+        const proceed = await new Promise<boolean>((resolve) => {
+          previewResolverRef.current = resolve;
+        });
+        setShowPreview(false);
+        if (!proceed) {
+          report('complete', 'Cancelled at preview');
+          toast({ title: 'Export cancelled', description: 'No PDF was downloaded or saved.' });
+          return null;
+        }
+      }
 
       // Stage 2: Convert to PDF
       report('converting', `Converting ${pages.length} pages to PDF...`);
@@ -160,7 +194,7 @@ export function useSvgPdfReport() {
       const userId = sessionData?.session?.user?.id;
       const revision = config.revision || await getNextRevision(config);
 
-      const fileName = `${config.reportName.replace(/[^a-zA-Z0-9._-]/g, '_')}_${revision}_${Date.now()}.pdf`;
+      const fileName = composeReportStorageFilename(config.reportName, revision);
       const storagePath = `${config.foreignKeyValue}/${fileName}`;
 
       // Always trigger direct download as soon as the PDF is ready
@@ -188,7 +222,7 @@ export function useSvgPdfReport() {
       report('saving', 'Saving report record...');
       const insertData: Record<string, any> = {
         [config.foreignKeyColumn]: config.foreignKeyValue,
-        report_name: `${config.reportName} ${revision}`,
+        report_name: `${stripPdfExtension(config.reportName)} ${revision}`,
         revision,
         file_path: storagePath,
         file_size: sizeBytes,
@@ -257,6 +291,8 @@ export function useSvgPdfReport() {
     zoom,
     setZoom,
     previewRef,
+    confirmPreview,
+    cancelPreview,
     fetchCompanyData,
     generateAndPersist,
   };
